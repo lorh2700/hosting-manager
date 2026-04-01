@@ -128,25 +128,61 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   if (!user) {
+    const isKakaoWebView = typeof navigator !== 'undefined' && /KAKAOTALK/i.test(navigator.userAgent);
+
+    const openInBrowser = () => {
+      const url = window.location.href;
+      // Android: intent scheme to force Chrome
+      const intentUrl = 'intent://' + url.replace(/https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end';
+      window.location.href = intentUrl;
+      // Fallback after 1s (iOS or no Chrome)
+      setTimeout(() => {
+        window.location.href = url;
+      }, 1000);
+    };
+
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#050505] p-4 font-sans">
         <div className="bg-[#111] p-10 rounded-none border border-white/10 max-w-md w-full text-center">
           <h1 className="text-2xl font-light tracking-widest text-white mb-4 uppercase">호스트 로그인</h1>
-          <p className="text-white/50 mb-10 text-sm font-light tracking-wide">void anchae 숙소를 관리하려면 로그인하세요.</p>
-          <button
-            onClick={handleLogin}
-            disabled={isLoggingIn}
-            className="w-full bg-white text-black py-4 text-[11px] uppercase tracking-widest font-semibold hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
-          >
-            {isLoggingIn ? (
-              <>
-                <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin"></div>
-                로그인 중...
-              </>
-            ) : (
-              'Google 계정으로 로그인'
-            )}
-          </button>
+
+          {isKakaoWebView ? (
+            <>
+              <p className="text-white/50 mb-3 text-sm font-light tracking-wide leading-relaxed">
+                카카오톡 브라우저에서는 Google 로그인이 제한됩니다.
+              </p>
+              <p className="text-white/30 mb-8 text-xs font-light leading-relaxed">
+                아래 버튼을 눌러 Chrome 브라우저에서 열어주세요.
+              </p>
+              <button
+                onClick={openInBrowser}
+                className="w-full bg-white text-black py-4 text-[11px] uppercase tracking-widest font-semibold hover:bg-white/90 transition-colors flex items-center justify-center gap-3"
+              >
+                Chrome으로 열기
+              </button>
+              <p className="text-white/20 mt-4 text-[10px] leading-relaxed">
+                버튼이 작동하지 않으면 주소창 우측 메뉴 → &apos;다른 브라우저로 열기&apos;를 선택하세요.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-white/50 mb-10 text-sm font-light tracking-wide">void anchae 숙소를 관리하려면 로그인하세요.</p>
+              <button
+                onClick={handleLogin}
+                disabled={isLoggingIn}
+                className="w-full bg-white text-black py-4 text-[11px] uppercase tracking-widest font-semibold hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+              >
+                {isLoggingIn ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin"></div>
+                    로그인 중...
+                  </>
+                ) : (
+                  'Google 계정으로 로그인'
+                )}
+              </button>
+            </>
+          )}
         </div>
       </div>
     );
