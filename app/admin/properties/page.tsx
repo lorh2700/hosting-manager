@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Building, Plus, ChevronRight } from 'lucide-react';
-import { collection, query, getDocs, addDoc, orderBy, where } from 'firebase/firestore';
+import { collection, query, getDocs, addDoc, setDoc, doc, orderBy, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/FirebaseProvider';
 import { isAdminEmail } from '@/lib/adminConfig';
@@ -98,9 +98,7 @@ export default function PropertiesPage() {
     ];
     for (const ch of defaultChannels) {
       const token = Math.random().toString(36).substring(2, 15);
-      await addDoc(collection(db, 'channels'), {
-        propertyId: propRef.id,
-        name: ch.name,
+      await setDoc(doc(db, 'properties', propRef.id, 'channels', ch.name), {
         importUrl: ch.importUrl,
         exportUrl: `/api/export/${token}.ics`,
         isActive: ch.isActive,

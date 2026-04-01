@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { ArrowLeft, Save, Link as LinkIcon, CheckCircle2, XCircle, Copy, Trash2 } from 'lucide-react';
-import { doc, getDoc, collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/FirebaseProvider';
 
@@ -16,9 +16,7 @@ interface Property {
 }
 
 interface ChannelConnection {
-  id: string;
-  propertyId: string;
-  name: string;
+  id: string;       // doc ID = channel name
   importUrl: string;
   exportUrl: string;
   isActive: boolean;
@@ -34,20 +32,14 @@ export default function ChannelsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // New Channel State
-  const [newChannelId, setNewChannelId] = useState('');
   const [newChannelName, setNewChannelName] = useState('');
   const [newChannelImportUrl, setNewChannelImportUrl] = useState('');
 
   const fetchChannels = useCallback(async () => {
     if (!user) return;
     try {
-      const q = query(collection(db, 'channels'), where('propertyId', '==', id));
-      const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as ChannelConnection[];
+      const snapshot = await getDocs(collection(db, 'properties', id, 'channels'));
+      const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as ChannelConnection[];
       setChannels(data);
     } catch (error) {
       console.error('Failed to fetch channels', error);
@@ -55,12 +47,6 @@ export default function ChannelsPage() {
   }, [id, user]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID) {
-      setNewChannelId(window.crypto.randomUUID());
-    } else {
-      setNewChannelId(Math.random().toString(36).substring(2, 15));
-    }
-    
     if (!user) return;
 
     const fetchData = async () => {
@@ -82,33 +68,25 @@ export default function ChannelsPage() {
 
   const handleAddChannel = async () => {
     if (!newChannelName.trim() || !newChannelImportUrl.trim()) {
-      alert('달력 이름과 링크를 모두 입력해주세요.');
+      alert('채널 이름과 링크를 모두 입력해주세요.');
       return;
     }
     setSaving(true);
     try {
-      await setDoc(doc(db, 'channels', newChannelId), {
-        propertyId: id,
-        name: newChannelName,
+      const token = crypto.randomUUID();
+      await setDoc(doc(db, 'properties', id, 'channels', newChannelName.trim()), {
         importUrl: newChannelImportUrl,
-        exportUrl: `/api/export/${newChannelId}.ics`,
+        exportUrl: `/api/export/${token}.ics`,
         isActive: true,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
       });
-      
       await fetchChannels();
-      
       setNewChannelName('');
       setNewChannelImportUrl('');
-      if (typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID) {
-        setNewChannelId(window.crypto.randomUUID());
-      } else {
-        setNewChannelId(Math.random().toString(36).substring(2, 15));
-      }
-      alert('달력이 추가되었습니다.');
+      alert('채널이 추가되었습니다.');
     } catch (error) {
       console.error('Failed to add channel', error);
-      alert('달력 추가에 실패했습니다');
+      alert('채널 추가에 실패했습니다');
     } finally {
       setSaving(false);
     }
@@ -119,8 +97,7 @@ export default function ChannelsPage() {
     try {
       await Promise.all(
         channels.map((channel) =>
-          updateDoc(doc(db, 'channels', channel.id), {
-            name: channel.name,
+          updateDoc(doc(db, 'properties', id, 'channels', channel.id), {
             importUrl: channel.importUrl,
             isActive: !!channel.importUrl.trim(),
           })
@@ -136,21 +113,15 @@ export default function ChannelsPage() {
     }
   };
 
-  const handleDeleteChannel = async (channelId: string) => {
-    if (!confirm('정말 이 달력을 삭제하시겠습니까?')) return;
+  const handleDeleteChannel = async (channelName: string) => {
+    if (!confirm(`"${channelName}" 채널을 삭제하시겠습니까?`)) return;
     try {
-      await deleteDoc(doc(db, 'channels', channelId));
-      setChannels((prev) => prev.filter(c => c.id !== channelId));
+      await deleteDoc(doc(db, 'properties', id, 'channels', channelName));
+      setChannels((prev) => prev.filter(c => c.id !== channelName));
     } catch (error) {
       console.error('Failed to delete channel', error);
       alert('채널 삭제에 실패했습니다');
     }
-  };
-
-  const updateChannelName = (channelId: string, name: string) => {
-    setChannels((prev) =>
-      prev.map((c) => (c.id === channelId ? { ...c, name } : c))
-    );
   };
 
   const updateChannelUrl = (channelId: string, url: string) => {
@@ -207,29 +178,7 @@ export default function ChannelsPage() {
 
           {/* 1단계 */}
           <h3 className="text-[11px] tracking-widest font-medium text-white mb-2">1단계</h3>
-          <p className="text-white/50 text-sm font-light mb-4">이 내보내기 링크를 복사하여 다른 플랫폼에 붙여넣으세요.</p>
-          
-          <div className="relative border border-white/20 bg-transparent mb-8 focus-within:border-white transition-colors">
-            <div className="pt-3 px-4 pb-2">
-              <label className="block text-[10px] tracking-widest text-white/40 mb-1">내보내기 링크</label>
-              <input 
-                type="text" 
-                readOnly 
-                value={typeof window !== 'undefined' ? `${window.location.origin}/api/export/${newChannelId}.ics` : ''}
-                className="w-full outline-none text-white text-sm bg-transparent truncate pr-24 font-light"
-              />
-            </div>
-            <button 
-              onClick={() => {
-                const url = `${window.location.origin}/api/export/${newChannelId}.ics`;
-                navigator.clipboard.writeText(url);
-                alert('클립보드에 복사되었습니다.');
-              }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white hover:text-black text-white px-4 py-2 text-[10px] tracking-widest font-semibold transition-colors"
-            >
-              복사
-            </button>
-          </div>
+          <p className="text-white/50 text-sm font-light mb-8">채널을 추가하면 내보내기 URL이 자동으로 생성됩니다. 추가 후 우측 목록에서 복사하세요.</p>
 
           {/* 2단계 */}
           <h3 className="text-[11px] tracking-widest font-medium text-white mb-2">2단계</h3>
@@ -293,13 +242,7 @@ export default function ChannelsPage() {
                   <div className={`p-2 rounded-full ${channel.isActive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-white/5 text-white/30'}`}>
                     {channel.isActive ? <CheckCircle2 size={20} strokeWidth={1.5} /> : <XCircle size={20} strokeWidth={1.5} />}
                   </div>
-                  <input
-                    type="text"
-                    value={channel.name}
-                    onChange={(e) => updateChannelName(channel.id, e.target.value)}
-                    className="font-light text-white text-xl bg-transparent border-b border-transparent hover:border-white/30 focus:border-white outline-none px-1 py-1 transition-colors w-full"
-                    placeholder="채널 이름"
-                  />
+                  <span className="font-light text-white text-xl px-1">{channel.id}</span>
                 </div>
 
                 <div className="space-y-5">

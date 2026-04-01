@@ -59,9 +59,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             });
 
             for (const channel of prop.channels) {
-              await addDoc(collection(db, 'channels'), {
-                propertyId: propRef.id,
-                name: channel.name,
+              await setDoc(doc(db, 'properties', propRef.id, 'channels', channel.name), {
                 importUrl: channel.importUrl,
                 exportUrl: `/api/export/${crypto.randomUUID()}.ics`,
                 isActive: channel.isActive,

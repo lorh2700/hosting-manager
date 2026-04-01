@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, deleteDoc, doc, query, where, addDoc } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, query, where, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/FirebaseProvider';
 import { isAdminEmail } from '@/lib/adminConfig';
@@ -38,6 +38,8 @@ export default function CleanupPage() {
   const [log, setLog] = useState<string[]>([]);
   const [channelLog, setChannelLog] = useState<string[]>([]);
   const [restoringChannels, setRestoringChannels] = useState(false);
+  const [migrationLog, setMigrationLog] = useState<string[]>([]);
+  const [migrating, setMigrating] = useState(false);
 
   useEffect(() => {
     if (!user || !isAdminEmail(user.email)) return;
@@ -54,13 +56,12 @@ export default function CleanupPage() {
         eventCounts[pid] = (eventCounts[pid] ?? 0) + 1;
       });
 
-      // Count channels per property
-      const channelsSnap = await getDocs(collection(db, 'channels'));
+      // Count channels per property (subcollection)
       const channelCounts: Record<string, number> = {};
-      channelsSnap.docs.forEach(d => {
-        const pid = d.data().propertyId;
-        channelCounts[pid] = (channelCounts[pid] ?? 0) + 1;
-      });
+      for (const p of props) {
+        const chSnap = await getDocs(collection(db, 'properties', p.id, 'channels'));
+        channelCounts[p.id] = chSnap.size;
+      }
 
       const grouped: Record<string, PropInfo[]> = {};
       props.forEach(p => {
@@ -96,10 +97,10 @@ export default function CleanupPage() {
       newLog.push(`[${name}] 유지: ${keep.id} (events: ${keep.eventCount})`);
 
       for (const p of toDelete) {
-        // Delete associated channels
-        const chSnap = await getDocs(query(collection(db, 'channels'), where('propertyId', '==', p.id)));
+        // Delete associated channels (subcollection)
+        const chSnap = await getDocs(collection(db, 'properties', p.id, 'channels'));
         for (const ch of chSnap.docs) {
-          await deleteDoc(doc(db, 'channels', ch.id));
+          await deleteDoc(ch.ref);
         }
         // Delete associated cleanings
         const clSnap = await getDocs(query(collection(db, 'cleanings'), where('propertyId', '==', p.id)));
@@ -121,9 +122,11 @@ export default function CleanupPage() {
     const eventsSnap = await getDocs(collection(db, 'events'));
     const eventCounts: Record<string, number> = {};
     eventsSnap.docs.forEach(d => { const pid = d.data().propertyId; eventCounts[pid] = (eventCounts[pid] ?? 0) + 1; });
-    const channelsSnap = await getDocs(collection(db, 'channels'));
     const channelCounts: Record<string, number> = {};
-    channelsSnap.docs.forEach(d => { const pid = d.data().propertyId; channelCounts[pid] = (channelCounts[pid] ?? 0) + 1; });
+    for (const p of props) {
+      const chSnap = await getDocs(collection(db, 'properties', p.id, 'channels'));
+      channelCounts[p.id] = chSnap.size;
+    }
     const grouped: Record<string, PropInfo[]> = {};
     props.forEach(p => {
       const key = normalizePropertyName(p.name);
@@ -143,8 +146,8 @@ export default function CleanupPage() {
         const missing = MISSING_CHANNELS[propName];
         if (!missing) continue;
 
-        const existingSnap = await getDocs(query(collection(db, 'channels'), where('propertyId', '==', propDoc.id)));
-        const existingNames = new Set(existingSnap.docs.map(d => d.data().name));
+        const existingSnap = await getDocs(collection(db, 'properties', propDoc.id, 'channels'));
+        const existingNames = new Set(existingSnap.docs.map(d => d.id));
 
         for (const ch of missing) {
           if (existingNames.has(ch.name)) {
@@ -152,9 +155,7 @@ export default function CleanupPage() {
             continue;
           }
           const token = Math.random().toString(36).substring(2, 15);
-          await addDoc(collection(db, 'channels'), {
-            propertyId: propDoc.id,
-            name: ch.name,
+          await setDoc(doc(db, 'properties', propDoc.id, 'channels', ch.name), {
             importUrl: ch.importUrl,
             exportUrl: `/api/export/${token}.ics`,
             isActive: true,
@@ -169,6 +170,36 @@ export default function CleanupPage() {
     } finally {
       setRestoringChannels(false);
       setChannelLog(newLog);
+    }
+  };
+
+  const handleMigrateChannels = async () => {
+    if (!confirm('flat channels 컬렉션을 subcollection으로 마이그레이션합니다. 계속하시겠습니까?')) return;
+    setMigrating(true);
+    const newLog: string[] = [];
+    try {
+      const flatSnap = await getDocs(collection(db, 'channels'));
+      if (flatSnap.empty) { newLog.push('flat channels 컬렉션이 비어있습니다. 이미 마이그레이션 완료됐을 수 있습니다.'); }
+      for (const ch of flatSnap.docs) {
+        const d = ch.data();
+        const propId = d.propertyId as string;
+        const name = d.name as string;
+        if (!propId || !name) { newLog.push(`SKIP ${ch.id}: propertyId 또는 name 없음`); continue; }
+        await setDoc(doc(db, 'properties', propId, 'channels', name), {
+          importUrl: d.importUrl ?? '',
+          exportUrl: d.exportUrl ?? '',
+          isActive: d.isActive ?? false,
+          createdAt: d.createdAt ?? new Date().toISOString(),
+        });
+        await deleteDoc(ch.ref);
+        newLog.push(`✓ ${name} → properties/${propId}/channels/${name}`);
+      }
+      newLog.push('마이그레이션 완료!');
+    } catch (err) {
+      newLog.push('오류: ' + String(err));
+    } finally {
+      setMigrating(false);
+      setMigrationLog(newLog);
     }
   };
 
@@ -261,6 +292,32 @@ export default function CleanupPage() {
           <div className="bg-[#0a0a0a] border border-white/10 rounded-xl p-5">
             {channelLog.map((line, i) => (
               <p key={i} className={`text-[11px] font-mono ${line.includes('완료') ? 'text-emerald-400/70' : 'text-white/40'}`}>{line}</p>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Migration Section */}
+      <div className="border-t border-white/10 pt-8 space-y-4">
+        <div>
+          <h2 className="text-base font-light text-white mb-1">채널 DB 구조 마이그레이션</h2>
+          <p className="text-white/40 text-xs leading-relaxed">
+            flat <code className="text-white/60">channels</code> 컬렉션 →{' '}
+            <code className="text-white/60">properties/&#123;id&#125;/channels/&#123;name&#125;</code> subcollection<br />
+            채널명이 키가 되어 숙소당 채널 1개씩만 존재합니다.
+          </p>
+        </div>
+        <button
+          onClick={handleMigrateChannels}
+          disabled={migrating}
+          className="w-full border border-amber-500/30 text-amber-400/80 py-4 text-[11px] uppercase tracking-widest font-semibold hover:bg-amber-500/10 transition-colors disabled:opacity-50"
+        >
+          {migrating ? '마이그레이션 중...' : 'channels 컬렉션 마이그레이션'}
+        </button>
+        {migrationLog.length > 0 && (
+          <div className="bg-[#0a0a0a] border border-white/10 rounded-xl p-5 max-h-60 overflow-y-auto">
+            {migrationLog.map((line, i) => (
+              <p key={i} className={`text-[11px] font-mono ${line.startsWith('✓') ? 'text-emerald-400/70' : line.includes('오류') || line.startsWith('SKIP') ? 'text-red-400/70' : 'text-white/50'}`}>{line}</p>
             ))}
           </div>
         )}

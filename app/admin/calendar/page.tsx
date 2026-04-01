@@ -94,10 +94,11 @@ export default function UnifiedCalendarPage() {
         if (props.length === 0) return;
         const propIds = props.map(p => p.id);
 
+        // Build channel map: channelName → channelName (doc ID is the name)
         const cMap: Record<string, string> = {};
-        for (let i = 0; i < propIds.length; i += 10) {
-          const snap = await getDocs(query(collection(db, 'channels'), where('propertyId', 'in', propIds.slice(i, i + 10))));
-          snap.docs.forEach(d => { cMap[d.id] = d.data().name; });
+        for (const propId of propIds) {
+          const snap = await getDocs(collection(db, 'properties', propId, 'channels'));
+          snap.docs.forEach(d => { cMap[d.id] = d.id; });
         }
         setChannelMap(cMap);
 
