@@ -1,30 +1,32 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/FirebaseProvider';
-import FullCalendar from '@fullcalendar/react';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import interactionPlugin from '@fullcalendar/interaction';
-import koLocale from '@fullcalendar/core/locales/ko';
-import { X, Save, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Save, Trash2 } from 'lucide-react';
 
 const PROPERTY_COLORS = [
-  '#6366f1',
-  '#f59e0b',
-  '#10b981',
-  '#ef4444',
-  '#8b5cf6',
-  '#06b6d4',
-  '#f97316',
+  '#6366f1', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316',
 ];
+
+const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
 function hexToRgba(hex: string, alpha: number) {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
   return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function toDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function addDays(dateStr: string, n: number): string {
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + n);
+  return toDateStr(d);
 }
 
 function getChannelLabel(channelId: string, source: string | undefined, channelMap: Record<string, string>) {
@@ -36,65 +38,33 @@ function getChannelLabel(channelId: string, source: string | undefined, channelM
     if (s.includes('agoda')) return 'Agoda';
     if (s.includes('stayfolio')) return 'Stayfolio';
     if (s.includes('expedia')) return 'Expedia';
-    if (s.includes('direct') || s === '') return '직접예약';
-    return 'Beds24';
+    return '직접예약';
   }
   return channelMap[channelId] || channelId;
 }
 
-interface Property {
-  id: string;
-  name: string;
-  color: string;
-}
-
-interface RawEvent {
-  id: string;
-  propertyId: string;
-  channelId: string;
-  source?: string;
-  title: string;
-  start: string;
-  end: string;
-  type: 'reservation' | 'block';
-  description?: string;
-}
-
-interface Cleaning {
-  id: string;
-  propertyId: string;
-  propertyName: string;
-  date: string;
-  cleaner: string;
-  month: string;
-  supplies?: string;
-}
-
-interface Cleaner {
-  id: string;
-  name: string;
-  phone: string;
-}
-
+interface Property { id: string; name: string; color: string; }
+interface RawEvent { id: string; propertyId: string; channelId: string; source?: string; title: string; start: string; end: string; type: 'reservation' | 'block'; description?: string; }
+interface Cleaning { id: string; propertyId: string; propertyName: string; date: string; cleaner: string; month: string; supplies?: string; }
+interface Cleaner { id: string; name: string; phone: string; }
 interface SelectedEvent {
-  title: string;
-  start: string;
-  end: string;
-  propertyId: string;
-  propertyName: string;
-  propertyColor: string;
-  channelLabel: string;
-  description?: string;
-  // cleaning
-  cleaningId: string | null;
-  cleaner: string | null;
-  supplies: string | null;
+  title: string; start: string; end: string;
+  propertyId: string; propertyName: string; propertyColor: string;
+  channelLabel: string; description?: string;
+  cleaningId: string | null; cleaner: string | null; supplies: string | null;
+}
+
+interface ProcessedEvent {
+  id: string; propertyId: string; color: string; propName: string;
+  start: string;    // display start (inclusive, YYYY-MM-DD)
+  end: string;      // display end (exclusive, YYYY-MM-DD) — extended +1 if no back-to-back
+  rawEnd: string;   // original checkout date for modal/cleaning
+  title: string; channelId: string; source?: string; description?: string;
+  cleaningId: string | null; cleaner: string | null; supplies: string | null;
 }
 
 export default function UnifiedCalendarPage() {
   const { user } = useAuth();
-  const calendarRef = useRef<FullCalendar>(null);
-
   const [properties, setProperties] = useState<Property[]>([]);
   const [channelMap, setChannelMap] = useState<Record<string, string>>({});
   const [events, setEvents] = useState<RawEvent[]>([]);
@@ -103,86 +73,57 @@ export default function UnifiedCalendarPage() {
   const [loading, setLoading] = useState(true);
   const [activeProps, setActiveProps] = useState<Set<string>>(new Set());
   const [selectedEvent, setSelectedEvent] = useState<SelectedEvent | null>(null);
-
-  // Modal form state
   const [selectedCleaner, setSelectedCleaner] = useState('');
   const [selectedSupplies, setSelectedSupplies] = useState('');
   const [cleanerSaving, setCleanerSaving] = useState(false);
+  const [viewDate, setViewDate] = useState(new Date());
 
   useEffect(() => {
     if (!user) return;
-
     const fetchAll = async () => {
       try {
-        const propsSnap = await getDocs(
-          query(collection(db, 'properties'), where('ownerId', '==', user.uid))
-        );
+        const propsSnap = await getDocs(query(collection(db, 'properties'), where('ownerId', '==', user.uid)));
         const props: Property[] = propsSnap.docs.map((d, i) => ({
-          id: d.id,
-          name: d.data().name,
-          color: PROPERTY_COLORS[i % PROPERTY_COLORS.length],
+          id: d.id, name: d.data().name, color: PROPERTY_COLORS[i % PROPERTY_COLORS.length],
         }));
         setProperties(props);
         setActiveProps(new Set(props.map(p => p.id)));
-
         if (props.length === 0) return;
         const propIds = props.map(p => p.id);
 
         const cMap: Record<string, string> = {};
         for (let i = 0; i < propIds.length; i += 10) {
-          const snap = await getDocs(
-            query(collection(db, 'channels'), where('propertyId', 'in', propIds.slice(i, i + 10)))
-          );
+          const snap = await getDocs(query(collection(db, 'channels'), where('propertyId', 'in', propIds.slice(i, i + 10))));
           snap.docs.forEach(d => { cMap[d.id] = d.data().name; });
         }
         setChannelMap(cMap);
 
         const allEvents: RawEvent[] = [];
         for (let i = 0; i < propIds.length; i += 10) {
-          const snap = await getDocs(
-            query(collection(db, 'events'), where('propertyId', 'in', propIds.slice(i, i + 10)))
-          );
+          const snap = await getDocs(query(collection(db, 'events'), where('propertyId', 'in', propIds.slice(i, i + 10))));
           snap.docs.forEach(d => allEvents.push({ id: d.id, ...d.data() } as RawEvent));
         }
-
         for (let i = 0; i < propIds.length; i += 10) {
-          const snap = await getDocs(
-            query(
-              collection(db, 'bookings'),
-              where('propertyId', 'in', propIds.slice(i, i + 10)),
-              where('status', '==', 'confirmed')
-            )
-          );
+          const snap = await getDocs(query(
+            collection(db, 'bookings'),
+            where('propertyId', 'in', propIds.slice(i, i + 10)),
+            where('status', '==', 'confirmed')
+          ));
           snap.docs.forEach(d => {
             const bk = d.data();
-            allEvents.push({
-              id: d.id,
-              propertyId: bk.propertyId,
-              channelId: 'direct',
-              source: 'direct',
-              title: `${bk.name} 예약`,
-              start: bk.checkIn,
-              end: bk.checkOut,
-              type: 'reservation',
-              description: `게스트: ${bk.name}\n연락처: ${bk.email}\n인원: ${bk.guests}명`,
-            });
+            allEvents.push({ id: d.id, propertyId: bk.propertyId, channelId: 'direct', source: 'direct', title: `${bk.name} 예약`, start: bk.checkIn, end: bk.checkOut, type: 'reservation', description: `게스트: ${bk.name}\n연락처: ${bk.email}\n인원: ${bk.guests}명` });
           });
         }
         setEvents(allEvents);
 
         const allCleanings: Cleaning[] = [];
         for (let i = 0; i < propIds.length; i += 10) {
-          const snap = await getDocs(
-            query(collection(db, 'cleanings'), where('propertyId', 'in', propIds.slice(i, i + 10)))
-          );
+          const snap = await getDocs(query(collection(db, 'cleanings'), where('propertyId', 'in', propIds.slice(i, i + 10))));
           snap.docs.forEach(d => allCleanings.push({ id: d.id, ...d.data() } as Cleaning));
         }
         setCleanings(allCleanings);
 
-        // Load registered cleaners
-        const cleanersSnap = await getDocs(
-          query(collection(db, 'cleaners'), where('ownerId', '==', user.uid))
-        );
+        const cleanersSnap = await getDocs(query(collection(db, 'cleaners'), where('ownerId', '==', user.uid)));
         setCleaners(cleanersSnap.docs.map(d => ({ id: d.id, ...d.data() } as Cleaner)));
       } catch (err) {
         console.error('Failed to load calendar data', err);
@@ -190,70 +131,69 @@ export default function UnifiedCalendarPage() {
         setLoading(false);
       }
     };
-
     fetchAll();
   }, [user]);
 
-  const calendarEvents = useMemo(() => {
-    return events
-      .filter(e => activeProps.has(e.propertyId) && e.type !== 'block')
-      .map(e => {
-        const prop = properties.find(p => p.id === e.propertyId);
-        const color = prop?.color ?? '#6366f1';
-        const checkoutDate = e.end.substring(0, 10);
-        const cleaning = cleanings.find(
-          c => c.propertyId === e.propertyId && c.date === checkoutDate
-        );
-        return {
-          id: `ev-${e.id}`,
-          title: e.title,
-          start: e.start,
-          end: e.end,
-          backgroundColor: color,
-          borderColor: color,
-          extendedProps: {
-            kind: 'booking',
-            propertyId: e.propertyId,
-            propertyName: prop?.name ?? '',
-            propertyColor: color,
-            channelLabel: getChannelLabel(e.channelId, e.source, channelMap),
-            description: e.description,
-            start: e.start,
-            end: e.end,
-            cleaningId: cleaning?.id ?? null,
-            cleaner: cleaning?.cleaner ?? null,
-            supplies: cleaning?.supplies ?? null,
-          },
-        };
-      });
-  }, [events, cleanings, activeProps, properties, channelMap]);
+  // Weeks for current month view (Sunday first)
+  const weeks = useMemo(() => {
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const start = new Date(firstDay);
+    start.setDate(start.getDate() - start.getDay());
+    const result: Date[][] = [];
+    const cur = new Date(start);
+    while (true) {
+      const week: Date[] = [];
+      for (let d = 0; d < 7; d++) { week.push(new Date(cur)); cur.setDate(cur.getDate() + 1); }
+      result.push(week);
+      if (cur > lastDay) break;
+    }
+    return result;
+  }, [viewDate]);
+
+  // Pre-process events with display end calculation
+  const processedEvents = useMemo((): ProcessedEvent[] => {
+    const filtered = events.filter(e => activeProps.has(e.propertyId) && e.type !== 'block');
+    // Collect all check-in dates per property
+    const checkinsByProp: Record<string, Set<string>> = {};
+    filtered.forEach(e => {
+      const s = e.start.substring(0, 10);
+      if (!checkinsByProp[e.propertyId]) checkinsByProp[e.propertyId] = new Set();
+      checkinsByProp[e.propertyId].add(s);
+    });
+    return filtered.map(e => {
+      const prop = properties.find(p => p.id === e.propertyId);
+      const color = prop?.color ?? '#6366f1';
+      const rawEnd = e.end.substring(0, 10); // checkout date
+      const cleaning = cleanings.find(c => c.propertyId === e.propertyId && c.date === rawEnd);
+      return {
+        id: e.id, propertyId: e.propertyId, color, propName: prop?.name ?? '',
+        start: e.start.substring(0, 10),
+        end: rawEnd, // exclusive: day < end means "mid-stay"
+        rawEnd,
+        title: e.title, channelId: e.channelId, source: e.source, description: e.description,
+        cleaningId: cleaning?.id ?? null, cleaner: cleaning?.cleaner ?? null, supplies: cleaning?.supplies ?? null,
+      };
+    });
+  }, [events, cleanings, activeProps, properties]);
+
+  const activeProperties = useMemo(() => properties.filter(p => activeProps.has(p.id)), [properties, activeProps]);
 
   const toggleProp = (propId: string) => {
-    setActiveProps(prev => {
-      const next = new Set(prev);
-      if (next.has(propId)) next.delete(propId);
-      else next.add(propId);
-      return next;
-    });
+    setActiveProps(prev => { const n = new Set(prev); n.has(propId) ? n.delete(propId) : n.add(propId); return n; });
   };
 
-  const openModal = (ep: Record<string, string | null>) => {
-    const ev: SelectedEvent = {
-      title: ep.title as string,
-      start: ep.start as string,
-      end: ep.end as string,
-      propertyId: ep.propertyId as string,
-      propertyName: ep.propertyName as string,
-      propertyColor: ep.propertyColor as string,
-      channelLabel: ep.channelLabel as string,
-      description: ep.description as string | undefined,
-      cleaningId: ep.cleaningId as string | null,
-      cleaner: ep.cleaner as string | null,
-      supplies: ep.supplies as string | null,
-    };
-    setSelectedEvent(ev);
-    setSelectedCleaner(ep.cleaner ?? '');
-    setSelectedSupplies(ep.supplies ?? '');
+  const openModal = (e: ProcessedEvent) => {
+    setSelectedEvent({
+      title: e.title, start: e.start, end: e.rawEnd,
+      propertyId: e.propertyId, propertyName: e.propName, propertyColor: e.color,
+      channelLabel: getChannelLabel(e.channelId, e.source, channelMap),
+      description: e.description, cleaningId: e.cleaningId, cleaner: e.cleaner, supplies: e.supplies,
+    });
+    setSelectedCleaner(e.cleaner ?? '');
+    setSelectedSupplies(e.supplies ?? '');
   };
 
   const handleSaveCleaner = async () => {
@@ -261,48 +201,20 @@ export default function UnifiedCalendarPage() {
     setCleanerSaving(true);
     const checkoutDate = selectedEvent.end.substring(0, 10);
     const month = checkoutDate.substring(0, 7);
-    const propName = selectedEvent.propertyName;
-
     try {
       if (selectedEvent.cleaningId) {
-        // Update existing
-        await updateDoc(doc(db, 'cleanings', selectedEvent.cleaningId), {
-          cleaner: selectedCleaner,
-          supplies: selectedSupplies,
-        });
-        setCleanings(prev =>
-          prev.map(c => c.id === selectedEvent.cleaningId ? { ...c, cleaner: selectedCleaner, supplies: selectedSupplies } : c)
-        );
+        await updateDoc(doc(db, 'cleanings', selectedEvent.cleaningId), { cleaner: selectedCleaner, supplies: selectedSupplies });
+        setCleanings(prev => prev.map(c => c.id === selectedEvent.cleaningId ? { ...c, cleaner: selectedCleaner, supplies: selectedSupplies } : c));
       } else {
-        // Create new
         const newDoc = await addDoc(collection(db, 'cleanings'), {
-          propertyId: selectedEvent.propertyId,
-          propertyName: propName,
-          date: checkoutDate,
-          cleaner: selectedCleaner,
-          supplies: selectedSupplies,
-          month,
-          createdAt: new Date().toISOString(),
+          propertyId: selectedEvent.propertyId, propertyName: selectedEvent.propertyName,
+          date: checkoutDate, cleaner: selectedCleaner, supplies: selectedSupplies, month, createdAt: new Date().toISOString(),
         });
-        const newCleaning: Cleaning = {
-          id: newDoc.id,
-          propertyId: selectedEvent.propertyId,
-          propertyName: propName,
-          date: checkoutDate,
-          cleaner: selectedCleaner,
-          supplies: selectedSupplies,
-          month,
-        };
-        setCleanings(prev => [...prev, newCleaning]);
-        setSelectedEvent(prev => prev ? { ...prev, cleaningId: newDoc.id, cleaner: selectedCleaner, supplies: selectedSupplies } : null);
+        setCleanings(prev => [...prev, { id: newDoc.id, propertyId: selectedEvent.propertyId, propertyName: selectedEvent.propertyName, date: checkoutDate, cleaner: selectedCleaner, supplies: selectedSupplies, month }]);
       }
       setSelectedEvent(null);
-    } catch (err) {
-      console.error(err);
-      alert('저장에 실패했습니다.');
-    } finally {
-      setCleanerSaving(false);
-    }
+    } catch (err) { console.error(err); alert('저장에 실패했습니다.'); }
+    finally { setCleanerSaving(false); }
   };
 
   const handleDeleteCleaner = async () => {
@@ -314,44 +226,67 @@ export default function UnifiedCalendarPage() {
       setCleanings(prev => prev.filter(c => c.id !== selectedEvent.cleaningId));
       setSelectedEvent(prev => prev ? { ...prev, cleaningId: null, cleaner: null } : null);
       setSelectedCleaner('');
-    } catch (err) {
-      console.error(err);
-      alert('삭제에 실패했습니다.');
-    } finally {
-      setCleanerSaving(false);
-    }
+    } catch (err) { console.error(err); alert('삭제에 실패했습니다.'); }
+    finally { setCleanerSaving(false); }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-6 h-6 border-t-2 border-white rounded-full animate-spin" />
-      </div>
-    );
+  // For a given day+property, classify what to show in the cell
+  function getDayInfo(dayStr: string, propId: string) {
+    const eventsForProp = processedEvents.filter(e => e.propertyId === propId);
+    const checkoutEvent = eventsForProp.find(e => e.rawEnd === dayStr) ?? null;  // ends today
+    const checkinEvent  = eventsForProp.find(e => e.start === dayStr) ?? null;   // starts today
+    const midEvent = (!checkinEvent && !checkoutEvent)
+      ? (eventsForProp.find(e => e.start < dayStr && e.end > dayStr) ?? null)
+      : null;
+    return { checkoutEvent, checkinEvent, midEvent };
   }
+
+  const today = toDateStr(new Date());
+
+  const prevMonth = () => { const d = new Date(viewDate); d.setMonth(d.getMonth() - 1); setViewDate(d); };
+  const nextMonth = () => { const d = new Date(viewDate); d.setMonth(d.getMonth() + 1); setViewDate(d); };
+
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="w-6 h-6 border-t-2 border-white rounded-full animate-spin" />
+    </div>
+  );
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      <header className="pb-6 border-b border-white/10">
-        <h1 className="text-3xl font-light tracking-tight text-white">통합 캘린더</h1>
-        <p className="text-white/40 mt-1 text-xs tracking-widest font-light">모든 숙소의 투숙 및 청소 일정</p>
+      {/* Header */}
+      <header className="pb-6 border-b border-white/10 flex items-end justify-between">
+        <div>
+          <p className="text-[10px] tracking-[0.3em] text-white/50 mb-4">캘린더</p>
+          <h1 className="text-4xl font-light tracking-tight text-white">통합 캘린더</h1>
+          <p className="text-white/40 mt-2 text-sm font-light tracking-wide">모든 숙소의 투숙 및 청소 일정</p>
+        </div>
+        {/* Month navigation */}
+        <div className="flex items-center gap-2">
+          <button onClick={prevMonth} className="p-2.5 text-white/40 hover:text-white border border-white/10 hover:border-white/30 transition-colors">
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-white font-light text-base px-4 min-w-[130px] text-center">
+            {viewDate.getFullYear()}년 {viewDate.getMonth() + 1}월
+          </span>
+          <button onClick={nextMonth} className="p-2.5 text-white/40 hover:text-white border border-white/10 hover:border-white/30 transition-colors">
+            <ChevronRight size={16} />
+          </button>
+          <button onClick={() => setViewDate(new Date())} className="ml-2 px-4 py-2.5 text-[11px] uppercase tracking-widest font-semibold text-white/50 border border-white/10 hover:text-white hover:border-white/30 transition-colors">
+            오늘
+          </button>
+        </div>
       </header>
 
-      {/* Filters */}
+      {/* Property filter pills */}
       <div className="flex flex-wrap gap-2 items-center">
         <span className="text-[10px] text-white/30 tracking-widest font-medium mr-1">숙소</span>
         {properties.map(p => {
           const on = activeProps.has(p.id);
           return (
-            <button
-              key={p.id}
-              onClick={() => toggleProp(p.id)}
+            <button key={p.id} onClick={() => toggleProp(p.id)}
               className="flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] font-medium tracking-wide transition-all"
-              style={{
-                borderColor: on ? p.color : 'rgba(255,255,255,0.1)',
-                backgroundColor: on ? hexToRgba(p.color, 0.13) : 'transparent',
-                color: on ? '#fff' : 'rgba(255,255,255,0.3)',
-              }}
+              style={{ borderColor: on ? p.color : 'rgba(255,255,255,0.1)', backgroundColor: on ? hexToRgba(p.color, 0.13) : 'transparent', color: on ? '#fff' : 'rgba(255,255,255,0.3)' }}
             >
               <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: on ? p.color : 'rgba(255,255,255,0.15)' }} />
               {p.name}
@@ -360,58 +295,166 @@ export default function UnifiedCalendarPage() {
         })}
       </div>
 
-      {/* FullCalendar */}
-      <div className="bg-[#111] border border-white/10 rounded-2xl overflow-hidden p-4 unified-cal">
-        <FullCalendar
-          ref={calendarRef}
-          plugins={[dayGridPlugin, interactionPlugin]}
-          initialView="dayGridMonth"
-          locale={koLocale}
-          events={calendarEvents}
-          headerToolbar={{
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,dayGridWeek',
-          }}
-          height="auto"
-          eventClick={(info) => {
-            const ep = info.event.extendedProps;
-            openModal({
-              title: info.event.title,
-              ...ep,
-            } as Record<string, string | null>);
-          }}
-          eventContent={(arg) => {
-            const ep = arg.event.extendedProps;
-            return (
-              <div className="flex items-center gap-1 px-1.5 py-0.5 w-full overflow-hidden">
-                <span className="text-[10px] font-medium text-white leading-tight truncate flex-1 min-w-0">
-                  {ep.propertyName} · {arg.event.title}
-                </span>
-                {ep.cleaner && arg.isEnd && (
-                  <span className="shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded-full leading-tight"
-                    style={{ backgroundColor: 'rgba(0,0,0,0.35)', color: 'rgba(255,255,255,0.9)' }}>
-                    🧹{ep.cleaner}
-                  </span>
-                )}
+      {/* Calendar Grid */}
+      <div className="bg-[#111] border border-white/10 rounded-2xl overflow-hidden">
+        {/* Day of week header */}
+        <div className="grid grid-cols-7 border-b border-white/10">
+          {DAY_LABELS.map((label, i) => (
+            <div key={i} className={`py-3 text-center text-[11px] tracking-widest font-semibold ${i === 0 ? 'text-red-400/70' : i === 6 ? 'text-blue-400/70' : 'text-white/40'}`}>
+              {label}
+            </div>
+          ))}
+        </div>
+
+        {/* Week rows */}
+        {weeks.map((week, wi) => (
+          <div key={wi} className={wi < weeks.length - 1 ? 'border-b border-white/25' : ''}>
+            {/* Day numbers row */}
+            <div className="grid grid-cols-7 border-b border-white/15">
+              {week.map((day, di) => {
+                const dateStr = toDateStr(day);
+                const isThisMonth = day.getMonth() === viewDate.getMonth();
+                const isToday = dateStr === today;
+                return (
+                  <div key={di} className={`py-2 px-2 text-right ${!isThisMonth ? 'opacity-20' : ''} ${di < 6 ? 'border-r border-white/15' : ''}`}>
+                    <span className={`text-xs inline-flex items-center justify-center w-5 h-5 rounded-full transition-colors ${
+                      isToday ? 'bg-white text-black font-semibold' :
+                      di === 0 ? 'text-red-400/80' :
+                      di === 6 ? 'text-blue-400/70' :
+                      'text-white/35 font-light'
+                    }`}>
+                      {day.getDate()}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Property lanes */}
+            {activeProperties.length > 0 && (
+              <div className="py-1.5 px-1.5 space-y-[3px]">
+                {activeProperties.map(prop => {
+                  const weekStartStr = toDateStr(week[0]);
+                  return (
+                    <div key={prop.id} className="flex h-7">
+                      {week.map((day, di) => {
+                        const dayStr = toDateStr(day);
+                        const { checkoutEvent, checkinEvent, midEvent } = getDayInfo(dayStr, prop.id);
+                        const bgEmpty = hexToRgba(prop.color, 0.04);
+
+                        // ── Case 1: mid-stay ──
+                        if (midEvent) {
+                          const showLabel = di === 0 && midEvent.start < weekStartStr;
+                          return (
+                            <div key={di} className="relative flex-1 h-full cursor-pointer hover:brightness-110 transition-all flex items-center overflow-hidden"
+                              onClick={() => openModal(midEvent)}
+                              style={{ backgroundColor: midEvent.color }}
+                            >
+                              {showLabel && (
+                                <span className="px-2 text-[11px] font-semibold text-white truncate leading-none drop-shadow-sm">
+                                  {midEvent.title}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        // ── Case 2: 50/50 split (checkout left + checkin right) ──
+                        if (checkoutEvent && checkinEvent) {
+                          return (
+                            <div key={di} className="relative flex-1 h-full flex" style={{ gap: '2px' }}>
+                              {/* Left 50%: checkout */}
+                              <div className="h-full cursor-pointer hover:brightness-110 transition-all flex items-center overflow-hidden"
+                                onClick={() => openModal(checkoutEvent)}
+                                style={{ width: '50%', backgroundColor: checkoutEvent.color, borderRadius: '0 6px 6px 0' }}
+                              >
+                                {checkoutEvent.cleaner && (
+                                  <span className="mx-1 text-[9px] leading-none px-1.5 py-0.5 rounded-full font-medium shrink-0 whitespace-nowrap"
+                                    style={{ backgroundColor: 'rgba(0,0,0,0.4)', color: '#fff' }}>
+                                    🧹 {checkoutEvent.cleaner}
+                                  </span>
+                                )}
+                              </div>
+                              {/* Right 50%: checkin */}
+                              <div className="h-full cursor-pointer hover:brightness-110 transition-all flex items-center overflow-hidden"
+                                onClick={() => openModal(checkinEvent)}
+                                style={{ width: '50%', backgroundColor: checkinEvent.color, borderRadius: '6px 0 0 6px' }}
+                              >
+                                <span className="px-1.5 text-[11px] font-semibold text-white truncate leading-none drop-shadow-sm">
+                                  {checkinEvent.title}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        // ── Case 3: checkout only — fixed 50% width, left-aligned ──
+                        if (checkoutEvent) {
+                          return (
+                            <div key={di} className="relative flex-1 h-full flex items-center"
+                              style={{ backgroundColor: bgEmpty }}
+                            >
+                              <div className="h-full cursor-pointer hover:brightness-110 transition-all flex items-center overflow-hidden"
+                                onClick={() => openModal(checkoutEvent)}
+                                style={{ width: '50%', backgroundColor: checkoutEvent.color, borderRadius: '0 6px 6px 0' }}
+                              >
+                                {checkoutEvent.cleaner && (
+                                  <span className="mx-1 text-[9px] leading-none shrink-0 px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap"
+                                    style={{ backgroundColor: 'rgba(0,0,0,0.4)', color: '#fff' }}>
+                                    🧹 {checkoutEvent.cleaner}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        // ── Case 4: checkin only — fixed 50% width, right-aligned ──
+                        if (checkinEvent) {
+                          return (
+                            <div key={di} className="relative flex-1 h-full flex items-center justify-end"
+                              style={{ backgroundColor: bgEmpty }}
+                            >
+                              <div className="h-full cursor-pointer hover:brightness-110 transition-all flex items-center overflow-hidden"
+                                onClick={() => openModal(checkinEvent)}
+                                style={{ width: '50%', backgroundColor: checkinEvent.color, borderRadius: '6px 0 0 6px' }}
+                              >
+                                <span className="px-2 text-[11px] font-semibold text-white truncate leading-none drop-shadow-sm">
+                                  {checkinEvent.title}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        // ── Case 5: empty ──
+                        return <div key={di} className="flex-1 h-full" style={{ backgroundColor: bgEmpty }} />;
+                      })}
+                    </div>
+                  );
+                })}
               </div>
-            );
-          }}
-          dayMaxEvents={5}
-          moreLinkContent={(args) => `+${args.num}건`}
-        />
+            )}
+          </div>
+        ))}
       </div>
+
+      {/* Property legend */}
+      {activeProperties.length > 0 && (
+        <div className="flex flex-wrap gap-4 px-1">
+          {activeProperties.map(prop => (
+            <div key={prop.id} className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: prop.color }} />
+              <span className="text-[11px] text-white/40 font-light">{prop.name}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Modal */}
       {selectedEvent && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-          onClick={() => setSelectedEvent(null)}
-        >
-          <div
-            className="bg-[#161616] border border-white/10 rounded-2xl w-full max-w-sm mx-4 p-6 space-y-5"
-            onClick={e => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setSelectedEvent(null)}>
+          <div className="bg-[#161616] border border-white/10 rounded-2xl w-full max-w-sm mx-4 p-6 space-y-5" onClick={e => e.stopPropagation()}>
             {/* Header */}
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-2.5">
@@ -427,46 +470,45 @@ export default function UnifiedCalendarPage() {
             </div>
 
             {/* Info */}
-            <div className="space-y-2">
-              <div className="flex justify-between">
+            <div className="space-y-2.5">
+              <div className="flex justify-between items-center">
                 <span className="text-[10px] tracking-widest text-white/40">채널</span>
                 <span className="text-white/80 text-[11px]">{selectedEvent.channelLabel}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <span className="text-[10px] tracking-widest text-white/40">체크인</span>
-                <span className="text-white/80 text-[11px] font-mono">{selectedEvent.start?.substring(0, 10)}</span>
+                <span className="text-white/70 text-[11px] font-mono">{selectedEvent.start}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <span className="text-[10px] tracking-widest text-white/40">체크아웃</span>
-                <span className="text-white/80 text-[11px] font-mono">{selectedEvent.end?.substring(0, 10)}</span>
+                <span className="text-white/70 text-[11px] font-mono">{selectedEvent.end}</span>
               </div>
               {selectedEvent.description && (
-                <div className="pt-2 border-t border-white/8">
+                <div className="pt-2 border-t border-white/[0.08]">
                   <p className="text-[10px] tracking-widest text-white/30 mb-1.5">메모</p>
-                  <p className="text-white/60 text-[11px] font-light whitespace-pre-line leading-relaxed">{selectedEvent.description}</p>
+                  <p className="text-white/50 text-[11px] font-light whitespace-pre-line leading-relaxed">{selectedEvent.description}</p>
                 </div>
               )}
             </div>
 
             {/* Cleaner CRUD */}
             <div className="border-t border-white/10 pt-5 space-y-3">
-              <p className="text-[10px] tracking-widest text-white/40 font-medium">청소 담당자</p>
-
-              <select
-                value={selectedCleaner}
-                onChange={e => setSelectedCleaner(e.target.value)}
-                className="w-full bg-black/60 border border-white/10 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 transition-colors appearance-none"
-              >
-                <option value="">담당자 없음</option>
-                {cleaners.map(c => (
-                  <option key={c.id} value={c.name}>
-                    {c.name}{c.phone ? ` (${c.phone})` : ''}
-                  </option>
-                ))}
-                {selectedCleaner && !cleaners.some(c => c.name === selectedCleaner) && (
-                  <option value={selectedCleaner}>{selectedCleaner}</option>
-                )}
-              </select>
+              <div>
+                <p className="text-[10px] tracking-widest text-white/40 font-medium mb-2">청소 담당자</p>
+                <select
+                  value={selectedCleaner}
+                  onChange={e => setSelectedCleaner(e.target.value)}
+                  className="w-full bg-black/60 border border-white/10 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 transition-colors appearance-none"
+                >
+                  <option value="">담당자 없음</option>
+                  {cleaners.map(c => (
+                    <option key={c.id} value={c.name}>{c.name}{c.phone ? ` (${c.phone})` : ''}</option>
+                  ))}
+                  {selectedCleaner && !cleaners.some(c => c.name === selectedCleaner) && (
+                    <option value={selectedCleaner}>{selectedCleaner}</option>
+                  )}
+                </select>
+              </div>
 
               <div>
                 <p className="text-[10px] tracking-widest text-white/40 font-medium mb-2">필요 비품</p>
@@ -488,7 +530,6 @@ export default function UnifiedCalendarPage() {
                   <Save size={13} />
                   {cleanerSaving ? '저장 중...' : '저장'}
                 </button>
-
                 {selectedEvent.cleaningId && (
                   <button
                     onClick={handleDeleteCleaner}
@@ -504,9 +545,7 @@ export default function UnifiedCalendarPage() {
               {cleaners.length === 0 && (
                 <p className="text-[10px] text-white/30 text-center">
                   등록된 담당자가 없습니다.{' '}
-                  <a href="/admin/cleaners" className="text-white/60 underline hover:text-white transition-colors">
-                    담당자 관리
-                  </a>
+                  <a href="/admin/cleaners" className="text-white/60 underline hover:text-white transition-colors">담당자 관리</a>
                   에서 먼저 추가하세요.
                 </p>
               )}
@@ -514,27 +553,6 @@ export default function UnifiedCalendarPage() {
           </div>
         </div>
       )}
-
-      <style>{`
-        .unified-cal .fc-toolbar-title { font-size: 1.1rem; font-weight: 300; color: white; letter-spacing: 0.05em; }
-        .unified-cal .fc-button { background: rgba(255,255,255,0.06) !important; border-color: rgba(255,255,255,0.1) !important; color: rgba(255,255,255,0.6) !important; font-size: 11px !important; letter-spacing: 0.1em !important; font-weight: 600 !important; padding: 6px 14px !important; border-radius: 8px !important; text-transform: uppercase; }
-        .unified-cal .fc-button:hover { background: rgba(255,255,255,0.12) !important; color: white !important; }
-        .unified-cal .fc-button-active { background: white !important; color: black !important; border-color: white !important; }
-        .unified-cal .fc-col-header-cell-cushion { color: rgba(255,255,255,0.75) !important; font-size: 11px; text-transform: uppercase; letter-spacing: 0.15em; font-weight: 600; padding: 10px 0; }
-        .unified-cal .fc-col-header-cell:nth-child(1) .fc-col-header-cell-cushion { color: rgba(255,100,100,0.85) !important; }
-        .unified-cal .fc-col-header-cell:nth-child(7) .fc-col-header-cell-cushion { color: rgba(100,160,255,0.85) !important; }
-        .unified-cal .fc-daygrid-day-number { color: rgba(255,255,255,0.5) !important; font-size: 12px; font-weight: 300; padding: 6px 8px; }
-        .unified-cal .fc-day-today .fc-daygrid-day-number { color: white !important; font-weight: 600; }
-        .unified-cal .fc-day-today { background: rgba(255,255,255,0.03) !important; }
-        .unified-cal .fc-daygrid-day-frame { min-height: 90px; }
-        .unified-cal td, .unified-cal th { border-color: rgba(255,255,255,0.06) !important; }
-        .unified-cal .fc-scrollgrid { border-color: rgba(255,255,255,0.06) !important; }
-        .unified-cal .fc-more-link { color: rgba(255,255,255,0.4) !important; font-size: 10px; }
-        .unified-cal .fc-event { border-radius: 6px !important; cursor: pointer; }
-        .unified-cal .fc-popover { background: #1a1a1a !important; border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 12px !important; }
-        .unified-cal .fc-popover-header { background: rgba(255,255,255,0.05) !important; color: white !important; border-radius: 12px 12px 0 0 !important; }
-        .unified-cal .fc-popover-body { background: #1a1a1a !important; }
-      `}</style>
     </div>
   );
 }
