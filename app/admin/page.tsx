@@ -6,6 +6,7 @@ import { collection, query, getDocs, where, doc, updateDoc, serverTimestamp } fr
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/FirebaseProvider';
 import { format, isToday, isTomorrow, parseISO, startOfToday } from 'date-fns';
+import { isAdminEmail } from '@/lib/adminConfig';
 
 
 interface Cleaner {
@@ -40,8 +41,9 @@ export default function Dashboard() {
   const fetchData = async () => {
     if (!user) return;
     try {
-      const propsQuery = query(collection(db, 'properties'), where('ownerId', '==', user.uid));
-      const propsSnapshot = await getDocs(propsQuery);
+      const propsSnapshot = isAdminEmail(user.email)
+        ? await getDocs(collection(db, 'properties'))
+        : await getDocs(query(collection(db, 'properties'), where('ownerId', '==', user.uid)));
       const propertiesCount = propsSnapshot.size;
       
       const propertiesMap = new Map();
@@ -114,8 +116,10 @@ export default function Dashboard() {
   useEffect(() => {
     fetchData();
     if (user) {
-      getDocs(query(collection(db, 'cleaners'), where('ownerId', '==', user.uid)))
-        .then(snap => setCleaners(snap.docs.map(d => ({ id: d.id, ...d.data() } as Cleaner))));
+      (isAdminEmail(user.email)
+        ? getDocs(collection(db, 'cleaners'))
+        : getDocs(query(collection(db, 'cleaners'), where('ownerId', '==', user.uid)))
+      ).then(snap => setCleaners(snap.docs.map(d => ({ id: d.id, ...d.data() } as Cleaner))));
     }
   }, [user]);
 

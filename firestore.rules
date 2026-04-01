@@ -60,7 +60,8 @@ service cloud.firestore {
       return isAuthenticated() &&
         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
           (request.auth.token.email == "lorh2700@gmail.com" && request.auth.token.email_verified == true) ||
-          (request.auth.token.email == "unwadang@gmail.com" && request.auth.token.email_verified == true));
+          (request.auth.token.email == "unwadang@gmail.com" && request.auth.token.email_verified == true) ||
+          (request.auth.token.email == "alsemffp67@gmail.com" && request.auth.token.email_verified == true));
     }
 
     function isDocOwner() {

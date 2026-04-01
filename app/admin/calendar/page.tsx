@@ -5,6 +5,7 @@ import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc } 
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/FirebaseProvider';
 import { ChevronLeft, ChevronRight, X, Save, Trash2 } from 'lucide-react';
+import { isAdminEmail } from '@/lib/adminConfig';
 
 const PROPERTY_COLORS = [
   '#6366f1', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316',
@@ -82,7 +83,9 @@ export default function UnifiedCalendarPage() {
     if (!user) return;
     const fetchAll = async () => {
       try {
-        const propsSnap = await getDocs(query(collection(db, 'properties'), where('ownerId', '==', user.uid)));
+        const propsSnap = isAdminEmail(user.email)
+          ? await getDocs(collection(db, 'properties'))
+          : await getDocs(query(collection(db, 'properties'), where('ownerId', '==', user.uid)));
         const props: Property[] = propsSnap.docs.map((d, i) => ({
           id: d.id, name: d.data().name, color: PROPERTY_COLORS[i % PROPERTY_COLORS.length],
         }));
@@ -123,7 +126,9 @@ export default function UnifiedCalendarPage() {
         }
         setCleanings(allCleanings);
 
-        const cleanersSnap = await getDocs(query(collection(db, 'cleaners'), where('ownerId', '==', user.uid)));
+        const cleanersSnap = isAdminEmail(user.email)
+          ? await getDocs(collection(db, 'cleaners'))
+          : await getDocs(query(collection(db, 'cleaners'), where('ownerId', '==', user.uid)));
         setCleaners(cleanersSnap.docs.map(d => ({ id: d.id, ...d.data() } as Cleaner)));
       } catch (err) {
         console.error('Failed to load calendar data', err);
@@ -485,12 +490,19 @@ export default function UnifiedCalendarPage() {
                 <span className="text-[10px] tracking-widest text-white/40">체크아웃</span>
                 <span className="text-white/70 text-[11px] font-mono">{selectedEvent.end}</span>
               </div>
-              {selectedEvent.description && (
-                <div className="pt-2 border-t border-white/[0.08]">
-                  <p className="text-[10px] tracking-widest text-white/30 mb-1.5">메모</p>
-                  <p className="text-white/50 text-[11px] font-light whitespace-pre-line leading-relaxed">{selectedEvent.description}</p>
-                </div>
-              )}
+              {selectedEvent.description && (() => {
+                const filtered = selectedEvent.description
+                  .split('\n')
+                  .filter(line => !line.trimStart().startsWith('금액'))
+                  .join('\n')
+                  .trim();
+                return filtered ? (
+                  <div className="pt-2 border-t border-white/[0.08]">
+                    <p className="text-[10px] tracking-widest text-white/30 mb-1.5">메모</p>
+                    <p className="text-white/50 text-[11px] font-light whitespace-pre-line leading-relaxed">{filtered}</p>
+                  </div>
+                ) : null;
+              })()}
             </div>
 
             {/* Cleaner CRUD */}

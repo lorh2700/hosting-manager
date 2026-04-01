@@ -5,6 +5,7 @@ import { collection, query, getDocs, where, doc, updateDoc } from 'firebase/fire
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/FirebaseProvider';
 import { format, parseISO, differenceInDays } from 'date-fns';
+import { isAdminEmail } from '@/lib/adminConfig';
 import { ko } from 'date-fns/locale';
 import { BookOpen, X, CheckCircle2, Clock, Filter } from 'lucide-react';
 
@@ -36,11 +37,9 @@ export default function BookingsPage() {
   const fetchData = async () => {
     if (!user) return;
     try {
-      const propsQuery = query(
-        collection(db, 'properties'),
-        where('ownerId', '==', user.uid)
-      );
-      const propsSnapshot = await getDocs(propsQuery);
+      const propsSnapshot = isAdminEmail(user.email)
+        ? await getDocs(collection(db, 'properties'))
+        : await getDocs(query(collection(db, 'properties'), where('ownerId', '==', user.uid)));
 
       const propsMap = new Map<string, string>();
       propsSnapshot.docs.forEach(d => {
