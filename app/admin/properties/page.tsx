@@ -63,6 +63,7 @@ export default function PropertiesPage() {
       channels: [
         { name: 'Airbnb', importUrl: 'https://www.airbnb.co.kr/calendar/ical/1368328600307420400.ics?t=05a24937c87945d5b442377911f43aad', isActive: true },
         { name: 'Booking.com', importUrl: 'https://ical.booking.com/v1/export/t/c5870652-f9a6-4a12-809a-42916c8733a2.ics', isActive: true },
+        { name: 'Agoda', importUrl: 'https://ycs.agoda.com/en-us/api/ari/icalendar?key=EMEc3kwoLjzeLjZ4Qf%2bFy4yekAZcefYz', isActive: true },
         { name: 'Stayfolio', importUrl: '', isActive: false },
       ],
     },

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, deleteDoc, doc, query, where } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, query, where, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/FirebaseProvider';
 import { isAdminEmail } from '@/lib/adminConfig';
@@ -23,12 +23,21 @@ interface PropInfo {
   channelCount: number;
 }
 
+// Missing channels to restore per property name
+const MISSING_CHANNELS: Record<string, { name: string; importUrl: string }[]> = {
+  '화연재': [
+    { name: 'Agoda', importUrl: 'https://ycs.agoda.com/en-us/api/ari/icalendar?key=EMEc3kwoLjzeLjZ4Qf%2bFy4yekAZcefYz' },
+  ],
+};
+
 export default function CleanupPage() {
   const { user } = useAuth();
   const [groups, setGroups] = useState<Record<string, PropInfo[]>>({});
   const [loading, setLoading] = useState(true);
   const [cleaning, setCleaning] = useState(false);
   const [log, setLog] = useState<string[]>([]);
+  const [channelLog, setChannelLog] = useState<string[]>([]);
+  const [restoringChannels, setRestoringChannels] = useState(false);
 
   useEffect(() => {
     if (!user || !isAdminEmail(user.email)) return;
@@ -124,6 +133,45 @@ export default function CleanupPage() {
     setGroups(grouped);
   };
 
+  const handleRestoreChannels = async () => {
+    setRestoringChannels(true);
+    const newLog: string[] = [];
+    try {
+      const propsSnap = await getDocs(collection(db, 'properties'));
+      for (const propDoc of propsSnap.docs) {
+        const propName = propDoc.data().name as string;
+        const missing = MISSING_CHANNELS[propName];
+        if (!missing) continue;
+
+        const existingSnap = await getDocs(query(collection(db, 'channels'), where('propertyId', '==', propDoc.id)));
+        const existingNames = new Set(existingSnap.docs.map(d => d.data().name));
+
+        for (const ch of missing) {
+          if (existingNames.has(ch.name)) {
+            newLog.push(`[${propName}] ${ch.name}: 이미 존재`);
+            continue;
+          }
+          const token = Math.random().toString(36).substring(2, 15);
+          await addDoc(collection(db, 'channels'), {
+            propertyId: propDoc.id,
+            name: ch.name,
+            importUrl: ch.importUrl,
+            exportUrl: `/api/export/${token}.ics`,
+            isActive: true,
+            createdAt: new Date().toISOString(),
+          });
+          newLog.push(`[${propName}] ${ch.name}: 추가 완료`);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      newLog.push('오류 발생: ' + String(err));
+    } finally {
+      setRestoringChannels(false);
+      setChannelLog(newLog);
+    }
+  };
+
   if (!isAdminEmail(user?.email)) {
     return <div className="text-white/50 p-8">접근 권한이 없습니다.</div>;
   }
@@ -188,6 +236,35 @@ export default function CleanupPage() {
           ))}
         </div>
       )}
+
+      {/* Channel Restore Section */}
+      <div className="border-t border-white/10 pt-8 space-y-4">
+        <div>
+          <h2 className="text-base font-light text-white mb-1">누락 채널 복구</h2>
+          <p className="text-white/40 text-xs">삭제된 숙소의 채널 정보를 다시 등록합니다.</p>
+          <ul className="mt-3 space-y-1">
+            {Object.entries(MISSING_CHANNELS).map(([prop, chs]) => chs.map(ch => (
+              <li key={`${prop}-${ch.name}`} className="text-[11px] text-white/50 font-mono">
+                {prop} → {ch.name}
+              </li>
+            )))}
+          </ul>
+        </div>
+        <button
+          onClick={handleRestoreChannels}
+          disabled={restoringChannels}
+          className="w-full border border-white/20 text-white py-4 text-[11px] uppercase tracking-widest font-semibold hover:bg-white/5 transition-colors disabled:opacity-50"
+        >
+          {restoringChannels ? '복구 중...' : '누락 채널 복구'}
+        </button>
+        {channelLog.length > 0 && (
+          <div className="bg-[#0a0a0a] border border-white/10 rounded-xl p-5">
+            {channelLog.map((line, i) => (
+              <p key={i} className={`text-[11px] font-mono ${line.includes('완료') ? 'text-emerald-400/70' : 'text-white/40'}`}>{line}</p>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

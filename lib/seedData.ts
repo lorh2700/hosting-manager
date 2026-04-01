@@ -23,6 +23,7 @@ export const SEED_PROPERTIES = [
     channels: [
       { name: 'Airbnb', importUrl: process.env.NEXT_PUBLIC_ICAL_URL_HWAYEON_AIRBNB ?? '', isActive: true },
       { name: 'Booking.com', importUrl: process.env.NEXT_PUBLIC_ICAL_URL_HWAYEON_BOOKING ?? '', isActive: true },
+      { name: 'Agoda', importUrl: process.env.NEXT_PUBLIC_ICAL_URL_HWAYEON_AGODA ?? '', isActive: true },
       { name: 'Stayfolio', importUrl: '', isActive: false },
     ],
   },
