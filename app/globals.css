@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+.calendar-dark-theme {
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: rgba(255, 255, 255, 0.05);
+  --fc-neutral-text-color: rgba(255, 255, 255, 0.7);
+  --fc-border-color: rgba(255, 255, 255, 0.1);
+  --fc-button-text-color: #fff;
+  --fc-button-bg-color: transparent;
+  --fc-button-border-color: rgba(255, 255, 255, 0.2);
+  --fc-button-hover-bg-color: rgba(255, 255, 255, 0.1);
+  --fc-button-hover-border-color: rgba(255, 255, 255, 0.3);
+  --fc-button-active-bg-color: rgba(255, 255, 255, 0.2);
+  --fc-button-active-border-color: rgba(255, 255, 255, 0.4);
+  --fc-event-bg-color: #3788d8;
+  --fc-event-border-color: #3788d8;
+  --fc-event-text-color: #fff;
+  --fc-event-selected-overlay-color: rgba(0, 0, 0, 0.25);
+  --fc-more-link-bg-color: #d0d0d0;
+  --fc-more-link-text-color: inherit;
+  --fc-event-resizer-thickness: 8px;
+  --fc-event-resizer-dot-total-width: 8px;
+  --fc-event-resizer-dot-border-width: 1px;
+  --fc-non-business-color: rgba(255, 255, 255, 0.02);
+  --fc-bg-event-color: rgb(143, 223, 130);
+  --fc-bg-event-opacity: 0.3;
+  --fc-highlight-color: rgba(255, 255, 255, 0.05);
+  --fc-today-bg-color: rgba(255, 255, 255, 0.05);
+  --fc-now-indicator-color: red;
+}
+
+.calendar-dark-theme .fc-theme-standard td, 
+.calendar-dark-theme .fc-theme-standard th {
+  border-color: var(--fc-border-color);
+}
+
+.calendar-dark-theme .fc-col-header-cell-cushion {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 8px 4px !important;
+}
+
+.calendar-dark-theme .fc-daygrid-day-number {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  padding: 8px !important;
+}
+
+.calendar-dark-theme .fc-toolbar-title {
+  color: white;
+  font-size: 1.25rem !important;
+  font-weight: 300 !important;
+  letter-spacing: 0.05em;
+}
+
+.calendar-dark-theme .fc-button {
+  text-transform: uppercase;
+  font-size: 10px !important;
+  letter-spacing: 0.1em;
+  font-weight: 600 !important;
+  padding: 8px 16px !important;
+  border-radius: 0 !important;
+}
+
+.calendar-dark-theme .fc-event {
+  border-radius: 0 !important;
+  border: none !important;
+  margin: 1px 0 !important;
+}

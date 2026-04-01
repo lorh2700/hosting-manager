@@ -1,0 +1,154 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the application, typically an admin or host.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The user's email address."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin", "host"],
+          "description": "The role of the user."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the user was created."
+        }
+      },
+      "required": ["email", "role", "createdAt"]
+    },
+    "Property": {
+      "title": "Property",
+      "description": "An accommodation property available for booking.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the property."
+        },
+        "timezone": {
+          "type": "string",
+          "description": "The timezone of the property (e.g., Asia/Seoul)."
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "The UID of the user who owns this property."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the property was created."
+        }
+      },
+      "required": ["name", "timezone", "ownerId", "createdAt"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "A reservation for a property.",
+      "type": "object",
+      "properties": {
+        "propertyId": {
+          "type": "string",
+          "description": "The ID of the booked property."
+        },
+        "checkIn": {
+          "type": "string",
+          "description": "Check-in date (YYYY-MM-DD)."
+        },
+        "checkOut": {
+          "type": "string",
+          "description": "Check-out date (YYYY-MM-DD)."
+        },
+        "guests": {
+          "type": "number",
+          "description": "Number of guests."
+        },
+        "name": {
+          "type": "string",
+          "description": "Guest's full name."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Guest's email address."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["confirmed", "cancelled"],
+          "description": "Status of the booking."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the booking was created."
+        }
+      },
+      "required": ["propertyId", "checkIn", "checkOut", "guests", "name", "email", "status", "createdAt"]
+    },
+    "Channel": {
+      "title": "Channel",
+      "description": "A channel connection for a property.",
+      "type": "object",
+      "properties": {
+        "propertyId": {
+          "type": "string",
+          "description": "The ID of the property."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the channel."
+        },
+        "importUrl": {
+          "type": "string",
+          "description": "The iCal import URL."
+        },
+        "exportUrl": {
+          "type": "string",
+          "description": "The iCal export URL."
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Whether the channel is active."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the channel was created."
+        }
+      },
+      "required": ["propertyId", "name", "importUrl", "exportUrl", "isActive", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/User"
+      },
+      "description": "Collection of users."
+    },
+    "/properties/{propertyId}": {
+      "schema": {
+        "$ref": "#/entities/Property"
+      },
+      "description": "Collection of properties."
+    },
+    "/bookings/{bookingId}": {
+      "schema": {
+        "$ref": "#/entities/Booking"
+      },
+      "description": "Collection of bookings."
+    },
+    "/channels/{channelId}": {
+      "schema": {
+        "$ref": "#/entities/Channel"
+      },
+      "description": "Collection of channel connections."
+    }
+  }
+}
