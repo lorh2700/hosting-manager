@@ -9,7 +9,7 @@ import { auth, db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { SEED_PROPERTIES } from '@/lib/seedData';
 
-const SEEDED_ACCOUNTS = ['unwadang@gmail.com', 'lorh2700@gmail.com'];
+const SEEDED_ACCOUNTS = ['unwadang@gmail.com', 'lorh2700@gmail.com', 'alsemffp67@gmail.com'];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
