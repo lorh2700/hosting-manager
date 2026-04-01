@@ -255,10 +255,10 @@ export default function UnifiedCalendarPage() {
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
-      <header className="pb-6 border-b border-white/10 flex items-end justify-between">
+      <header className="pb-6 border-b border-white/10 flex flex-col sm:flex-row gap-4 sm:items-end sm:justify-between">
         <div>
           <p className="text-[10px] tracking-[0.3em] text-white/50 mb-4">캘린더</p>
-          <h1 className="text-4xl font-light tracking-tight text-white">통합 캘린더</h1>
+          <h1 className="text-3xl md:text-4xl font-light tracking-tight text-white">통합 캘린더</h1>
           <p className="text-white/40 mt-2 text-sm font-light tracking-wide">모든 숙소의 투숙 및 청소 일정</p>
         </div>
         {/* Month navigation */}
@@ -266,13 +266,13 @@ export default function UnifiedCalendarPage() {
           <button onClick={prevMonth} className="p-2.5 text-white/40 hover:text-white border border-white/10 hover:border-white/30 transition-colors">
             <ChevronLeft size={16} />
           </button>
-          <span className="text-white font-light text-base px-4 min-w-[130px] text-center">
+          <span className="text-white font-light text-base px-4 min-w-[120px] text-center">
             {viewDate.getFullYear()}년 {viewDate.getMonth() + 1}월
           </span>
           <button onClick={nextMonth} className="p-2.5 text-white/40 hover:text-white border border-white/10 hover:border-white/30 transition-colors">
             <ChevronRight size={16} />
           </button>
-          <button onClick={() => setViewDate(new Date())} className="ml-2 px-4 py-2.5 text-[11px] uppercase tracking-widest font-semibold text-white/50 border border-white/10 hover:text-white hover:border-white/30 transition-colors">
+          <button onClick={() => setViewDate(new Date())} className="ml-2 px-3 py-2.5 text-[11px] uppercase tracking-widest font-semibold text-white/50 border border-white/10 hover:text-white hover:border-white/30 transition-colors">
             오늘
           </button>
         </div>
@@ -296,7 +296,8 @@ export default function UnifiedCalendarPage() {
       </div>
 
       {/* Calendar Grid */}
-      <div className="bg-[#111] border border-white/10 rounded-2xl overflow-hidden">
+      <div className="overflow-x-auto -mx-4 md:mx-0">
+      <div className="bg-[#111] border border-white/10 rounded-2xl overflow-hidden min-w-[480px] mx-4 md:mx-0">
         {/* Day of week header */}
         <div className="grid grid-cols-7 border-b border-white/10">
           {DAY_LABELS.map((label, i) => (
@@ -437,6 +438,7 @@ export default function UnifiedCalendarPage() {
             )}
           </div>
         ))}
+      </div>
       </div>
 
       {/* Property legend */}

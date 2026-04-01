@@ -180,16 +180,16 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-12">
-      <header className="border-b border-white/10 pb-8 flex justify-between items-end">
+      <header className="border-b border-white/10 pb-8 flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-end">
         <div>
           <p className="text-[10px] tracking-[0.3em] text-white/50 mb-4">개요</p>
-          <h1 className="text-4xl font-light tracking-tight text-white">대시보드</h1>
+          <h1 className="text-3xl md:text-4xl font-light tracking-tight text-white">대시보드</h1>
           <p className="text-white/50 mt-4 text-sm font-light tracking-wide">void anchae 호스트 대시보드에 오신 것을 환영합니다.</p>
         </div>
-        <button 
+        <button
           onClick={handleSync}
           disabled={isSyncing}
-          className="flex items-center gap-2 bg-white text-black px-6 py-3 text-[11px] uppercase tracking-widest font-semibold hover:bg-white/90 transition-colors disabled:opacity-50"
+          className="flex items-center justify-center gap-2 bg-white text-black px-6 py-3 text-[11px] uppercase tracking-widest font-semibold hover:bg-white/90 transition-colors disabled:opacity-50 shrink-0"
         >
           <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
           {isSyncing ? '동기화 중...' : 'iCal 전체 동기화'}

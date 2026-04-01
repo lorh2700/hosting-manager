@@ -153,15 +153,15 @@ export default function PropertiesPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-12">
-      <header className="flex justify-between items-end border-b border-white/10 pb-8">
+      <header className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-end border-b border-white/10 pb-8">
         <div>
           <p className="text-[10px] tracking-[0.3em] text-white/50 mb-4">관리</p>
-          <h1 className="text-4xl font-light tracking-tight text-white">숙소 관리</h1>
+          <h1 className="text-3xl md:text-4xl font-light tracking-tight text-white">숙소 관리</h1>
           <p className="text-white/50 mt-4 text-sm font-light tracking-wide">숙소와 채널 연결을 관리하세요.</p>
         </div>
-        <button 
+        <button
           onClick={() => setIsAddModalOpen(true)}
-          className="bg-white text-black px-6 py-3 text-[11px] tracking-widest font-semibold flex items-center gap-3 hover:bg-white/90 transition-colors"
+          className="bg-white text-black px-6 py-3 text-[11px] tracking-widest font-semibold flex items-center justify-center gap-3 hover:bg-white/90 transition-colors shrink-0"
         >
           <Plus size={16} />
           숙소 추가

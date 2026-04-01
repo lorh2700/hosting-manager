@@ -17,14 +17,37 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <div className="w-64 bg-[#050505] text-white/70 min-h-screen flex flex-col border-r border-white/10">
-      <div className="p-8 border-b border-white/10 flex flex-col gap-4">
-        <span className="text-sm tracking-[0.2em] font-medium text-white">void anchae 관리자</span>
-        <Link href="/" className="text-[10px] tracking-widest text-white/40 hover:text-white transition-colors">
-          ← 예약 포털로 돌아가기
-        </Link>
+    <>
+      {/* Desktop sidebar */}
+      <div className="hidden md:flex w-64 bg-[#050505] text-white/70 min-h-screen flex-col border-r border-white/10">
+        <div className="p-8 border-b border-white/10 flex flex-col gap-4">
+          <span className="text-sm tracking-[0.2em] font-medium text-white">void anchae 관리자</span>
+          <Link href="/" className="text-[10px] tracking-widest text-white/40 hover:text-white transition-colors">
+            ← 예약 포털로 돌아가기
+          </Link>
+        </div>
+        <nav className="flex-1 py-8 px-6 space-y-4">
+          {SIDEBAR_LINKS.map((link) => {
+            const isActive = pathname === link.href || (link.href !== '/admin' && pathname.startsWith(link.href));
+            const Icon = link.icon;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`flex items-center gap-4 px-4 py-3 transition-colors text-[11px] uppercase tracking-widest font-medium ${
+                  isActive ? 'text-white border border-white/20 bg-white/5' : 'hover:text-white text-white/50'
+                }`}
+              >
+                <Icon size={16} className={isActive ? 'text-white' : 'text-white/50'} />
+                <span>{link.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
       </div>
-      <nav className="flex-1 py-8 px-6 space-y-4">
+
+      {/* Mobile bottom navigation */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0a0a0a] border-t border-white/10 flex items-center justify-around px-1">
         {SIDEBAR_LINKS.map((link) => {
           const isActive = pathname === link.href || (link.href !== '/admin' && pathname.startsWith(link.href));
           const Icon = link.icon;
@@ -32,16 +55,16 @@ export function Sidebar() {
             <Link
               key={link.href}
               href={link.href}
-              className={`flex items-center gap-4 px-4 py-3 transition-colors text-[11px] uppercase tracking-widest font-medium ${
-                isActive ? 'text-white border border-white/20 bg-white/5' : 'hover:text-white text-white/50'
+              className={`flex flex-col items-center gap-1 py-3 px-1 flex-1 transition-colors ${
+                isActive ? 'text-white' : 'text-white/35'
               }`}
             >
-              <Icon size={16} className={isActive ? 'text-white' : 'text-white/50'} />
-              <span>{link.label}</span>
+              <Icon size={20} strokeWidth={isActive ? 2 : 1.5} />
+              <span className="text-[9px] tracking-wide font-medium leading-none">{link.label}</span>
             </Link>
           );
         })}
       </nav>
-    </div>
+    </>
   );
 }
