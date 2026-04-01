@@ -6,6 +6,7 @@ import { Building, Plus, ChevronRight } from 'lucide-react';
 import { collection, query, getDocs, addDoc, orderBy, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/FirebaseProvider';
+import { isAdminEmail } from '@/lib/adminConfig';
 
 interface Property {
   id: string;
@@ -21,49 +22,28 @@ export default function PropertiesPage() {
   const [newPropertyName, setNewPropertyName] = useState('');
   const { user } = useAuth();
 
-  useEffect(() => {
+  const fetchProperties = async () => {
     if (!user) return;
-
-    const fetchProperties = async () => {
-      try {
-        const q = query(
-          collection(db, 'properties'), 
-          where('ownerId', '==', user.uid),
-          orderBy('createdAt', 'desc')
-        );
-        const snapshot = await getDocs(q);
-        const data = snapshot.docs.map(doc => ({
-          id: doc.id,
-          name: doc.data().name,
-          timezone: doc.data().timezone,
-          ownerId: doc.data().ownerId,
-        }));
-        setProperties(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchProperties();
-  }, [user]);
-
-  const handleQuickAdd = async (name: string) => {
-    if (!user) return;
-    setLoading(true);
     try {
-      await addPropertyWithChannels(name);
-      const q = query(collection(db, 'properties'), where('ownerId', '==', user.uid), orderBy('createdAt', 'desc'));
-      const snapshot = await getDocs(q);
-      setProperties(snapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name, timezone: doc.data().timezone, ownerId: doc.data().ownerId })));
-    } catch (error) {
-      console.error('Failed to quick-add property', error);
-      alert('숙소 추가에 실패했습니다.');
+      const snapshot = isAdminEmail(user.email)
+        ? await getDocs(query(collection(db, 'properties'), orderBy('createdAt', 'desc')))
+        : await getDocs(query(collection(db, 'properties'), where('ownerId', '==', user.uid), orderBy('createdAt', 'desc')));
+      setProperties(snapshot.docs.map(doc => ({
+        id: doc.id,
+        name: doc.data().name,
+        timezone: doc.data().timezone,
+        ownerId: doc.data().ownerId,
+      })));
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchProperties();
+  }, [user]);
 
   const PRESET_PROPERTIES: Record<string, { beds24PropId: string; checkInTime: string; checkOutTime: string; channels: { name: string; importUrl: string; isActive: boolean }[] }> = {
     '운와당': {
@@ -130,19 +110,13 @@ export default function PropertiesPage() {
   };
 
   const handleAddProperty = async () => {
-    if (!user) {
-      alert('로그인이 필요합니다.');
-      return;
-    }
-    if (!newPropertyName.trim()) return;
+    if (!user || !newPropertyName.trim()) return;
     setLoading(true);
     setIsAddModalOpen(false);
     try {
       await addPropertyWithChannels(newPropertyName.trim());
-      const q = query(collection(db, 'properties'), where('ownerId', '==', user.uid), orderBy('createdAt', 'desc'));
-      const snapshot = await getDocs(q);
-      setProperties(snapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name, timezone: doc.data().timezone, ownerId: doc.data().ownerId })));
       setNewPropertyName('');
+      await fetchProperties();
     } catch (error) {
       console.error('Failed to add property', error);
       alert('숙소 추가에 실패했습니다.');
@@ -204,6 +178,10 @@ export default function PropertiesPage() {
         <div className="fixed inset-0 bg-[#050505]/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
           <div className="bg-[#111] border border-white/10 p-10 w-full max-w-md">
             <h2 className="text-xl font-light tracking-widest text-white mb-8">새 숙소 추가</h2>
+            <p className="text-white/40 text-xs font-light mb-6 leading-relaxed">
+              운와당, 화연재, 안온은 채널(iCal URL)이 자동으로 설정됩니다.<br />
+              그 외 이름을 입력하면 빈 채널로 생성됩니다.
+            </p>
             <input
               type="text"
               value={newPropertyName}
@@ -211,18 +189,11 @@ export default function PropertiesPage() {
               placeholder="숙소 이름을 입력하세요"
               className="w-full px-4 py-4 bg-transparent border border-white/20 text-white placeholder:text-white/30 focus:outline-none focus:border-white transition-colors mb-8 font-light"
               autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleAddProperty();
-                }
-              }}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleAddProperty(); }}
             />
             <div className="flex justify-end gap-4">
               <button
-                onClick={() => {
-                  setIsAddModalOpen(false);
-                  setNewPropertyName('');
-                }}
+                onClick={() => { setIsAddModalOpen(false); setNewPropertyName(''); }}
                 className="px-6 py-3 text-white/50 hover:text-white text-[11px] tracking-widest font-semibold transition-colors"
               >
                 취소
