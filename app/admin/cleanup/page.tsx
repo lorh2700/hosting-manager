@@ -6,6 +6,15 @@ import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/FirebaseProvider';
 import { isAdminEmail } from '@/lib/adminConfig';
 
+// Properties with different names that are actually the same place
+const NAME_ALIASES: Record<string, string> = {
+  '안온': '안온재',
+};
+
+function normalizePropertyName(name: string): string {
+  return NAME_ALIASES[name] ?? name;
+}
+
 interface PropInfo {
   id: string;
   name: string;
@@ -46,8 +55,9 @@ export default function CleanupPage() {
 
       const grouped: Record<string, PropInfo[]> = {};
       props.forEach(p => {
-        if (!grouped[p.name]) grouped[p.name] = [];
-        grouped[p.name].push({
+        const key = normalizePropertyName(p.name);
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push({
           id: p.id,
           name: p.name,
           ownerId: p.ownerId,
@@ -107,8 +117,9 @@ export default function CleanupPage() {
     channelsSnap.docs.forEach(d => { const pid = d.data().propertyId; channelCounts[pid] = (channelCounts[pid] ?? 0) + 1; });
     const grouped: Record<string, PropInfo[]> = {};
     props.forEach(p => {
-      if (!grouped[p.name]) grouped[p.name] = [];
-      grouped[p.name].push({ id: p.id, name: p.name, ownerId: p.ownerId, eventCount: eventCounts[p.id] ?? 0, channelCount: channelCounts[p.id] ?? 0 });
+      const key = normalizePropertyName(p.name);
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push({ id: p.id, name: p.name, ownerId: p.ownerId, eventCount: eventCounts[p.id] ?? 0, channelCount: channelCounts[p.id] ?? 0 });
     });
     setGroups(grouped);
   };
