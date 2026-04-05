@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, HomeIcon, Calendar, BookOpen, MessageSquare, Users, UserCog, LogOut, Settings, Link2, Contact } from 'lucide-react';
+import { Home, HomeIcon, Calendar, BookOpen, MessageSquare, Users, UserCog, LogOut, Settings, Link2 } from 'lucide-react';
 import { useAuth } from '@/components/FirebaseProvider';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -13,7 +13,7 @@ const SIDEBAR_LINKS = [
   { href: '/admin/calendar', label: '통합 캘린더', icon: Calendar, roles: ['super_admin', 'admin', 'host'] },
   { href: '/admin/bookings', label: '예약 관리', icon: BookOpen, roles: ['super_admin', 'admin', 'host'] },
   { href: '/admin/messages', label: '메시지', icon: MessageSquare, roles: ['super_admin', 'admin', 'host'] },
-  { href: '/admin/guests', label: '게스트', icon: Contact, roles: ['super_admin', 'admin', 'host'] },
+
   { href: '/admin/cleaners', label: '청소 담당자', icon: Users, roles: ['super_admin', 'admin', 'host'] },
   { href: '/admin/users', label: '유저 관리', icon: UserCog, roles: ['super_admin', 'admin'] },
   { href: '/admin/integrations', label: '연동 관리', icon: Link2, roles: ['super_admin', 'admin'] },

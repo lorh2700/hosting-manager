@@ -305,5 +305,19 @@ service cloud.firestore {
                     request.resource.data.status in ['pending', 'done'];
       allow delete: if isAdminOrAbove() || (isAuthenticated() && isPropertyOwner(resource.data.propertyId));
     }
+    // ===============================================================
+    // Supply TODOs (public read/write for shared calendar)
+    // ===============================================================
+
+    match /supply_todos/{todoId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['propertyId', 'date', 'text', 'done', 'createdAt']) &&
+                    request.resource.data.propertyId is string && request.resource.data.propertyId.size() > 0 &&
+                    request.resource.data.date is string && request.resource.data.date.size() == 10 &&
+                    request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() < 200 &&
+                    request.resource.data.done is bool;
+      allow update: if request.resource.data.done is bool;
+      allow delete: if true;
+    }
   }
 }

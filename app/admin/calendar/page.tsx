@@ -77,8 +77,10 @@ export default function UnifiedCalendarPage() {
   const [activeProps, setActiveProps] = useState<Set<string>>(new Set());
   const [selectedEvent, setSelectedEvent] = useState<SelectedEvent | null>(null);
   const [selectedCleaner, setSelectedCleaner] = useState('');
-  const [selectedSupplies, setSelectedSupplies] = useState('');
   const [cleanerSaving, setCleanerSaving] = useState(false);
+  const [supplyTodos, setSupplyTodos] = useState<{id: string; text: string; done: boolean}[]>([]); // modal-scoped
+  const [allSupplyTodos, setAllSupplyTodos] = useState<{id: string; propertyId: string; propertyName: string; date: string; text: string; done: boolean; createdAt: string}[]>([]);
+  const [newSupply, setNewSupply] = useState('');
   const [viewDate, setViewDate] = useState(new Date());
   const [modalMessages, setModalMessages] = useState<{id: string; text: string; sender: string; createdAt: string}[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -137,6 +139,17 @@ export default function UnifiedCalendarPage() {
 
         const cleanersSnap = await getDocs(collection(db, 'cleaners'));
         setCleaners(cleanersSnap.docs.map(d => ({ id: d.id, ...d.data() } as Cleaner)));
+
+        // Load all supply TODOs (undone first)
+        const supplySnap = await getDocs(collection(db, 'supply_todos'));
+        const propsNameMap = new Map(props.map(p => [p.id, p.name]));
+        setAllSupplyTodos(supplySnap.docs.map(d => {
+          const data = d.data();
+          return {
+            id: d.id, propertyId: data.propertyId, propertyName: propsNameMap.get(data.propertyId) || '',
+            date: data.date, text: data.text, done: data.done ?? false, createdAt: data.createdAt ?? '',
+          };
+        }));
       } catch (err) {
         console.error('Failed to load calendar data', err);
       } finally {
@@ -229,7 +242,6 @@ export default function UnifiedCalendarPage() {
       supplies: e.supplies, status: e.status,
     });
     setSelectedCleaner(e.cleanerId ?? '');
-    setSelectedSupplies(e.supplies ?? '');
   };
 
   const handleSaveCleaner = async () => {
@@ -240,13 +252,10 @@ export default function UnifiedCalendarPage() {
       if (selectedEvent.cleaningId) {
         await updateDoc(doc(db, 'cleanings', selectedEvent.cleaningId), {
           cleanerId: selectedCleaner,
-          supplies: selectedSupplies,
           updatedAt: new Date().toISOString(),
         });
         setCleanings(prev => prev.map(c =>
-          c.id === selectedEvent.cleaningId
-            ? { ...c, cleanerId: selectedCleaner, supplies: selectedSupplies }
-            : c
+          c.id === selectedEvent.cleaningId ? { ...c, cleanerId: selectedCleaner } : c
         ));
       } else {
         const newDoc = await addDoc(collection(db, 'cleanings'), {
@@ -254,7 +263,6 @@ export default function UnifiedCalendarPage() {
           date: checkoutDate,
           cleanerId: selectedCleaner,
           status: 'pending' as const,
-          supplies: selectedSupplies,
           createdAt: new Date().toISOString(),
         });
         setCleanings(prev => [...prev, {
@@ -263,12 +271,65 @@ export default function UnifiedCalendarPage() {
           date: checkoutDate,
           cleanerId: selectedCleaner,
           status: 'pending' as const,
-          supplies: selectedSupplies,
         }]);
       }
       setSelectedEvent(null);
     } catch (err) { console.error(err); alert('저장에 실패했습니다.'); }
     finally { setCleanerSaving(false); }
+  };
+
+  // Supply TODO handlers
+  const handleAddSupply = async () => {
+    if (!selectedEvent || !newSupply.trim()) return;
+    const checkoutDate = selectedEvent.end.substring(0, 10);
+    const now = new Date().toISOString();
+    try {
+      const docRef = await addDoc(collection(db, 'supply_todos'), {
+        propertyId: selectedEvent.propertyId,
+        date: checkoutDate,
+        text: newSupply.trim(),
+        done: false,
+        createdAt: now,
+      });
+      const newItem = { id: docRef.id, text: newSupply.trim(), done: false };
+      setSupplyTodos(prev => [...prev, newItem]);
+      setAllSupplyTodos(prev => [...prev, {
+        ...newItem, propertyId: selectedEvent.propertyId,
+        propertyName: selectedEvent.propertyName, date: checkoutDate, createdAt: now,
+      }]);
+      setNewSupply('');
+    } catch (err) { console.error(err); alert('비품 추가에 실패했습니다.'); }
+  };
+
+  const handleToggleSupply = async (todoId: string, done: boolean) => {
+    try {
+      await updateDoc(doc(db, 'supply_todos', todoId), { done });
+      setSupplyTodos(prev => prev.map(t => t.id === todoId ? { ...t, done } : t));
+      setAllSupplyTodos(prev => prev.map(t => t.id === todoId ? { ...t, done } : t));
+    } catch (err) { console.error(err); }
+  };
+
+  const handleDeleteSupply = async (todoId: string) => {
+    try {
+      await deleteDoc(doc(db, 'supply_todos', todoId));
+      setSupplyTodos(prev => prev.filter(t => t.id !== todoId));
+      setAllSupplyTodos(prev => prev.filter(t => t.id !== todoId));
+    } catch (err) { console.error(err); alert('삭제에 실패했습니다.'); }
+  };
+
+  // Global supply TODO handlers (for the list below calendar)
+  const handleGlobalToggleSupply = async (todoId: string, done: boolean) => {
+    try {
+      await updateDoc(doc(db, 'supply_todos', todoId), { done });
+      setAllSupplyTodos(prev => prev.map(t => t.id === todoId ? { ...t, done } : t));
+    } catch (err) { console.error(err); }
+  };
+
+  const handleGlobalDeleteSupply = async (todoId: string) => {
+    try {
+      await deleteDoc(doc(db, 'supply_todos', todoId));
+      setAllSupplyTodos(prev => prev.filter(t => t.id !== todoId));
+    } catch (err) { console.error(err); alert('삭제에 실패했습니다.'); }
   };
 
   const handleDeleteCleaner = async () => {
@@ -283,6 +344,24 @@ export default function UnifiedCalendarPage() {
     } catch (err) { console.error(err); alert('삭제에 실패했습니다.'); }
     finally { setCleanerSaving(false); }
   };
+
+  // Load supply TODOs when modal opens
+  useEffect(() => {
+    if (!selectedEvent) { setSupplyTodos([]); setNewSupply(''); return; }
+    const checkoutDate = selectedEvent.end.substring(0, 10);
+    const loadSupplies = async () => {
+      try {
+        const q = query(
+          collection(db, 'supply_todos'),
+          where('propertyId', '==', selectedEvent.propertyId),
+          where('date', '==', checkoutDate)
+        );
+        const snap = await getDocs(q);
+        setSupplyTodos(snap.docs.map(d => ({ id: d.id, text: d.data().text, done: d.data().done })));
+      } catch { setSupplyTodos([]); }
+    };
+    loadSupplies();
+  }, [selectedEvent?.eventId]);
 
   // Load messages when modal opens
   useEffect(() => {
@@ -561,6 +640,89 @@ export default function UnifiedCalendarPage() {
       </div>
       </div>
 
+      {/* ── Global Supply TODO list ── */}
+      {(() => {
+        const pending = allSupplyTodos.filter(t => !t.done);
+        const done = allSupplyTodos.filter(t => t.done);
+        if (pending.length === 0 && done.length === 0) return null;
+
+        // Group pending by propertyName
+        const grouped = new Map<string, typeof pending>();
+        pending.forEach(t => {
+          const list = grouped.get(t.propertyName) || [];
+          list.push(t);
+          grouped.set(t.propertyName, list);
+        });
+
+        return (
+          <div className="bg-[#111] border border-white/10 rounded-2xl overflow-hidden p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium text-white/80 tracking-wide">필요 비품</h3>
+              <span className="text-[10px] text-white/30 tabular-nums">{pending.length}개 미완료</span>
+            </div>
+
+            {pending.length > 0 && (
+              <div className="space-y-4">
+                {Array.from(grouped.entries()).map(([propName, items]) => (
+                  <div key={propName} className="space-y-1.5">
+                    <p className="text-[10px] tracking-widest text-white/40 font-medium">{propName}</p>
+                    {items.map(todo => (
+                      <div key={todo.id} className="flex items-center gap-3 group py-1">
+                        <button
+                          onClick={() => handleGlobalToggleSupply(todo.id, true)}
+                          className="w-4 h-4 rounded border border-white/20 hover:border-emerald-400/60 flex items-center justify-center shrink-0 transition-colors"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12px] text-white/70">{todo.text}</p>
+                          <p className="text-[10px] text-white/25 mt-0.5">{todo.date}</p>
+                        </div>
+                        <button
+                          onClick={() => handleGlobalDeleteSupply(todo.id)}
+                          className="opacity-0 group-hover:opacity-100 text-white/20 hover:text-red-400 transition-all shrink-0"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {done.length > 0 && (
+              <details className="group">
+                <summary className="text-[10px] text-white/25 cursor-pointer hover:text-white/40 transition-colors tracking-wide list-none flex items-center gap-1.5">
+                  <ChevronRight size={10} className="group-open:rotate-90 transition-transform" />
+                  완료 ({done.length})
+                </summary>
+                <div className="mt-2 space-y-1">
+                  {done.map(todo => (
+                    <div key={todo.id} className="flex items-center gap-3 group py-1">
+                      <button
+                        onClick={() => handleGlobalToggleSupply(todo.id, false)}
+                        className="w-4 h-4 rounded bg-emerald-500/30 border border-emerald-500/50 flex items-center justify-center shrink-0 transition-colors"
+                      >
+                        <span className="text-emerald-400 text-[10px]">✓</span>
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] text-white/30 line-through">{todo.text}</p>
+                        <p className="text-[10px] text-white/15 mt-0.5">{todo.propertyName} · {todo.date}</p>
+                      </div>
+                      <button
+                        onClick={() => handleGlobalDeleteSupply(todo.id)}
+                        className="opacity-0 group-hover:opacity-100 text-white/20 hover:text-red-400 transition-all shrink-0"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Modal */}
       {selectedEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setSelectedEvent(null)}>
@@ -636,21 +798,10 @@ export default function UnifiedCalendarPage() {
                 </div>
               </div>
 
-              <div>
-                <p className="text-[10px] tracking-widest text-white/40 font-medium mb-2">필요 비품</p>
-                <textarea
-                  value={selectedSupplies}
-                  onChange={e => setSelectedSupplies(e.target.value)}
-                  placeholder="예: 수건 4장, 샴푸 보충, 커피 캡슐 2개"
-                  rows={2}
-                  className="w-full bg-black/60 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 transition-colors resize-none placeholder:text-white/20"
-                />
-              </div>
-
               <div className="flex gap-2 pt-1">
                 <button
                   onClick={handleSaveCleaner}
-                  disabled={cleanerSaving || (selectedCleaner === (selectedEvent.cleanerId ?? '') && selectedSupplies === (selectedEvent.supplies ?? ''))}
+                  disabled={cleanerSaving || selectedCleaner === (selectedEvent.cleanerId ?? '')}
                   className="flex-1 flex items-center justify-center gap-2 bg-white text-black py-2.5 rounded-lg text-[11px] tracking-widest font-semibold hover:bg-white/90 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   <Save size={13} />
@@ -675,6 +826,54 @@ export default function UnifiedCalendarPage() {
                   에서 먼저 추가하세요.
                 </p>
               )}
+            </div>
+
+            {/* ── Supply TODO list ── */}
+            <div className="border-t border-white/[0.08] pt-5 space-y-3">
+              <p className="text-[10px] tracking-widest text-white/40 font-medium">필요 비품</p>
+
+              {supplyTodos.length > 0 && (
+                <div className="space-y-1.5">
+                  {supplyTodos.map(todo => (
+                    <div key={todo.id} className="flex items-center gap-2.5 group">
+                      <button
+                        onClick={() => handleToggleSupply(todo.id, !todo.done)}
+                        className={`w-4.5 h-4.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                          todo.done ? 'bg-emerald-500/30 border-emerald-500/50' : 'border-white/20 hover:border-white/40'
+                        }`}
+                      >
+                        {todo.done && <span className="text-emerald-400 text-[10px]">✓</span>}
+                      </button>
+                      <span className={`text-[12px] flex-1 ${todo.done ? 'text-white/30 line-through' : 'text-white/70'}`}>
+                        {todo.text}
+                      </span>
+                      <button
+                        onClick={() => handleDeleteSupply(todo.id)}
+                        className="opacity-0 group-hover:opacity-100 text-white/20 hover:text-red-400 transition-all shrink-0"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <input
+                  value={newSupply}
+                  onChange={e => setNewSupply(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleAddSupply()}
+                  placeholder="비품 항목 추가 (예: 수건 4장)"
+                  className="flex-1 bg-black/60 border border-white/10 rounded-lg px-3 py-2 text-[12px] text-white focus:outline-none focus:border-white/30 transition-colors placeholder:text-white/20"
+                />
+                <button
+                  onClick={handleAddSupply}
+                  disabled={!newSupply.trim()}
+                  className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white/60 rounded-lg text-[11px] font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  추가
+                </button>
+              </div>
             </div>
 
             {/* ── Messages / Memo ── */}
