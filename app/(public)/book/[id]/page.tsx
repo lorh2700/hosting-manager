@@ -8,7 +8,6 @@ import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterv
 import { ko } from 'date-fns/locale';
 import { doc, getDoc, collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { getPropertyImage } from '@/lib/propertyImages';
 import type { PropertyData } from '@/lib/types';
 
 export default function BookPage() {
@@ -52,6 +51,7 @@ export default function BookPage() {
             timezone: propertyData.timezone,
             permit: propertyData.permit ?? null,
             ownerId: propertyData.ownerId ?? '',
+            imageUrl: propertyData.imageUrl ?? null,
             bookedDates
           });
         }
@@ -181,7 +181,7 @@ export default function BookPage() {
       {/* Hero Section */}
       <div className="relative h-[60vh] md:h-[70vh] w-full overflow-hidden">
         <Image
-          src={getPropertyImage(property.name)}
+          src={property.imageUrl || '/images/main_yard.jpg'}
           alt={property.name}
           fill
           className="object-cover opacity-40 mix-blend-luminosity scale-105 hover:scale-100 transition-transform duration-[20s] ease-out"

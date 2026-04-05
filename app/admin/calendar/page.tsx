@@ -1,11 +1,10 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/FirebaseProvider';
-import { ChevronLeft, ChevronRight, X, Save, Trash2 } from 'lucide-react';
-import { isAdminEmail } from '@/lib/adminConfig';
+import { ChevronLeft, ChevronRight, X, Save, Trash2, Send, ExternalLink } from 'lucide-react';
 
 const PROPERTY_COLORS = [
   '#6366f1', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316',
@@ -46,13 +45,15 @@ function getChannelLabel(channelId: string, source: string | undefined, channelM
 
 interface Property { id: string; name: string; color: string; }
 interface RawEvent { id: string; propertyId: string; channelId: string; source?: string; title: string; start: string; end: string; type: 'reservation' | 'block'; description?: string; }
-interface Cleaning { id: string; propertyId: string; propertyName: string; date: string; cleaner: string; month: string; supplies?: string; }
+interface Cleaning { id: string; propertyId: string; date: string; cleanerId: string; status: 'pending' | 'done'; supplies?: string; }
 interface Cleaner { id: string; name: string; phone: string; }
 interface SelectedEvent {
+  eventId: string;
   title: string; start: string; end: string;
   propertyId: string; propertyName: string; propertyColor: string;
   channelLabel: string; description?: string;
-  cleaningId: string | null; cleaner: string | null; supplies: string | null;
+  cleaningId: string | null; cleanerId: string | null; cleanerName: string | null;
+  supplies: string | null; status: 'pending' | 'done' | null;
 }
 
 interface ProcessedEvent {
@@ -61,11 +62,12 @@ interface ProcessedEvent {
   end: string;      // display end (exclusive, YYYY-MM-DD) — extended +1 if no back-to-back
   rawEnd: string;   // original checkout date for modal/cleaning
   title: string; channelId: string; source?: string; description?: string;
-  cleaningId: string | null; cleaner: string | null; supplies: string | null;
+  cleaningId: string | null; cleanerId: string | null; cleanerName: string | null;
+  supplies: string | null; status: 'pending' | 'done' | null;
 }
 
 export default function UnifiedCalendarPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [properties, setProperties] = useState<Property[]>([]);
   const [channelMap, setChannelMap] = useState<Record<string, string>>({});
   const [events, setEvents] = useState<RawEvent[]>([]);
@@ -78,12 +80,16 @@ export default function UnifiedCalendarPage() {
   const [selectedSupplies, setSelectedSupplies] = useState('');
   const [cleanerSaving, setCleanerSaving] = useState(false);
   const [viewDate, setViewDate] = useState(new Date());
+  const [modalMessages, setModalMessages] = useState<{id: string; text: string; sender: string; createdAt: string}[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     const fetchAll = async () => {
       try {
-        const propsSnap = isAdminEmail(user.email)
+        const propsSnap = profile?.role === 'super_admin'
           ? await getDocs(collection(db, 'properties'))
           : await getDocs(query(collection(db, 'properties'), where('ownerId', '==', user.uid)));
         const props: Property[] = propsSnap.docs.map((d, i) => ({
@@ -94,12 +100,12 @@ export default function UnifiedCalendarPage() {
         if (props.length === 0) return;
         const propIds = props.map(p => p.id);
 
-        // Build channel map: channelName → channelName (doc ID is the name)
+        // Build channel map from embedded channels field
         const cMap: Record<string, string> = {};
-        for (const propId of propIds) {
-          const snap = await getDocs(collection(db, 'properties', propId, 'channels'));
-          snap.docs.forEach(d => { cMap[d.id] = d.id; });
-        }
+        propsSnap.docs.forEach(d => {
+          const propChannels = (d.data().channels ?? {}) as Record<string, unknown>;
+          Object.keys(propChannels).forEach(name => { cMap[name] = name; });
+        });
         setChannelMap(cMap);
 
         const allEvents: RawEvent[] = [];
@@ -127,7 +133,7 @@ export default function UnifiedCalendarPage() {
         }
         setCleanings(allCleanings);
 
-        const cleanersSnap = isAdminEmail(user.email)
+        const cleanersSnap = profile?.role === 'super_admin'
           ? await getDocs(collection(db, 'cleaners'))
           : await getDocs(query(collection(db, 'cleaners'), where('ownerId', '==', user.uid)));
         setCleaners(cleanersSnap.docs.map(d => ({ id: d.id, ...d.data() } as Cleaner)));
@@ -159,9 +165,25 @@ export default function UnifiedCalendarPage() {
     return result;
   }, [viewDate]);
 
+  const cleanersMap = useMemo(() =>
+    new Map(cleaners.map(c => [c.id, c])),
+  [cleaners]);
+
   // Pre-process events with display end calculation
   const processedEvents = useMemo((): ProcessedEvent[] => {
-    const filtered = events.filter(e => activeProps.has(e.propertyId) && e.type !== 'block');
+    const isStayfolioChannel = (channelId: string) =>
+      channelId.toLowerCase() === 'stayfolio' || channelId === '스테이폴리오';
+
+    const filtered = events.filter(e => {
+      if (!activeProps.has(e.propertyId)) return false;
+      if (e.type === 'block') return false;
+      // Stayfolio sends cross-channel blocks as 1-day "Reserved" events — exclude them
+      if (isStayfolioChannel(e.channelId)) {
+        const diffMs = new Date(e.end.substring(0, 10)).getTime() - new Date(e.start.substring(0, 10)).getTime();
+        if (diffMs <= 24 * 60 * 60 * 1000) return false;
+      }
+      return true;
+    });
     // Collect all check-in dates per property
     const checkinsByProp: Record<string, Set<string>> = {};
     filtered.forEach(e => {
@@ -174,16 +196,21 @@ export default function UnifiedCalendarPage() {
       const color = prop?.color ?? '#6366f1';
       const rawEnd = e.end.substring(0, 10); // checkout date
       const cleaning = cleanings.find(c => c.propertyId === e.propertyId && c.date === rawEnd);
+      const cleanerName = cleaning?.cleanerId ? (cleanersMap.get(cleaning.cleanerId)?.name ?? null) : null;
       return {
         id: e.id, propertyId: e.propertyId, color, propName: prop?.name ?? '',
         start: e.start.substring(0, 10),
-        end: rawEnd, // exclusive: day < end means "mid-stay"
+        end: rawEnd,
         rawEnd,
         title: e.title, channelId: e.channelId, source: e.source, description: e.description,
-        cleaningId: cleaning?.id ?? null, cleaner: cleaning?.cleaner ?? null, supplies: cleaning?.supplies ?? null,
+        cleaningId: cleaning?.id ?? null,
+        cleanerId: cleaning?.cleanerId ?? null,
+        cleanerName,
+        supplies: cleaning?.supplies ?? null,
+        status: cleaning?.status ?? null,
       };
     });
-  }, [events, cleanings, activeProps, properties]);
+  }, [events, cleanings, activeProps, properties, cleanersMap]);
 
   const activeProperties = useMemo(() => properties.filter(p => activeProps.has(p.id)), [properties, activeProps]);
 
@@ -193,12 +220,15 @@ export default function UnifiedCalendarPage() {
 
   const openModal = (e: ProcessedEvent) => {
     setSelectedEvent({
+      eventId: e.id,
       title: e.title, start: e.start, end: e.rawEnd,
       propertyId: e.propertyId, propertyName: e.propName, propertyColor: e.color,
       channelLabel: getChannelLabel(e.channelId, e.source, channelMap),
-      description: e.description, cleaningId: e.cleaningId, cleaner: e.cleaner, supplies: e.supplies,
+      description: e.description,
+      cleaningId: e.cleaningId, cleanerId: e.cleanerId, cleanerName: e.cleanerName,
+      supplies: e.supplies, status: e.status,
     });
-    setSelectedCleaner(e.cleaner ?? '');
+    setSelectedCleaner(e.cleanerId ?? '');
     setSelectedSupplies(e.supplies ?? '');
   };
 
@@ -206,17 +236,35 @@ export default function UnifiedCalendarPage() {
     if (!selectedEvent || !user) return;
     setCleanerSaving(true);
     const checkoutDate = selectedEvent.end.substring(0, 10);
-    const month = checkoutDate.substring(0, 7);
     try {
       if (selectedEvent.cleaningId) {
-        await updateDoc(doc(db, 'cleanings', selectedEvent.cleaningId), { cleaner: selectedCleaner, supplies: selectedSupplies });
-        setCleanings(prev => prev.map(c => c.id === selectedEvent.cleaningId ? { ...c, cleaner: selectedCleaner, supplies: selectedSupplies } : c));
+        await updateDoc(doc(db, 'cleanings', selectedEvent.cleaningId), {
+          cleanerId: selectedCleaner,
+          supplies: selectedSupplies,
+          updatedAt: new Date().toISOString(),
+        });
+        setCleanings(prev => prev.map(c =>
+          c.id === selectedEvent.cleaningId
+            ? { ...c, cleanerId: selectedCleaner, supplies: selectedSupplies }
+            : c
+        ));
       } else {
         const newDoc = await addDoc(collection(db, 'cleanings'), {
-          propertyId: selectedEvent.propertyId, propertyName: selectedEvent.propertyName,
-          date: checkoutDate, cleaner: selectedCleaner, supplies: selectedSupplies, month, createdAt: new Date().toISOString(),
+          propertyId: selectedEvent.propertyId,
+          date: checkoutDate,
+          cleanerId: selectedCleaner,
+          status: 'pending' as const,
+          supplies: selectedSupplies,
+          createdAt: new Date().toISOString(),
         });
-        setCleanings(prev => [...prev, { id: newDoc.id, propertyId: selectedEvent.propertyId, propertyName: selectedEvent.propertyName, date: checkoutDate, cleaner: selectedCleaner, supplies: selectedSupplies, month }]);
+        setCleanings(prev => [...prev, {
+          id: newDoc.id,
+          propertyId: selectedEvent.propertyId,
+          date: checkoutDate,
+          cleanerId: selectedCleaner,
+          status: 'pending' as const,
+          supplies: selectedSupplies,
+        }]);
       }
       setSelectedEvent(null);
     } catch (err) { console.error(err); alert('저장에 실패했습니다.'); }
@@ -230,10 +278,62 @@ export default function UnifiedCalendarPage() {
     try {
       await deleteDoc(doc(db, 'cleanings', selectedEvent.cleaningId));
       setCleanings(prev => prev.filter(c => c.id !== selectedEvent.cleaningId));
-      setSelectedEvent(prev => prev ? { ...prev, cleaningId: null, cleaner: null } : null);
+      setSelectedEvent(prev => prev ? { ...prev, cleaningId: null, cleanerId: null, cleanerName: null, supplies: null, status: null } : null);
       setSelectedCleaner('');
     } catch (err) { console.error(err); alert('삭제에 실패했습니다.'); }
     finally { setCleanerSaving(false); }
+  };
+
+  // Load messages when modal opens
+  useEffect(() => {
+    if (!selectedEvent?.eventId) {
+      setModalMessages([]);
+      setNewMessage('');
+      return;
+    }
+    const loadMessages = async () => {
+      setLoadingMessages(true);
+      try {
+        const q = query(
+          collection(db, 'messages'),
+          where('eventId', '==', selectedEvent.eventId),
+          orderBy('createdAt', 'asc')
+        );
+        const snap = await getDocs(q);
+        setModalMessages(snap.docs.map(d => {
+          const data = d.data();
+          return { id: d.id, text: data.text, sender: data.sender, createdAt: data.createdAt };
+        }));
+      } catch {
+        setModalMessages([]);
+      } finally {
+        setLoadingMessages(false);
+      }
+    };
+    loadMessages();
+  }, [selectedEvent?.eventId]);
+
+  const handleSendMessage = async () => {
+    if (!selectedEvent?.eventId || !newMessage.trim() || sendingMessage) return;
+    setSendingMessage(true);
+    try {
+      const msgData = {
+        eventId: selectedEvent.eventId,
+        propertyId: selectedEvent.propertyId,
+        guestName: selectedEvent.title,
+        text: newMessage.trim(),
+        sender: 'host',
+        createdAt: new Date().toISOString(),
+        read: true,
+      };
+      const docRef = await addDoc(collection(db, 'messages'), msgData);
+      setModalMessages(prev => [...prev, { id: docRef.id, text: msgData.text, sender: msgData.sender, createdAt: msgData.createdAt }]);
+      setNewMessage('');
+    } catch {
+      alert('메시지 전송에 실패했습니다.');
+    } finally {
+      setSendingMessage(false);
+    }
   };
 
   // For a given day+property, classify what to show in the cell
@@ -375,10 +475,10 @@ export default function UnifiedCalendarPage() {
                                 onClick={() => openModal(checkoutEvent)}
                                 style={{ width: '50%', backgroundColor: checkoutEvent.color, borderRadius: '0 6px 6px 0' }}
                               >
-                                {checkoutEvent.cleaner && (
+                                {checkoutEvent.cleanerName && (
                                   <span className="mx-1 text-[9px] leading-none px-1.5 py-0.5 rounded-full font-medium shrink-0 whitespace-nowrap"
                                     style={{ backgroundColor: 'rgba(0,0,0,0.4)', color: '#fff' }}>
-                                    🧹 {checkoutEvent.cleaner}
+                                    🧹 {checkoutEvent.cleanerName}
                                   </span>
                                 )}
                               </div>
@@ -405,10 +505,10 @@ export default function UnifiedCalendarPage() {
                                 onClick={() => openModal(checkoutEvent)}
                                 style={{ width: '50%', backgroundColor: checkoutEvent.color, borderRadius: '0 6px 6px 0' }}
                               >
-                                {checkoutEvent.cleaner && (
+                                {checkoutEvent.cleanerName && (
                                   <span className="mx-1 text-[9px] leading-none shrink-0 px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap"
                                     style={{ backgroundColor: 'rgba(0,0,0,0.4)', color: '#fff' }}>
-                                    🧹 {checkoutEvent.cleaner}
+                                    🧹 {checkoutEvent.cleanerName}
                                   </span>
                                 )}
                               </div>
@@ -462,7 +562,7 @@ export default function UnifiedCalendarPage() {
       {/* Modal */}
       {selectedEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setSelectedEvent(null)}>
-          <div className="bg-[#161616] border border-white/10 rounded-2xl w-full max-w-sm mx-4 p-6 space-y-5" onClick={e => e.stopPropagation()}>
+          <div className="bg-[#161616] border border-white/10 rounded-2xl w-full max-w-sm mx-4 p-6 space-y-5 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             {/* Header */}
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-2.5">
@@ -517,11 +617,8 @@ export default function UnifiedCalendarPage() {
                 >
                   <option value="">담당자 없음</option>
                   {cleaners.map(c => (
-                    <option key={c.id} value={c.name}>{c.name}{c.phone ? ` (${c.phone})` : ''}</option>
+                    <option key={c.id} value={c.id}>{c.name}{c.phone ? ` (${c.phone})` : ''}</option>
                   ))}
-                  {selectedCleaner && !cleaners.some(c => c.name === selectedCleaner) && (
-                    <option value={selectedCleaner}>{selectedCleaner}</option>
-                  )}
                 </select>
               </div>
 
@@ -539,7 +636,7 @@ export default function UnifiedCalendarPage() {
               <div className="flex gap-2">
                 <button
                   onClick={handleSaveCleaner}
-                  disabled={cleanerSaving || (selectedCleaner === (selectedEvent.cleaner ?? '') && selectedSupplies === (selectedEvent.supplies ?? ''))}
+                  disabled={cleanerSaving || (selectedCleaner === (selectedEvent.cleanerId ?? '') && selectedSupplies === (selectedEvent.supplies ?? ''))}
                   className="flex-1 flex items-center justify-center gap-2 bg-white text-black py-2.5 text-[11px] tracking-widest font-semibold hover:bg-white/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Save size={13} />
@@ -564,6 +661,49 @@ export default function UnifiedCalendarPage() {
                   에서 먼저 추가하세요.
                 </p>
               )}
+            </div>
+
+            {/* ── Messages / Memo ── */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] tracking-[0.2em] text-white/40 uppercase">메시지 / 메모</p>
+              </div>
+
+              {loadingMessages ? (
+                <p className="text-[10px] text-white/30 text-center py-4">불러오는 중...</p>
+              ) : modalMessages.length > 0 ? (
+                <div className="max-h-40 overflow-y-auto space-y-2 pr-1">
+                  {modalMessages.map(msg => (
+                    <div key={msg.id} className={`text-xs p-3 rounded-lg ${msg.sender === 'host' ? 'bg-white/10 ml-4' : 'bg-indigo-500/20 mr-4'}`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-medium text-white/60">{msg.sender === 'host' ? '호스트' : '게스트'}</span>
+                        <span className="text-[9px] text-white/30">{new Date(msg.createdAt).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      <p className="text-white/80 leading-relaxed">{msg.text}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[10px] text-white/30 text-center py-2">메모가 없습니다.</p>
+              )}
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newMessage}
+                  onChange={e => setNewMessage(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
+                  placeholder="메모 추가..."
+                  className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 transition-colors"
+                />
+                <button
+                  onClick={handleSendMessage}
+                  disabled={!newMessage.trim() || sendingMessage}
+                  className="px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/10 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <Send size={13} className="text-white/70" />
+                </button>
+              </div>
             </div>
           </div>
         </div>

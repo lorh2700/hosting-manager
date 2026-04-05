@@ -93,15 +93,11 @@ export default function PropertySettingsPage() {
     if (!deleteConfirm) { setDeleteConfirm(true); return; }
     setDeleting(true);
     try {
-      // Delete channels
-      const channelSnap = await getDocs(query(collection(db, 'channels'), where('propertyId', '==', id)));
-      await Promise.all(channelSnap.docs.map(d => deleteDoc(d.ref)));
-
       // Delete events
       const eventSnap = await getDocs(query(collection(db, 'events'), where('propertyId', '==', id)));
       await Promise.all(eventSnap.docs.map(d => deleteDoc(d.ref)));
 
-      // Delete property
+      // Delete property (channels are embedded in the property doc)
       await deleteDoc(doc(db, 'properties', id));
       router.push('/admin/properties');
     } catch (error) {

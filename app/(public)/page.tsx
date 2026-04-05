@@ -8,7 +8,6 @@ import { ArrowRight } from 'lucide-react';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { ScrollUnfoldHero } from '@/components/ScrollUnfoldHero';
-import { getPropertyImage } from '@/lib/propertyImages';
 import type { Property } from '@/lib/types';
 
 export default function PublicPortal() {
@@ -24,6 +23,7 @@ export default function PublicPortal() {
           id: doc.id,
           name: doc.data().name,
           timezone: doc.data().timezone,
+          imageUrl: doc.data().imageUrl ?? null,
         }));
         setProperties(data);
       } catch (err) {
@@ -117,7 +117,7 @@ export default function PublicPortal() {
             >
               <Link href={`/book/${property.id}`} className="block relative aspect-[4/5] mb-6 overflow-hidden bg-[#111]">
                 <Image
-                  src={getPropertyImage(property.name)}
+                  src={property.imageUrl || '/images/main_yard.jpg'}
                   alt={property.name}
                   fill
                   className="object-cover transition-transform duration-[1.5s] ease-out group-hover:scale-105 opacity-80 group-hover:opacity-100"

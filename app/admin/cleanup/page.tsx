@@ -1,10 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, deleteDoc, doc, query, where, setDoc } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, query, where, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/FirebaseProvider';
-import { isAdminEmail } from '@/lib/adminConfig';
 
 // Properties with different names that are actually the same place
 const NAME_ALIASES: Record<string, string> = {
@@ -31,7 +30,7 @@ const MISSING_CHANNELS: Record<string, { name: string; importUrl: string }[]> = 
 };
 
 export default function CleanupPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [groups, setGroups] = useState<Record<string, PropInfo[]>>({});
   const [loading, setLoading] = useState(true);
   const [cleaning, setCleaning] = useState(false);
@@ -40,9 +39,13 @@ export default function CleanupPage() {
   const [restoringChannels, setRestoringChannels] = useState(false);
   const [migrationLog, setMigrationLog] = useState<string[]>([]);
   const [migrating, setMigrating] = useState(false);
+  const [cleaningMigLog, setCleaningMigLog] = useState<string[]>([]);
+  const [migratingCleanings, setMigratingCleanings] = useState(false);
+  const [subToEmbedLog, setSubToEmbedLog] = useState<string[]>([]);
+  const [migratingSubToEmbed, setMigratingSubToEmbed] = useState(false);
 
   useEffect(() => {
-    if (!user || !isAdminEmail(user.email)) return;
+    if (!user || profile?.role !== 'super_admin') return;
 
     const load = async () => {
       const propsSnap = await getDocs(collection(db, 'properties'));
@@ -81,7 +84,7 @@ export default function CleanupPage() {
     };
 
     load();
-  }, [user]);
+  }, [user, profile]);
 
   const handleCleanup = async () => {
     if (!confirm('중복 숙소를 삭제하시겠습니까? events가 가장 많은 숙소 1개만 남깁니다.')) return;
@@ -203,7 +206,38 @@ export default function CleanupPage() {
     }
   };
 
-  if (!isAdminEmail(user?.email)) {
+  const handleMigrateSubToEmbed = async () => {
+    if (!confirm('subcollection channels를 property 문서 내 embedded map으로 마이그레이션합니다. 계속하시겠습니까?')) return;
+    setMigratingSubToEmbed(true);
+    const newLog: string[] = [];
+    try {
+      const propsSnap = await getDocs(collection(db, 'properties'));
+      for (const propDoc of propsSnap.docs) {
+        const existing = propDoc.data().channels;
+        const subSnap = await getDocs(collection(db, 'properties', propDoc.id, 'channels'));
+        if (subSnap.empty) {
+          newLog.push(`SKIP ${propDoc.data().name}: subcollection 없음${existing ? ' (이미 embedded)' : ''}`);
+          continue;
+        }
+        const channelsMap: Record<string, object> = existing ?? {};
+        subSnap.docs.forEach(d => {
+          if (!channelsMap[d.id]) { // don't overwrite existing
+            channelsMap[d.id] = d.data();
+          }
+        });
+        await updateDoc(doc(db, 'properties', propDoc.id), { channels: channelsMap });
+        newLog.push(`✓ ${propDoc.data().name}: ${subSnap.size}개 채널 마이그레이션`);
+      }
+      newLog.push('완료');
+    } catch (e) {
+      newLog.push(`오류: ${e}`);
+    } finally {
+      setSubToEmbedLog(newLog);
+      setMigratingSubToEmbed(false);
+    }
+  };
+
+  if (profile?.role !== 'super_admin') {
     return <div className="text-white/50 p-8">접근 권한이 없습니다.</div>;
   }
 
@@ -292,6 +326,95 @@ export default function CleanupPage() {
           <div className="bg-[#0a0a0a] border border-white/10 rounded-xl p-5">
             {channelLog.map((line, i) => (
               <p key={i} className={`text-[11px] font-mono ${line.includes('완료') ? 'text-emerald-400/70' : 'text-white/40'}`}>{line}</p>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Cleanings Migration Section */}
+      <div className="border-t border-white/10 pt-8 space-y-4">
+        <div>
+          <h2 className="text-base font-light text-white mb-1">청소 데이터 마이그레이션</h2>
+          <p className="text-white/40 text-xs leading-relaxed">
+            기존 <code className="text-white/60">cleanings.cleaner</code> (이름 문자열) →{' '}
+            <code className="text-white/60">cleanings.cleanerId</code> (ID 참조)<br />
+            cleaners 컬렉션에서 이름으로 매칭하여 ID로 교체합니다.
+          </p>
+        </div>
+        <button
+          onClick={async () => {
+            if (!confirm('cleanings 컬렉션을 새 스키마로 마이그레이션합니다. 계속하시겠습니까?')) return;
+            setMigratingCleanings(true);
+            const log: string[] = [];
+            try {
+              const cleanersSnap = await getDocs(collection(db, 'cleaners'));
+              const nameToId = new Map<string, string>();
+              cleanersSnap.docs.forEach(d => nameToId.set(d.data().name as string, d.id));
+
+              const cleaningsSnap = await getDocs(collection(db, 'cleanings'));
+              let migrated = 0, skipped = 0, failed = 0;
+
+              for (const d of cleaningsSnap.docs) {
+                const data = d.data();
+                // Already migrated
+                if (data.cleanerId) { skipped++; continue; }
+                // Old schema: has 'cleaner' name string
+                if (!data.cleaner) { log.push(`SKIP ${d.id}: cleaner 필드 없음`); skipped++; continue; }
+
+                const cleanerId = nameToId.get(data.cleaner as string);
+                if (!cleanerId) {
+                  log.push(`WARN ${d.id}: "${data.cleaner}" 이름의 담당자를 찾을 수 없음`);
+                  failed++;
+                  continue;
+                }
+
+                await updateDoc(doc(db, 'cleanings', d.id), {
+                  cleanerId,
+                  status: data.cleaningStatus ?? 'pending',
+                  updatedAt: new Date().toISOString(),
+                });
+                log.push(`✓ ${d.id}: "${data.cleaner}" → ${cleanerId}`);
+                migrated++;
+              }
+
+              log.push(`완료 — 마이그레이션: ${migrated}, 스킵: ${skipped}, 실패: ${failed}`);
+            } catch (err) {
+              log.push('오류: ' + String(err));
+            } finally {
+              setMigratingCleanings(false);
+              setCleaningMigLog(log);
+            }
+          }}
+          disabled={migratingCleanings}
+          className="w-full border border-blue-500/30 text-blue-400/80 py-4 text-[11px] uppercase tracking-widest font-semibold hover:bg-blue-500/10 transition-colors disabled:opacity-50"
+        >
+          {migratingCleanings ? '마이그레이션 중...' : 'cleanings 스키마 마이그레이션'}
+        </button>
+        {cleaningMigLog.length > 0 && (
+          <div className="bg-[#0a0a0a] border border-white/10 rounded-xl p-5 max-h-60 overflow-y-auto">
+            {cleaningMigLog.map((line, i) => (
+              <p key={i} className={`text-[11px] font-mono ${line.startsWith('✓') ? 'text-emerald-400/70' : line.startsWith('WARN') || line.startsWith('SKIP') ? 'text-amber-400/70' : line.includes('오류') ? 'text-red-400/70' : 'text-white/50'}`}>{line}</p>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* SubToEmbed Migration Section */}
+      <div className="border-t border-white/10 pt-8 space-y-4">
+        <div>
+          <h2 className="text-base font-light text-white mb-1">channels subcollection → embedded 마이그레이션</h2>
+          <p className="text-white/40 text-xs leading-relaxed">
+            <code>properties/&#123;id&#125;/channels/&#123;name&#125;</code> subcollection을{' '}
+            <code>properties/&#123;id&#125;.channels</code> 필드로 이동합니다.
+          </p>
+        </div>
+        <button onClick={handleMigrateSubToEmbed} disabled={migratingSubToEmbed} className="w-full border border-purple-500/30 text-purple-400/80 py-4 text-[11px] uppercase tracking-widest font-semibold hover:bg-purple-500/10 transition-colors disabled:opacity-50">
+          {migratingSubToEmbed ? '마이그레이션 중...' : 'channels embedded 마이그레이션'}
+        </button>
+        {subToEmbedLog.length > 0 && (
+          <div className="bg-[#0a0a0a] border border-white/10 rounded-xl p-5 max-h-60 overflow-y-auto">
+            {subToEmbedLog.map((line, i) => (
+              <p key={i} className={`text-[11px] font-mono ${line.startsWith('✓') ? 'text-emerald-400/70' : line.startsWith('SKIP') ? 'text-amber-400/70' : line.includes('오류') ? 'text-red-400/70' : 'text-white/50'}`}>{line}</p>
             ))}
           </div>
         )}

@@ -5,7 +5,6 @@ import { collection, query, getDocs, where, doc, updateDoc } from 'firebase/fire
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/FirebaseProvider';
 import { format, parseISO, differenceInDays } from 'date-fns';
-import { isAdminEmail } from '@/lib/adminConfig';
 import { ko } from 'date-fns/locale';
 import { BookOpen, X, CheckCircle2, Clock, Filter } from 'lucide-react';
 
@@ -25,7 +24,7 @@ interface Booking {
 type StatusFilter = 'all' | 'confirmed' | 'cancelled';
 
 export default function BookingsPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [properties, setProperties] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -37,7 +36,7 @@ export default function BookingsPage() {
   const fetchData = async () => {
     if (!user) return;
     try {
-      const propsSnapshot = isAdminEmail(user.email)
+      const propsSnapshot = profile?.role === 'super_admin'
         ? await getDocs(collection(db, 'properties'))
         : await getDocs(query(collection(db, 'properties'), where('ownerId', '==', user.uid)));
 

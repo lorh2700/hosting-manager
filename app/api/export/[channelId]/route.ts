@@ -24,23 +24,31 @@ export async function GET(
   }
 
   try {
-    // 1. Find channel by exportUrl field (stored as /api/export/{token}.ics)
+    // 1. Find channel by scanning all properties' embedded channels map
     const exportUrl = `/api/export/${channelId}`;
-    const channelSnap = await getDocs(query(collection(db, 'channels'), where('exportUrl', '==', exportUrl)));
+    const propsSnap = await getDocs(collection(db, 'properties'));
+    let foundPropId: string | null = null;
+    let foundChannelName: string | null = null;
 
-    if (channelSnap.empty) {
+    for (const propDoc of propsSnap.docs) {
+      const channels = (propDoc.data().channels ?? {}) as Record<string, { exportUrl?: string }>;
+      for (const [name, ch] of Object.entries(channels)) {
+        if (ch.exportUrl === exportUrl) {
+          foundPropId = propDoc.id;
+          foundChannelName = name;
+          break;
+        }
+      }
+      if (foundPropId) break;
+    }
+
+    if (!foundPropId) {
       return new NextResponse('Channel not found', { status: 404 });
     }
 
-    const channelDoc = channelSnap.docs[0];
-    const channel = channelDoc.data() as {
-      propertyId: string;
-      name: string;
-    };
-
     // 2. Fetch all events for this property
     const eventsSnap = await getDocs(
-      query(collection(db, 'events'), where('propertyId', '==', channel.propertyId))
+      query(collection(db, 'events'), where('propertyId', '==', foundPropId))
     );
     const channelEvents = eventsSnap.docs.map(d => d.data() as {
       id?: string;
@@ -55,7 +63,7 @@ export async function GET(
     const bookingsSnap = await getDocs(
       query(
         collection(db, 'bookings'),
-        where('propertyId', '==', channel.propertyId),
+        where('propertyId', '==', foundPropId),
         where('status', '==', 'confirmed'),
       )
     );
@@ -94,7 +102,7 @@ export async function GET(
       return new NextResponse(emptyCal, {
         headers: {
           'Content-Type': 'text/calendar; charset=utf-8',
-          'Content-Disposition': `attachment; filename="${channel.name}.ics"`,
+          'Content-Disposition': `attachment; filename="${foundChannelName}.ics"`,
         },
       });
     }
@@ -108,7 +116,7 @@ export async function GET(
     return new NextResponse(value, {
       headers: {
         'Content-Type': 'text/calendar; charset=utf-8',
-        'Content-Disposition': `attachment; filename="${channel.name}.ics"`,
+        'Content-Disposition': `attachment; filename="${foundChannelName}.ics"`,
       },
     });
   } catch (error) {

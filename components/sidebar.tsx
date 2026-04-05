@@ -2,19 +2,32 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, HomeIcon, Calendar, BookOpen, MessageSquare, Users } from 'lucide-react';
+import { Home, HomeIcon, Calendar, BookOpen, MessageSquare, Users, UserCog, LogOut, Settings, Link2, Contact } from 'lucide-react';
+import { useAuth } from '@/components/FirebaseProvider';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 const SIDEBAR_LINKS = [
-  { href: '/admin', label: '대시보드', icon: Home },
-  { href: '/admin/properties', label: '숙소 관리', icon: HomeIcon },
-  { href: '/admin/calendar', label: '통합 캘린더', icon: Calendar },
-  { href: '/admin/bookings', label: '예약 관리', icon: BookOpen },
-  { href: '/admin/messages', label: '메시지', icon: MessageSquare },
-  { href: '/admin/cleaners', label: '청소 담당자', icon: Users },
+  { href: '/admin', label: '대시보드', icon: Home, roles: ['super_admin', 'admin', 'host'] },
+  { href: '/admin/properties', label: '숙소 관리', icon: HomeIcon, roles: ['super_admin', 'admin', 'host'] },
+  { href: '/admin/calendar', label: '통합 캘린더', icon: Calendar, roles: ['super_admin', 'admin', 'host'] },
+  { href: '/admin/bookings', label: '예약 관리', icon: BookOpen, roles: ['super_admin', 'admin', 'host'] },
+  { href: '/admin/messages', label: '메시지', icon: MessageSquare, roles: ['super_admin', 'admin', 'host'] },
+  { href: '/admin/guests', label: '게스트', icon: Contact, roles: ['super_admin', 'admin', 'host'] },
+  { href: '/admin/cleaners', label: '청소 담당자', icon: Users, roles: ['super_admin', 'admin', 'host'] },
+  { href: '/admin/users', label: '유저 관리', icon: UserCog, roles: ['super_admin', 'admin'] },
+  { href: '/admin/integrations', label: '연동 관리', icon: Link2, roles: ['super_admin', 'admin'] },
+  { href: '/admin/settings/profile', label: '프로필', icon: Settings, roles: ['super_admin', 'admin', 'host', 'cleaner', 'viewer'] },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { profile, user } = useAuth();
+  const role = profile?.role ?? 'host';
+
+  const visibleLinks = SIDEBAR_LINKS.filter(link => link.roles.includes(role));
+
+  const handleLogout = () => signOut(auth);
 
   return (
     <>
@@ -27,7 +40,7 @@ export function Sidebar() {
           </Link>
         </div>
         <nav className="flex-1 py-8 px-6 space-y-4">
-          {SIDEBAR_LINKS.map((link) => {
+          {visibleLinks.map((link) => {
             const isActive = pathname === link.href || (link.href !== '/admin' && pathname.startsWith(link.href));
             const Icon = link.icon;
             return (
@@ -44,11 +57,21 @@ export function Sidebar() {
             );
           })}
         </nav>
+        <div className="p-6 border-t border-white/10">
+          <p className="text-[10px] text-white/30 truncate mb-3">{user?.email}</p>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 text-white/40 hover:text-white transition-colors text-[11px] uppercase tracking-widest"
+          >
+            <LogOut size={14} />
+            로그아웃
+          </button>
+        </div>
       </div>
 
       {/* Mobile bottom navigation */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0a0a0a] border-t border-white/10 flex items-center justify-around px-1">
-        {SIDEBAR_LINKS.map((link) => {
+        {visibleLinks.map((link) => {
           const isActive = pathname === link.href || (link.href !== '/admin' && pathname.startsWith(link.href));
           const Icon = link.icon;
           return (
@@ -64,6 +87,13 @@ export function Sidebar() {
             </Link>
           );
         })}
+        <button
+          onClick={handleLogout}
+          className="flex flex-col items-center gap-1 py-3 px-1 flex-1 text-white/35 hover:text-white transition-colors"
+        >
+          <LogOut size={20} strokeWidth={1.5} />
+          <span className="text-[9px] tracking-wide font-medium leading-none">로그아웃</span>
+        </button>
       </nav>
     </>
   );

@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Sidebar } from '@/components/sidebar';
 import { useAuth } from '@/components/FirebaseProvider';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function CleanerLayout({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,8 +15,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && profile?.role === 'cleaner') {
-      router.replace('/cleaner');
+    if (!loading && profile && profile.role !== 'cleaner' && profile.role !== 'super_admin') {
+      router.replace('/admin');
     }
   }, [loading, profile, router]);
 
@@ -53,8 +52,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#050505] p-4 font-sans">
         <div className="bg-[#111] p-10 border border-white/10 max-w-md w-full">
-          <h1 className="text-2xl font-light tracking-widest text-white mb-2 uppercase">호스트 로그인</h1>
-          <p className="text-white/50 mb-8 text-sm font-light tracking-wide">void anchae 숙소를 관리하려면 로그인하세요.</p>
+          <h1 className="text-2xl font-light tracking-widest text-white mb-2 uppercase">청소 담당자 로그인</h1>
+          <p className="text-white/50 mb-8 text-sm font-light tracking-wide">청소 일정을 확인하려면 로그인하세요.</p>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
@@ -106,34 +105,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  if (profile?.role === 'cleaner') return null;
-
-  if (profile?.status === 'suspended') {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#050505] p-4 font-sans">
-        <div className="bg-[#111] p-10 border border-red-500/30 max-w-md w-full text-center">
-          <h1 className="text-xl font-light tracking-widest text-white mb-4 uppercase">계정 비활성화</h1>
-          <p className="text-white/50 text-sm font-light">계정이 비활성화되었습니다. 관리자에게 문의하세요.</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (profile?.status === 'pending_invite') {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#050505] p-4 font-sans">
-        <div className="bg-[#111] p-10 border border-amber-500/30 max-w-md w-full text-center">
-          <h1 className="text-xl font-light tracking-widest text-white mb-4 uppercase">승인 대기중</h1>
-          <p className="text-white/50 text-sm font-light">관리자의 승인을 기다리고 있습니다. 잠시만 기다려주세요.</p>
-        </div>
-      </div>
-    );
-  }
+  if (profile && profile.role !== 'cleaner' && profile.role !== 'super_admin') return null;
 
   return (
-    <div className="flex min-h-screen bg-[#050505] font-sans text-white selection:bg-white/20">
-      <Sidebar />
-      <main className="flex-1 p-4 pb-24 md:p-8 lg:p-12 md:pb-12 overflow-y-auto min-w-0">
+    <div className="min-h-screen bg-[#050505] font-sans text-white selection:bg-white/20">
+      <header className="border-b border-white/10 px-6 py-4 flex items-center justify-between">
+        <span className="text-sm tracking-[0.2em] font-medium text-white">void anchae</span>
+        <span className="text-[10px] tracking-widest text-white/40 uppercase">청소 일정</span>
+      </header>
+      <main className="p-4 pb-12 md:p-8 max-w-2xl mx-auto">
         {children}
       </main>
     </div>

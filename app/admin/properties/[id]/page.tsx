@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { ArrowLeft, RefreshCw, Calendar as CalendarIcon, X, AlertTriangle, MessageSquare } from 'lucide-react';
@@ -99,18 +99,21 @@ export default function CalendarPage() {
     const fetchData = async () => {
       try {
         const propDoc = await getDoc(doc(db, 'properties', id));
-        if (propDoc.exists()) {
-          setProperty({ id: propDoc.id, ...propDoc.data() } as Property);
+        if (!propDoc.exists()) {
+          setLoading(false);
+          return;
         }
 
-        const qChannels = query(collection(db, 'channels'), where('propertyId', '==', id));
-        const snapshotChannels = await getDocs(qChannels);
-        const channelsData = snapshotChannels.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setProperty({ id: propDoc.id, ...propDoc.data() } as Property);
+
+        const propData = propDoc.data();
+        const channelsMap = propData?.channels ?? {};
+        const channelsData = Object.entries(channelsMap).map(([name, ch]: [string, any]) => ({ id: name, ...ch }));
         setChannels(channelsData);
 
         // Add active channels to filter
         const activeIds = channelsData.filter((c: any) => c.isActive).map(c => c.id);
-        const beds24Id = propDoc.data()?.beds24PropId ? ['beds24'] : [];
+        const beds24Id = propData?.beds24PropId ? ['beds24'] : [];
         setActiveChannels(['direct', ...activeIds, ...beds24Id]);
 
         await fetchEvents();
@@ -242,7 +245,9 @@ export default function CalendarPage() {
     switch (channelName) {
       case 'Airbnb': return '#ff5a5f';
       case 'Booking.com': return '#003580';
-      case 'Stayfolio': return '#14b8a6';
+      case 'Stayfolio':
+      case '스테이폴리오':
+        return '#14b8a6';
       case 'Direct': return '#6366f1'; // indigo — our direct booking page
       case 'Beds24': return '#0ea5e9';
       default: return '#6366f1';
@@ -261,8 +266,20 @@ export default function CalendarPage() {
     return source || 'Beds24';
   };
 
+  const isStayfolioChannel = (channelId: string) =>
+    channelId.toLowerCase() === 'stayfolio' || channelId === '스테이폴리오';
+
   const calendarEvents = useMemo(() => events
-    .filter((e) => activeChannels.includes(e.channelId) && e.type !== 'block')
+    .filter((e) => {
+      if (!activeChannels.includes(e.channelId)) return false;
+      if (e.type === 'block') return false;
+      // Stayfolio 1-day events are cross-channel blocks, not real reservations
+      if (isStayfolioChannel(e.channelId)) {
+        const diffMs = new Date(e.end.substring(0, 10)).getTime() - new Date(e.start.substring(0, 10)).getTime();
+        if (diffMs <= 24 * 60 * 60 * 1000) return false;
+      }
+      return true;
+    })
     .map((e) => {
       const channel = channels.find((c) => c.id === e.channelId);
       let channelName: string;
@@ -275,7 +292,7 @@ export default function CalendarPage() {
         channelName = '직접 예약';
         color = getChannelColor('Direct', e.type === 'block');
       } else {
-        channelName = channel?.name || '';
+        channelName = channel?.id || '';
         color = getChannelColor(channelName, e.type === 'block');
       }
       return {
@@ -305,13 +322,21 @@ export default function CalendarPage() {
     const toDateStr = (d: string) => d.substring(0, 10); // Normalize to YYYY-MM-DD
 
     const checkableEvents = events
-      .filter(e => activeChannels.includes(e.channelId) && e.type !== 'block')
+      .filter(e => {
+        if (!activeChannels.includes(e.channelId)) return false;
+        if (e.type === 'block') return false;
+        if (isStayfolioChannel(e.channelId)) {
+          const diffMs = new Date(e.end.substring(0, 10)).getTime() - new Date(e.start.substring(0, 10)).getTime();
+          if (diffMs <= 24 * 60 * 60 * 1000) return false;
+        }
+        return true;
+      })
       .map(e => ({ ...e, startDate: toDateStr(e.start), endDate: toDateStr(e.end) }));
 
     const resolveChannelName = (channelId: string) => {
       if (channelId === 'direct') return '직접 예약';
       if (channelId === 'beds24') return 'Beds24';
-      return channels.find(ch => ch.id === channelId)?.name || channelId;
+      return channels.find(ch => ch.id === channelId)?.id || channelId;
     };
 
     const conflictGroups: Record<string, Set<string>> = {};
@@ -480,8 +505,8 @@ export default function CalendarPage() {
                     {channels.map((channel) => (
                       <div key={channel.id} className="flex items-center gap-3 px-2 py-1.5 opacity-30">
                         <div className="w-3.5 h-3.5" />
-                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: getChannelColor(channel.name, false) }} />
-                        <span className="text-[11px] font-light text-white/50 line-through">{channel.name}</span>
+                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: getChannelColor(channel.id, false) }} />
+                        <span className="text-[11px] font-light text-white/50 line-through">{channel.id}</span>
                       </div>
                     ))}
                   </div>
@@ -495,8 +520,8 @@ export default function CalendarPage() {
                       onChange={() => toggleChannelFilter(channel.id)}
                       className="w-3.5 h-3.5 accent-white rounded-sm"
                     />
-                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: getChannelColor(channel.name, false) }} />
-                    <span className="text-[11px] font-light text-white/60 group-hover:text-white/90 transition-colors">{channel.name}</span>
+                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: getChannelColor(channel.id, false) }} />
+                    <span className="text-[11px] font-light text-white/60 group-hover:text-white/90 transition-colors">{channel.id}</span>
                   </label>
                 ))
               )}

@@ -1,53 +1,11 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    //
-    // Collection: users
-    // Document ID: userId
-    // Fields:
-    //   - email: string (required, email format)
-    //   - role: string (required, 'admin' or 'host')
-    //   - createdAt: string (required, ISO 8601 date string)
-    //
-    // Collection: properties
-    // Document ID: propertyId
-    // Fields:
-    //   - name: string (required)
-    //   - timezone: string (required)
-    //   - ownerId: string (required)
-    //   - createdAt: string (required, ISO 8601 date string)
-    //
-    // Collection: bookings
-    // Document ID: bookingId
-    // Fields:
-    //   - propertyId: string (required)
-    //   - checkIn: string (required, YYYY-MM-DD)
-    //   - checkOut: string (required, YYYY-MM-DD)
-    //   - guests: number (required)
-    //   - name: string (required)
-    //   - email: string (required, email format)
-    //   - status: string (required, 'confirmed' or 'cancelled')
-    //   - createdAt: string (required, ISO 8601 date string)
-    //
-    // Collection: channels
-    // Document ID: channelId
-    // Fields:
-    //   - propertyId: string (required)
-    //   - name: string (required)
-    //   - importUrl: string (required)
-    //   - exportUrl: string (required)
-    //   - isActive: boolean (required)
-    //   - createdAt: string (required, ISO 8601 date string)
-    //
-    // ===============================================================
 
     // ===============================================================
     // Helper Functions
     // ===============================================================
-    
+
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -56,24 +14,25 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    function isAdmin() {
-      return isAuthenticated() &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-          (request.auth.token.email == "lorh2700@gmail.com" && request.auth.token.email_verified == true) ||
-          (request.auth.token.email == "unwadang@gmail.com" && request.auth.token.email_verified == true) ||
-          (request.auth.token.email == "alsemffp67@gmail.com" && request.auth.token.email_verified == true));
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && getUserRole() == 'super_admin';
+    }
+
+    function isAdminOrAbove() {
+      return isAuthenticated() && getUserRole() in ['super_admin', 'admin'];
     }
 
     function isDocOwner() {
       return isAuthenticated() && request.auth.uid == resource.data.ownerId;
     }
 
-    function hasRequiredFields(fields) {
-      return request.resource.data.keys().hasAll(fields);
-    }
-
-    function hasOnlyAllowedFields(fields) {
-      return request.resource.data.keys().hasOnly(fields);
+    function isPropertyOwner(propertyId) {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/properties/$(propertyId)).data.ownerId == request.auth.uid;
     }
 
     function isValidEmail(email) {
@@ -89,160 +48,262 @@ service cloud.firestore {
     }
 
     // ===============================================================
-    // Domain Validators
-    // ===============================================================
-
-    function isValidUser(data) {
-      return hasOnlyAllowedFields(['email', 'role', 'createdAt']) &&
-             data.email is string && isValidEmail(data.email) && data.email.size() < 100 &&
-             data.role in ['admin', 'host'] &&
-             isValidDateString(data.createdAt);
-    }
-
-    function isValidProperty(data) {
-      return data.keys().hasAll(['name', 'timezone', 'ownerId', 'createdAt']) &&
-             data.keys().hasOnly(['name', 'timezone', 'ownerId', 'createdAt', 'beds24PropId',
-               'checkInTime', 'checkOutTime', 'address', 'phone', 'email', 'permit',
-               'description', 'basePrice', 'maxGuests']) &&
-             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
-             data.timezone is string && data.timezone.size() > 0 && data.timezone.size() < 50 &&
-             data.ownerId is string && data.ownerId.size() > 0 && data.ownerId.size() < 50 &&
-             isValidDateString(data.createdAt);
-    }
-
-    function isValidBooking(data) {
-      return data.keys().hasAll(['propertyId', 'checkIn', 'checkOut', 'guests', 'name', 'email', 'status', 'createdAt']) &&
-             data.keys().hasOnly(['propertyId', 'checkIn', 'checkOut', 'guests', 'name', 'email', 'phone', 'message', 'status', 'createdAt', 'cleanerName', 'requiredInventory', 'cleaningStatus']) &&
-             data.propertyId is string && data.propertyId.size() > 0 && data.propertyId.size() < 50 &&
-             isValidDateOnlyString(data.checkIn) &&
-             isValidDateOnlyString(data.checkOut) &&
-             data.guests is number && data.guests > 0 && data.guests <= 20 &&
-             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
-             data.email is string && isValidEmail(data.email) && data.email.size() < 100 &&
-             (!('phone' in data) || (data.phone is string && data.phone.size() < 50)) &&
-             (!('message' in data) || (data.message is string && data.message.size() < 1000)) &&
-             data.status in ['confirmed', 'cancelled'] &&
-             isValidDateString(data.createdAt);
-    }
-
-    function isValidSubchannel(data) {
-      return data.keys().hasOnly(['importUrl', 'exportUrl', 'isActive', 'createdAt']) &&
-             data.importUrl is string && data.importUrl.size() < 500 &&
-             data.exportUrl is string && data.exportUrl.size() < 500 &&
-             data.isActive is bool &&
-             isValidDateString(data.createdAt);
-    }
-
-    function isValidEvent(data) {
-      return data.keys().hasAll(['propertyId', 'channelId', 'title', 'start', 'end', 'type', 'createdAt']) &&
-             data.propertyId is string && data.propertyId.size() > 0 && data.propertyId.size() < 50 &&
-             data.channelId is string && data.channelId.size() > 0 && data.channelId.size() < 50 &&
-             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
-             (isValidDateString(data.start) || isValidDateOnlyString(data.start)) &&
-             (isValidDateString(data.end) || isValidDateOnlyString(data.end)) &&
-             data.type in ['reservation', 'block'] &&
-             (!('source' in data) || (data.source is string && data.source.size() < 100)) &&
-             (!('originalUid' in data) || (data.originalUid is string && data.originalUid.size() < 200)) &&
-             (!('description' in data) || (data.description is string && data.description.size() < 2000)) &&
-             isValidDateString(data.createdAt);
-    }
-
-    // ===============================================================
-    // Rules
+    // Users
     // ===============================================================
 
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow create: if isAuthenticated() && isValidUser(request.resource.data) && 
-                    ((isOwner(userId) && request.resource.data.role == 'host') || isAdmin());
-      allow update: if isAuthenticated() && isValidUser(request.resource.data) && 
-                    ((isOwner(userId) && request.resource.data.role == resource.data.role && request.resource.data.createdAt == resource.data.createdAt) || isAdmin());
-      allow delete: if isAdmin();
+      function isValidUser(data) {
+        return data.keys().hasAll(['email', 'role', 'status', 'createdAt', 'updatedAt']) &&
+               data.email is string && isValidEmail(data.email) && data.email.size() < 100 &&
+               data.role in ['super_admin', 'admin', 'host', 'cleaner', 'viewer'] &&
+               data.status in ['active', 'suspended', 'pending_invite'] &&
+               isValidDateString(data.createdAt) &&
+               isValidDateString(data.updatedAt);
+      }
+
+      allow read: if isOwner(userId) || isAdminOrAbove();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) &&
+                    ((isOwner(userId) && request.resource.data.role == 'host' && request.resource.data.status == 'pending_invite') || isAdminOrAbove());
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) &&
+                    ((isOwner(userId) && request.resource.data.role == resource.data.role && request.resource.data.createdAt == resource.data.createdAt) || isAdminOrAbove());
+      allow delete: if isSuperAdmin();
     }
+
+    // ===============================================================
+    // Invitations
+    // ===============================================================
+
+    match /invitations/{invitationId} {
+      function isValidInvitation(data) {
+        return data.keys().hasAll(['email', 'role', 'propertyIds', 'invitedBy', 'status', 'token', 'expiresAt', 'createdAt']) &&
+               data.email is string && isValidEmail(data.email) &&
+               data.role in ['admin', 'host', 'cleaner', 'viewer'] &&
+               data.propertyIds is list &&
+               data.invitedBy is string &&
+               data.status in ['pending', 'accepted', 'expired'] &&
+               data.token is string && data.token.size() > 0 &&
+               isValidDateString(data.expiresAt) &&
+               isValidDateString(data.createdAt);
+      }
+
+      allow read: if isAdminOrAbove() ||
+                   (isAuthenticated() && resource.data.email == request.auth.token.email);
+      allow create: if isAdminOrAbove() && isValidInvitation(request.resource.data);
+      allow update: if isAdminOrAbove() ||
+                    (isAuthenticated() && resource.data.email == request.auth.token.email && request.resource.data.status == 'accepted');
+      allow delete: if isAdminOrAbove();
+    }
+
+    // ===============================================================
+    // Properties
+    // ===============================================================
 
     match /properties/{propertyId} {
-      allow read: if true; // Public can read properties
-      allow create: if isAuthenticated() && isValidProperty(request.resource.data) &&
-                    (request.resource.data.ownerId == request.auth.uid || isAdmin());
-      allow update: if isAuthenticated() && isValidProperty(request.resource.data) &&
-                    ((isDocOwner() && request.resource.data.ownerId == resource.data.ownerId && request.resource.data.createdAt == resource.data.createdAt) || isAdmin());
-      allow delete: if isDocOwner() || isAdmin();
-
-      match /channels/{channelName} {
-        allow read: if isAuthenticated() &&
-                    (isAdmin() || get(/databases/$(database)/documents/properties/$(propertyId)).data.ownerId == request.auth.uid);
-        allow create, update: if isAuthenticated() &&
-                    (isAdmin() || get(/databases/$(database)/documents/properties/$(propertyId)).data.ownerId == request.auth.uid) &&
-                    isValidSubchannel(request.resource.data);
-        allow delete: if isAuthenticated() &&
-                    (isAdmin() || get(/databases/$(database)/documents/properties/$(propertyId)).data.ownerId == request.auth.uid);
+      function isValidProperty(data) {
+        return data.keys().hasAll(['name', 'timezone', 'ownerId', 'createdAt']) &&
+               data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+               data.timezone is string && data.timezone.size() > 0 && data.timezone.size() < 50 &&
+               data.ownerId is string && data.ownerId.size() > 0 && data.ownerId.size() < 50 &&
+               isValidDateString(data.createdAt);
       }
+
+      allow read: if true;
+      allow create: if isAuthenticated() && isValidProperty(request.resource.data) &&
+                    (request.resource.data.ownerId == request.auth.uid || isAdminOrAbove());
+      allow update: if isAuthenticated() && isValidProperty(request.resource.data) &&
+                    ((isDocOwner() && request.resource.data.ownerId == resource.data.ownerId && request.resource.data.createdAt == resource.data.createdAt) || isAdminOrAbove());
+      allow delete: if isDocOwner() || isAdminOrAbove();
     }
 
+    // ===============================================================
+    // Guests
+    // ===============================================================
+
+    match /guests/{guestId} {
+      function isValidGuest(data) {
+        return data.keys().hasAll(['name', 'email', 'bookingCount', 'source', 'createdAt', 'updatedAt']) &&
+               data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+               data.email is string && isValidEmail(data.email) &&
+               data.bookingCount is number && data.bookingCount >= 0 &&
+               data.source in ['direct', 'airbnb', 'booking', 'beds24', 'stayfolio', 'agoda'] &&
+               isValidDateString(data.createdAt) &&
+               isValidDateString(data.updatedAt);
+      }
+
+      allow read: if isAuthenticated();
+      allow create: if isValidGuest(request.resource.data);
+      allow update: if isAuthenticated() && isValidGuest(request.resource.data) &&
+                    request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isAdminOrAbove();
+    }
+
+    // ===============================================================
+    // Bookings
+    // ===============================================================
+
     match /bookings/{bookingId} {
-      // Hosts can read bookings for their properties, admins can read all
-      // Public read allowed for availability conflict checking during booking
+      function isValidBooking(data) {
+        return data.keys().hasAll(['propertyId', 'checkIn', 'checkOut', 'guests', 'name', 'email', 'status', 'createdAt']) &&
+               data.propertyId is string && data.propertyId.size() > 0 && data.propertyId.size() < 50 &&
+               isValidDateOnlyString(data.checkIn) &&
+               isValidDateOnlyString(data.checkOut) &&
+               data.guests is number && data.guests > 0 && data.guests <= 20 &&
+               data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+               data.email is string && isValidEmail(data.email) && data.email.size() < 100 &&
+               data.status in ['confirmed', 'pending', 'cancelled'] &&
+               isValidDateString(data.createdAt);
+      }
+
       allow read: if true;
-      
-      // Anyone can create a booking (public booking form)
-      allow create: if isValidBooking(request.resource.data) && request.resource.data.status == 'confirmed';
-      
-      // Only hosts of the property or admins can update/delete bookings
-      allow update: if (isAdmin() || (isAuthenticated() && get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.ownerId == request.auth.uid)) &&
+      allow create: if isValidBooking(request.resource.data);
+      allow update: if (isAdminOrAbove() || (isAuthenticated() && isPropertyOwner(resource.data.propertyId))) &&
                     isValidBooking(request.resource.data) &&
                     request.resource.data.propertyId == resource.data.propertyId &&
                     request.resource.data.createdAt == resource.data.createdAt;
-      allow delete: if isAdmin() || (isAuthenticated() && get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.ownerId == request.auth.uid);
+      allow delete: if isAdminOrAbove() || (isAuthenticated() && isPropertyOwner(resource.data.propertyId));
     }
 
+    // ===============================================================
+    // Channels (legacy — kept for migration period)
+    // ===============================================================
+
     match /channels/{channelId} {
-      allow read: if isAdmin() || (isAuthenticated() && get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.ownerId == request.auth.uid);
-      allow create: if (isAdmin() || (isAuthenticated() && get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.ownerId == request.auth.uid)) &&
+      function isValidChannel(data) {
+        return data.keys().hasAll(['propertyId', 'name', 'importUrl', 'isActive', 'createdAt']) &&
+               data.propertyId is string &&
+               data.name is string &&
+               data.importUrl is string &&
+               data.isActive is bool &&
+               isValidDateString(data.createdAt);
+      }
+
+      allow read: if isAdminOrAbove() || (isAuthenticated() && isPropertyOwner(resource.data.propertyId));
+      allow create: if (isAdminOrAbove() || (isAuthenticated() && isPropertyOwner(request.resource.data.propertyId))) &&
                     isValidChannel(request.resource.data);
-      allow update: if (isAdmin() || (isAuthenticated() && get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.ownerId == request.auth.uid)) &&
+      allow update: if (isAdminOrAbove() || (isAuthenticated() && isPropertyOwner(resource.data.propertyId))) &&
                     isValidChannel(request.resource.data) &&
                     request.resource.data.propertyId == resource.data.propertyId &&
                     request.resource.data.createdAt == resource.data.createdAt;
-      allow delete: if isAdmin() || (isAuthenticated() && get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.ownerId == request.auth.uid);
+      allow delete: if isAdminOrAbove() || (isAuthenticated() && isPropertyOwner(resource.data.propertyId));
     }
 
+    // ===============================================================
+    // Integrations (replaces Channels)
+    // ===============================================================
+
+    match /integrations/{integrationId} {
+      function isValidIntegration(data) {
+        return data.keys().hasAll(['propertyId', 'provider', 'type', 'config', 'status', 'syncIntervalMinutes', 'createdAt', 'updatedAt']) &&
+               data.propertyId is string &&
+               data.provider in ['airbnb', 'booking', 'beds24', 'stayfolio', 'agoda', 'naver'] &&
+               data.type in ['ical', 'api'] &&
+               data.config is map &&
+               data.status in ['active', 'inactive', 'error'] &&
+               data.syncIntervalMinutes is number && data.syncIntervalMinutes >= 5 &&
+               isValidDateString(data.createdAt) &&
+               isValidDateString(data.updatedAt);
+      }
+
+      allow read: if isAdminOrAbove() || (isAuthenticated() && isPropertyOwner(resource.data.propertyId));
+      allow create: if (isAdminOrAbove() || (isAuthenticated() && isPropertyOwner(request.resource.data.propertyId))) &&
+                    isValidIntegration(request.resource.data);
+      allow update: if (isAdminOrAbove() || (isAuthenticated() && isPropertyOwner(resource.data.propertyId))) &&
+                    isValidIntegration(request.resource.data) &&
+                    request.resource.data.propertyId == resource.data.propertyId &&
+                    request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isAdminOrAbove() || (isAuthenticated() && isPropertyOwner(resource.data.propertyId));
+    }
+
+    // ===============================================================
+    // Events
+    // ===============================================================
+
+    match /events/{eventId} {
+      function isValidEvent(data) {
+        return data.keys().hasAll(['propertyId', 'channelId', 'title', 'start', 'end', 'type', 'createdAt']) &&
+               data.propertyId is string && data.propertyId.size() > 0 && data.propertyId.size() < 50 &&
+               data.channelId is string && data.channelId.size() > 0 && data.channelId.size() < 50 &&
+               data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+               (isValidDateString(data.start) || isValidDateOnlyString(data.start)) &&
+               (isValidDateString(data.end) || isValidDateOnlyString(data.end)) &&
+               data.type in ['reservation', 'block'] &&
+               isValidDateString(data.createdAt);
+      }
+
+      allow read: if true;
+      allow create: if (isAdminOrAbove() || (isAuthenticated() && isPropertyOwner(request.resource.data.propertyId))) &&
+                    isValidEvent(request.resource.data);
+      allow update: if (isAdminOrAbove() || (isAuthenticated() && isPropertyOwner(resource.data.propertyId))) &&
+                    isValidEvent(request.resource.data) &&
+                    request.resource.data.propertyId == resource.data.propertyId &&
+                    request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isAdminOrAbove() || (isAuthenticated() && isPropertyOwner(resource.data.propertyId));
+    }
+
+    // ===============================================================
+    // Sync Logs
+    // ===============================================================
+
+    match /sync_logs/{logId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if false;
+      allow delete: if isSuperAdmin();
+    }
+
+    // ===============================================================
+    // Cleaners
+    // ===============================================================
+
     match /cleaners/{cleanerId} {
-      allow read: if isAuthenticated() && (isDocOwner() || isAdmin());
+      allow read: if isAuthenticated();
       allow create: if isAuthenticated() &&
                     request.resource.data.keys().hasAll(['name', 'ownerId', 'createdAt']) &&
                     request.resource.data.keys().hasOnly(['name', 'phone', 'ownerId', 'createdAt']) &&
                     request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() < 100 &&
                     (!('phone' in request.resource.data) || (request.resource.data.phone is string && request.resource.data.phone.size() < 50)) &&
                     request.resource.data.ownerId == request.auth.uid;
-      allow update: if isAuthenticated() && isDocOwner() &&
+      allow update: if isAuthenticated() && (isDocOwner() || isAdminOrAbove()) &&
                     request.resource.data.keys().hasOnly(['name', 'phone', 'ownerId', 'createdAt']) &&
                     request.resource.data.ownerId == resource.data.ownerId &&
                     request.resource.data.createdAt == resource.data.createdAt;
-      allow delete: if isAuthenticated() && (isDocOwner() || isAdmin());
+      allow delete: if isAuthenticated() && (isDocOwner() || isAdminOrAbove());
     }
+
+    // ===============================================================
+    // Messages
+    // ===============================================================
+
+    match /messages/{messageId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+                    request.resource.data.keys().hasAll(['eventId', 'propertyId', 'text', 'sender', 'createdAt']) &&
+                    request.resource.data.eventId is string &&
+                    request.resource.data.propertyId is string &&
+                    request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() < 2000 &&
+                    request.resource.data.sender in ['host', 'guest', 'system'] &&
+                    isValidDateString(request.resource.data.createdAt);
+      allow update: if isAuthenticated();
+      allow delete: if isAdminOrAbove();
+    }
+
+    // ===============================================================
+    // Cleanings
+    // ===============================================================
 
     match /cleanings/{cleaningId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() &&
-                    request.resource.data.keys().hasAll(['propertyId', 'propertyName', 'date', 'cleaner', 'month', 'createdAt']) &&
-                    request.resource.data.keys().hasOnly(['propertyId', 'propertyName', 'date', 'cleaner', 'month', 'createdAt', 'supplies']) &&
+                    request.resource.data.keys().hasAll(['propertyId', 'date', 'cleanerId', 'status', 'createdAt']) &&
+                    request.resource.data.keys().hasOnly(['propertyId', 'date', 'cleanerId', 'status', 'supplies', 'notes', 'createdAt', 'updatedAt']) &&
                     request.resource.data.propertyId is string &&
                     request.resource.data.date is string &&
-                    request.resource.data.cleaner is string &&
-                    (!('supplies' in request.resource.data) || request.resource.data.supplies is string);
-      allow update, delete: if isAdmin() || (isAuthenticated() && get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.ownerId == request.auth.uid);
-    }
-
-    match /events/{eventId} {
-      // Public read allowed for calendar availability display
-      allow read: if true;
-      allow create: if (isAdmin() || (isAuthenticated() && get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.ownerId == request.auth.uid)) &&
-                    isValidEvent(request.resource.data);
-      allow update: if (isAdmin() || (isAuthenticated() && get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.ownerId == request.auth.uid)) &&
-                    isValidEvent(request.resource.data) &&
-                    request.resource.data.propertyId == resource.data.propertyId &&
-                    request.resource.data.createdAt == resource.data.createdAt;
-      allow delete: if isAdmin() || (isAuthenticated() && get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.ownerId == request.auth.uid);
+                    request.resource.data.cleanerId is string &&
+                    request.resource.data.status in ['pending', 'done'];
+      allow update: if isAuthenticated() &&
+                    request.resource.data.keys().hasOnly(['propertyId', 'date', 'cleanerId', 'status', 'supplies', 'notes', 'createdAt', 'updatedAt']) &&
+                    request.resource.data.status in ['pending', 'done'];
+      allow delete: if isAdminOrAbove() || (isAuthenticated() && isPropertyOwner(resource.data.propertyId));
     }
   }
 }

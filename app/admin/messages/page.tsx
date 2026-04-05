@@ -21,6 +21,15 @@ interface Message {
   read: boolean;
 }
 
+interface EventInfo {
+  id: string;
+  propertyId: string;
+  title: string;
+  start: string;
+  end: string;
+  description?: string;
+}
+
 interface Conversation {
   eventId: string;
   propertyId: string;
@@ -29,6 +38,9 @@ interface Conversation {
   lastMessage: string;
   lastMessageAt: string;
   unread: number;
+  eventDescription?: string;
+  checkIn?: string;
+  checkOut?: string;
 }
 
 function MessagesContent() {
@@ -61,17 +73,18 @@ function MessagesContent() {
     loadProperties();
   }, [user]);
 
-  // Load all conversations (grouped by eventId)
+  // Load all conversations (from events + messages)
   const loadConversations = useCallback(async () => {
     if (!user || Object.keys(properties).length === 0) return;
     setLoading(true);
     try {
       const propertyIds = Object.keys(properties);
-      // Firestore 'in' supports up to 30 items
       const chunks: string[][] = [];
       for (let i = 0; i < propertyIds.length; i += 30) {
         chunks.push(propertyIds.slice(i, i + 30));
       }
+
+      // Load messages
       const allMessages: Message[] = [];
       for (const chunk of chunks) {
         const q = query(collection(db, 'messages'), where('propertyId', 'in', chunk));
@@ -81,18 +94,93 @@ function MessagesContent() {
         });
       }
 
-      // Group by eventId
-      const grouped: Record<string, Message[]> = {};
+      // Load events (reservations only, recent and upcoming)
+      const allEvents: EventInfo[] = [];
+      for (const chunk of chunks) {
+        const q = query(
+          collection(db, 'events'),
+          where('propertyId', 'in', chunk),
+          where('type', '==', 'reservation'),
+        );
+        const snap = await getDocs(q);
+        snap.docs.forEach(d => {
+          const data = d.data();
+          allEvents.push({
+            id: d.id,
+            propertyId: data.propertyId,
+            title: data.title,
+            start: data.start,
+            end: data.end,
+            description: data.description,
+          });
+        });
+      }
+
+      // Also load bookings
+      for (const chunk of chunks) {
+        const q = query(
+          collection(db, 'bookings'),
+          where('propertyId', 'in', chunk),
+          where('status', '==', 'confirmed'),
+        );
+        const snap = await getDocs(q);
+        snap.docs.forEach(d => {
+          const data = d.data();
+          allEvents.push({
+            id: d.id,
+            propertyId: data.propertyId,
+            title: data.name || '게스트',
+            start: data.checkIn,
+            end: data.checkOut,
+            description: data.message || `게스트: ${data.name}\n연락처: ${data.email}\n인원: ${data.guests}명`,
+          });
+        });
+      }
+
+      // Group messages by eventId
+      const msgGrouped: Record<string, Message[]> = {};
       allMessages.forEach(m => {
-        if (!grouped[m.eventId]) grouped[m.eventId] = [];
-        grouped[m.eventId].push(m);
+        if (!msgGrouped[m.eventId]) msgGrouped[m.eventId] = [];
+        msgGrouped[m.eventId].push(m);
       });
 
-      const convs: Conversation[] = Object.entries(grouped).map(([eventId, msgs]) => {
+      // Build conversations from ALL events (not just those with messages)
+      const eventMap: Record<string, EventInfo> = {};
+      allEvents.forEach(e => { eventMap[e.id] = e; });
+
+      const convMap: Record<string, Conversation> = {};
+
+      // Create conversations from events
+      allEvents.forEach(evt => {
+        const msgs = msgGrouped[evt.id] || [];
+        const sorted = [...msgs].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+        const last = sorted.length > 0 ? sorted[sorted.length - 1] : null;
+        const unread = msgs.filter(m => m.sender === 'guest' && !m.read).length;
+        const descPreview = evt.description
+          ? evt.description.split('\n').filter(l => !l.trimStart().startsWith('금액')).join(' ').slice(0, 60)
+          : '';
+
+        convMap[evt.id] = {
+          eventId: evt.id,
+          propertyId: evt.propertyId,
+          guestName: evt.title.replace(/ 예약$/, ''),
+          propertyName: properties[evt.propertyId] || evt.propertyId,
+          lastMessage: last ? last.text : (descPreview || '메시지 없음'),
+          lastMessageAt: last ? last.createdAt : evt.start,
+          unread,
+          eventDescription: evt.description,
+          checkIn: evt.start,
+          checkOut: evt.end,
+        };
+      });
+
+      // Also add message-only conversations (not linked to known events)
+      Object.entries(msgGrouped).forEach(([eventId, msgs]) => {
+        if (convMap[eventId]) return;
         const sorted = [...msgs].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
         const last = sorted[sorted.length - 1];
         const unread = msgs.filter(m => m.sender === 'guest' && !m.read).length;
-        return {
+        convMap[eventId] = {
           eventId,
           propertyId: last.propertyId,
           guestName: last.guestName,
@@ -103,16 +191,15 @@ function MessagesContent() {
         };
       });
 
-      convs.sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt));
+      const convs = Object.values(convMap).sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt));
       setConversations(convs);
 
-      // Auto-select from URL params or most recent
+      // Auto-select from URL params
       if (initialEventId && !selectedConv) {
         const existing = convs.find(c => c.eventId === initialEventId);
         if (existing) {
           setSelectedConv(existing);
         } else if (initialGuestName && initialPropertyId) {
-          // Start new conversation
           const newConv: Conversation = {
             eventId: initialEventId,
             propertyId: initialPropertyId,
@@ -244,7 +331,10 @@ function MessagesContent() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <p className="text-[12px] font-medium text-white truncate">{conv.guestName}</p>
-                      <p className="text-[10px] text-white/35 tracking-wide mt-0.5">{conv.propertyName}</p>
+                      <p className="text-[10px] text-white/35 tracking-wide mt-0.5">
+                        {conv.propertyName}
+                        {conv.checkIn && <span className="text-white/20 ml-1">{conv.checkIn}</span>}
+                      </p>
                       <p className="text-[11px] text-white/40 mt-1.5 truncate">{conv.lastMessage || '메시지 없음'}</p>
                     </div>
                     <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
@@ -297,15 +387,35 @@ function MessagesContent() {
             <div className="px-5 py-3.5 border-b border-white/8 flex items-center gap-3">
               <div>
                 <p className="text-[12px] font-medium text-white">{selectedConv.guestName}</p>
-                <p className="text-[10px] text-white/35 tracking-wide">{selectedConv.propertyName}</p>
+                <p className="text-[10px] text-white/35 tracking-wide">
+                  {selectedConv.propertyName}
+                  {selectedConv.checkIn && selectedConv.checkOut && (
+                    <span className="ml-2 text-white/25">{selectedConv.checkIn} → {selectedConv.checkOut}</span>
+                  )}
+                </p>
               </div>
             </div>
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-5 space-y-3">
-              {messages.length === 0 && (
+              {/* Event description as initial context */}
+              {selectedConv.eventDescription && (() => {
+                const filtered = selectedConv.eventDescription
+                  .split('\n')
+                  .filter(line => !line.trimStart().startsWith('금액'))
+                  .join('\n')
+                  .trim();
+                return filtered ? (
+                  <div className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-3 mb-2">
+                    <p className="text-[9px] uppercase tracking-widest text-white/30 mb-2">예약 정보</p>
+                    <p className="text-[12px] text-white/50 whitespace-pre-line leading-relaxed">{filtered}</p>
+                  </div>
+                ) : null;
+              })()}
+
+              {messages.length === 0 && !selectedConv.eventDescription && (
                 <div className="flex flex-col items-center justify-center h-24 gap-2 text-white/15">
-                  <p className="text-[11px] tracking-wide">아직 메시지가 없습니다. 게스트에게 먼저 메시지를 보내보세요.</p>
+                  <p className="text-[11px] tracking-wide">아직 메시지가 없습니다. 메모를 추가해보세요.</p>
                 </div>
               )}
               {messages.map(msg => (

@@ -14,7 +14,7 @@ interface Cleaner {
 }
 
 export default function CleanersPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [cleaners, setCleaners] = useState<Cleaner[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
@@ -25,7 +25,9 @@ export default function CleanersPage() {
   const fetchCleaners = async () => {
     if (!user) return;
     try {
-      const q = query(collection(db, 'cleaners'), where('ownerId', '==', user.uid));
+      const q = profile?.role === 'super_admin'
+        ? collection(db, 'cleaners')
+        : query(collection(db, 'cleaners'), where('ownerId', '==', user.uid));
       const snapshot = await getDocs(q);
       setCleaners(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Cleaner)));
     } catch (err) {

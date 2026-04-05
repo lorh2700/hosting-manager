@@ -3,10 +3,9 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Building, Plus, ChevronRight } from 'lucide-react';
-import { collection, query, getDocs, addDoc, setDoc, doc, orderBy, where } from 'firebase/firestore';
+import { collection, query, getDocs, addDoc, orderBy, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/FirebaseProvider';
-import { isAdminEmail } from '@/lib/adminConfig';
 
 interface Property {
   id: string;
@@ -20,12 +19,12 @@ export default function PropertiesPage() {
   const [loading, setLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newPropertyName, setNewPropertyName] = useState('');
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   const fetchProperties = async () => {
     if (!user) return;
     try {
-      const snapshot = isAdminEmail(user.email)
+      const snapshot = profile?.role === 'super_admin'
         ? await getDocs(query(collection(db, 'properties'), orderBy('createdAt', 'desc')))
         : await getDocs(query(collection(db, 'properties'), where('ownerId', '==', user.uid), orderBy('createdAt', 'desc')));
       setProperties(snapshot.docs.map(doc => ({
@@ -45,66 +44,26 @@ export default function PropertiesPage() {
     fetchProperties();
   }, [user]);
 
-  const PRESET_PROPERTIES: Record<string, { beds24PropId: string; checkInTime: string; checkOutTime: string; channels: { name: string; importUrl: string; isActive: boolean }[] }> = {
-    '운와당': {
-      beds24PropId: '319544',
-      checkInTime: '15:00',
-      checkOutTime: '11:00',
-      channels: [
-        { name: 'Airbnb', importUrl: 'https://www.airbnb.co.kr/calendar/ical/992547788897590426.ics?t=f11aface071641e980dd0294d548e4eb', isActive: true },
-        { name: 'Booking.com', importUrl: 'https://ical.booking.com/v1/export/t/7de8ba5d-d761-475d-bbdf-54a15df0b453.ics', isActive: true },
-        { name: 'Stayfolio', importUrl: '', isActive: false },
-      ],
-    },
-    '화연재': {
-      beds24PropId: '',
-      checkInTime: '15:00',
-      checkOutTime: '11:00',
-      channels: [
-        { name: 'Airbnb', importUrl: 'https://www.airbnb.co.kr/calendar/ical/1368328600307420400.ics?t=05a24937c87945d5b442377911f43aad', isActive: true },
-        { name: 'Booking.com', importUrl: 'https://ical.booking.com/v1/export/t/c5870652-f9a6-4a12-809a-42916c8733a2.ics', isActive: true },
-        { name: 'Agoda', importUrl: 'https://ycs.agoda.com/en-us/api/ari/icalendar?key=EMEc3kwoLjzeLjZ4Qf%2bFy4yekAZcefYz', isActive: true },
-        { name: 'Stayfolio', importUrl: '', isActive: false },
-      ],
-    },
-    '안온': {
-      beds24PropId: '',
-      checkInTime: '15:00',
-      checkOutTime: '11:00',
-      channels: [
-        { name: 'Airbnb', importUrl: 'https://www.airbnb.co.kr/calendar/ical/1586139517849528126.ics?t=25bab4d561f1421fb24f71b5504dc5a0', isActive: true },
-        { name: 'Booking.com', importUrl: 'https://ical.booking.com/v1/export/t/10db37aa-0e0a-4952-80e4-ecc4c5a5c394.ics', isActive: true },
-        { name: 'Stayfolio', importUrl: '', isActive: false },
-      ],
-    },
-  };
-
   const addPropertyWithChannels = async (name: string) => {
     if (!user) return;
-    const preset = PRESET_PROPERTIES[name];
+    const defaultChannels = ['Airbnb', 'Booking.com', 'Stayfolio'];
+    const channelsMap: Record<string, { importUrl: string; exportUrl: string; isActive: boolean; createdAt: string }> = {};
+    for (const chName of defaultChannels) {
+      const token = crypto.randomUUID();
+      channelsMap[chName] = {
+        importUrl: '',
+        exportUrl: `/api/export/${token}.ics`,
+        isActive: false,
+        createdAt: new Date().toISOString(),
+      };
+    }
     const propRef = await addDoc(collection(db, 'properties'), {
       name,
       timezone: 'Asia/Seoul',
-      beds24PropId: preset?.beds24PropId || null,
-      checkInTime: preset?.checkInTime || null,
-      checkOutTime: preset?.checkOutTime || null,
       ownerId: user.uid,
+      channels: channelsMap,
       createdAt: new Date().toISOString(),
     });
-    const defaultChannels = preset?.channels ?? [
-      { name: 'Airbnb', importUrl: '', isActive: false },
-      { name: 'Booking.com', importUrl: '', isActive: false },
-      { name: 'Stayfolio', importUrl: '', isActive: false },
-    ];
-    for (const ch of defaultChannels) {
-      const token = Math.random().toString(36).substring(2, 15);
-      await setDoc(doc(db, 'properties', propRef.id, 'channels', ch.name), {
-        importUrl: ch.importUrl,
-        exportUrl: `/api/export/${token}.ics`,
-        isActive: ch.isActive,
-        createdAt: new Date().toISOString(),
-      });
-    }
     return propRef.id;
   };
 
@@ -178,8 +137,7 @@ export default function PropertiesPage() {
           <div className="bg-[#111] border border-white/10 p-10 w-full max-w-md">
             <h2 className="text-xl font-light tracking-widest text-white mb-8">새 숙소 추가</h2>
             <p className="text-white/40 text-xs font-light mb-6 leading-relaxed">
-              운와당, 화연재, 안온은 채널(iCal URL)이 자동으로 설정됩니다.<br />
-              그 외 이름을 입력하면 빈 채널로 생성됩니다.
+              숙소를 추가한 후 채널 설정에서 iCal URL을 설정하세요.
             </p>
             <input
               type="text"

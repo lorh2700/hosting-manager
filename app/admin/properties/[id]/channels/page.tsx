@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { ArrowLeft, Save, Link as LinkIcon, CheckCircle2, XCircle, Copy, Trash2 } from 'lucide-react';
-import { doc, getDoc, collection, getDocs, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, deleteField, collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/FirebaseProvider';
 
@@ -38,9 +38,22 @@ export default function ChannelsPage() {
   const fetchChannels = useCallback(async () => {
     if (!user) return;
     try {
-      const snapshot = await getDocs(collection(db, 'properties', id, 'channels'));
-      const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as ChannelConnection[];
-      setChannels(data);
+      const propDoc = await getDoc(doc(db, 'properties', id));
+      const data = propDoc.data();
+      let channelsMap: Record<string, object> = data?.channels ?? {};
+
+      // Fallback: if embedded map is empty, read from subcollection and auto-migrate
+      if (Object.keys(channelsMap).length === 0) {
+        const subSnap = await getDocs(collection(db, 'properties', id, 'channels'));
+        if (!subSnap.empty) {
+          subSnap.docs.forEach(d => { channelsMap[d.id] = d.data(); });
+          // Migrate to embedded map
+          await updateDoc(doc(db, 'properties', id), { channels: channelsMap });
+        }
+      }
+
+      const channelsList = Object.entries(channelsMap).map(([name, ch]) => ({ id: name, ...(ch as object) })) as ChannelConnection[];
+      setChannels(channelsList);
     } catch (error) {
       console.error('Failed to fetch channels', error);
     }
@@ -74,11 +87,14 @@ export default function ChannelsPage() {
     setSaving(true);
     try {
       const token = crypto.randomUUID();
-      await setDoc(doc(db, 'properties', id, 'channels', newChannelName.trim()), {
-        importUrl: newChannelImportUrl,
-        exportUrl: `/api/export/${token}.ics`,
-        isActive: true,
-        createdAt: new Date().toISOString(),
+      const name = newChannelName.trim();
+      await updateDoc(doc(db, 'properties', id), {
+        [`channels.${name}`]: {
+          importUrl: newChannelImportUrl,
+          exportUrl: `/api/export/${token}.ics`,
+          isActive: true,
+          createdAt: new Date().toISOString(),
+        },
       });
       await fetchChannels();
       setNewChannelName('');
@@ -95,14 +111,12 @@ export default function ChannelsPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await Promise.all(
-        channels.map((channel) =>
-          updateDoc(doc(db, 'properties', id, 'channels', channel.id), {
-            importUrl: channel.importUrl,
-            isActive: !!channel.importUrl.trim(),
-          })
-        )
-      );
+      const updates: Record<string, string | boolean> = {};
+      for (const ch of channels) {
+        updates[`channels.${ch.id}.importUrl`] = ch.importUrl;
+        updates[`channels.${ch.id}.isActive`] = !!ch.importUrl.trim();
+      }
+      await updateDoc(doc(db, 'properties', id), updates);
       await fetchChannels();
       alert('채널 설정이 저장되었습니다.');
     } catch (error) {
@@ -116,7 +130,9 @@ export default function ChannelsPage() {
   const handleDeleteChannel = async (channelName: string) => {
     if (!confirm(`"${channelName}" 채널을 삭제하시겠습니까?`)) return;
     try {
-      await deleteDoc(doc(db, 'properties', id, 'channels', channelName));
+      await updateDoc(doc(db, 'properties', id), {
+        [`channels.${channelName}`]: deleteField(),
+      });
       setChannels((prev) => prev.filter(c => c.id !== channelName));
     } catch (error) {
       console.error('Failed to delete channel', error);

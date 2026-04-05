@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(npx firebase:*)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(ls -1 /c/voidanchae/unwa-hosting/void-anchae/app/admin/*.tsx)"
     ]
   }
 }

@@ -2,12 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { Building, Calendar, RefreshCw, CheckCircle2 } from 'lucide-react';
-import { collection, query, getDocs, where, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, getDocs, where, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/FirebaseProvider';
 import { format, isToday, isTomorrow, parseISO, startOfToday } from 'date-fns';
-import { isAdminEmail } from '@/lib/adminConfig';
-
 
 interface Cleaner {
   id: string;
@@ -15,93 +13,129 @@ interface Cleaner {
   phone: string;
 }
 
-interface CleaningTask {
+interface Cleaning {
   id: string;
+  propertyId: string;
+  date: string;
+  cleanerId: string;
+  status: 'pending' | 'done';
+  supplies: string;
+}
+
+interface CleaningTask {
+  bookingId: string;
+  cleaningId: string | null;
   propertyId: string;
   propertyName: string;
   guestName: string;
   checkOut: string;
+  cleanerId: string;
   cleanerName: string;
-  requiredInventory: string;
-  cleaningStatus: 'pending' | 'completed';
+  supplies: string;
+  status: 'pending' | 'done';
 }
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({
-    properties: 0,
-    reservations: 0,
-    lastSync: '없음',
-  });
+  const [stats, setStats] = useState({ properties: 0, reservations: 0, lastSync: '없음' });
   const [cleaningTasks, setCleaningTasks] = useState<CleaningTask[]>([]);
   const [cleaners, setCleaners] = useState<Cleaner[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   const fetchData = async () => {
     if (!user) return;
     try {
-      const propsSnapshot = isAdminEmail(user.email)
+      const propsSnapshot = profile?.role === 'super_admin'
         ? await getDocs(collection(db, 'properties'))
         : await getDocs(query(collection(db, 'properties'), where('ownerId', '==', user.uid)));
-      const propertiesCount = propsSnapshot.size;
-      
-      const propertiesMap = new Map();
-      let latestSync: Date | null = null;
 
-      propsSnapshot.docs.forEach(doc => {
-        const data = doc.data();
-        propertiesMap.set(doc.id, data.name);
-        if (data.lastSyncedAt) {
-          const syncDate = data.lastSyncedAt.toDate();
-          if (!latestSync || syncDate > latestSync) {
-            latestSync = syncDate;
-          }
+      const propertiesMap = new Map<string, string>();
+      let latestSync: Date | null = null;
+      propsSnapshot.docs.forEach(d => {
+        propertiesMap.set(d.id, d.data().name);
+        if (d.data().lastSyncedAt) {
+          const syncDate = d.data().lastSyncedAt.toDate();
+          if (!latestSync || syncDate > latestSync) latestSync = syncDate;
         }
       });
 
+      const propertyIds = Array.from(propertiesMap.keys());
       let reservationsCount = 0;
-      const tasks: CleaningTask[] = [];
-      
-      if (propertiesCount > 0) {
-        const propertyIds = Array.from(propertiesMap.keys());
-        // Fetch bookings for the first 10 properties (Firestore 'in' limit)
-        const bookingsQuery = query(collection(db, 'bookings'), where('propertyId', 'in', propertyIds.slice(0, 10)));
-        const bookingsSnapshot = await getDocs(bookingsQuery);
-        
-        reservationsCount = bookingsSnapshot.docs.filter(d => d.data().status === 'confirmed').length;
+      const today = startOfToday();
 
-        // Filter for cleaning tasks (checkouts today or tomorrow)
-        const today = startOfToday();
-        bookingsSnapshot.docs.forEach(doc => {
-          const data = doc.data();
-          if (data.status === 'confirmed') {
-            const checkOutDate = parseISO(data.checkOut);
-            // Show tasks for today and tomorrow
+      // Fetch relevant bookings (checkout today, tomorrow, or past pending)
+      const checkoutBookings: { bookingId: string; propertyId: string; guestName: string; checkOut: string }[] = [];
+      if (propertyIds.length > 0) {
+        for (let i = 0; i < propertyIds.length; i += 10) {
+          const snap = await getDocs(query(
+            collection(db, 'bookings'),
+            where('propertyId', 'in', propertyIds.slice(i, i + 10)),
+            where('status', '==', 'confirmed')
+          ));
+          snap.docs.forEach(d => {
+            reservationsCount++;
+            const checkOutDate = parseISO(d.data().checkOut);
             if (isToday(checkOutDate) || isTomorrow(checkOutDate) || checkOutDate < today) {
-              // Only show if not completed or if completed today
-              if (data.cleaningStatus !== 'completed' || isToday(checkOutDate)) {
-                tasks.push({
-                  id: doc.id,
-                  propertyId: data.propertyId,
-                  propertyName: propertiesMap.get(data.propertyId) || '알 수 없는 숙소',
-                  guestName: data.name,
-                  checkOut: data.checkOut,
-                  cleanerName: data.cleanerName || '',
-                  requiredInventory: data.requiredInventory || '',
-                  cleaningStatus: data.cleaningStatus || 'pending',
-                });
-              }
+              checkoutBookings.push({
+                bookingId: d.id,
+                propertyId: d.data().propertyId,
+                guestName: d.data().name,
+                checkOut: d.data().checkOut,
+              });
             }
-          }
-        });
+          });
+        }
       }
 
-      // Sort tasks by checkout date
-      tasks.sort((a, b) => a.checkOut.localeCompare(b.checkOut));
+      // Fetch cleaners
+      const cleanersSnap = profile?.role === 'super_admin'
+        ? await getDocs(collection(db, 'cleaners'))
+        : await getDocs(query(collection(db, 'cleaners'), where('ownerId', '==', user.uid)));
+      const cleanersList = cleanersSnap.docs.map(d => ({ id: d.id, ...d.data() } as Cleaner));
+      const cleanersMap = new Map(cleanersList.map(c => [c.id, c]));
+      setCleaners(cleanersList);
+
+      // Fetch cleanings for relevant properties
+      const cleaningsByKey = new Map<string, Cleaning>();
+      if (propertyIds.length > 0) {
+        for (let i = 0; i < propertyIds.length; i += 10) {
+          const snap = await getDocs(query(
+            collection(db, 'cleanings'),
+            where('propertyId', 'in', propertyIds.slice(i, i + 10))
+          ));
+          snap.docs.forEach(d => {
+            const c = { id: d.id, ...d.data() } as Cleaning;
+            cleaningsByKey.set(`${c.propertyId}_${c.date}`, c);
+          });
+        }
+      }
+
+      // Build tasks: join bookings + cleanings
+      const tasks: CleaningTask[] = checkoutBookings
+        .map(b => {
+          const cleaning = cleaningsByKey.get(`${b.propertyId}_${b.checkOut}`);
+          const cleanerName = cleaning?.cleanerId ? (cleanersMap.get(cleaning.cleanerId)?.name ?? '') : '';
+          // Skip tasks that are 'done' and not today
+          if (cleaning?.status === 'done' && !isToday(parseISO(b.checkOut))) return null;
+          return {
+            bookingId: b.bookingId,
+            cleaningId: cleaning?.id ?? null,
+            propertyId: b.propertyId,
+            propertyName: propertiesMap.get(b.propertyId) ?? '알 수 없는 숙소',
+            guestName: b.guestName,
+            checkOut: b.checkOut,
+            cleanerId: cleaning?.cleanerId ?? '',
+            cleanerName,
+            supplies: cleaning?.supplies ?? '',
+            status: cleaning?.status ?? 'pending',
+          };
+        })
+        .filter((t): t is CleaningTask => t !== null)
+        .sort((a, b) => a.checkOut.localeCompare(b.checkOut));
 
       setStats({
-        properties: propertiesCount,
+        properties: propsSnapshot.size,
         reservations: reservationsCount,
         lastSync: latestSync ? format(latestSync, 'MM/dd HH:mm') : '없음',
       });
@@ -113,36 +147,21 @@ export default function Dashboard() {
     }
   };
 
-  useEffect(() => {
-    fetchData();
-    if (user) {
-      (isAdminEmail(user.email)
-        ? getDocs(collection(db, 'cleaners'))
-        : getDocs(query(collection(db, 'cleaners'), where('ownerId', '==', user.uid)))
-      ).then(snap => setCleaners(snap.docs.map(d => ({ id: d.id, ...d.data() } as Cleaner))));
-    }
-  }, [user]);
+  useEffect(() => { fetchData(); }, [user]);
 
   const handleSync = async () => {
     if (!user) return;
     setIsSyncing(true);
     try {
-      // Simulate iCal fetching delay
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const propsQuery = query(collection(db, 'properties'), where('ownerId', '==', user.uid));
+      const propsQuery = profile?.role === 'super_admin'
+        ? collection(db, 'properties')
+        : query(collection(db, 'properties'), where('ownerId', '==', user.uid));
       const propsSnapshot = await getDocs(propsQuery);
-      
-      // Update lastSyncedAt for all properties
-      const updatePromises = propsSnapshot.docs.map(propertyDoc => 
-        updateDoc(doc(db, 'properties', propertyDoc.id), {
-          lastSyncedAt: serverTimestamp()
-        })
-      );
-      
-      await Promise.all(updatePromises);
-      await fetchData(); // Refresh data to show new sync time
-      
+      await Promise.all(propsSnapshot.docs.map(propertyDoc =>
+        updateDoc(doc(db, 'properties', propertyDoc.id), { lastSyncedAt: serverTimestamp() })
+      ));
+      await fetchData();
     } catch (error) {
       console.error('Sync failed:', error);
       alert('동기화 중 오류가 발생했습니다.');
@@ -151,27 +170,74 @@ export default function Dashboard() {
     }
   };
 
-  const updateCleaningTask = async (taskId: string, field: string, value: string) => {
+  const updateCleaningField = async (task: CleaningTask, field: 'cleanerId' | 'supplies', value: string) => {
+    // Optimistic update
+    setCleaningTasks(prev => prev.map(t =>
+      t.bookingId === task.bookingId
+        ? {
+            ...t,
+            [field]: value,
+            cleanerName: field === 'cleanerId'
+              ? (cleaners.find(c => c.id === value)?.name ?? '')
+              : t.cleanerName,
+          }
+        : t
+    ));
+
     try {
-      // Optimistic UI update
-      setCleaningTasks(prev => prev.map(task => 
-        task.id === taskId ? { ...task, [field]: value } : task
-      ));
-      
-      // Update Firestore
-      await updateDoc(doc(db, 'bookings', taskId), {
-        [field]: value
-      });
+      if (task.cleaningId) {
+        await updateDoc(doc(db, 'cleanings', task.cleaningId), {
+          [field]: value,
+          updatedAt: new Date().toISOString(),
+        });
+      } else {
+        // Create new cleaning record
+        const newDoc = await addDoc(collection(db, 'cleanings'), {
+          propertyId: task.propertyId,
+          date: task.checkOut,
+          cleanerId: field === 'cleanerId' ? value : task.cleanerId,
+          status: 'pending',
+          supplies: field === 'supplies' ? value : task.supplies,
+          createdAt: new Date().toISOString(),
+        });
+        setCleaningTasks(prev => prev.map(t =>
+          t.bookingId === task.bookingId ? { ...t, cleaningId: newDoc.id } : t
+        ));
+      }
     } catch (error) {
-      console.error('Failed to update task:', error);
-      // Revert on error (simple reload for MVP)
+      console.error('Failed to update cleaning:', error);
       fetchData();
     }
   };
 
-  const toggleCleaningStatus = async (taskId: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
-    await updateCleaningTask(taskId, 'cleaningStatus', newStatus);
+  const toggleStatus = async (task: CleaningTask) => {
+    const newStatus: 'pending' | 'done' = task.status === 'done' ? 'pending' : 'done';
+    setCleaningTasks(prev => prev.map(t =>
+      t.bookingId === task.bookingId ? { ...t, status: newStatus } : t
+    ));
+    try {
+      if (task.cleaningId) {
+        await updateDoc(doc(db, 'cleanings', task.cleaningId), {
+          status: newStatus,
+          updatedAt: new Date().toISOString(),
+        });
+      } else {
+        const newDoc = await addDoc(collection(db, 'cleanings'), {
+          propertyId: task.propertyId,
+          date: task.checkOut,
+          cleanerId: task.cleanerId,
+          status: newStatus,
+          supplies: task.supplies,
+          createdAt: new Date().toISOString(),
+        });
+        setCleaningTasks(prev => prev.map(t =>
+          t.bookingId === task.bookingId ? { ...t, cleaningId: newDoc.id } : t
+        ));
+      }
+    } catch (error) {
+      console.error('Failed to toggle status:', error);
+      fetchData();
+    }
   };
 
   if (loading) {
@@ -230,15 +296,12 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Cleaning & Maintenance Dashboard */}
       <div className="bg-[#111] border border-white/10 rounded-2xl overflow-hidden">
-        <div className="p-8 border-b border-white/10 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-light tracking-wide text-white mb-1">청소 및 유지보수 대시보드</h2>
-            <p className="text-xs text-white/50">오늘과 내일 체크아웃하는 숙소의 청소 일정을 관리하세요.</p>
-          </div>
+        <div className="p-8 border-b border-white/10">
+          <h2 className="text-lg font-light tracking-wide text-white mb-1">청소 대시보드</h2>
+          <p className="text-xs text-white/50">오늘과 내일 체크아웃 숙소의 청소 일정을 관리하세요.</p>
         </div>
-        
+
         <div className="p-0">
           {cleaningTasks.length === 0 ? (
             <div className="p-12 text-center flex flex-col items-center justify-center text-white/40">
@@ -251,23 +314,22 @@ export default function Dashboard() {
                 const checkoutDate = parseISO(task.checkOut);
                 const isTodayCheckout = isToday(checkoutDate);
                 const isPast = checkoutDate < startOfToday();
-                
+                const isDone = task.status === 'done';
+
                 return (
-                  <div key={task.id} className={`p-6 flex flex-col lg:flex-row gap-6 items-start lg:items-center transition-colors ${task.cleaningStatus === 'completed' ? 'bg-white/5' : 'hover:bg-white/[0.02]'}`}>
-                    
-                    {/* Status & Info */}
+                  <div key={task.bookingId} className={`p-6 flex flex-col lg:flex-row gap-6 items-start lg:items-center transition-colors ${isDone ? 'bg-white/5' : 'hover:bg-white/[0.02]'}`}>
+
                     <div className="flex items-center gap-4 w-full lg:w-1/3">
-                      <button 
-                        onClick={() => toggleCleaningStatus(task.id, task.cleaningStatus)}
+                      <button
+                        onClick={() => toggleStatus(task)}
                         className={`flex-shrink-0 w-8 h-8 rounded-full border flex items-center justify-center transition-colors ${
-                          task.cleaningStatus === 'completed' 
-                            ? 'bg-emerald-500/20 border-emerald-500 text-emerald-500' 
+                          isDone
+                            ? 'bg-emerald-500/20 border-emerald-500 text-emerald-500'
                             : 'border-white/20 text-transparent hover:border-white/50'
                         }`}
                       >
-                        <CheckCircle2 size={16} className={task.cleaningStatus === 'completed' ? 'opacity-100' : 'opacity-0'} />
+                        <CheckCircle2 size={16} className={isDone ? 'opacity-100' : 'opacity-0'} />
                       </button>
-                      
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-medium ${
@@ -278,45 +340,41 @@ export default function Dashboard() {
                           </span>
                           <span className="text-xs text-white/50">{task.checkOut}</span>
                         </div>
-                        <h3 className={`text-base font-medium ${task.cleaningStatus === 'completed' ? 'text-white/50 line-through' : 'text-white'}`}>
+                        <h3 className={`text-base font-medium ${isDone ? 'text-white/50 line-through' : 'text-white'}`}>
                           {task.propertyName}
                         </h3>
                         <p className="text-xs text-white/40 mt-1">게스트: {task.guestName}</p>
                       </div>
                     </div>
 
-                    {/* Inputs */}
                     <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-2/3">
                       <div className="flex-1">
                         <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">청소 담당자</label>
                         <select
-                          value={task.cleanerName}
-                          onChange={(e) => updateCleaningTask(task.id, 'cleanerName', e.target.value)}
-                          disabled={task.cleaningStatus === 'completed'}
+                          value={task.cleanerId}
+                          onChange={e => updateCleaningField(task, 'cleanerId', e.target.value)}
+                          disabled={isDone}
                           className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 transition-colors appearance-none disabled:opacity-50"
                         >
                           <option value="">담당자 선택</option>
                           {cleaners.map(c => (
-                            <option key={c.id} value={c.name}>{c.name}{c.phone ? ` (${c.phone})` : ''}</option>
+                            <option key={c.id} value={c.id}>{c.name}{c.phone ? ` (${c.phone})` : ''}</option>
                           ))}
-                          {task.cleanerName && !cleaners.some(c => c.name === task.cleanerName) && (
-                            <option value={task.cleanerName}>{task.cleanerName}</option>
-                          )}
                         </select>
                       </div>
                       <div className="flex-1">
                         <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">필요 재고 및 특이사항</label>
-                        <input 
-                          type="text" 
-                          value={task.requiredInventory}
-                          onChange={(e) => updateCleaningTask(task.id, 'requiredInventory', e.target.value)}
+                        <input
+                          type="text"
+                          value={task.supplies}
+                          onChange={e => updateCleaningField(task, 'supplies', e.target.value)}
+                          onBlur={e => updateCleaningField(task, 'supplies', e.target.value)}
                           placeholder="예: 수건 4장, 샴푸 보충"
-                          className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 transition-colors"
-                          disabled={task.cleaningStatus === 'completed'}
+                          disabled={isDone}
+                          className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 transition-colors disabled:opacity-50"
                         />
                       </div>
                     </div>
-                    
                   </div>
                 );
               })}
