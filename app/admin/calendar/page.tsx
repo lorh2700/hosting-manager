@@ -2,9 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/FirebaseProvider';
-import { onAuthStateChanged } from 'firebase/auth';
 import { ChevronLeft, ChevronRight, X, Save, Trash2, Send, ExternalLink } from 'lucide-react';
 
 const PROPERTY_COLORS = [
@@ -69,7 +68,6 @@ interface ProcessedEvent {
 
 export default function UnifiedCalendarPage() {
   const { user, profile } = useAuth();
-  const [authUser, setAuthUser] = useState(user);
   const [properties, setProperties] = useState<Property[]>([]);
   const [channelMap, setChannelMap] = useState<Record<string, string>>({});
   const [events, setEvents] = useState<RawEvent[]>([]);
@@ -87,22 +85,15 @@ export default function UnifiedCalendarPage() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
-  // Track auth state (works for both normal login and anonymous)
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => setAuthUser(u));
-    return () => unsub();
-  }, []);
-
-  useEffect(() => {
-    const currentUser = user || authUser;
-    if (!currentUser) return;
-    const isAnonymous = currentUser.isAnonymous;
+    const currentUser = user;
+    const isPublic = !currentUser; // no auth = public access
     const fetchAll = async () => {
       try {
-        // Anonymous or super_admin: show all properties; otherwise filter by owner
-        const propsSnap = (isAnonymous || profile?.role === 'super_admin')
+        // Public or super_admin: show all properties; otherwise filter by owner
+        const propsSnap = (isPublic || currentUser?.isAnonymous || profile?.role === 'super_admin')
           ? await getDocs(collection(db, 'properties'))
-          : await getDocs(query(collection(db, 'properties'), where('ownerId', '==', currentUser.uid)));
+          : await getDocs(query(collection(db, 'properties'), where('ownerId', '==', currentUser!.uid)));
         const props: Property[] = propsSnap.docs.map((d, i) => ({
           id: d.id, name: d.data().name, color: PROPERTY_COLORS[i % PROPERTY_COLORS.length],
         }));
@@ -144,10 +135,7 @@ export default function UnifiedCalendarPage() {
         }
         setCleanings(allCleanings);
 
-        // Anonymous or super_admin: show all cleaners
-        const cleanersSnap = (isAnonymous || profile?.role === 'super_admin')
-          ? await getDocs(collection(db, 'cleaners'))
-          : await getDocs(query(collection(db, 'cleaners'), where('ownerId', '==', currentUser.uid)));
+        const cleanersSnap = await getDocs(collection(db, 'cleaners'));
         setCleaners(cleanersSnap.docs.map(d => ({ id: d.id, ...d.data() } as Cleaner)));
       } catch (err) {
         console.error('Failed to load calendar data', err);
@@ -156,7 +144,7 @@ export default function UnifiedCalendarPage() {
       }
     };
     fetchAll();
-  }, [user, authUser]);
+  }, [user]);
 
   // Weeks for current month view (Sunday first)
   const weeks = useMemo(() => {
@@ -380,17 +368,17 @@ export default function UnifiedCalendarPage() {
           <p className="text-white/40 mt-2 text-sm font-light tracking-wide">모든 숙소의 투숙 및 청소 일정</p>
         </div>
         {/* Month navigation */}
-        <div className="flex items-center gap-2">
-          <button onClick={prevMonth} className="p-2.5 text-white/40 hover:text-white border border-white/10 hover:border-white/30 transition-colors">
+        <div className="flex items-center gap-1.5">
+          <button onClick={prevMonth} className="p-2.5 text-white/40 hover:text-white border border-white/10 hover:border-white/30 rounded-lg transition-colors">
             <ChevronLeft size={16} />
           </button>
-          <span className="text-white font-light text-base px-4 min-w-[120px] text-center">
+          <span className="text-white font-light text-base px-4 min-w-[140px] text-center tabular-nums">
             {viewDate.getFullYear()}년 {viewDate.getMonth() + 1}월
           </span>
-          <button onClick={nextMonth} className="p-2.5 text-white/40 hover:text-white border border-white/10 hover:border-white/30 transition-colors">
+          <button onClick={nextMonth} className="p-2.5 text-white/40 hover:text-white border border-white/10 hover:border-white/30 rounded-lg transition-colors">
             <ChevronRight size={16} />
           </button>
-          <button onClick={() => setViewDate(new Date())} className="ml-2 px-3 py-2.5 text-[11px] uppercase tracking-widest font-semibold text-white/50 border border-white/10 hover:text-white hover:border-white/30 transition-colors">
+          <button onClick={() => setViewDate(new Date())} className="ml-2 px-3.5 py-2.5 text-[11px] uppercase tracking-widest font-semibold text-white/50 border border-white/10 hover:text-white hover:border-white/30 rounded-lg transition-colors">
             오늘
           </button>
         </div>
@@ -419,7 +407,7 @@ export default function UnifiedCalendarPage() {
         {/* Day of week header */}
         <div className="grid grid-cols-7 border-b border-white/10">
           {DAY_LABELS.map((label, i) => (
-            <div key={i} className={`py-3 text-center text-[11px] tracking-widest font-semibold ${i === 0 ? 'text-red-400/70' : i === 6 ? 'text-blue-400/70' : 'text-white/40'}`}>
+            <div key={i} className={`py-3 text-center text-[11px] tracking-widest font-semibold ${i === 0 ? 'text-red-400/70' : i === 6 ? 'text-blue-400/70' : 'text-white/40'} ${i < 6 ? 'border-r border-white/15' : ''}`}>
               {label}
             </div>
           ))}
@@ -427,20 +415,21 @@ export default function UnifiedCalendarPage() {
 
         {/* Week rows */}
         {weeks.map((week, wi) => (
-          <div key={wi} className={wi < weeks.length - 1 ? 'border-b border-white/25' : ''}>
+          <div key={wi} className={wi < weeks.length - 1 ? 'border-b border-white/[0.08]' : ''}>
             {/* Day numbers row */}
-            <div className="grid grid-cols-7 border-b border-white/15">
+            <div className="grid grid-cols-7 border-b border-white/[0.06]">
               {week.map((day, di) => {
                 const dateStr = toDateStr(day);
                 const isThisMonth = day.getMonth() === viewDate.getMonth();
                 const isToday = dateStr === today;
+                const weekendBg = di === 0 ? 'bg-red-500/[0.03]' : di === 6 ? 'bg-blue-500/[0.03]' : '';
                 return (
-                  <div key={di} className={`py-2 px-2 text-right ${!isThisMonth ? 'opacity-20' : ''} ${di < 6 ? 'border-r border-white/15' : ''}`}>
-                    <span className={`text-xs inline-flex items-center justify-center w-5 h-5 rounded-full transition-colors ${
+                  <div key={di} className={`py-2 px-2 text-right ${!isThisMonth ? 'opacity-20' : ''} ${isToday ? 'bg-white/[0.05]' : weekendBg} ${di < 6 ? 'border-r border-white/15' : ''}`}>
+                    <span className={`text-xs inline-flex items-center justify-center w-6 h-6 rounded-full transition-colors ${
                       isToday ? 'bg-white text-black font-semibold' :
                       di === 0 ? 'text-red-400/80' :
                       di === 6 ? 'text-blue-400/70' :
-                      'text-white/35 font-light'
+                      'text-white/40 font-light'
                     }`}>
                       {day.getDate()}
                     </span>
@@ -449,31 +438,53 @@ export default function UnifiedCalendarPage() {
               })}
             </div>
 
-            {/* Property lanes */}
+            {/* Property lanes — use grid for vertical alignment with day columns */}
             {activeProperties.length > 0 && (
-              <div className="py-1.5 px-1.5 space-y-[3px]">
-                {activeProperties.map(prop => {
+              <div className="space-y-0">
+                {activeProperties.map((prop, pi) => {
                   const weekStartStr = toDateStr(week[0]);
                   return (
-                    <div key={prop.id} className="flex h-7">
+                    <div key={prop.id} className={`grid grid-cols-7 ${pi < activeProperties.length - 1 ? '' : ''}`} style={{ height: '32px' }}>
                       {week.map((day, di) => {
                         const dayStr = toDateStr(day);
                         const { checkoutEvent, checkinEvent, midEvent } = getDayInfo(dayStr, prop.id);
                         const bgEmpty = hexToRgba(prop.color, 0.04);
+                        const weekendBg = di === 0 ? 'rgba(239,68,68,0.02)' : di === 6 ? 'rgba(59,130,246,0.02)' : undefined;
+                        const emptyBg = weekendBg || bgEmpty;
+
+                        // Cleaning badge helper
+                        const renderCleanBadge = (evt: ProcessedEvent) => {
+                          if (evt.cleanerName) {
+                            const badgeBg = evt.status === 'done' ? 'rgba(16,185,129,0.7)' : 'rgba(0,0,0,0.45)';
+                            return (
+                              <span className="mx-0.5 text-[8px] leading-none px-1.5 py-0.5 rounded-full font-semibold shrink-0 whitespace-nowrap"
+                                style={{ backgroundColor: badgeBg, color: '#fff' }}>
+                                {evt.status === 'done' ? '✓' : '🧹'} {evt.cleanerName}
+                              </span>
+                            );
+                          }
+                          // No cleaner assigned — show warning dot
+                          return (
+                            <span className="mx-0.5 w-2 h-2 rounded-full shrink-0 bg-amber-400/80 animate-pulse" title="청소 미배정" />
+                          );
+                        };
+
+                        const gridLine = di < 6 ? <span className="absolute right-0 top-0 w-px h-full bg-white/15 z-10 pointer-events-none" /> : null;
 
                         // ── Case 1: mid-stay ──
                         if (midEvent) {
                           const showLabel = di === 0 && midEvent.start < weekStartStr;
                           return (
-                            <div key={di} className="relative flex-1 h-full cursor-pointer hover:brightness-110 transition-all flex items-center overflow-hidden"
+                            <div key={di} className="relative h-full cursor-pointer hover:brightness-110 transition-all flex items-center overflow-hidden"
                               onClick={() => openModal(midEvent)}
                               style={{ backgroundColor: midEvent.color }}
                             >
                               {showLabel && (
-                                <span className="px-2 text-[11px] font-semibold text-white truncate leading-none drop-shadow-sm">
+                                <span className="px-2 text-[10px] font-semibold text-white truncate leading-none drop-shadow-sm">
                                   {midEvent.title}
                                 </span>
                               )}
+                              {gridLine}
                             </div>
                           );
                         }
@@ -481,73 +492,64 @@ export default function UnifiedCalendarPage() {
                         // ── Case 2: 50/50 split (checkout left + checkin right) ──
                         if (checkoutEvent && checkinEvent) {
                           return (
-                            <div key={di} className="relative flex-1 h-full flex" style={{ gap: '2px' }}>
-                              {/* Left 50%: checkout */}
+                            <div key={di} className="relative h-full flex" style={{ gap: '2px' }}>
                               <div className="h-full cursor-pointer hover:brightness-110 transition-all flex items-center overflow-hidden"
                                 onClick={() => openModal(checkoutEvent)}
-                                style={{ width: '50%', backgroundColor: checkoutEvent.color, borderRadius: '0 6px 6px 0' }}
+                                style={{ width: '50%', backgroundColor: checkoutEvent.color, borderRadius: '0 6px 6px 0', opacity: 0.75 }}
                               >
-                                {checkoutEvent.cleanerName && (
-                                  <span className="mx-1 text-[9px] leading-none px-1.5 py-0.5 rounded-full font-medium shrink-0 whitespace-nowrap"
-                                    style={{ backgroundColor: 'rgba(0,0,0,0.4)', color: '#fff' }}>
-                                    🧹 {checkoutEvent.cleanerName}
-                                  </span>
-                                )}
+                                {renderCleanBadge(checkoutEvent)}
                               </div>
-                              {/* Right 50%: checkin */}
                               <div className="h-full cursor-pointer hover:brightness-110 transition-all flex items-center overflow-hidden"
                                 onClick={() => openModal(checkinEvent)}
                                 style={{ width: '50%', backgroundColor: checkinEvent.color, borderRadius: '6px 0 0 6px' }}
                               >
-                                <span className="px-1.5 text-[11px] font-semibold text-white truncate leading-none drop-shadow-sm">
+                                <span className="px-1 text-[10px] font-semibold text-white truncate leading-none drop-shadow-sm">
                                   {checkinEvent.title}
                                 </span>
                               </div>
+                              {gridLine}
                             </div>
                           );
                         }
 
-                        // ── Case 3: checkout only — fixed 50% width, left-aligned ──
+                        // ── Case 3: checkout only ──
                         if (checkoutEvent) {
                           return (
-                            <div key={di} className="relative flex-1 h-full flex items-center"
-                              style={{ backgroundColor: bgEmpty }}
+                            <div key={di} className="relative h-full flex items-center"
+                              style={{ backgroundColor: emptyBg }}
                             >
                               <div className="h-full cursor-pointer hover:brightness-110 transition-all flex items-center overflow-hidden"
                                 onClick={() => openModal(checkoutEvent)}
-                                style={{ width: '50%', backgroundColor: checkoutEvent.color, borderRadius: '0 6px 6px 0' }}
+                                style={{ width: '50%', backgroundColor: checkoutEvent.color, borderRadius: '0 6px 6px 0', opacity: 0.75 }}
                               >
-                                {checkoutEvent.cleanerName && (
-                                  <span className="mx-1 text-[9px] leading-none shrink-0 px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap"
-                                    style={{ backgroundColor: 'rgba(0,0,0,0.4)', color: '#fff' }}>
-                                    🧹 {checkoutEvent.cleanerName}
-                                  </span>
-                                )}
+                                {renderCleanBadge(checkoutEvent)}
                               </div>
+                              {gridLine}
                             </div>
                           );
                         }
 
-                        // ── Case 4: checkin only — fixed 50% width, right-aligned ──
+                        // ── Case 4: checkin only ──
                         if (checkinEvent) {
                           return (
-                            <div key={di} className="relative flex-1 h-full flex items-center justify-end"
-                              style={{ backgroundColor: bgEmpty }}
+                            <div key={di} className="relative h-full flex items-center justify-end"
+                              style={{ backgroundColor: emptyBg }}
                             >
                               <div className="h-full cursor-pointer hover:brightness-110 transition-all flex items-center overflow-hidden"
                                 onClick={() => openModal(checkinEvent)}
                                 style={{ width: '50%', backgroundColor: checkinEvent.color, borderRadius: '6px 0 0 6px' }}
                               >
-                                <span className="px-2 text-[11px] font-semibold text-white truncate leading-none drop-shadow-sm">
+                                <span className="px-1.5 text-[10px] font-semibold text-white truncate leading-none drop-shadow-sm">
                                   {checkinEvent.title}
                                 </span>
                               </div>
+                              {gridLine}
                             </div>
                           );
                         }
 
                         // ── Case 5: empty ──
-                        return <div key={di} className="flex-1 h-full" style={{ backgroundColor: bgEmpty }} />;
+                        return <div key={di} className="relative h-full" style={{ backgroundColor: emptyBg }}>{gridLine}</div>;
                       })}
                     </div>
                   );
@@ -558,18 +560,6 @@ export default function UnifiedCalendarPage() {
         ))}
       </div>
       </div>
-
-      {/* Property legend */}
-      {activeProperties.length > 0 && (
-        <div className="flex flex-wrap gap-4 px-1">
-          {activeProperties.map(prop => (
-            <div key={prop.id} className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: prop.color }} />
-              <span className="text-[11px] text-white/40 font-light">{prop.name}</span>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Modal */}
       {selectedEvent && (
@@ -590,7 +580,7 @@ export default function UnifiedCalendarPage() {
             </div>
 
             {/* Info */}
-            <div className="space-y-2.5">
+            <div className="space-y-2.5 bg-white/[0.03] rounded-xl px-4 py-3.5">
               <div className="flex justify-between items-center">
                 <span className="text-[10px] tracking-widest text-white/40">채널</span>
                 <span className="text-white/80 text-[11px]">{selectedEvent.channelLabel}</span>
@@ -603,6 +593,15 @@ export default function UnifiedCalendarPage() {
                 <span className="text-[10px] tracking-widest text-white/40">체크아웃</span>
                 <span className="text-white/70 text-[11px] font-mono">{selectedEvent.end}</span>
               </div>
+              {(() => {
+                const nights = Math.round((new Date(selectedEvent.end).getTime() - new Date(selectedEvent.start).getTime()) / 86400000);
+                return nights > 0 ? (
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] tracking-widest text-white/40">숙박</span>
+                    <span className="text-white/70 text-[11px]">{nights}박 {nights + 1}일</span>
+                  </div>
+                ) : null;
+              })()}
               {selectedEvent.description && (() => {
                 const filtered = selectedEvent.description
                   .split('\n')
@@ -610,8 +609,8 @@ export default function UnifiedCalendarPage() {
                   .join('\n')
                   .trim();
                 return filtered ? (
-                  <div className="pt-2 border-t border-white/[0.08]">
-                    <p className="text-[10px] tracking-widest text-white/30 mb-1.5">메모</p>
+                  <div className="pt-2.5 mt-1 border-t border-white/[0.06]">
+                    <p className="text-[10px] tracking-widest text-white/30 mb-1.5">예약 메모</p>
                     <p className="text-white/50 text-[11px] font-light whitespace-pre-line leading-relaxed">{filtered}</p>
                   </div>
                 ) : null;
@@ -619,19 +618,22 @@ export default function UnifiedCalendarPage() {
             </div>
 
             {/* Cleaner CRUD */}
-            <div className="border-t border-white/10 pt-5 space-y-3">
+            <div className="border-t border-white/[0.08] pt-5 space-y-3">
               <div>
                 <p className="text-[10px] tracking-widest text-white/40 font-medium mb-2">청소 담당자</p>
-                <select
-                  value={selectedCleaner}
-                  onChange={e => setSelectedCleaner(e.target.value)}
-                  className="w-full bg-black/60 border border-white/10 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 transition-colors appearance-none"
-                >
-                  <option value="">담당자 없음</option>
-                  {cleaners.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}{c.phone ? ` (${c.phone})` : ''}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    value={selectedCleaner}
+                    onChange={e => setSelectedCleaner(e.target.value)}
+                    className="w-full bg-black/60 border border-white/10 rounded-lg px-4 py-2.5 pr-10 text-sm text-white focus:outline-none focus:border-white/30 transition-colors appearance-none"
+                  >
+                    <option value="">담당자 없음</option>
+                    {cleaners.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}{c.phone ? ` (${c.phone})` : ''}</option>
+                    ))}
+                  </select>
+                  <ChevronRight size={14} className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-white/30 pointer-events-none" />
+                </div>
               </div>
 
               <div>
@@ -640,16 +642,16 @@ export default function UnifiedCalendarPage() {
                   value={selectedSupplies}
                   onChange={e => setSelectedSupplies(e.target.value)}
                   placeholder="예: 수건 4장, 샴푸 보충, 커피 캡슐 2개"
-                  rows={3}
-                  className="w-full bg-black/60 border border-white/10 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 transition-colors resize-none placeholder:text-white/20"
+                  rows={2}
+                  className="w-full bg-black/60 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 transition-colors resize-none placeholder:text-white/20"
                 />
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 pt-1">
                 <button
                   onClick={handleSaveCleaner}
                   disabled={cleanerSaving || (selectedCleaner === (selectedEvent.cleanerId ?? '') && selectedSupplies === (selectedEvent.supplies ?? ''))}
-                  className="flex-1 flex items-center justify-center gap-2 bg-white text-black py-2.5 text-[11px] tracking-widest font-semibold hover:bg-white/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="flex-1 flex items-center justify-center gap-2 bg-white text-black py-2.5 rounded-lg text-[11px] tracking-widest font-semibold hover:bg-white/90 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   <Save size={13} />
                   {cleanerSaving ? '저장 중...' : '저장'}
@@ -658,7 +660,7 @@ export default function UnifiedCalendarPage() {
                   <button
                     onClick={handleDeleteCleaner}
                     disabled={cleanerSaving}
-                    className="px-4 py-2.5 border border-white/10 text-white/40 hover:text-red-400 hover:border-red-400/30 transition-colors disabled:opacity-40"
+                    className="px-4 py-2.5 border border-white/10 rounded-lg text-white/40 hover:text-red-400 hover:border-red-400/30 transition-colors disabled:opacity-40"
                     title="배정 삭제"
                   >
                     <Trash2 size={14} strokeWidth={1.5} />

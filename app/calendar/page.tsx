@@ -317,17 +317,17 @@ export default function PublicCalendarPage() {
             <h1 className="text-3xl md:text-4xl font-light tracking-tight text-white">통합 캘린더</h1>
             <p className="text-white/40 mt-2 text-sm font-light tracking-wide">모든 숙소의 투숙 및 청소 일정</p>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={prevMonth} className="p-2.5 text-white/40 hover:text-white border border-white/10 hover:border-white/30 transition-colors">
+          <div className="flex items-center gap-1.5">
+            <button onClick={prevMonth} className="p-2.5 text-white/40 hover:text-white border border-white/10 hover:border-white/30 rounded-lg transition-colors">
               <ChevronLeft size={16} />
             </button>
-            <span className="text-white font-light text-base px-4 min-w-[120px] text-center">
+            <span className="text-white font-light text-base px-4 min-w-[140px] text-center tabular-nums">
               {viewDate.getFullYear()}년 {viewDate.getMonth() + 1}월
             </span>
-            <button onClick={nextMonth} className="p-2.5 text-white/40 hover:text-white border border-white/10 hover:border-white/30 transition-colors">
+            <button onClick={nextMonth} className="p-2.5 text-white/40 hover:text-white border border-white/10 hover:border-white/30 rounded-lg transition-colors">
               <ChevronRight size={16} />
             </button>
-            <button onClick={() => setViewDate(new Date())} className="ml-2 px-3 py-2.5 text-[11px] uppercase tracking-widest font-semibold text-white/50 border border-white/10 hover:text-white hover:border-white/30 transition-colors">
+            <button onClick={() => setViewDate(new Date())} className="ml-2 px-3.5 py-2.5 text-[11px] uppercase tracking-widest font-semibold text-white/50 border border-white/10 hover:text-white hover:border-white/30 rounded-lg transition-colors">
               오늘
             </button>
           </div>
@@ -355,24 +355,24 @@ export default function PublicCalendarPage() {
         <div className="bg-[#111] border border-white/10 rounded-2xl overflow-hidden min-w-[480px] mx-4 md:mx-0">
           <div className="grid grid-cols-7 border-b border-white/10">
             {DAY_LABELS.map((label, i) => (
-              <div key={i} className={`py-3 text-center text-[11px] tracking-widest font-semibold ${i === 0 ? 'text-red-400/70' : i === 6 ? 'text-blue-400/70' : 'text-white/40'}`}>
+              <div key={i} className={`py-3 text-center text-[11px] tracking-widest font-semibold ${i === 0 ? 'text-red-400/70' : i === 6 ? 'text-blue-400/70' : 'text-white/40'} ${i < 6 ? 'border-r border-white/15' : ''}`}>
                 {label}
               </div>
             ))}
           </div>
 
           {weeks.map((week, wi) => (
-            <div key={wi} className={wi < weeks.length - 1 ? 'border-b border-white/25' : ''}>
-              <div className="grid grid-cols-7 border-b border-white/15">
+            <div key={wi} className={wi < weeks.length - 1 ? 'border-b border-white/[0.08]' : ''}>
+              <div className="grid grid-cols-7 border-b border-white/[0.06]">
                 {week.map((day, di) => {
                   const dateStr = toDateStr(day);
                   const isThisMonth = day.getMonth() === viewDate.getMonth();
                   const isToday = dateStr === today;
                   return (
-                    <div key={di} className={`py-2 px-2 text-right ${!isThisMonth ? 'opacity-20' : ''} ${di < 6 ? 'border-r border-white/15' : ''}`}>
-                      <span className={`text-xs inline-flex items-center justify-center w-5 h-5 rounded-full transition-colors ${
+                    <div key={di} className={`py-2 px-2 text-right ${!isThisMonth ? 'opacity-20' : ''} ${isToday ? 'bg-white/[0.04]' : ''} ${di < 6 ? 'border-r border-white/15' : ''}`}>
+                      <span className={`text-xs inline-flex items-center justify-center w-6 h-6 rounded-full transition-colors ${
                         isToday ? 'bg-white text-black font-semibold' :
-                        di === 0 ? 'text-red-400/80' : di === 6 ? 'text-blue-400/70' : 'text-white/35 font-light'
+                        di === 0 ? 'text-red-400/80' : di === 6 ? 'text-blue-400/70' : 'text-white/40 font-light'
                       }`}>
                         {day.getDate()}
                       </span>
@@ -392,12 +392,15 @@ export default function PublicCalendarPage() {
                           const { checkoutEvent, checkinEvent, midEvent } = getDayInfo(dayStr, prop.id);
                           const bgEmpty = hexToRgba(prop.color, 0.04);
 
+                          const gridLine = di < 6 ? <span className="absolute right-0 top-0 w-px h-full bg-white/15 z-10 pointer-events-none" /> : null;
+
                           if (midEvent) {
                             const showLabel = di === 0 && midEvent.start < weekStartStr;
                             return (
                               <div key={di} className="relative flex-1 h-full cursor-pointer hover:brightness-110 transition-all flex items-center overflow-hidden"
                                 onClick={() => openModal(midEvent)} style={{ backgroundColor: midEvent.color }}>
                                 {showLabel && <span className="px-2 text-[11px] font-semibold text-white truncate leading-none drop-shadow-sm">{midEvent.title}</span>}
+                                {gridLine}
                               </div>
                             );
                           }
@@ -407,7 +410,7 @@ export default function PublicCalendarPage() {
                               <div key={di} className="relative flex-1 h-full flex" style={{ gap: '2px' }}>
                                 <div className="h-full cursor-pointer hover:brightness-110 transition-all flex items-center overflow-hidden"
                                   onClick={() => openModal(checkoutEvent)}
-                                  style={{ width: '50%', backgroundColor: checkoutEvent.color, borderRadius: '0 6px 6px 0' }}>
+                                  style={{ width: '50%', backgroundColor: checkoutEvent.color, borderRadius: '0 6px 6px 0', opacity: 0.75 }}>
                                   {checkoutEvent.cleanerName && (
                                     <span className="mx-1 text-[9px] leading-none px-1.5 py-0.5 rounded-full font-medium shrink-0 whitespace-nowrap"
                                       style={{ backgroundColor: 'rgba(0,0,0,0.4)', color: '#fff' }}>
@@ -420,6 +423,7 @@ export default function PublicCalendarPage() {
                                   style={{ width: '50%', backgroundColor: checkinEvent.color, borderRadius: '6px 0 0 6px' }}>
                                   <span className="px-1.5 text-[11px] font-semibold text-white truncate leading-none drop-shadow-sm">{checkinEvent.title}</span>
                                 </div>
+                                {gridLine}
                               </div>
                             );
                           }
@@ -429,7 +433,7 @@ export default function PublicCalendarPage() {
                               <div key={di} className="relative flex-1 h-full flex items-center" style={{ backgroundColor: bgEmpty }}>
                                 <div className="h-full cursor-pointer hover:brightness-110 transition-all flex items-center overflow-hidden"
                                   onClick={() => openModal(checkoutEvent)}
-                                  style={{ width: '50%', backgroundColor: checkoutEvent.color, borderRadius: '0 6px 6px 0' }}>
+                                  style={{ width: '50%', backgroundColor: checkoutEvent.color, borderRadius: '0 6px 6px 0', opacity: 0.75 }}>
                                   {checkoutEvent.cleanerName && (
                                     <span className="mx-1 text-[9px] leading-none shrink-0 px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap"
                                       style={{ backgroundColor: 'rgba(0,0,0,0.4)', color: '#fff' }}>
@@ -437,6 +441,7 @@ export default function PublicCalendarPage() {
                                     </span>
                                   )}
                                 </div>
+                                {gridLine}
                               </div>
                             );
                           }
@@ -449,11 +454,12 @@ export default function PublicCalendarPage() {
                                   style={{ width: '50%', backgroundColor: checkinEvent.color, borderRadius: '6px 0 0 6px' }}>
                                   <span className="px-2 text-[11px] font-semibold text-white truncate leading-none drop-shadow-sm">{checkinEvent.title}</span>
                                 </div>
+                                {gridLine}
                               </div>
                             );
                           }
 
-                          return <div key={di} className="flex-1 h-full" style={{ backgroundColor: bgEmpty }} />;
+                          return <div key={di} className="relative flex-1 h-full" style={{ backgroundColor: bgEmpty }}>{gridLine}</div>;
                         })}
                       </div>
                     );
@@ -464,18 +470,6 @@ export default function PublicCalendarPage() {
           ))}
         </div>
         </div>
-
-        {/* Legend */}
-        {activeProperties.length > 0 && (
-          <div className="flex flex-wrap gap-4 px-1">
-            {activeProperties.map(prop => (
-              <div key={prop.id} className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: prop.color }} />
-                <span className="text-[11px] text-white/40 font-light">{prop.name}</span>
-              </div>
-            ))}
-          </div>
-        )}
 
         {/* Modal */}
         {selectedEvent && (
@@ -494,7 +488,7 @@ export default function PublicCalendarPage() {
                 </button>
               </div>
 
-              <div className="space-y-2.5">
+              <div className="space-y-2.5 bg-white/[0.03] rounded-xl px-4 py-3.5">
                 <div className="flex justify-between items-center">
                   <span className="text-[10px] tracking-widest text-white/40">채널</span>
                   <span className="text-white/80 text-[11px]">{selectedEvent.channelLabel}</span>
@@ -507,12 +501,21 @@ export default function PublicCalendarPage() {
                   <span className="text-[10px] tracking-widest text-white/40">체크아웃</span>
                   <span className="text-white/70 text-[11px] font-mono">{selectedEvent.end}</span>
                 </div>
+                {(() => {
+                  const nights = Math.round((new Date(selectedEvent.end).getTime() - new Date(selectedEvent.start).getTime()) / 86400000);
+                  return nights > 0 ? (
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] tracking-widest text-white/40">숙박</span>
+                      <span className="text-white/70 text-[11px]">{nights}박 {nights + 1}일</span>
+                    </div>
+                  ) : null;
+                })()}
                 {selectedEvent.description && (() => {
                   const filtered = selectedEvent.description
                     .split('\n').filter(line => !line.trimStart().startsWith('금액')).join('\n').trim();
                   return filtered ? (
-                    <div className="pt-2 border-t border-white/[0.08]">
-                      <p className="text-[10px] tracking-widest text-white/30 mb-1.5">메모</p>
+                    <div className="pt-2.5 mt-1 border-t border-white/[0.06]">
+                      <p className="text-[10px] tracking-widest text-white/30 mb-1.5">예약 메모</p>
                       <p className="text-white/50 text-[11px] font-light whitespace-pre-line leading-relaxed">{filtered}</p>
                     </div>
                   ) : null;
@@ -520,30 +523,33 @@ export default function PublicCalendarPage() {
               </div>
 
               {/* Cleaner */}
-              <div className="border-t border-white/10 pt-5 space-y-3">
+              <div className="border-t border-white/[0.08] pt-5 space-y-3">
                 <div>
                   <p className="text-[10px] tracking-widest text-white/40 font-medium mb-2">청소 담당자</p>
-                  <select value={selectedCleaner} onChange={e => setSelectedCleaner(e.target.value)}
-                    className="w-full bg-black/60 border border-white/10 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 transition-colors appearance-none">
-                    <option value="">담당자 없음</option>
-                    {cleaners.map(c => (<option key={c.id} value={c.id}>{c.name}{c.phone ? ` (${c.phone})` : ''}</option>))}
-                  </select>
+                  <div className="relative">
+                    <select value={selectedCleaner} onChange={e => setSelectedCleaner(e.target.value)}
+                      className="w-full bg-black/60 border border-white/10 rounded-lg px-4 py-2.5 pr-10 text-sm text-white focus:outline-none focus:border-white/30 transition-colors appearance-none">
+                      <option value="">담당자 없음</option>
+                      {cleaners.map(c => (<option key={c.id} value={c.id}>{c.name}{c.phone ? ` (${c.phone})` : ''}</option>))}
+                    </select>
+                    <ChevronRight size={14} className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-white/30 pointer-events-none" />
+                  </div>
                 </div>
                 <div>
                   <p className="text-[10px] tracking-widest text-white/40 font-medium mb-2">필요 비품</p>
                   <textarea value={selectedSupplies} onChange={e => setSelectedSupplies(e.target.value)}
-                    placeholder="예: 수건 4장, 샴푸 보충" rows={3}
-                    className="w-full bg-black/60 border border-white/10 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 transition-colors resize-none placeholder:text-white/20" />
+                    placeholder="예: 수건 4장, 샴푸 보충" rows={2}
+                    className="w-full bg-black/60 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 transition-colors resize-none placeholder:text-white/20" />
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 pt-1">
                   <button onClick={handleSaveCleaner}
                     disabled={cleanerSaving || (selectedCleaner === (selectedEvent.cleanerId ?? '') && selectedSupplies === (selectedEvent.supplies ?? ''))}
-                    className="flex-1 flex items-center justify-center gap-2 bg-white text-black py-2.5 text-[11px] tracking-widest font-semibold hover:bg-white/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                    className="flex-1 flex items-center justify-center gap-2 bg-white text-black py-2.5 rounded-lg text-[11px] tracking-widest font-semibold hover:bg-white/90 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
                     <Save size={13} /> {cleanerSaving ? '저장 중...' : '저장'}
                   </button>
                   {selectedEvent.cleaningId && (
                     <button onClick={handleDeleteCleaner} disabled={cleanerSaving}
-                      className="px-4 py-2.5 border border-white/10 text-white/40 hover:text-red-400 hover:border-red-400/30 transition-colors disabled:opacity-40" title="배정 삭제">
+                      className="px-4 py-2.5 border border-white/10 rounded-lg text-white/40 hover:text-red-400 hover:border-red-400/30 transition-colors disabled:opacity-40" title="배정 삭제">
                       <Trash2 size={14} strokeWidth={1.5} />
                     </button>
                   )}

@@ -145,6 +145,12 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       if (u) {
+        // Skip profile loading for anonymous users (used for public calendar access)
+        if (u.isAnonymous) {
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
         try {
           const p = await loadProfile(u);
           setProfile(p);

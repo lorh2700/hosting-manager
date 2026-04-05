@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npx firebase:*)",
       "Read(//tmp/**)",
-      "Bash(ls -1 /c/voidanchae/unwa-hosting/void-anchae/app/admin/*.tsx)"
+      "Bash(ls -1 /c/voidanchae/unwa-hosting/void-anchae/app/admin/*.tsx)",
+      "Bash(npx next:*)"
     ]
   }
 }
