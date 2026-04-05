@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { useAuth } from '@/components/FirebaseProvider';
+import { onAuthStateChanged } from 'firebase/auth';
 import { ChevronLeft, ChevronRight, X, Save, Trash2, Send, ExternalLink } from 'lucide-react';
 
 const PROPERTY_COLORS = [
@@ -68,6 +69,7 @@ interface ProcessedEvent {
 
 export default function UnifiedCalendarPage() {
   const { user, profile } = useAuth();
+  const [authUser, setAuthUser] = useState(user);
   const [properties, setProperties] = useState<Property[]>([]);
   const [channelMap, setChannelMap] = useState<Record<string, string>>({});
   const [events, setEvents] = useState<RawEvent[]>([]);
@@ -85,13 +87,22 @@ export default function UnifiedCalendarPage() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
+  // Track auth state (works for both normal login and anonymous)
   useEffect(() => {
-    if (!user) return;
+    const unsub = onAuthStateChanged(auth, (u) => setAuthUser(u));
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const currentUser = user || authUser;
+    if (!currentUser) return;
+    const isAnonymous = currentUser.isAnonymous;
     const fetchAll = async () => {
       try {
-        const propsSnap = profile?.role === 'super_admin'
+        // Anonymous or super_admin: show all properties; otherwise filter by owner
+        const propsSnap = (isAnonymous || profile?.role === 'super_admin')
           ? await getDocs(collection(db, 'properties'))
-          : await getDocs(query(collection(db, 'properties'), where('ownerId', '==', user.uid)));
+          : await getDocs(query(collection(db, 'properties'), where('ownerId', '==', currentUser.uid)));
         const props: Property[] = propsSnap.docs.map((d, i) => ({
           id: d.id, name: d.data().name, color: PROPERTY_COLORS[i % PROPERTY_COLORS.length],
         }));
@@ -133,9 +144,10 @@ export default function UnifiedCalendarPage() {
         }
         setCleanings(allCleanings);
 
-        const cleanersSnap = profile?.role === 'super_admin'
+        // Anonymous or super_admin: show all cleaners
+        const cleanersSnap = (isAnonymous || profile?.role === 'super_admin')
           ? await getDocs(collection(db, 'cleaners'))
-          : await getDocs(query(collection(db, 'cleaners'), where('ownerId', '==', user.uid)));
+          : await getDocs(query(collection(db, 'cleaners'), where('ownerId', '==', currentUser.uid)));
         setCleaners(cleanersSnap.docs.map(d => ({ id: d.id, ...d.data() } as Cleaner)));
       } catch (err) {
         console.error('Failed to load calendar data', err);
@@ -144,7 +156,7 @@ export default function UnifiedCalendarPage() {
       }
     };
     fetchAll();
-  }, [user]);
+  }, [user, authUser]);
 
   // Weeks for current month view (Sunday first)
   const weeks = useMemo(() => {
@@ -233,7 +245,7 @@ export default function UnifiedCalendarPage() {
   };
 
   const handleSaveCleaner = async () => {
-    if (!selectedEvent || !user) return;
+    if (!selectedEvent) return;
     setCleanerSaving(true);
     const checkoutDate = selectedEvent.end.substring(0, 10);
     try {
