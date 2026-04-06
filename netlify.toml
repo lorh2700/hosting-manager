@@ -6,6 +6,16 @@ publish = ".next"
 package = "@netlify/plugin-nextjs"
 
 [[redirects]]
-  from = "/ical"
-    to = "https://api.beds24.com/ical/bookings.ics?roomid=667806&token=1cf39439d55bd7ae52b7709bffc677f5"
-      status = 301
+  from = "/ical/anonjae"
+  to = "https://api.beds24.com/ical/bookings.ics?roomid=665802"
+  status = 301
+
+[[redirects]]
+  from = "/ical/hwayeonjae"
+  to = "https://api.beds24.com/ical/bookings.ics?roomid=667806"
+  status = 301
+
+[[redirects]]
+  from = "/ical/unwadang"
+  to = "https://api.beds24.com/ical/bookings.ics?roomid=664844"
+  status = 301
