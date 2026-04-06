@@ -1,6 +1,11 @@
 [build]
-  command = "npm run build"
-  publish = ".next"
+command = "npm run build"
+publish = ".next"
 
 [[plugins]]
-  package = "@netlify/plugin-nextjs"
+package = "@netlify/plugin-nextjs"
+
+[[redirects]]
+  from = "/ical"
+    to = "https://api.beds24.com/ical/bookings.ics?roomid=667806&token=1cf39439d55bd7ae52b7709bffc677f5"
+      status = 301
