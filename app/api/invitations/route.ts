@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { collection, addDoc, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getAdminDb } from '@/lib/firebase-admin';
 import type { UserRole } from '@/lib/types';
 
 function generateToken(): string {
@@ -13,13 +12,12 @@ function generateToken(): string {
 }
 
 async function verifyAdmin(authHeader: string | null): Promise<{ uid: string; role: string } | null> {
-  // Extract uid from Authorization header (Firebase ID token would be used in production)
-  // For now, we verify by checking the user document directly
   if (!authHeader?.startsWith('Bearer ')) return null;
+  const db = getAdminDb();
   const uid = authHeader.slice(7);
-  const userDoc = await getDoc(doc(db, 'users', uid));
-  if (!userDoc.exists()) return null;
-  const role = userDoc.data().role as string;
+  const userDoc = await db.collection('users').doc(uid).get();
+  if (!userDoc.exists) return null;
+  const role = userDoc.data()!.role as string;
   if (!['super_admin', 'admin'].includes(role)) return null;
   return { uid, role };
 }
@@ -31,8 +29,8 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
   }
 
-  const invitationsRef = collection(db, 'invitations');
-  const snap = await getDocs(invitationsRef);
+  const db = getAdminDb();
+  const snap = await db.collection('invitations').get();
   const invitations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
   return NextResponse.json(invitations);
@@ -45,6 +43,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
   }
 
+  const db = getAdminDb();
   const body = await req.json();
   const { email, role, propertyIds } = body as {
     email: string;
@@ -61,12 +60,10 @@ export async function POST(req: Request) {
   }
 
   // Check if invitation already exists for this email
-  const existingQuery = query(
-    collection(db, 'invitations'),
-    where('email', '==', email),
-    where('status', '==', 'pending')
-  );
-  const existing = await getDocs(existingQuery);
+  const existing = await db.collection('invitations')
+    .where('email', '==', email)
+    .where('status', '==', 'pending')
+    .get();
   if (!existing.empty) {
     return NextResponse.json({ error: '이미 대기중인 초대가 있습니다.' }, { status: 409 });
   }
@@ -85,7 +82,7 @@ export async function POST(req: Request) {
     createdAt: now.toISOString(),
   };
 
-  const docRef = await addDoc(collection(db, 'invitations'), invitation);
+  const docRef = await db.collection('invitations').add(invitation);
 
   return NextResponse.json({
     id: docRef.id,

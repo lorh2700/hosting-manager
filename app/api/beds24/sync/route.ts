@@ -1,18 +1,6 @@
 import { NextResponse } from 'next/server';
-
-const BEDS24_REFRESH_TOKEN = process.env.BEDS24_REFRESH_TOKEN;
-const BEDS24_BASE_URL = 'https://beds24.com/api/v2';
-
-async function getBeds24Token(): Promise<string> {
-  if (!BEDS24_REFRESH_TOKEN) throw new Error('BEDS24_REFRESH_TOKEN is not configured');
-  const res = await fetch(`${BEDS24_BASE_URL}/authentication/token`, {
-    headers: { 'refreshToken': BEDS24_REFRESH_TOKEN },
-  });
-  if (!res.ok) throw new Error(`Beds24 token refresh failed: ${res.status}`);
-  const data = await res.json();
-  if (!data.token) throw new Error('No token in Beds24 response');
-  return data.token;
-}
+import { getAdminDb } from '@/lib/firebase-admin';
+import { getBeds24Token, BEDS24_BASE_URL, BEDS24_REFRESH_TOKEN } from '@/lib/beds24';
 
 export async function POST(req: Request) {
   if (!BEDS24_REFRESH_TOKEN) {
@@ -27,6 +15,7 @@ export async function POST(req: Request) {
   }
 
   try {
+    const db = getAdminDb();
     const token = await getBeds24Token();
 
     const today = new Date();
@@ -43,7 +32,6 @@ export async function POST(req: Request) {
     let hasMore = true;
 
     while (hasMore) {
-      // NOTE: correct parameter is 'propertyId', not 'propId'
       const params = new URLSearchParams({
         propertyId: String(beds24PropId),
         departureFrom: fromStr,
@@ -74,13 +62,10 @@ export async function POST(req: Request) {
       }
     }
 
-    const events = allBookings
-      .filter((b) => {
-        // Beds24 API v2: status is a string ("new", "confirmed", "cancelled", etc.)
-        return b.status !== 'cancelled' && b.arrival && b.departure;
-      })
+    // Convert Beds24 bookings to events
+    const newEvents = allBookings
+      .filter((b) => b.status !== 'cancelled' && b.arrival && b.departure)
       .map((b) => {
-        // Beds24 API v2: 'departure' is already the checkout date (not lastNight+1)
         const guestName = [b.firstName, b.lastName].filter(Boolean).join(' ') || '게스트';
         const channelSource = (b.channel as string) || (b.referer as string) || 'Beds24';
 
@@ -108,7 +93,58 @@ export async function POST(req: Request) {
         };
       });
 
-    return NextResponse.json({ success: true, events, total: events.length });
+    // Upsert events to Firestore: use originalUid as document ID for idempotency
+    const incomingUids = new Set(newEvents.map(e => e.originalUid));
+    let eventsCreated = 0;
+    let eventsUpdated = 0;
+
+    for (const event of newEvents) {
+      const docId = `beds24_${propertyId}_${event.originalUid}`;
+      const docRef = db.collection('events').doc(docId);
+
+      // Check existing
+      const existing = await db.collection('events')
+        .where('propertyId', '==', propertyId)
+        .where('channelId', '==', 'beds24')
+        .where('originalUid', '==', event.originalUid)
+        .get();
+
+      if (existing.empty) {
+        await docRef.set(event);
+        eventsCreated++;
+      } else {
+        // Update existing document
+        const existingDoc = existing.docs[0];
+        const existingData = existingDoc.data();
+        if (existingData.start !== event.start || existingData.end !== event.end || existingData.title !== event.title) {
+          await db.collection('events').doc(existingDoc.id).set(event);
+          eventsUpdated++;
+        }
+      }
+    }
+
+    // Remove events that no longer exist in Beds24
+    let eventsRemoved = 0;
+    const existingEvents = await db.collection('events')
+      .where('propertyId', '==', propertyId)
+      .where('channelId', '==', 'beds24')
+      .get();
+
+    for (const existingDoc of existingEvents.docs) {
+      const uid = existingDoc.data().originalUid;
+      if (uid && !incomingUids.has(uid)) {
+        await db.collection('events').doc(existingDoc.id).delete();
+        eventsRemoved++;
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      total: newEvents.length,
+      eventsCreated,
+      eventsUpdated,
+      eventsRemoved,
+    });
   } catch (error) {
     console.error('Beds24 sync error:', error);
     return NextResponse.json({ error: String(error) }, { status: 500 });

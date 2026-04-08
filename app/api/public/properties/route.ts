@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getAdminDb } from '@/lib/firebase-admin';
 
 export async function GET() {
   try {
-    const snap = await getDocs(query(collection(db, 'properties'), orderBy('createdAt', 'desc')));
+    const db = getAdminDb();
+    const snap = await db.collection('properties').orderBy('createdAt', 'desc').get();
     const properties = snap.docs.map(d => ({
       id: d.id,
       name: d.data().name,

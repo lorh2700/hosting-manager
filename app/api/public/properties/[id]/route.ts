@@ -1,20 +1,20 @@
 import { NextResponse } from 'next/server';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getAdminDb } from '@/lib/firebase-admin';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   try {
-    const propSnap = await getDoc(doc(db, 'properties', id));
-    if (!propSnap.exists()) {
+    const db = getAdminDb();
+    const propSnap = await db.collection('properties').doc(id).get();
+    if (!propSnap.exists) {
       return new NextResponse('Property not found', { status: 404 });
     }
 
-    const data = propSnap.data();
+    const data = propSnap.data()!;
 
     // Fetch synced channel events for this property
-    const eventsSnap = await getDocs(query(collection(db, 'events'), where('propertyId', '==', id)));
+    const eventsSnap = await db.collection('events').where('propertyId', '==', id).get();
     const channelDates = eventsSnap.docs.map(d => ({
       start: d.data().start as string,
       end: d.data().end as string,
@@ -22,9 +22,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     }));
 
     // Fetch confirmed direct bookings
-    const bookingsSnap = await getDocs(
-      query(collection(db, 'bookings'), where('propertyId', '==', id), where('status', '==', 'confirmed'))
-    );
+    const bookingsSnap = await db.collection('bookings')
+      .where('propertyId', '==', id)
+      .where('status', '==', 'confirmed')
+      .get();
     const bookingDates = bookingsSnap.docs.map(d => ({
       start: d.data().checkIn as string,
       end: d.data().checkOut as string,

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { collection, getDocs, query, where, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { FieldValue } from 'firebase-admin/firestore';
+import { getAdminDb } from '@/lib/firebase-admin';
 import { syncICalChannel, logSync } from '@/lib/sync-engine';
 
 export async function POST(req: Request) {
@@ -8,12 +8,14 @@ export async function POST(req: Request) {
   const { propertyId, triggeredBy } = body as { propertyId?: string; triggeredBy?: string };
 
   try {
+    const db = getAdminDb();
+
     // Determine which properties to sync
     let propertyIds: string[] = [];
     if (propertyId) {
       propertyIds = [propertyId];
     } else {
-      const propsSnap = await getDocs(collection(db, 'properties'));
+      const propsSnap = await db.collection('properties').get();
       propertyIds = propsSnap.docs.map(d => d.id);
     }
 
@@ -29,9 +31,7 @@ export async function POST(req: Request) {
       const syncedUrls = new Set<string>();
 
       // 1. Fetch and process integrations (for API-based integrations like Beds24)
-      const integrationsSnap = await getDocs(
-        query(collection(db, 'integrations'), where('propertyId', '==', propId), where('status', '==', 'active'))
-      );
+      const integrationsSnap = await db.collection('integrations').where('propertyId', '==', propId).where('status', '==', 'active').get();
 
       for (const integDoc of integrationsSnap.docs) {
         const integ = integDoc.data();
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
           await logSync(propId, integDoc.id, 'ical_import', syncResult, durationMs, triggeredBy ?? 'system');
 
           // Update integration status
-          await updateDoc(doc(db, 'integrations', integDoc.id), {
+          await db.collection('integrations').doc(integDoc.id).update({
             lastSyncAt: new Date().toISOString(),
             lastSyncStatus: syncResult.error ? 'failed' : 'success',
             lastErrorMessage: syncResult.error || null,
@@ -72,7 +72,7 @@ export async function POST(req: Request) {
             eventsFound: 0, eventsCreated: 0, eventsUpdated: 0, eventsRemoved: 0, error: errorMsg,
           }, durationMs, triggeredBy ?? 'system');
 
-          await updateDoc(doc(db, 'integrations', integDoc.id), {
+          await db.collection('integrations').doc(integDoc.id).update({
             lastSyncAt: new Date().toISOString(),
             lastSyncStatus: 'failed',
             lastErrorMessage: errorMsg,
@@ -89,7 +89,7 @@ export async function POST(req: Request) {
       }
 
       // 2. Sync from property-embedded channels map
-      const propDoc = await getDoc(doc(db, 'properties', propId));
+      const propDoc = await db.collection('properties').doc(propId).get();
       const propData = propDoc.data();
       const channelsMap = (propData?.channels ?? {}) as Record<string, { importUrl?: string; isActive?: boolean }>;
 
@@ -119,8 +119,48 @@ export async function POST(req: Request) {
         }
       }
 
+      // 3. Beds24 API sync for properties with beds24PropId
+      const propData2 = propDoc.data();
+      if (propData2?.beds24PropId) {
+        try {
+          const beds24Res = await fetch(new URL('/api/beds24/sync', req.url).toString(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ propertyId: propId, beds24PropId: propData2.beds24PropId }),
+          });
+          const beds24Data = await beds24Res.json();
+          if (beds24Res.ok) {
+            results.push({
+              propertyId: propId,
+              integrationId: 'beds24-api',
+              provider: 'beds24',
+              result: {
+                eventsFound: beds24Data.total || 0,
+                eventsCreated: beds24Data.eventsCreated || 0,
+                eventsUpdated: beds24Data.eventsUpdated || 0,
+                eventsRemoved: beds24Data.eventsRemoved || 0,
+              },
+            });
+          } else {
+            results.push({
+              propertyId: propId,
+              integrationId: 'beds24-api',
+              provider: 'beds24',
+              result: { eventsFound: 0, eventsCreated: 0, eventsUpdated: 0, eventsRemoved: 0, error: beds24Data.error },
+            });
+          }
+        } catch (err) {
+          results.push({
+            propertyId: propId,
+            integrationId: 'beds24-api',
+            provider: 'beds24',
+            result: { eventsFound: 0, eventsCreated: 0, eventsUpdated: 0, eventsRemoved: 0, error: String(err) },
+          });
+        }
+      }
+
       // Update property lastSyncedAt
-      await updateDoc(doc(db, 'properties', propId), { lastSyncedAt: serverTimestamp() });
+      await db.collection('properties').doc(propId).update({ lastSyncedAt: FieldValue.serverTimestamp() });
     }
 
     const totalCreated = results.reduce((s, r) => s + r.result.eventsCreated, 0);

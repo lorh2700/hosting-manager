@@ -1,5 +1,4 @@
-import { collection, query, where, getDocs, doc, setDoc, deleteDoc, addDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getAdminDb } from '@/lib/firebase-admin';
 import { v4 as uuidv4 } from 'uuid';
 import type { SyncLog } from '@/lib/types';
 
@@ -142,9 +141,11 @@ export async function syncICalChannel(
   result.eventsFound = parsedEvents.length;
 
   // Load existing events for this channel
-  const existingSnap = await getDocs(
-    query(collection(db, 'events'), where('propertyId', '==', propertyId), where('channelId', '==', channelId))
-  );
+  const db = getAdminDb();
+  const existingSnap = await db.collection('events')
+    .where('propertyId', '==', propertyId)
+    .where('channelId', '==', channelId)
+    .get();
   const existingByUid = new Map<string, { docId: string; data: Record<string, unknown> }>();
   existingSnap.docs.forEach(d => {
     const data = d.data();
@@ -184,12 +185,12 @@ export async function syncICalChannel(
     if (existing) {
       // Update if changed
       if (existing.data.start !== event.start || existing.data.end !== event.end || existing.data.title !== eventData.title) {
-        await setDoc(doc(db, 'events', existing.docId), eventData);
+        await db.collection('events').doc(existing.docId).set(eventData);
         result.eventsUpdated++;
       }
     } else {
       // Create new
-      await addDoc(collection(db, 'events'), eventData);
+      await db.collection('events').add(eventData);
       result.eventsCreated++;
     }
   }
@@ -197,7 +198,7 @@ export async function syncICalChannel(
   // Remove events that no longer exist in the iCal feed
   for (const [uid, existing] of existingByUid) {
     if (!seenUids.has(uid)) {
-      await deleteDoc(doc(db, 'events', existing.docId));
+      await db.collection('events').doc(existing.docId).delete();
       result.eventsRemoved++;
     }
   }
@@ -216,7 +217,8 @@ export async function logSync(
   durationMs: number,
   triggeredBy: string,
 ): Promise<void> {
-  await addDoc(collection(db, 'sync_logs'), {
+  const db = getAdminDb();
+  await db.collection('sync_logs').add({
     propertyId,
     channelId,
     type,

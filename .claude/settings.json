@@ -4,7 +4,9 @@
       "Bash(npx firebase:*)",
       "Read(//tmp/**)",
       "Bash(ls -1 /c/voidanchae/unwa-hosting/void-anchae/app/admin/*.tsx)",
-      "Bash(npx next:*)"
+      "Bash(npx next:*)",
+      "Bash(grep -E \"\\\\.\\(jpg|jpeg|png|webp|svg\\)$\")",
+      "Read(//c/voidanchae/unwa-hosting/void-anchae/**)"
     ]
   }
 }

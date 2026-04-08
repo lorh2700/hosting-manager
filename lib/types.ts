@@ -44,6 +44,8 @@ export interface Property {
   email?: string | null;
   permit?: string | null;
   imageUrl?: string | null;
+  images?: string[];
+  region?: string | null;
   description?: string | null;
   basePrice?: number | null;
   maxGuests?: number | null;
@@ -209,4 +211,9 @@ export interface Cleaning {
 
 export interface PropertyData extends Property {
   bookedDates: { start: string; end: string; type: string }[];
+  description?: string | null;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
+  maxGuests?: number | null;
+  region?: string | null;
 }

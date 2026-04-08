@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { getAdminDb } from '@/lib/firebase-admin';
 import * as ics from 'ics';
 import { parseISO } from 'date-fns';
 
@@ -24,9 +23,11 @@ export async function GET(
   }
 
   try {
+    const db = getAdminDb();
+
     // 1. Find channel by scanning all properties' embedded channels map
     const exportUrl = `/api/export/${channelId}`;
-    const propsSnap = await getDocs(collection(db, 'properties'));
+    const propsSnap = await db.collection('properties').get();
     let foundPropId: string | null = null;
     let foundChannelName: string | null = null;
 
@@ -47,9 +48,7 @@ export async function GET(
     }
 
     // 2. Fetch all events for this property
-    const eventsSnap = await getDocs(
-      query(collection(db, 'events'), where('propertyId', '==', foundPropId))
-    );
+    const eventsSnap = await db.collection('events').where('propertyId', '==', foundPropId).get();
     const channelEvents = eventsSnap.docs.map(d => d.data() as {
       id?: string;
       title: string;
@@ -60,13 +59,10 @@ export async function GET(
     });
 
     // 3. Fetch confirmed direct bookings
-    const bookingsSnap = await getDocs(
-      query(
-        collection(db, 'bookings'),
-        where('propertyId', '==', foundPropId),
-        where('status', '==', 'confirmed'),
-      )
-    );
+    const bookingsSnap = await db.collection('bookings')
+      .where('propertyId', '==', foundPropId)
+      .where('status', '==', 'confirmed')
+      .get();
     const bookings = bookingsSnap.docs.map(d => ({ id: d.id, ...d.data() } as {
       id: string;
       name: string;

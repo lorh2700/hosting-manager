@@ -1,20 +1,21 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# void anchae
 
-# Run and deploy your AI Studio app
-
-This contains everything you need to run your app locally.
-
-View your app in AI Studio: https://ai.studio/apps/7e8d999b-4ee9-475c-9552-9f1bbb521a8a
+전통 한옥 숙박 관리 플랫폼. 다중 숙소 예약 관리, 채널 동기화, 청소 배정을 위한 어드민 대시보드입니다.
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
-
+**Prerequisites:** Node.js
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+2. Copy `.env.example` to `.env.local` and set your environment variables
 3. Run the app:
    `npm run dev`
+
+## Seed Data
+
+숙소 데이터를 Firestore에 시딩하려면:
+
+```bash
+ADMIN_EMAIL=your@email.com ADMIN_PASSWORD=yourpass npm run seed
+```

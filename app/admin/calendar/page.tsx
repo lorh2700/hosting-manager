@@ -426,6 +426,19 @@ export default function UnifiedCalendarPage() {
     return { checkoutEvent, checkinEvent, midEvent };
   }
 
+  // Compute availability: for each day, how many active properties are free
+  function getDayAvailability(dayStr: string): { available: number; total: number } {
+    const total = activeProperties.length;
+    let available = 0;
+    for (const prop of activeProperties) {
+      const { checkoutEvent, checkinEvent, midEvent } = getDayInfo(dayStr, prop.id);
+      // A property is available if there's no check-in or mid-stay on that day
+      // (checkout day itself is available for new check-in)
+      if (!checkinEvent && !midEvent) available++;
+    }
+    return { available, total };
+  }
+
   const today = toDateStr(new Date());
 
   const prevMonth = () => { const d = new Date(viewDate); d.setMonth(d.getMonth() - 1); setViewDate(d); };
@@ -480,6 +493,22 @@ export default function UnifiedCalendarPage() {
         })}
       </div>
 
+      {/* Legend */}
+      <div className="flex items-center gap-5 text-[10px] text-white/40 tracking-wide">
+        <div className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-emerald-400/80" />
+          전체 예약 가능
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-amber-400/60" />
+          일부 예약 가능
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-red-400/50" />
+          예약 불가
+        </div>
+      </div>
+
       {/* Calendar Grid */}
       <div className="overflow-x-auto -mx-4 md:mx-0">
       <div className="bg-[#111] border border-white/10 rounded-2xl overflow-hidden min-w-[480px] mx-4 md:mx-0">
@@ -501,9 +530,27 @@ export default function UnifiedCalendarPage() {
                 const dateStr = toDateStr(day);
                 const isThisMonth = day.getMonth() === viewDate.getMonth();
                 const isToday = dateStr === today;
+                const isPast = dateStr < today;
                 const weekendBg = di === 0 ? 'bg-red-500/[0.03]' : di === 6 ? 'bg-blue-500/[0.03]' : '';
+                const avail = isThisMonth && activeProperties.length > 0 ? getDayAvailability(dateStr) : null;
+                const allAvailable = avail && avail.available === avail.total && avail.total > 0;
+                const noneAvailable = avail && avail.available === 0 && avail.total > 0;
+                const partialAvailable = avail && !allAvailable && !noneAvailable && avail.total > 0;
                 return (
-                  <div key={di} className={`py-2 px-2 text-right ${!isThisMonth ? 'opacity-20' : ''} ${isToday ? 'bg-white/[0.05]' : weekendBg} ${di < 6 ? 'border-r border-white/15' : ''}`}>
+                  <div key={di} className={`py-2 px-2 flex items-center justify-between ${!isThisMonth ? 'opacity-20' : ''} ${isToday ? 'bg-white/[0.05]' : weekendBg} ${di < 6 ? 'border-r border-white/15' : ''}`}>
+                    {/* Availability dot */}
+                    <div className="w-4 flex justify-center">
+                      {avail && !isPast && isThisMonth && (
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            allAvailable ? 'bg-emerald-400/80' :
+                            noneAvailable ? 'bg-red-400/50' :
+                            'bg-amber-400/60'
+                          }`}
+                          title={`${avail.available}/${avail.total} 숙소 예약 ��능`}
+                        />
+                      )}
+                    </div>
                     <span className={`text-xs inline-flex items-center justify-center w-6 h-6 rounded-full transition-colors ${
                       isToday ? 'bg-white text-black font-semibold' :
                       di === 0 ? 'text-red-400/80' :
@@ -627,8 +674,16 @@ export default function UnifiedCalendarPage() {
                           );
                         }
 
-                        // ── Case 5: empty ──
-                        return <div key={di} className="relative h-full" style={{ backgroundColor: emptyBg }}>{gridLine}</div>;
+                        // ── Case 5: empty (available) ──
+                        const dayIsPast = dayStr < today;
+                        return (
+                          <div key={di} className="relative h-full flex items-center justify-center" style={{ backgroundColor: emptyBg }}>
+                            {!dayIsPast && day.getMonth() === viewDate.getMonth() && (
+                              <span className="w-1 h-1 rounded-full bg-emerald-500/25" />
+                            )}
+                            {gridLine}
+                          </div>
+                        );
                       })}
                     </div>
                   );

@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
-import { collection, addDoc, getDocs, doc, getDoc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getAdminDb } from '@/lib/firebase-admin';
 import type { IntegrationProvider, IntegrationType } from '@/lib/types';
 
 async function verifyAuth(authHeader: string | null): Promise<{ uid: string; role: string } | null> {
   if (!authHeader?.startsWith('Bearer ')) return null;
+  const db = getAdminDb();
   const uid = authHeader.slice(7);
-  const userDoc = await getDoc(doc(db, 'users', uid));
-  if (!userDoc.exists()) return null;
-  const role = userDoc.data().role as string;
+  const userDoc = await db.collection('users').doc(uid).get();
+  if (!userDoc.exists) return null;
+  const role = userDoc.data()!.role as string;
   return { uid, role };
 }
 
@@ -23,26 +23,27 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
   }
 
+  const db = getAdminDb();
   const { searchParams } = new URL(req.url);
   const propertyId = searchParams.get('propertyId');
 
   let integrations;
   if (propertyId) {
-    const snap = await getDocs(query(collection(db, 'integrations'), where('propertyId', '==', propertyId)));
+    const snap = await db.collection('integrations').where('propertyId', '==', propertyId).get();
     integrations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } else if (['super_admin', 'admin'].includes(authUser.role)) {
-    const snap = await getDocs(collection(db, 'integrations'));
+    const snap = await db.collection('integrations').get();
     integrations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } else {
     // Get user's properties first, then their integrations
-    const propsSnap = await getDocs(query(collection(db, 'properties'), where('ownerId', '==', authUser.uid)));
+    const propsSnap = await db.collection('properties').where('ownerId', '==', authUser.uid).get();
     const propIds = propsSnap.docs.map(d => d.id);
     if (propIds.length === 0) return NextResponse.json([]);
 
     const allIntegrations: Record<string, unknown>[] = [];
     for (let i = 0; i < propIds.length; i += 10) {
       const batch = propIds.slice(i, i + 10);
-      const snap = await getDocs(query(collection(db, 'integrations'), where('propertyId', 'in', batch)));
+      const snap = await db.collection('integrations').where('propertyId', 'in', batch).get();
       allIntegrations.push(...snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }
     integrations = allIntegrations;
@@ -58,6 +59,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
   }
 
+  const db = getAdminDb();
   const body = await req.json();
   const { propertyId, provider, type, config, syncIntervalMinutes } = body as {
     propertyId: string;
@@ -72,11 +74,11 @@ export async function POST(req: Request) {
   }
 
   // Verify property access
-  const propDoc = await getDoc(doc(db, 'properties', propertyId));
-  if (!propDoc.exists()) {
+  const propDoc = await db.collection('properties').doc(propertyId).get();
+  if (!propDoc.exists) {
     return NextResponse.json({ error: '숙소를 찾을 수 없습니다.' }, { status: 404 });
   }
-  if (!canManageProperty(authUser.role, propDoc.data().ownerId, authUser.uid)) {
+  if (!canManageProperty(authUser.role, propDoc.data()!.ownerId, authUser.uid)) {
     return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
   }
 
@@ -92,7 +94,7 @@ export async function POST(req: Request) {
     updatedAt: now,
   };
 
-  const docRef = await addDoc(collection(db, 'integrations'), integration);
+  const docRef = await db.collection('integrations').add(integration);
 
   return NextResponse.json({ id: docRef.id, ...integration }, { status: 201 });
 }
@@ -104,6 +106,7 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
   }
 
+  const db = getAdminDb();
   const body = await req.json();
   const { id, ...updates } = body;
 
@@ -111,13 +114,13 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: 'id는 필수입니다.' }, { status: 400 });
   }
 
-  const integDoc = await getDoc(doc(db, 'integrations', id));
-  if (!integDoc.exists()) {
+  const integDoc = await db.collection('integrations').doc(id).get();
+  if (!integDoc.exists) {
     return NextResponse.json({ error: '연동을 찾을 수 없습니다.' }, { status: 404 });
   }
 
-  const propDoc = await getDoc(doc(db, 'properties', integDoc.data().propertyId));
-  if (!propDoc.exists() || !canManageProperty(authUser.role, propDoc.data().ownerId, authUser.uid)) {
+  const propDoc = await db.collection('properties').doc(integDoc.data()!.propertyId).get();
+  if (!propDoc.exists || !canManageProperty(authUser.role, propDoc.data()!.ownerId, authUser.uid)) {
     return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
   }
 
@@ -128,7 +131,7 @@ export async function PUT(req: Request) {
     if (key in updates) safeUpdates[key] = updates[key];
   }
 
-  await updateDoc(doc(db, 'integrations', id), safeUpdates);
+  await db.collection('integrations').doc(id).update(safeUpdates);
 
   return NextResponse.json({ id, ...safeUpdates });
 }
@@ -140,23 +143,24 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
   }
 
+  const db = getAdminDb();
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id');
   if (!id) {
     return NextResponse.json({ error: 'id는 필수입니다.' }, { status: 400 });
   }
 
-  const integDoc = await getDoc(doc(db, 'integrations', id));
-  if (!integDoc.exists()) {
+  const integDoc = await db.collection('integrations').doc(id).get();
+  if (!integDoc.exists) {
     return NextResponse.json({ error: '연동을 찾을 수 없습니다.' }, { status: 404 });
   }
 
-  const propDoc = await getDoc(doc(db, 'properties', integDoc.data().propertyId));
-  if (!propDoc.exists() || !canManageProperty(authUser.role, propDoc.data().ownerId, authUser.uid)) {
+  const propDoc = await db.collection('properties').doc(integDoc.data()!.propertyId).get();
+  if (!propDoc.exists || !canManageProperty(authUser.role, propDoc.data()!.ownerId, authUser.uid)) {
     return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
   }
 
-  await deleteDoc(doc(db, 'integrations', id));
+  await db.collection('integrations').doc(id).delete();
 
   return NextResponse.json({ success: true });
 }
