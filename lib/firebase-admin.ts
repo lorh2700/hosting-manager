@@ -1,4 +1,5 @@
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 
 let adminApp: App;
@@ -29,4 +30,15 @@ export function getAdminDb(): Firestore {
   const app = getAdminApp();
   adminDb = getFirestore(app, 'ai-studio-7e8d999b-4ee9-475c-9552-9f1bbb521a8a');
   return adminDb;
+}
+
+export async function verifyAuthToken(request: Request): Promise<string> {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    throw new Error('Missing or invalid Authorization header');
+  }
+  const token = authHeader.slice(7);
+  const app = getAdminApp();
+  const decoded = await getAuth(app).verifyIdToken(token);
+  return decoded.uid;
 }

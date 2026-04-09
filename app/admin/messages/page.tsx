@@ -3,12 +3,12 @@
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
-  collection, query, where, getDocs, addDoc, orderBy,
+  collection, query, where, getDocs, orderBy,
   onSnapshot, doc, updateDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/FirebaseProvider';
-import { MessageSquare, Send, ChevronRight } from 'lucide-react';
+import { MessageSquare, Send, ChevronRight, RefreshCw } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -19,6 +19,8 @@ interface Message {
   sender: 'host' | 'guest';
   createdAt: string;
   read: boolean;
+  source?: string;             // 'beds24' | undefined (local)
+  beds24MessageType?: string;  // 'guest' | 'host' | 'internalNote' | 'system'
 }
 
 interface EventInfo {
@@ -57,6 +59,8 @@ function MessagesContent() {
   const [sending, setSending] = useState(false);
   const [properties, setProperties] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const unsubRef = useRef<(() => void) | null>(null);
 
@@ -258,27 +262,41 @@ function MessagesContent() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const [sendError, setSendError] = useState<string | null>(null);
+
   const sendMessage = async () => {
-    if (!inputText.trim() || !selectedConv || sending) return;
+    if (!inputText.trim() || !selectedConv || sending || !user) return;
     setSending(true);
+    setSendError(null);
     const text = inputText.trim();
     setInputText('');
     try {
-      await addDoc(collection(db, 'messages'), {
-        eventId: selectedConv.eventId,
-        propertyId: selectedConv.propertyId,
-        guestName: selectedConv.guestName,
-        text,
-        sender: 'host',
-        createdAt: new Date().toISOString(),
-        read: true,
+      const token = await user.getIdToken();
+      const res = await fetch('/api/beds24/messages/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          eventId: selectedConv.eventId,
+          propertyId: selectedConv.propertyId,
+          text,
+        }),
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '전송 실패');
+      if (data.deliveryStatus === 'failed') {
+        setSendError('Beds24 발송 실패 — 메모로 저장됨');
+      } else if (data.deliveryStatus === 'local_only') {
+        setSendError(null); // local memo is expected for direct bookings
+      }
       // Update conversation in list
       setConversations(prev => prev.map(c =>
         c.eventId === selectedConv.eventId
           ? { ...c, lastMessage: text, lastMessageAt: new Date().toISOString() }
           : c
       ));
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : '전송 실패');
+      setInputText(text); // restore text on failure
     } finally {
       setSending(false);
     }
@@ -294,13 +312,57 @@ function MessagesContent() {
     return d.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
   };
 
+  // Sync Beds24 messages
+  const syncBeds24Messages = async () => {
+    if (syncing || !user) return;
+    const propertyIds = Object.keys(properties);
+    if (propertyIds.length === 0) return;
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/beds24/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ propertyIds }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSyncResult(data.synced > 0 ? `${data.synced}건 동기화 완료` : '새 메시지 없음');
+        if (data.synced > 0) loadConversations();
+      } else {
+        setSyncResult(`오류: ${data.error}`);
+      }
+    } catch {
+      setSyncResult('동기화 실패');
+    } finally {
+      setSyncing(false);
+      setTimeout(() => setSyncResult(null), 4000);
+    }
+  };
+
   if (!user) return null;
 
   return (
     <div className="max-w-5xl mx-auto h-[calc(100vh-7rem)] flex flex-col gap-0">
-      <header className="pb-6 border-b border-white/8 flex-shrink-0">
-        <h1 className="text-3xl font-light tracking-tight text-white">메시지</h1>
-        <p className="text-white/30 mt-1.5 text-xs font-light tracking-widest">게스트와의 대화를 관리합니다</p>
+      <header className="pb-6 border-b border-white/8 flex-shrink-0 flex items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-light tracking-tight text-white">메시지</h1>
+          <p className="text-white/30 mt-1.5 text-xs font-light tracking-widest">게스트와의 대화를 관리합니다</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {syncResult && (
+            <span className="text-[11px] text-white/50 tracking-wide">{syncResult}</span>
+          )}
+          <button
+            onClick={syncBeds24Messages}
+            disabled={syncing}
+            className="flex items-center gap-2 px-4 py-2 text-[11px] tracking-widest font-medium text-white/60 border border-white/10 hover:border-white/25 hover:text-white rounded-lg transition-colors disabled:opacity-40"
+          >
+            <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
+            {syncing ? '동기화 중...' : 'Beds24 동기화'}
+          </button>
+        </div>
       </header>
 
       <div className="flex flex-1 min-h-0 mt-6 border border-white/8 rounded-xl overflow-hidden">
@@ -427,9 +489,18 @@ function MessagesContent() {
                     className={`max-w-xs px-4 py-2.5 rounded-2xl text-[12px] leading-relaxed ${
                       msg.sender === 'host'
                         ? 'bg-white text-black rounded-tr-sm'
-                        : 'bg-white/[0.07] text-white/80 rounded-tl-sm'
+                        : msg.source === 'beds24'
+                          ? 'bg-indigo-500/15 border border-indigo-500/20 text-white/80 rounded-tl-sm'
+                          : 'bg-white/[0.07] text-white/80 rounded-tl-sm'
                     }`}
                   >
+                    {msg.source === 'beds24' && (
+                      <p className={`text-[9px] font-medium mb-1 ${
+                        msg.sender === 'host' ? 'text-black/30' : 'text-indigo-400/70'
+                      }`}>
+                        Beds24 · {msg.beds24MessageType || msg.sender}
+                      </p>
+                    )}
                     <p>{msg.text}</p>
                     <p className={`text-[9px] mt-1 ${msg.sender === 'host' ? 'text-black/40' : 'text-white/25'}`}>
                       {formatTime(msg.createdAt)}
@@ -441,6 +512,11 @@ function MessagesContent() {
             </div>
 
             {/* Input */}
+            {sendError && (
+              <div className="px-4 pt-2">
+                <p className="text-[10px] text-amber-400/80 tracking-wide">{sendError}</p>
+              </div>
+            )}
             <div className="px-4 py-4 border-t border-white/8 flex items-end gap-3">
               <textarea
                 value={inputText}

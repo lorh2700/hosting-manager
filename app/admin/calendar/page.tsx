@@ -1,10 +1,18 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/FirebaseProvider';
 import { ChevronLeft, ChevronRight, X, Save, Trash2, Send, ExternalLink } from 'lucide-react';
+
+// Inject slide-in animation via style tag (only once)
+if (typeof document !== 'undefined' && !document.getElementById('slide-panel-style')) {
+  const style = document.createElement('style');
+  style.id = 'slide-panel-style';
+  style.textContent = `@keyframes slideInRight{from{transform:translateX(100%)}to{transform:translateX(0)}}.animate-slide-in-right{animation:slideInRight .25s ease-out}`;
+  document.head.appendChild(style);
+}
 
 const PROPERTY_COLORS = [
   '#6366f1', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316',
@@ -157,7 +165,7 @@ export default function UnifiedCalendarPage() {
       }
     };
     fetchAll();
-  }, [user]);
+  }, [user, profile]);
 
   // Weeks for current month view (Sunday first)
   const weeks = useMemo(() => {
@@ -363,50 +371,48 @@ export default function UnifiedCalendarPage() {
     loadSupplies();
   }, [selectedEvent?.eventId]);
 
-  // Load messages when modal opens
+  // Subscribe to messages in real-time when modal opens
   useEffect(() => {
     if (!selectedEvent?.eventId) {
       setModalMessages([]);
       setNewMessage('');
       return;
     }
-    const loadMessages = async () => {
-      setLoadingMessages(true);
-      try {
-        const q = query(
-          collection(db, 'messages'),
-          where('eventId', '==', selectedEvent.eventId),
-          orderBy('createdAt', 'asc')
-        );
-        const snap = await getDocs(q);
-        setModalMessages(snap.docs.map(d => {
-          const data = d.data();
-          return { id: d.id, text: data.text, sender: data.sender, createdAt: data.createdAt };
-        }));
-      } catch {
-        setModalMessages([]);
-      } finally {
-        setLoadingMessages(false);
-      }
-    };
-    loadMessages();
+    setLoadingMessages(true);
+    const q = query(
+      collection(db, 'messages'),
+      where('eventId', '==', selectedEvent.eventId),
+      orderBy('createdAt', 'asc')
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      setModalMessages(snap.docs.map(d => {
+        const data = d.data();
+        return { id: d.id, text: data.text, sender: data.sender, createdAt: data.createdAt };
+      }));
+      setLoadingMessages(false);
+    }, () => {
+      setModalMessages([]);
+      setLoadingMessages(false);
+    });
+    return () => unsub();
   }, [selectedEvent?.eventId]);
 
   const handleSendMessage = async () => {
-    if (!selectedEvent?.eventId || !newMessage.trim() || sendingMessage) return;
+    if (!selectedEvent?.eventId || !newMessage.trim() || sendingMessage || !user) return;
     setSendingMessage(true);
     try {
-      const msgData = {
-        eventId: selectedEvent.eventId,
-        propertyId: selectedEvent.propertyId,
-        guestName: selectedEvent.title,
-        text: newMessage.trim(),
-        sender: 'host',
-        createdAt: new Date().toISOString(),
-        read: true,
-      };
-      const docRef = await addDoc(collection(db, 'messages'), msgData);
-      setModalMessages(prev => [...prev, { id: docRef.id, text: msgData.text, sender: msgData.sender, createdAt: msgData.createdAt }]);
+      const token = await user.getIdToken();
+      const res = await fetch('/api/beds24/messages/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          eventId: selectedEvent.eventId,
+          propertyId: selectedEvent.propertyId,
+          text: newMessage.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '전송 실패');
       setNewMessage('');
     } catch {
       alert('메시지 전송에 실패했습니다.');
@@ -438,6 +444,17 @@ export default function UnifiedCalendarPage() {
     }
     return { available, total };
   }
+
+  // ── Compute unassigned cleaning events (current view month, future only) ──
+  const unassignedCleanings = useMemo(() => {
+    const todayStr = toDateStr(new Date());
+    const monthStart = `${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, '0')}-01`;
+    const nextMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1);
+    const monthEnd = toDateStr(nextMonth); // exclusive
+    return processedEvents.filter(e =>
+      e.rawEnd >= todayStr && e.rawEnd >= monthStart && e.rawEnd < monthEnd && !e.cleanerId
+    );
+  }, [processedEvents, viewDate]);
 
   const today = toDateStr(new Date());
 
@@ -475,6 +492,28 @@ export default function UnifiedCalendarPage() {
           </button>
         </div>
       </header>
+
+      {/* ── Unassigned cleaning alert banner ── */}
+      {unassignedCleanings.length > 0 && (
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-5 py-3.5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+            <p className="text-sm text-amber-200/90 font-light">
+              <span className="font-semibold">{unassignedCleanings.length}건</span>의 예약에 청소 담당자가 지정되지 않았습니다
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              // Open modal for the nearest unassigned event
+              const sorted = [...unassignedCleanings].sort((a, b) => a.rawEnd.localeCompare(b.rawEnd));
+              if (sorted[0]) openModal(sorted[0]);
+            }}
+            className="px-3.5 py-1.5 text-[11px] tracking-widest font-semibold text-amber-300 border border-amber-500/30 hover:bg-amber-500/15 rounded-lg transition-colors whitespace-nowrap"
+          >
+            지정하기
+          </button>
+        </div>
+      )}
 
       {/* Property filter pills */}
       <div className="flex flex-wrap gap-2 items-center">
@@ -778,10 +817,46 @@ export default function UnifiedCalendarPage() {
         );
       })()}
 
-      {/* Modal */}
+      {/* Side Panel */}
       {selectedEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setSelectedEvent(null)}>
-          <div className="bg-[#161616] border border-white/10 rounded-2xl w-full max-w-sm mx-4 p-6 space-y-5 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-sm" onClick={() => setSelectedEvent(null)}>
+          <div className="bg-[#161616] border-l border-white/10 w-full max-w-md p-6 space-y-5 h-full overflow-y-auto animate-slide-in-right" onClick={e => e.stopPropagation()}>
+            {/* Unassigned navigation */}
+            {unassignedCleanings.length > 0 && !selectedEvent.cleanerId && (
+              <div className="flex items-center justify-between bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                <span className="text-[10px] text-amber-300/80 tracking-wide">
+                  미지정 {(() => {
+                    const sorted = [...unassignedCleanings].sort((a, b) => a.rawEnd.localeCompare(b.rawEnd));
+                    const idx = sorted.findIndex(e => e.id === selectedEvent.eventId);
+                    return `${idx + 1}/${sorted.length}`;
+                  })()}
+                </span>
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => {
+                      const sorted = [...unassignedCleanings].sort((a, b) => a.rawEnd.localeCompare(b.rawEnd));
+                      const idx = sorted.findIndex(e => e.id === selectedEvent.eventId);
+                      const prev = sorted[(idx - 1 + sorted.length) % sorted.length];
+                      if (prev) openModal(prev);
+                    }}
+                    className="px-2 py-1 text-[10px] text-amber-300/60 border border-amber-500/20 rounded hover:bg-amber-500/15 transition-colors"
+                  >
+                    <ChevronLeft size={12} />
+                  </button>
+                  <button
+                    onClick={() => {
+                      const sorted = [...unassignedCleanings].sort((a, b) => a.rawEnd.localeCompare(b.rawEnd));
+                      const idx = sorted.findIndex(e => e.id === selectedEvent.eventId);
+                      const next = sorted[(idx + 1) % sorted.length];
+                      if (next) openModal(next);
+                    }}
+                    className="px-2 py-1 text-[10px] text-amber-300/60 border border-amber-500/20 rounded hover:bg-amber-500/15 transition-colors"
+                  >
+                    <ChevronRight size={12} />
+                  </button>
+                </div>
+              </div>
+            )}
             {/* Header */}
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-2.5">
@@ -834,52 +909,71 @@ export default function UnifiedCalendarPage() {
               })()}
             </div>
 
-            {/* Cleaner CRUD */}
+            {/* Cleaner Assignment */}
             <div className="border-t border-white/[0.08] pt-5 space-y-3">
-              <div>
-                <p className="text-[10px] tracking-widest text-white/40 font-medium mb-2">청소 담당자</p>
-                <div className="relative">
-                  <select
-                    value={selectedCleaner}
-                    onChange={e => setSelectedCleaner(e.target.value)}
-                    className="w-full bg-black/60 border border-white/10 rounded-lg px-4 py-2.5 pr-10 text-sm text-white focus:outline-none focus:border-white/30 transition-colors appearance-none"
-                  >
-                    <option value="">담당자 없음</option>
-                    {cleaners.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}{c.phone ? ` (${c.phone})` : ''}</option>
-                    ))}
-                  </select>
-                  <ChevronRight size={14} className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-white/30 pointer-events-none" />
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-1">
-                <button
-                  onClick={handleSaveCleaner}
-                  disabled={cleanerSaving || selectedCleaner === (selectedEvent.cleanerId ?? '')}
-                  className="flex-1 flex items-center justify-center gap-2 bg-white text-black py-2.5 rounded-lg text-[11px] tracking-widest font-semibold hover:bg-white/90 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  <Save size={13} />
-                  {cleanerSaving ? '저장 중...' : '저장'}
-                </button>
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] tracking-widest text-white/40 font-medium">청소 담당자</p>
                 {selectedEvent.cleaningId && (
                   <button
                     onClick={handleDeleteCleaner}
                     disabled={cleanerSaving}
-                    className="px-4 py-2.5 border border-white/10 rounded-lg text-white/40 hover:text-red-400 hover:border-red-400/30 transition-colors disabled:opacity-40"
+                    className="text-[10px] text-white/30 hover:text-red-400 transition-colors disabled:opacity-40 flex items-center gap-1"
                     title="배정 삭제"
                   >
-                    <Trash2 size={14} strokeWidth={1.5} />
+                    <Trash2 size={10} />
+                    해제
                   </button>
                 )}
               </div>
 
-              {cleaners.length === 0 && (
-                <p className="text-[10px] text-white/30 text-center">
+              {cleaners.length > 0 ? (
+                <div className="grid grid-cols-2 gap-2">
+                  {cleaners.map(c => {
+                    const isSelected = selectedCleaner === c.id;
+                    const isCurrent = selectedEvent.cleanerId === c.id;
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() => setSelectedCleaner(isSelected ? '' : c.id)}
+                        className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-left transition-all ${
+                          isSelected
+                            ? 'border-white/30 bg-white/10 text-white'
+                            : 'border-white/10 bg-black/30 text-white/50 hover:border-white/20 hover:text-white/70'
+                        }`}
+                      >
+                        <span className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0 ${
+                          isSelected ? 'bg-white text-black' : 'bg-white/10 text-white/40'
+                        }`}>
+                          {c.name.charAt(0)}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-[12px] font-medium truncate">
+                            {c.name}
+                            {isCurrent && <span className="ml-1 text-[9px] text-emerald-400">현재</span>}
+                          </p>
+                          {c.phone && <p className="text-[10px] text-white/30 truncate">{c.phone}</p>}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-[10px] text-white/30 text-center py-2">
                   등록된 담당자가 없습니다.{' '}
                   <a href="/admin/cleaners" className="text-white/60 underline hover:text-white transition-colors">담당자 관리</a>
                   에서 먼저 추가하세요.
                 </p>
+              )}
+
+              {selectedCleaner !== (selectedEvent.cleanerId ?? '') && (
+                <button
+                  onClick={handleSaveCleaner}
+                  disabled={cleanerSaving}
+                  className="w-full flex items-center justify-center gap-2 bg-white text-black py-2.5 rounded-lg text-[11px] tracking-widest font-semibold hover:bg-white/90 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <Save size={13} />
+                  {cleanerSaving ? '저장 중...' : '저장'}
+                </button>
               )}
             </div>
 

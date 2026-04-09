@@ -277,11 +277,18 @@ service cloud.firestore {
     match /messages/{messageId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() &&
-                    request.resource.data.keys().hasAll(['eventId', 'propertyId', 'text', 'sender', 'createdAt']) &&
+                    request.resource.data.keys().hasAll(['eventId', 'propertyId', 'guestName', 'text', 'sender', 'createdAt', 'read']) &&
+                    request.resource.data.keys().hasOnly([
+                      'eventId', 'propertyId', 'guestName', 'text', 'sender', 'createdAt', 'read',
+                      'source', 'beds24MessageType', 'beds24BookingId', 'beds24MessageId',
+                      'type', 'deliveryStatus'
+                    ]) &&
                     request.resource.data.eventId is string &&
                     request.resource.data.propertyId is string &&
+                    request.resource.data.guestName is string &&
                     request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() < 2000 &&
                     request.resource.data.sender in ['host', 'guest', 'system'] &&
+                    request.resource.data.read is bool &&
                     isValidDateString(request.resource.data.createdAt);
       allow update: if isAuthenticated();
       allow delete: if isAdminOrAbove();

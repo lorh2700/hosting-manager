@@ -1,11 +1,13 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, HomeIcon, Calendar, BookOpen, MessageSquare, Users, UserCog, LogOut, Settings, Link2 } from 'lucide-react';
 import { useAuth } from '@/components/FirebaseProvider';
 import { signOut } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
 const SIDEBAR_LINKS = [
   { href: '/admin', label: '대시보드', icon: Home, roles: ['super_admin', 'admin', 'host'] },
@@ -24,6 +26,22 @@ export function Sidebar() {
   const pathname = usePathname();
   const { profile, user } = useAuth();
   const role = profile?.role ?? 'host';
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Real-time unread message count
+  useEffect(() => {
+    if (!user || user.isAnonymous) return;
+
+    const q = query(
+      collection(db, 'messages'),
+      where('sender', '==', 'guest'),
+      where('read', '==', false),
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      setUnreadCount(snap.size);
+    }, () => setUnreadCount(0));
+    return () => unsub();
+  }, [user]);
 
   const visibleLinks = SIDEBAR_LINKS.filter(link => link.roles.includes(role));
 
@@ -53,6 +71,11 @@ export function Sidebar() {
               >
                 <Icon size={16} className={isActive ? 'text-white' : 'text-white/50'} />
                 <span>{link.label}</span>
+                {link.href === '/admin/messages' && unreadCount > 0 && (
+                  <span className="ml-auto w-5 h-5 bg-indigo-500 rounded-full flex items-center justify-center text-[9px] font-bold text-white">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -78,12 +101,17 @@ export function Sidebar() {
             <Link
               key={link.href}
               href={link.href}
-              className={`flex flex-col items-center gap-1 py-3 px-1 flex-1 transition-colors ${
+              className={`relative flex flex-col items-center gap-1 py-3 px-1 flex-1 transition-colors ${
                 isActive ? 'text-white' : 'text-white/35'
               }`}
             >
               <Icon size={20} strokeWidth={isActive ? 2 : 1.5} />
               <span className="text-[9px] tracking-wide font-medium leading-none">{link.label}</span>
+              {link.href === '/admin/messages' && unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1 w-4 h-4 bg-indigo-500 rounded-full flex items-center justify-center text-[8px] font-bold text-white">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
             </Link>
           );
         })}
