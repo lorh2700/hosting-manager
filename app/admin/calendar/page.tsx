@@ -664,9 +664,12 @@ export default function UnifiedCalendarPage() {
                               </span>
                             );
                           }
-                          // No cleaner assigned — show warning dot
+                          // No cleaner assigned — show warning badge
                           return (
-                            <span className="mx-0.5 w-2 h-2 rounded-full shrink-0 bg-amber-400/80 animate-pulse" title="청소 미배정" />
+                            <span className="mx-0.5 text-[8px] leading-none px-1.5 py-0.5 rounded-full font-semibold shrink-0 whitespace-nowrap animate-pulse"
+                              style={{ backgroundColor: 'rgba(245,158,11,0.8)', color: '#fff' }}>
+                              ⚠
+                            </span>
                           );
                         };
 
@@ -696,7 +699,8 @@ export default function UnifiedCalendarPage() {
                             <div key={di} className="relative h-full flex" style={{ gap: '2px' }}>
                               <div className="h-full cursor-pointer hover:brightness-110 transition-all flex items-center overflow-hidden"
                                 onClick={() => openModal(checkoutEvent)}
-                                style={{ width: '50%', backgroundColor: checkoutEvent.color, borderRadius: '0 6px 6px 0', opacity: 0.75 }}
+                                style={{ width: '50%', backgroundColor: checkoutEvent.color, borderRadius: '0 6px 6px 0', opacity: 0.75,
+                                  outline: !checkoutEvent.cleanerId ? '1.5px dashed rgba(245,158,11,0.6)' : 'none', outlineOffset: '-1.5px' }}
                               >
                                 {renderCleanBadge(checkoutEvent)}
                               </div>
@@ -721,7 +725,8 @@ export default function UnifiedCalendarPage() {
                             >
                               <div className="h-full cursor-pointer hover:brightness-110 transition-all flex items-center overflow-hidden"
                                 onClick={() => openModal(checkoutEvent)}
-                                style={{ width: '50%', backgroundColor: checkoutEvent.color, borderRadius: '0 6px 6px 0', opacity: 0.75 }}
+                                style={{ width: '50%', backgroundColor: checkoutEvent.color, borderRadius: '0 6px 6px 0', opacity: 0.75,
+                                  outline: !checkoutEvent.cleanerId ? '1.5px dashed rgba(245,158,11,0.6)' : 'none', outlineOffset: '-1.5px' }}
                               >
                                 {renderCleanBadge(checkoutEvent)}
                               </div>
@@ -1012,20 +1017,28 @@ export default function UnifiedCalendarPage() {
                 </button>
               )}
 
-              {/* 정비 완료 버튼 — 담당자 배정 완료 + 아직 pending인 경우에만 표시 */}
-              {selectedEvent.cleaningId && selectedEvent.status !== 'done' && (
-                <button
-                  onClick={handleCompleteCleaning}
-                  disabled={completingCleaning}
-                  className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white py-2.5 rounded-lg text-[11px] tracking-widest font-semibold hover:bg-emerald-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  <CheckCircle size={13} />
-                  {completingCleaning ? '처리 중...' : '정비 완료'}
-                  {selectedEvent.channelId === 'beds24' && !completingCleaning && (
-                    <span className="text-[9px] font-normal text-emerald-200/70 ml-1">· 게스트 알림</span>
-                  )}
-                </button>
-              )}
+              {/* 정비 완료 버튼 — 담당자 배정 + pending + 체크인 당일만 */}
+              {selectedEvent.cleaningId && selectedEvent.status !== 'done' && (() => {
+                const isCheckinDay = selectedEvent.start.substring(0, 10) === today;
+                return isCheckinDay ? (
+                  <button
+                    onClick={handleCompleteCleaning}
+                    disabled={completingCleaning}
+                    className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white py-2.5 rounded-lg text-[11px] tracking-widest font-semibold hover:bg-emerald-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <CheckCircle size={13} />
+                    {completingCleaning ? '처리 중...' : '정비 완료'}
+                    {selectedEvent.channelId === 'beds24' && !completingCleaning && (
+                      <span className="text-[9px] font-normal text-emerald-200/70 ml-1">· 게스트 알림</span>
+                    )}
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2 py-2 px-3 bg-white/[0.03] border border-white/10 rounded-lg">
+                    <CheckCircle size={13} className="text-white/20 shrink-0" />
+                    <span className="text-[11px] text-white/30">체크인 당일에 정비 완료 처리할 수 있습니다</span>
+                  </div>
+                );
+              })()}
 
               {selectedEvent.status === 'done' && (
                 <div className="flex items-center gap-2 py-2 px-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
