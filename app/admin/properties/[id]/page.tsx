@@ -2,9 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { useParams, usePathname } from 'next/navigation';
+import { useParams, usePathname, useRouter } from 'next/navigation';
 import { ArrowLeft, RefreshCw, Calendar as CalendarIcon, X, AlertTriangle, MessageSquare } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -131,10 +130,8 @@ export default function CalendarPage() {
   const handleSync = useCallback(async () => {
     setSyncing(true);
     try {
-      const allParsedEvents: any[] = [];
-
       if (property?.beds24PropId) {
-        // Beds24가 연결된 숙소 → Beds24를 단일 소스로 사용 (iCal 중복 방지)
+        // Beds24가 연결된 숙소 → Beds24 API가 Firestore에 직접 upsert
         setBeds24SyncError(null);
         const beds24Response = await fetch('/api/beds24/sync', {
           method: 'POST',
@@ -142,9 +139,7 @@ export default function CalendarPage() {
           body: JSON.stringify({ propertyId: id, beds24PropId: property.beds24PropId })
         });
         const beds24Result = await beds24Response.json();
-        if (beds24Result.success) {
-          allParsedEvents.push(...beds24Result.events);
-        } else {
+        if (!beds24Result.success) {
           const errMsg = beds24Result.error || 'Beds24 동기화 실패';
           setBeds24SyncError(errMsg);
           console.error('Beds24 sync failed:', errMsg);
@@ -162,42 +157,39 @@ export default function CalendarPage() {
           body: JSON.stringify({ propertyId: id, channels: activeChs })
         });
         const result = await response.json();
-        if (result.success) {
-          allParsedEvents.push(...result.events);
+        if (result.success && result.events?.length > 0) {
+          // iCal: 기존 이벤트 삭제 후 새 이벤트 저장
+          const qOldEvents = query(collection(db, 'events'), where('propertyId', '==', id));
+          const oldEventsSnapshot = await getDocs(qOldEvents);
+
+          const batch = writeBatch(db);
+          oldEventsSnapshot.docs.forEach(doc => {
+            batch.delete(doc.ref);
+          });
+
+          result.events.forEach((ev: any) => {
+            const newEventRef = doc(collection(db, 'events'));
+            batch.set(newEventRef, {
+              propertyId: ev.propertyId,
+              channelId: ev.channelId,
+              source: ev.source || '',
+              title: (ev.title || '').substring(0, 199),
+              start: ev.start,
+              end: ev.end,
+              type: ev.type,
+              originalUid: (ev.originalUid || '').substring(0, 199),
+              description: (ev.description || '').substring(0, 1999),
+              createdAt: ev.createdAt
+            });
+          });
+
+          await batch.commit();
+        } else {
+          alert('가져온 예약 데이터가 없습니다. 채널 URL을 확인해주세요.');
+          return;
         }
       }
 
-      if (allParsedEvents.length === 0) {
-        alert('가져온 예약 데이터가 없습니다. 채널 URL을 확인해주세요.');
-        return;
-      }
-
-      // 기존 이벤트 삭제 후 새 이벤트 저장
-      const qOldEvents = query(collection(db, 'events'), where('propertyId', '==', id));
-      const oldEventsSnapshot = await getDocs(qOldEvents);
-
-      const batch = writeBatch(db);
-      oldEventsSnapshot.docs.forEach(doc => {
-        batch.delete(doc.ref);
-      });
-
-      allParsedEvents.forEach((ev: any) => {
-        const newEventRef = doc(collection(db, 'events'));
-        batch.set(newEventRef, {
-          propertyId: ev.propertyId,
-          channelId: ev.channelId,
-          source: ev.source || '',
-          title: (ev.title || '').substring(0, 199),
-          start: ev.start,
-          end: ev.end,
-          type: ev.type,
-          originalUid: (ev.originalUid || '').substring(0, 199),
-          description: (ev.description || '').substring(0, 1999),
-          createdAt: ev.createdAt
-        });
-      });
-
-      await batch.commit();
       await fetchEvents();
     } catch (error) {
       console.error('Sync failed', error);
@@ -227,8 +219,21 @@ export default function CalendarPage() {
     );
   };
 
-  const getSourceColor = (source: string, isBlock: boolean): string => {
-    if (isBlock) return '#94a3b8';
+  const isStayfolioChannel = (channelId: string) =>
+    channelId.toLowerCase() === 'stayfolio' || channelId === '스테이폴리오';
+
+  const filterValidEvents = (evts: ReservationEvent[]) =>
+    evts.filter(e => {
+      if (!activeChannels.includes(e.channelId)) return false;
+      if (e.type === 'block') return false;
+      if (isStayfolioChannel(e.channelId)) {
+        const diffMs = new Date(e.end.substring(0, 10)).getTime() - new Date(e.start.substring(0, 10)).getTime();
+        if (diffMs <= 24 * 60 * 60 * 1000) return false;
+      }
+      return true;
+    });
+
+  const getSourceColor = (source: string): string => {
     const s = source.toLowerCase();
     if (s.includes('airbnb')) return '#ff5a5f';
     if (s.includes('booking')) return '#003580';
@@ -236,19 +241,18 @@ export default function CalendarPage() {
     if (s.includes('agoda')) return '#5b0099';
     if (s.includes('vrbo')) return '#3b82f6';
     if (s.includes('stayfolio')) return '#14b8a6';
-    if (s.includes('direct') || s === '') return '#10b981'; // emerald — beds24 direct
-    return '#0ea5e9'; // sky — generic beds24
+    if (s.includes('direct') || s === '') return '#10b981';
+    return '#0ea5e9';
   };
 
-  const getChannelColor = (channelName: string, isBlock: boolean) => {
-    if (isBlock) return '#94a3b8';
+  const getChannelColor = (channelName: string) => {
     switch (channelName) {
       case 'Airbnb': return '#ff5a5f';
       case 'Booking.com': return '#003580';
       case 'Stayfolio':
       case '스테이폴리오':
         return '#14b8a6';
-      case 'Direct': return '#6366f1'; // indigo — our direct booking page
+      case 'Direct': return '#6366f1';
       case 'Beds24': return '#0ea5e9';
       default: return '#6366f1';
     }
@@ -266,20 +270,7 @@ export default function CalendarPage() {
     return source || 'Beds24';
   };
 
-  const isStayfolioChannel = (channelId: string) =>
-    channelId.toLowerCase() === 'stayfolio' || channelId === '스테이폴리오';
-
-  const calendarEvents = useMemo(() => events
-    .filter((e) => {
-      if (!activeChannels.includes(e.channelId)) return false;
-      if (e.type === 'block') return false;
-      // Stayfolio 1-day events are cross-channel blocks, not real reservations
-      if (isStayfolioChannel(e.channelId)) {
-        const diffMs = new Date(e.end.substring(0, 10)).getTime() - new Date(e.start.substring(0, 10)).getTime();
-        if (diffMs <= 24 * 60 * 60 * 1000) return false;
-      }
-      return true;
-    })
+  const calendarEvents = useMemo(() => filterValidEvents(events)
     .map((e) => {
       const channel = channels.find((c) => c.id === e.channelId);
       let channelName: string;
@@ -287,13 +278,13 @@ export default function CalendarPage() {
       if (e.channelId === 'beds24') {
         const src = e.source || '';
         channelName = getSourceLabel(src);
-        color = getSourceColor(src, e.type === 'block');
+        color = getSourceColor(src);
       } else if (e.channelId === 'direct') {
         channelName = '직접 예약';
-        color = getChannelColor('Direct', e.type === 'block');
+        color = getChannelColor('Direct');
       } else {
         channelName = channel?.id || '';
-        color = getChannelColor(channelName, e.type === 'block');
+        color = getChannelColor(channelName);
       }
       return {
         id: e.id,
@@ -304,7 +295,7 @@ export default function CalendarPage() {
         borderColor: color,
         extendedProps: {
           type: e.type,
-          channelName: channelName,
+          channelName,
           eventId: e.id,
           description: e.description,
         },
@@ -312,25 +303,10 @@ export default function CalendarPage() {
     }), [events, activeChannels, channels]);
 
   // Calculate conflicts (double bookings)
-  // Rules:
-  // 1. Only check active channels, ignore 'block' events
-  // 2. Normalize all dates to YYYY-MM-DD to avoid timezone false positives
-  //    (Beds24 returns "2026-05-01", iCal returns "2026-05-01T00:00:00" — different timestamps but same day)
-  // 3. Skip if two events share the exact same start+end date — same booking seen from multiple channels
-  // 4. Skip checkout=checkin (consecutive bookings, not an overlap)
   const groupedConflicts = useMemo(() => {
-    const toDateStr = (d: string) => d.substring(0, 10); // Normalize to YYYY-MM-DD
+    const toDateStr = (d: string) => d.substring(0, 10);
 
-    const checkableEvents = events
-      .filter(e => {
-        if (!activeChannels.includes(e.channelId)) return false;
-        if (e.type === 'block') return false;
-        if (isStayfolioChannel(e.channelId)) {
-          const diffMs = new Date(e.end.substring(0, 10)).getTime() - new Date(e.start.substring(0, 10)).getTime();
-          if (diffMs <= 24 * 60 * 60 * 1000) return false;
-        }
-        return true;
-      })
+    const checkableEvents = filterValidEvents(events)
       .map(e => ({ ...e, startDate: toDateStr(e.start), endDate: toDateStr(e.end) }));
 
     const resolveChannelName = (channelId: string) => {
@@ -471,7 +447,7 @@ export default function CalendarPage() {
                   onChange={() => toggleChannelFilter('direct')}
                   className="w-3.5 h-3.5 accent-white rounded-sm"
                 />
-                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: getChannelColor('Direct', false) }} />
+                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: getChannelColor('Direct') }} />
                 <span className="text-[11px] font-light text-white/60 group-hover:text-white/90 transition-colors">직접 예약</span>
               </label>
 
@@ -505,7 +481,7 @@ export default function CalendarPage() {
                     {channels.map((channel) => (
                       <div key={channel.id} className="flex items-center gap-3 px-2 py-1.5 opacity-30">
                         <div className="w-3.5 h-3.5" />
-                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: getChannelColor(channel.id, false) }} />
+                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: getChannelColor(channel.id) }} />
                         <span className="text-[11px] font-light text-white/50 line-through">{channel.id}</span>
                       </div>
                     ))}
@@ -520,7 +496,7 @@ export default function CalendarPage() {
                       onChange={() => toggleChannelFilter(channel.id)}
                       className="w-3.5 h-3.5 accent-white rounded-sm"
                     />
-                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: getChannelColor(channel.id, false) }} />
+                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: getChannelColor(channel.id) }} />
                     <span className="text-[11px] font-light text-white/60 group-hover:text-white/90 transition-colors">{channel.id}</span>
                   </label>
                 ))

@@ -195,13 +195,6 @@ export default function UnifiedCalendarPage() {
       }
       return true;
     });
-    // Collect all check-in dates per property
-    const checkinsByProp: Record<string, Set<string>> = {};
-    filtered.forEach(e => {
-      const s = e.start.substring(0, 10);
-      if (!checkinsByProp[e.propertyId]) checkinsByProp[e.propertyId] = new Set();
-      checkinsByProp[e.propertyId].add(s);
-    });
     return filtered.map(e => {
       const prop = properties.find(p => p.id === e.propertyId);
       const color = prop?.color ?? '#6366f1';
