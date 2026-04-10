@@ -17,6 +17,9 @@ interface Property {
   basePrice?: number;
   maxGuests?: number;
   beds24PropId?: string;
+  doorPassword?: string;
+  addressUrl?: string;
+  roomReadyMessage?: string;
 }
 
 export default function PropertySettingsPage() {
@@ -36,6 +39,9 @@ export default function PropertySettingsPage() {
   const [basePrice, setBasePrice] = useState<number | ''>('');
   const [maxGuests, setMaxGuests] = useState<number | ''>('');
   const [beds24PropId, setBeds24PropId] = useState('');
+  const [doorPassword, setDoorPassword] = useState('');
+  const [addressUrl, setAddressUrl] = useState('');
+  const [roomReadyMessage, setRoomReadyMessage] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -52,6 +58,9 @@ export default function PropertySettingsPage() {
           setBasePrice(data.basePrice || '');
           setMaxGuests(data.maxGuests || '');
           setBeds24PropId(data.beds24PropId || '');
+          setDoorPassword(data.doorPassword || '');
+          setAddressUrl(data.addressUrl || '');
+          setRoomReadyMessage(data.roomReadyMessage || '');
         }
       } catch (error) {
         console.error('Error fetching property', error);
@@ -74,6 +83,9 @@ export default function PropertySettingsPage() {
         basePrice: basePrice === '' ? null : Number(basePrice),
         maxGuests: maxGuests === '' ? null : Number(maxGuests),
         beds24PropId: beds24PropId.trim() || null,
+        doorPassword: doorPassword.trim() || null,
+        addressUrl: addressUrl.trim() || null,
+        roomReadyMessage: roomReadyMessage.trim() || null,
         updatedAt: new Date().toISOString()
       });
       alert('숙소 설정이 저장되었습니다.');
@@ -204,6 +216,41 @@ export default function PropertySettingsPage() {
               className="w-full bg-black/50 border border-white/10 rounded-none px-4 py-3 text-sm text-white focus:outline-none focus:border-white/30 transition-colors font-mono"
             />
             <p className="text-[11px] text-white/30 mt-2">Beds24 → Properties → 숙소 선택 → Property ID에서 확인</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">도어락 비밀번호</label>
+              <input
+                type="text"
+                value={doorPassword}
+                onChange={(e) => setDoorPassword(e.target.value)}
+                placeholder="예: 1234*"
+                className="w-full bg-black/50 border border-white/10 rounded-none px-4 py-3 text-sm text-white focus:outline-none focus:border-white/30 transition-colors font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">주소 링크</label>
+              <input
+                type="url"
+                value={addressUrl}
+                onChange={(e) => setAddressUrl(e.target.value)}
+                placeholder="예: https://naver.me/..."
+                className="w-full bg-black/50 border border-white/10 rounded-none px-4 py-3 text-sm text-white focus:outline-none focus:border-white/30 transition-colors font-mono"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">정비 완료 메시지 템플릿</label>
+            <textarea
+              value={roomReadyMessage}
+              onChange={(e) => setRoomReadyMessage(e.target.value)}
+              rows={4}
+              placeholder="비워두면 기본 메시지가 사용됩니다. {password}와 {address}를 사용하면 위 정보로 자동 치환됩니다."
+              className="w-full bg-black/50 border border-white/10 rounded-none px-4 py-3 text-sm text-white focus:outline-none focus:border-white/30 transition-colors resize-none"
+            />
+            <p className="text-[11px] text-white/30 mt-2">사용 가능 변수: {'{password}'} = 도어락 비밀번호, {'{address}'} = 주소 링크</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

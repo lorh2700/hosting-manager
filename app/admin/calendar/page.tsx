@@ -4,15 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/FirebaseProvider';
-import { ChevronLeft, ChevronRight, X, Save, Trash2, Send, ExternalLink } from 'lucide-react';
-
-// Inject slide-in animation via style tag (only once)
-if (typeof document !== 'undefined' && !document.getElementById('slide-panel-style')) {
-  const style = document.createElement('style');
-  style.id = 'slide-panel-style';
-  style.textContent = `@keyframes slideInRight{from{transform:translateX(100%)}to{transform:translateX(0)}}.animate-slide-in-right{animation:slideInRight .25s ease-out}`;
-  document.head.appendChild(style);
-}
+import { ChevronLeft, ChevronRight, X, Save, Trash2, Send, CheckCircle } from 'lucide-react';
 
 const PROPERTY_COLORS = [
   '#6366f1', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316',
@@ -31,12 +23,6 @@ function toDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function addDays(dateStr: string, n: number): string {
-  const d = new Date(dateStr);
-  d.setDate(d.getDate() + n);
-  return toDateStr(d);
-}
-
 function getChannelLabel(channelId: string, source: string | undefined, channelMap: Record<string, string>) {
   if (channelId === 'direct') return '직접예약';
   if (channelId === 'beds24') {
@@ -51,7 +37,7 @@ function getChannelLabel(channelId: string, source: string | undefined, channelM
   return channelMap[channelId] || channelId;
 }
 
-interface Property { id: string; name: string; color: string; }
+interface Property { id: string; name: string; color: string; doorPassword?: string; addressUrl?: string; roomReadyMessage?: string; }
 interface RawEvent { id: string; propertyId: string; channelId: string; source?: string; title: string; start: string; end: string; type: 'reservation' | 'block'; description?: string; }
 interface Cleaning { id: string; propertyId: string; date: string; cleanerId: string; status: 'pending' | 'done'; supplies?: string; }
 interface Cleaner { id: string; name: string; phone: string; }
@@ -59,16 +45,15 @@ interface SelectedEvent {
   eventId: string;
   title: string; start: string; end: string;
   propertyId: string; propertyName: string; propertyColor: string;
-  channelLabel: string; description?: string;
+  channelId: string; channelLabel: string; description?: string;
   cleaningId: string | null; cleanerId: string | null; cleanerName: string | null;
   supplies: string | null; status: 'pending' | 'done' | null;
 }
 
 interface ProcessedEvent {
   id: string; propertyId: string; color: string; propName: string;
-  start: string;    // display start (inclusive, YYYY-MM-DD)
-  end: string;      // display end (exclusive, YYYY-MM-DD) — extended +1 if no back-to-back
-  rawEnd: string;   // original checkout date for modal/cleaning
+  start: string;    // check-in date (YYYY-MM-DD)
+  end: string;      // checkout date (YYYY-MM-DD)
   title: string; channelId: string; source?: string; description?: string;
   cleaningId: string | null; cleanerId: string | null; cleanerName: string | null;
   supplies: string | null; status: 'pending' | 'done' | null;
@@ -94,6 +79,7 @@ export default function UnifiedCalendarPage() {
   const [newMessage, setNewMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [completingCleaning, setCompletingCleaning] = useState(false);
 
   useEffect(() => {
     const currentUser = user;
@@ -104,9 +90,13 @@ export default function UnifiedCalendarPage() {
         const propsSnap = (isPublic || currentUser?.isAnonymous || profile?.role === 'super_admin')
           ? await getDocs(collection(db, 'properties'))
           : await getDocs(query(collection(db, 'properties'), where('ownerId', '==', currentUser!.uid)));
-        const props: Property[] = propsSnap.docs.map((d, i) => ({
-          id: d.id, name: d.data().name, color: PROPERTY_COLORS[i % PROPERTY_COLORS.length],
-        }));
+        const props: Property[] = propsSnap.docs.map((d, i) => {
+          const data = d.data();
+          return {
+            id: d.id, name: data.name, color: PROPERTY_COLORS[i % PROPERTY_COLORS.length],
+            doorPassword: data.doorPassword, addressUrl: data.addressUrl, roomReadyMessage: data.roomReadyMessage,
+          };
+        });
         setProperties(props);
         setActiveProps(new Set(props.map(p => p.id)));
         if (props.length === 0) return;
@@ -215,14 +205,13 @@ export default function UnifiedCalendarPage() {
     return filtered.map(e => {
       const prop = properties.find(p => p.id === e.propertyId);
       const color = prop?.color ?? '#6366f1';
-      const rawEnd = e.end.substring(0, 10); // checkout date
-      const cleaning = cleanings.find(c => c.propertyId === e.propertyId && c.date === rawEnd);
+      const end = e.end.substring(0, 10);
+      const cleaning = cleanings.find(c => c.propertyId === e.propertyId && c.date === end);
       const cleanerName = cleaning?.cleanerId ? (cleanersMap.get(cleaning.cleanerId)?.name ?? null) : null;
       return {
         id: e.id, propertyId: e.propertyId, color, propName: prop?.name ?? '',
         start: e.start.substring(0, 10),
-        end: rawEnd,
-        rawEnd,
+        end,
         title: e.title, channelId: e.channelId, source: e.source, description: e.description,
         cleaningId: cleaning?.id ?? null,
         cleanerId: cleaning?.cleanerId ?? null,
@@ -235,6 +224,16 @@ export default function UnifiedCalendarPage() {
 
   const activeProperties = useMemo(() => properties.filter(p => activeProps.has(p.id)), [properties, activeProps]);
 
+  const eventsByProp = useMemo(() => {
+    const map = new Map<string, ProcessedEvent[]>();
+    processedEvents.forEach(e => {
+      const list = map.get(e.propertyId) || [];
+      list.push(e);
+      map.set(e.propertyId, list);
+    });
+    return map;
+  }, [processedEvents]);
+
   const toggleProp = (propId: string) => {
     setActiveProps(prev => { const n = new Set(prev); n.has(propId) ? n.delete(propId) : n.add(propId); return n; });
   };
@@ -242,9 +241,9 @@ export default function UnifiedCalendarPage() {
   const openModal = (e: ProcessedEvent) => {
     setSelectedEvent({
       eventId: e.id,
-      title: e.title, start: e.start, end: e.rawEnd,
+      title: e.title, start: e.start, end: e.end,
       propertyId: e.propertyId, propertyName: e.propName, propertyColor: e.color,
-      channelLabel: getChannelLabel(e.channelId, e.source, channelMap),
+      channelId: e.channelId, channelLabel: getChannelLabel(e.channelId, e.source, channelMap),
       description: e.description,
       cleaningId: e.cleaningId, cleanerId: e.cleanerId, cleanerName: e.cleanerName,
       supplies: e.supplies, status: e.status,
@@ -309,35 +308,68 @@ export default function UnifiedCalendarPage() {
     } catch (err) { console.error(err); alert('비품 추가에 실패했습니다.'); }
   };
 
-  const handleToggleSupply = async (todoId: string, done: boolean) => {
+  const handleToggleSupply = async (todoId: string, done: boolean, updateLocal = true) => {
     try {
       await updateDoc(doc(db, 'supply_todos', todoId), { done });
-      setSupplyTodos(prev => prev.map(t => t.id === todoId ? { ...t, done } : t));
+      if (updateLocal) setSupplyTodos(prev => prev.map(t => t.id === todoId ? { ...t, done } : t));
       setAllSupplyTodos(prev => prev.map(t => t.id === todoId ? { ...t, done } : t));
     } catch (err) { console.error(err); }
   };
 
-  const handleDeleteSupply = async (todoId: string) => {
+  const handleDeleteSupply = async (todoId: string, updateLocal = true) => {
     try {
       await deleteDoc(doc(db, 'supply_todos', todoId));
-      setSupplyTodos(prev => prev.filter(t => t.id !== todoId));
+      if (updateLocal) setSupplyTodos(prev => prev.filter(t => t.id !== todoId));
       setAllSupplyTodos(prev => prev.filter(t => t.id !== todoId));
     } catch (err) { console.error(err); alert('삭제에 실패했습니다.'); }
   };
 
-  // Global supply TODO handlers (for the list below calendar)
-  const handleGlobalToggleSupply = async (todoId: string, done: boolean) => {
-    try {
-      await updateDoc(doc(db, 'supply_todos', todoId), { done });
-      setAllSupplyTodos(prev => prev.map(t => t.id === todoId ? { ...t, done } : t));
-    } catch (err) { console.error(err); }
+  const DEFAULT_ROOM_READY_MESSAGE = '객실 정비가 완료되었습니다. 체크인 준비가 되었으니 편안한 시간 보내시길 바랍니다.';
+
+  const getRoomReadyMessage = (propertyId: string) => {
+    const prop = properties.find(p => p.id === propertyId);
+    if (!prop) return DEFAULT_ROOM_READY_MESSAGE;
+    const template = prop.roomReadyMessage || DEFAULT_ROOM_READY_MESSAGE;
+    let msg = template
+      .replace(/\{password\}/g, prop.doorPassword || '')
+      .replace(/\{address\}/g, prop.addressUrl || '');
+    // 커스텀 템플릿이 없으면 비밀번호/주소를 자동 첨부
+    if (!prop.roomReadyMessage && (prop.doorPassword || prop.addressUrl)) {
+      if (prop.doorPassword) msg += `\n\n비밀번호: ${prop.doorPassword}`;
+      if (prop.addressUrl) msg += `\n주소: ${prop.addressUrl}`;
+    }
+    return msg;
   };
 
-  const handleGlobalDeleteSupply = async (todoId: string) => {
+  const handleCompleteCleaning = async () => {
+    if (!selectedEvent?.cleaningId) return;
+    setCompletingCleaning(true);
     try {
-      await deleteDoc(doc(db, 'supply_todos', todoId));
-      setAllSupplyTodos(prev => prev.filter(t => t.id !== todoId));
-    } catch (err) { console.error(err); alert('삭제에 실패했습니다.'); }
+      await updateDoc(doc(db, 'cleanings', selectedEvent.cleaningId), {
+        status: 'done',
+        updatedAt: new Date().toISOString(),
+      });
+      setCleanings(prev => prev.map(c =>
+        c.id === selectedEvent.cleaningId ? { ...c, status: 'done' as const } : c
+      ));
+      // Beds24 연동 건이면 게스트에게 메시지 전송
+      if (selectedEvent.channelId === 'beds24' && user) {
+        try {
+          const token = await user.getIdToken();
+          await fetch('/api/beds24/messages/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({
+              eventId: selectedEvent.eventId,
+              propertyId: selectedEvent.propertyId,
+              text: getRoomReadyMessage(selectedEvent.propertyId),
+            }),
+          });
+        } catch { /* 메시지 전송 실패해도 정비 완료는 유지 */ }
+      }
+      setSelectedEvent(prev => prev ? { ...prev, status: 'done' } : null);
+    } catch (err) { console.error(err); alert('정비 완료 처리에 실패했습니다.'); }
+    finally { setCompletingCleaning(false); }
   };
 
   const handleDeleteCleaner = async () => {
@@ -423,8 +455,8 @@ export default function UnifiedCalendarPage() {
 
   // For a given day+property, classify what to show in the cell
   function getDayInfo(dayStr: string, propId: string) {
-    const eventsForProp = processedEvents.filter(e => e.propertyId === propId);
-    const checkoutEvent = eventsForProp.find(e => e.rawEnd === dayStr) ?? null;  // ends today
+    const eventsForProp = eventsByProp.get(propId) || [];
+    const checkoutEvent = eventsForProp.find(e => e.end === dayStr) ?? null;  // ends today
     const checkinEvent  = eventsForProp.find(e => e.start === dayStr) ?? null;   // starts today
     const midEvent = (!checkinEvent && !checkoutEvent)
       ? (eventsForProp.find(e => e.start < dayStr && e.end > dayStr) ?? null)
@@ -452,9 +484,13 @@ export default function UnifiedCalendarPage() {
     const nextMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1);
     const monthEnd = toDateStr(nextMonth); // exclusive
     return processedEvents.filter(e =>
-      e.rawEnd >= todayStr && e.rawEnd >= monthStart && e.rawEnd < monthEnd && !e.cleanerId
+      e.end >= todayStr && e.end >= monthStart && e.end < monthEnd && !e.cleanerId
     );
   }, [processedEvents, viewDate]);
+
+  const sortedUnassigned = useMemo(() =>
+    [...unassignedCleanings].sort((a, b) => a.end.localeCompare(b.end)),
+  [unassignedCleanings]);
 
   const today = toDateStr(new Date());
 
@@ -505,7 +541,7 @@ export default function UnifiedCalendarPage() {
           <button
             onClick={() => {
               // Open modal for the nearest unassigned event
-              const sorted = [...unassignedCleanings].sort((a, b) => a.rawEnd.localeCompare(b.rawEnd));
+              const sorted = sortedUnassigned;
               if (sorted[0]) openModal(sorted[0]);
             }}
             className="px-3.5 py-1.5 text-[11px] tracking-widest font-semibold text-amber-300 border border-amber-500/30 hover:bg-amber-500/15 rounded-lg transition-colors whitespace-nowrap"
@@ -763,7 +799,7 @@ export default function UnifiedCalendarPage() {
                     {items.map(todo => (
                       <div key={todo.id} className="flex items-center gap-3 group py-1">
                         <button
-                          onClick={() => handleGlobalToggleSupply(todo.id, true)}
+                          onClick={() => handleToggleSupply(todo.id, true, false)}
                           className="w-4 h-4 rounded border border-white/20 hover:border-emerald-400/60 flex items-center justify-center shrink-0 transition-colors"
                         />
                         <div className="flex-1 min-w-0">
@@ -771,7 +807,7 @@ export default function UnifiedCalendarPage() {
                           <p className="text-[10px] text-white/25 mt-0.5">{todo.date}</p>
                         </div>
                         <button
-                          onClick={() => handleGlobalDeleteSupply(todo.id)}
+                          onClick={() => handleDeleteSupply(todo.id, false)}
                           className="opacity-0 group-hover:opacity-100 text-white/20 hover:text-red-400 transition-all shrink-0"
                         >
                           <Trash2 size={12} />
@@ -793,7 +829,7 @@ export default function UnifiedCalendarPage() {
                   {done.map(todo => (
                     <div key={todo.id} className="flex items-center gap-3 group py-1">
                       <button
-                        onClick={() => handleGlobalToggleSupply(todo.id, false)}
+                        onClick={() => handleToggleSupply(todo.id, false, false)}
                         className="w-4 h-4 rounded bg-emerald-500/30 border border-emerald-500/50 flex items-center justify-center shrink-0 transition-colors"
                       >
                         <span className="text-emerald-400 text-[10px]">✓</span>
@@ -803,7 +839,7 @@ export default function UnifiedCalendarPage() {
                         <p className="text-[10px] text-white/15 mt-0.5">{todo.propertyName} · {todo.date}</p>
                       </div>
                       <button
-                        onClick={() => handleGlobalDeleteSupply(todo.id)}
+                        onClick={() => handleDeleteSupply(todo.id, false)}
                         className="opacity-0 group-hover:opacity-100 text-white/20 hover:text-red-400 transition-all shrink-0"
                       >
                         <Trash2 size={12} />
@@ -826,7 +862,7 @@ export default function UnifiedCalendarPage() {
               <div className="flex items-center justify-between bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
                 <span className="text-[10px] text-amber-300/80 tracking-wide">
                   미지정 {(() => {
-                    const sorted = [...unassignedCleanings].sort((a, b) => a.rawEnd.localeCompare(b.rawEnd));
+                    const sorted = sortedUnassigned;
                     const idx = sorted.findIndex(e => e.id === selectedEvent.eventId);
                     return `${idx + 1}/${sorted.length}`;
                   })()}
@@ -834,7 +870,7 @@ export default function UnifiedCalendarPage() {
                 <div className="flex gap-1.5">
                   <button
                     onClick={() => {
-                      const sorted = [...unassignedCleanings].sort((a, b) => a.rawEnd.localeCompare(b.rawEnd));
+                      const sorted = sortedUnassigned;
                       const idx = sorted.findIndex(e => e.id === selectedEvent.eventId);
                       const prev = sorted[(idx - 1 + sorted.length) % sorted.length];
                       if (prev) openModal(prev);
@@ -845,7 +881,7 @@ export default function UnifiedCalendarPage() {
                   </button>
                   <button
                     onClick={() => {
-                      const sorted = [...unassignedCleanings].sort((a, b) => a.rawEnd.localeCompare(b.rawEnd));
+                      const sorted = sortedUnassigned;
                       const idx = sorted.findIndex(e => e.id === selectedEvent.eventId);
                       const next = sorted[(idx + 1) % sorted.length];
                       if (next) openModal(next);
@@ -974,6 +1010,28 @@ export default function UnifiedCalendarPage() {
                   <Save size={13} />
                   {cleanerSaving ? '저장 중...' : '저장'}
                 </button>
+              )}
+
+              {/* 정비 완료 버튼 — 담당자 배정 완료 + 아직 pending인 경우에만 표시 */}
+              {selectedEvent.cleaningId && selectedEvent.status !== 'done' && (
+                <button
+                  onClick={handleCompleteCleaning}
+                  disabled={completingCleaning}
+                  className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white py-2.5 rounded-lg text-[11px] tracking-widest font-semibold hover:bg-emerald-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <CheckCircle size={13} />
+                  {completingCleaning ? '처리 중...' : '정비 완료'}
+                  {selectedEvent.channelId === 'beds24' && !completingCleaning && (
+                    <span className="text-[9px] font-normal text-emerald-200/70 ml-1">· 게스트 알림</span>
+                  )}
+                </button>
+              )}
+
+              {selectedEvent.status === 'done' && (
+                <div className="flex items-center gap-2 py-2 px-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+                  <CheckCircle size={13} className="text-emerald-400 shrink-0" />
+                  <span className="text-[11px] text-emerald-300/80">정비 완료</span>
+                </div>
               )}
             </div>
 
