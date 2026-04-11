@@ -1,10 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/components/FirebaseProvider';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { CalendarDays, AlertTriangle, Package, History, ClipboardList } from 'lucide-react';
+
+const NAV_ITEMS = [
+  { href: '/cleaner', label: '오늘', icon: ClipboardList },
+  { href: '/cleaner/schedule', label: '일정', icon: CalendarDays },
+  { href: '/cleaner/issues', label: '이슈', icon: AlertTriangle },
+  { href: '/cleaner/supplies', label: '비품', icon: Package },
+  { href: '/cleaner/history', label: '기록', icon: History },
+];
 
 export default function CleanerLayout({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth();
@@ -13,6 +22,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!loading && profile && profile.role !== 'cleaner' && profile.role !== 'super_admin') {
@@ -111,11 +121,33 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
     <div className="min-h-screen bg-[#050505] font-sans text-white selection:bg-white/20">
       <header className="border-b border-white/10 px-6 py-4 flex items-center justify-between">
         <span className="text-sm tracking-[0.2em] font-medium text-white">void anchae</span>
-        <span className="text-[10px] tracking-widest text-white/40 uppercase">청소 일정</span>
+        <span className="text-[10px] tracking-widest text-white/40 uppercase">청소 관리</span>
       </header>
-      <main className="p-4 pb-12 md:p-8 max-w-2xl mx-auto">
+      <main className="p-4 pb-28 md:p-8 md:pb-28 max-w-2xl mx-auto">
         {children}
       </main>
+
+      {/* 하단 네비게이션 */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-[#111] border-t border-white/10 z-50">
+        <div className="max-w-2xl mx-auto flex">
+          {NAV_ITEMS.map(item => {
+            const isActive = pathname === item.href || (item.href !== '/cleaner' && pathname.startsWith(item.href));
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.href}
+                onClick={() => router.push(item.href)}
+                className={`flex-1 flex flex-col items-center gap-1 py-3 transition-colors ${
+                  isActive ? 'text-white' : 'text-white/30 hover:text-white/50'
+                }`}
+              >
+                <Icon size={18} />
+                <span className="text-[9px] uppercase tracking-widest font-medium">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }

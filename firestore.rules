@@ -301,16 +301,61 @@ service cloud.firestore {
     match /cleanings/{cleaningId} {
       allow read: if true;
       allow create: if isAuthenticated() &&
-                    request.resource.data.keys().hasAll(['propertyId', 'date', 'cleanerId', 'status', 'createdAt']) &&
-                    request.resource.data.keys().hasOnly(['propertyId', 'date', 'cleanerId', 'status', 'supplies', 'notes', 'createdAt', 'updatedAt']) &&
+                    request.resource.data.keys().hasAll(['propertyId', 'date', 'status', 'createdAt']) &&
                     request.resource.data.propertyId is string &&
                     request.resource.data.date is string &&
-                    request.resource.data.cleanerId is string &&
                     request.resource.data.status in ['pending', 'done'];
       allow update: if isAuthenticated() &&
-                    request.resource.data.keys().hasOnly(['propertyId', 'date', 'cleanerId', 'status', 'supplies', 'notes', 'createdAt', 'updatedAt']) &&
                     request.resource.data.status in ['pending', 'done'];
       allow delete: if isAdminOrAbove() || (isAuthenticated() && isPropertyOwner(resource.data.propertyId));
+    }
+
+    // ===============================================================
+    // Cleaning Issues
+    // ===============================================================
+
+    match /cleaning_issues/{issueId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+                    request.resource.data.keys().hasAll(['cleaningId', 'propertyId', 'reportedBy', 'reportedByName', 'category', 'title', 'urgency', 'status', 'createdAt']) &&
+                    request.resource.data.reportedBy == request.auth.uid &&
+                    request.resource.data.category in ['damage', 'malfunction', 'missing_item', 'hygiene', 'other'] &&
+                    request.resource.data.urgency in ['low', 'normal', 'urgent'] &&
+                    request.resource.data.status == 'open';
+      allow update: if isAuthenticated() && (
+                    isAdminOrAbove() ||
+                    (resource.data.reportedBy == request.auth.uid && resource.data.status == 'open')
+                    );
+      allow delete: if isAdminOrAbove();
+    }
+
+    // ===============================================================
+    // Supply Requests
+    // ===============================================================
+
+    match /supply_requests/{requestId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+                    request.resource.data.keys().hasAll(['propertyId', 'requestedBy', 'requestedByName', 'items', 'urgency', 'status', 'createdAt']) &&
+                    request.resource.data.requestedBy == request.auth.uid &&
+                    request.resource.data.urgency in ['low', 'normal', 'urgent'] &&
+                    request.resource.data.status == 'pending';
+      allow update: if isAuthenticated() && isAdminOrAbove();
+      allow delete: if isAdminOrAbove();
+    }
+
+    // ===============================================================
+    // Cleaning Applications (일정 신청)
+    // ===============================================================
+
+    match /cleaning_applications/{appId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+                    request.resource.data.keys().hasAll(['cleaningId', 'propertyId', 'applicantId', 'applicantName', 'status', 'createdAt']) &&
+                    request.resource.data.applicantId == request.auth.uid &&
+                    request.resource.data.status == 'pending';
+      allow update: if isAuthenticated() && isAdminOrAbove();
+      allow delete: if isAdminOrAbove();
     }
     // ===============================================================
     // Supply TODOs (public read/write for shared calendar)

@@ -1,94 +1,186 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, getDoc, updateDoc, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/FirebaseProvider';
 import { format, parseISO, isToday, isTomorrow, isPast } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { CheckCircle2, Clock, CalendarDays } from 'lucide-react';
+import { CheckCircle2, Clock, CalendarDays, AlertTriangle, ChevronDown, ChevronUp, Send } from 'lucide-react';
+import type { IssueCategory, IssueUrgency } from '@/lib/types';
 
 interface CleaningTask {
   cleaningId: string;
+  propertyId: string;
   propertyName: string;
   date: string;
   guestName: string;
   supplies: string;
   status: 'pending' | 'done';
+  completionNote?: string;
+  completedAt?: string;
+  hasIssue?: boolean;
 }
+
+const ISSUE_CATEGORIES: { value: IssueCategory; label: string }[] = [
+  { value: 'damage', label: '파손' },
+  { value: 'malfunction', label: '고장' },
+  { value: 'missing_item', label: '분실/부족' },
+  { value: 'hygiene', label: '위생 문제' },
+  { value: 'other', label: '기타' },
+];
+
+const URGENCY_OPTIONS: { value: IssueUrgency; label: string; color: string }[] = [
+  { value: 'low', label: '낮음', color: 'text-white/50' },
+  { value: 'normal', label: '보통', color: 'text-amber-400' },
+  { value: 'urgent', label: '긴급', color: 'text-red-400' },
+];
 
 export default function CleanerPage() {
   const { user, profile } = useAuth();
   const [tasks, setTasks] = useState<CleaningTask[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedTask, setExpandedTask] = useState<string | null>(null);
+
+  // completion form
+  const [completionNote, setCompletionNote] = useState('');
+  const [completing, setCompleting] = useState<string | null>(null);
+
+  // issue form
+  const [showIssueForm, setShowIssueForm] = useState<string | null>(null);
+  const [issueCategory, setIssueCategory] = useState<IssueCategory>('other');
+  const [issueTitle, setIssueTitle] = useState('');
+  const [issueDesc, setIssueDesc] = useState('');
+  const [issueUrgency, setIssueUrgency] = useState<IssueUrgency>('normal');
+  const [submittingIssue, setSubmittingIssue] = useState(false);
 
   useEffect(() => {
     if (!user || !profile) return;
-
-    const load = async () => {
-      try {
-        // Fetch properties this cleaner has access to
-        let propertyIds: string[] = [];
-        if (profile.role === 'super_admin') {
-          const snap = await getDocs(collection(db, 'properties'));
-          propertyIds = snap.docs.map(d => d.id);
-        } else {
-          propertyIds = profile.propertyIds;
-        }
-
-        if (propertyIds.length === 0) {
-          setLoading(false);
-          return;
-        }
-
-        // Build property name map
-        const propNames: Record<string, string> = {};
-        await Promise.all(propertyIds.map(async pid => {
-          const snap = await getDoc(doc(db, 'properties', pid));
-          if (snap.exists()) propNames[pid] = snap.data().name;
-        }));
-
-        // Fetch cleanings assigned to this cleaner
-        const cleaningsQuery = profile.role === 'super_admin'
-          ? query(collection(db, 'cleanings'), where('propertyId', 'in', propertyIds.slice(0, 10)))
-          : query(collection(db, 'cleanings'), where('cleanerId', '==', user.uid), where('propertyId', 'in', propertyIds.slice(0, 10)));
-
-        const cleaningsSnap = await getDocs(cleaningsQuery);
-
-        // Fetch checkout bookings to get guest names
-        const bookingsSnap = await getDocs(query(
-          collection(db, 'bookings'),
-          where('propertyId', 'in', propertyIds.slice(0, 10)),
-          where('status', '==', 'confirmed')
-        ));
-        const guestByKey: Record<string, string> = {};
-        bookingsSnap.docs.forEach(d => {
-          const data = d.data();
-          guestByKey[`${data.propertyId}_${data.checkOut}`] = data.name;
-        });
-
-        const result: CleaningTask[] = cleaningsSnap.docs.map(d => {
-          const data = d.data();
-          return {
-            cleaningId: d.id,
-            propertyName: propNames[data.propertyId] ?? '알 수 없는 숙소',
-            date: data.date,
-            guestName: guestByKey[`${data.propertyId}_${data.date}`] ?? '',
-            supplies: data.supplies ?? '',
-            status: data.status ?? 'pending',
-          };
-        }).sort((a, b) => a.date.localeCompare(b.date));
-
-        setTasks(result);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    load();
+    loadTasks();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, profile]);
+
+  const loadTasks = async () => {
+    if (!user || !profile) return;
+    try {
+      let propertyIds: string[] = [];
+      if (profile.role === 'super_admin') {
+        const snap = await getDocs(collection(db, 'properties'));
+        propertyIds = snap.docs.map(d => d.id);
+      } else {
+        propertyIds = profile.propertyIds;
+      }
+      if (propertyIds.length === 0) { setLoading(false); return; }
+
+      const propNames: Record<string, string> = {};
+      await Promise.all(propertyIds.map(async pid => {
+        const snap = await getDoc(doc(db, 'properties', pid));
+        if (snap.exists()) propNames[pid] = snap.data().name;
+      }));
+
+      const cleaningsQuery = profile.role === 'super_admin'
+        ? query(collection(db, 'cleanings'), where('propertyId', 'in', propertyIds.slice(0, 10)))
+        : query(collection(db, 'cleanings'), where('cleanerId', '==', user.uid), where('propertyId', 'in', propertyIds.slice(0, 10)));
+
+      const cleaningsSnap = await getDocs(cleaningsQuery);
+
+      const bookingsSnap = await getDocs(query(
+        collection(db, 'bookings'),
+        where('propertyId', 'in', propertyIds.slice(0, 10)),
+        where('status', '==', 'confirmed')
+      ));
+      const guestByKey: Record<string, string> = {};
+      bookingsSnap.docs.forEach(d => {
+        const data = d.data();
+        guestByKey[`${data.propertyId}_${data.checkOut}`] = data.name;
+      });
+
+      const result: CleaningTask[] = cleaningsSnap.docs.map(d => {
+        const data = d.data();
+        return {
+          cleaningId: d.id,
+          propertyId: data.propertyId,
+          propertyName: propNames[data.propertyId] ?? '알 수 없는 숙소',
+          date: data.date,
+          guestName: guestByKey[`${data.propertyId}_${data.date}`] ?? '',
+          supplies: data.supplies ?? '',
+          status: data.status ?? 'pending',
+          completionNote: data.completionNote,
+          completedAt: data.completedAt,
+          hasIssue: data.hasIssue,
+        };
+      }).sort((a, b) => a.date.localeCompare(b.date));
+
+      setTasks(result);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleComplete = async (task: CleaningTask) => {
+    if (!user) return;
+    setCompleting(task.cleaningId);
+    try {
+      await updateDoc(doc(db, 'cleanings', task.cleaningId), {
+        status: 'done',
+        completedAt: new Date().toISOString(),
+        completionNote: completionNote || null,
+        reportedBy: user.uid,
+        updatedAt: new Date().toISOString(),
+      });
+      setTasks(prev => prev.map(t =>
+        t.cleaningId === task.cleaningId
+          ? { ...t, status: 'done', completedAt: new Date().toISOString(), completionNote }
+          : t
+      ));
+      setCompletionNote('');
+      setExpandedTask(null);
+    } catch (err) {
+      console.error(err);
+      alert('완료 처리에 실패했습니다.');
+    } finally {
+      setCompleting(null);
+    }
+  };
+
+  const handleSubmitIssue = async (task: CleaningTask) => {
+    if (!user || !profile || !issueTitle.trim()) return;
+    setSubmittingIssue(true);
+    try {
+      await addDoc(collection(db, 'cleaning_issues'), {
+        cleaningId: task.cleaningId,
+        propertyId: task.propertyId,
+        reportedBy: user.uid,
+        reportedByName: profile.displayName || user.email || 'unknown',
+        category: issueCategory,
+        title: issueTitle.trim(),
+        description: issueDesc.trim(),
+        urgency: issueUrgency,
+        status: 'open',
+        createdAt: new Date().toISOString(),
+      });
+      await updateDoc(doc(db, 'cleanings', task.cleaningId), {
+        hasIssue: true,
+        updatedAt: new Date().toISOString(),
+      });
+      setTasks(prev => prev.map(t =>
+        t.cleaningId === task.cleaningId ? { ...t, hasIssue: true } : t
+      ));
+      setShowIssueForm(null);
+      setIssueTitle('');
+      setIssueDesc('');
+      setIssueCategory('other');
+      setIssueUrgency('normal');
+      alert('이슈가 등록되었습니다.');
+    } catch (err) {
+      console.error(err);
+      alert('이슈 등록에 실패했습니다.');
+    } finally {
+      setSubmittingIssue(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -108,38 +200,160 @@ export default function CleanerPage() {
   const upcoming = tasks.filter(t => !isPast(parseISO(t.date)) || isToday(parseISO(t.date)));
   const past = tasks.filter(t => isPast(parseISO(t.date)) && !isToday(parseISO(t.date)));
 
-  const TaskCard = ({ task }: { task: CleaningTask }) => (
-    <div className={`border p-5 transition-colors ${
-      task.status === 'done' ? 'border-white/5 bg-[#0a0a0a]' : 'border-white/10 bg-[#111]'
-    }`}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            {task.status === 'done'
-              ? <CheckCircle2 size={14} className="text-green-400 shrink-0" />
-              : <Clock size={14} className="text-white/40 shrink-0" />
-            }
-            <span className={`text-[10px] uppercase tracking-widest font-semibold ${
-              task.status === 'done' ? 'text-green-400' : 'text-white/50'
-            }`}>
-              {task.status === 'done' ? '완료' : '청소 예정'}
-            </span>
+  const TaskCard = ({ task }: { task: CleaningTask }) => {
+    const isExpanded = expandedTask === task.cleaningId;
+    const isIssueOpen = showIssueForm === task.cleaningId;
+
+    return (
+      <div className={`border transition-colors ${
+        task.status === 'done' ? 'border-white/5 bg-[#0a0a0a]' : 'border-white/10 bg-[#111]'
+      }`}>
+        <div
+          className="p-5 cursor-pointer"
+          onClick={() => setExpandedTask(isExpanded ? null : task.cleaningId)}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                {task.status === 'done'
+                  ? <CheckCircle2 size={14} className="text-green-400 shrink-0" />
+                  : <Clock size={14} className="text-white/40 shrink-0" />
+                }
+                <span className={`text-[10px] uppercase tracking-widest font-semibold ${
+                  task.status === 'done' ? 'text-green-400' : 'text-white/50'
+                }`}>
+                  {task.status === 'done' ? '완료' : '청소 예정'}
+                </span>
+                {task.hasIssue && (
+                  <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 tracking-wider">이슈</span>
+                )}
+              </div>
+              <p className="text-white font-medium text-sm">{task.propertyName}</p>
+              {task.guestName && (
+                <p className="text-white/40 text-xs mt-1">{task.guestName} 체크아웃</p>
+              )}
+              {task.supplies && (
+                <p className="text-white/50 text-xs mt-2 leading-relaxed">{task.supplies}</p>
+              )}
+              {task.completionNote && (
+                <p className="text-green-400/60 text-xs mt-2">메모: {task.completionNote}</p>
+              )}
+            </div>
+            <div className="text-right shrink-0 flex flex-col items-end gap-2">
+              <div>
+                <p className="text-white text-sm font-medium">{getDateLabel(task.date)}</p>
+                <p className="text-white/30 text-[10px] mt-0.5">{task.date}</p>
+              </div>
+              {task.status === 'pending' && (
+                isExpanded
+                  ? <ChevronUp size={14} className="text-white/30" />
+                  : <ChevronDown size={14} className="text-white/30" />
+              )}
+            </div>
           </div>
-          <p className="text-white font-medium text-sm">{task.propertyName}</p>
-          {task.guestName && (
-            <p className="text-white/40 text-xs mt-1">{task.guestName} 체크아웃</p>
-          )}
-          {task.supplies && (
-            <p className="text-white/50 text-xs mt-2 leading-relaxed">{task.supplies}</p>
-          )}
         </div>
-        <div className="text-right shrink-0">
-          <p className="text-white text-sm font-medium">{getDateLabel(task.date)}</p>
-          <p className="text-white/30 text-[10px] mt-0.5">{task.date}</p>
-        </div>
+
+        {/* 완료 보고 패널 */}
+        {isExpanded && task.status === 'pending' && (
+          <div className="border-t border-white/5 p-5 space-y-4">
+            <div>
+              <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">완료 메모 (선택)</label>
+              <input
+                type="text"
+                value={completionNote}
+                onChange={e => setCompletionNote(e.target.value)}
+                placeholder="특이사항이 있으면 입력하세요"
+                className="w-full bg-black/50 border border-white/10 px-4 py-3 text-sm text-white focus:outline-none focus:border-white/30 transition-colors"
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleComplete(task)}
+                disabled={completing === task.cleaningId}
+                className="flex-1 bg-white text-black py-3 text-[11px] uppercase tracking-widest font-semibold hover:bg-white/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {completing === task.cleaningId ? (
+                  <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                ) : (
+                  <><CheckCircle2 size={14} /> 청소 완료</>
+                )}
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowIssueForm(isIssueOpen ? null : task.cleaningId); }}
+                className="border border-amber-500/30 text-amber-400 px-4 py-3 text-[11px] uppercase tracking-widest font-semibold hover:bg-amber-500/10 transition-colors flex items-center gap-2"
+              >
+                <AlertTriangle size={14} /> 이슈
+              </button>
+            </div>
+
+            {/* 이슈 등록 폼 */}
+            {isIssueOpen && (
+              <div className="border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
+                <p className="text-[10px] uppercase tracking-widest text-amber-400/80 font-semibold">이슈 등록</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">카테고리</label>
+                    <select
+                      value={issueCategory}
+                      onChange={e => setIssueCategory(e.target.value as IssueCategory)}
+                      className="w-full bg-black/50 border border-white/10 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30"
+                    >
+                      {ISSUE_CATEGORIES.map(c => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">긴급도</label>
+                    <select
+                      value={issueUrgency}
+                      onChange={e => setIssueUrgency(e.target.value as IssueUrgency)}
+                      className="w-full bg-black/50 border border-white/10 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30"
+                    >
+                      {URGENCY_OPTIONS.map(u => (
+                        <option key={u.value} value={u.value}>{u.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">이슈 제목</label>
+                  <input
+                    type="text"
+                    value={issueTitle}
+                    onChange={e => setIssueTitle(e.target.value)}
+                    placeholder="예: 거실 창문 균열"
+                    className="w-full bg-black/50 border border-white/10 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">상세 설명</label>
+                  <textarea
+                    value={issueDesc}
+                    onChange={e => setIssueDesc(e.target.value)}
+                    rows={3}
+                    placeholder="상세 내용을 입력하세요"
+                    className="w-full bg-black/50 border border-white/10 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 resize-none"
+                  />
+                </div>
+                <button
+                  onClick={() => handleSubmitIssue(task)}
+                  disabled={submittingIssue || !issueTitle.trim()}
+                  className="w-full bg-amber-500 text-black py-3 text-[11px] uppercase tracking-widest font-semibold hover:bg-amber-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {submittingIssue ? (
+                    <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                  ) : (
+                    <><Send size={14} /> 이슈 등록</>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="space-y-10">

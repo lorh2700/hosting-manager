@@ -199,12 +199,83 @@ export interface Cleaning {
   id: string;
   propertyId: string;
   date: string;
-  cleanerId: string;
+  cleanerId?: string;
   status: 'pending' | 'done';
   supplies?: string;
   notes?: string;
+  completedAt?: string;
+  completionNote?: string;
+  reportedBy?: string;
+  hasIssue?: boolean;
+  isOpen?: boolean;
+  assignmentType?: 'direct' | 'applied';
   createdAt: string;
   updatedAt?: string;
+}
+
+// ─── Cleaning Issue ────────────────────────────────────────────────────────
+
+export type IssueCategory = 'damage' | 'malfunction' | 'missing_item' | 'hygiene' | 'other';
+export type IssueUrgency = 'low' | 'normal' | 'urgent';
+export type IssueStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
+
+export interface CleaningIssue {
+  id: string;
+  cleaningId: string;
+  propertyId: string;
+  reportedBy: string;
+  reportedByName: string;
+  category: IssueCategory;
+  title: string;
+  description: string;
+  urgency: IssueUrgency;
+  status: IssueStatus;
+  resolvedBy?: string;
+  resolvedAt?: string;
+  resolvedNote?: string;
+  createdAt: string;
+}
+
+// ─── Supply Request ────────────────────────────────────────────────────────
+
+export interface SupplyItem {
+  name: string;
+  quantity: number;
+  note?: string;
+}
+
+export type SupplyRequestStatus = 'pending' | 'approved' | 'rejected' | 'completed';
+
+export interface SupplyRequest {
+  id: string;
+  propertyId: string;
+  requestedBy: string;
+  requestedByName: string;
+  items: SupplyItem[];
+  urgency: IssueUrgency;
+  status: SupplyRequestStatus;
+  statusNote?: string;
+  processedBy?: string;
+  processedAt?: string;
+  createdAt: string;
+}
+
+// ─── Cleaning Application (일정 신청) ──────────────────────────────────────
+
+export type ApplicationStatus = 'pending' | 'approved' | 'rejected';
+
+export interface CleaningApplication {
+  id: string;
+  cleaningId: string;
+  propertyId: string;
+  applicantId: string;
+  applicantName: string;
+  note?: string;
+  status: ApplicationStatus;
+  rejectedReason?: string;
+  processedBy?: string;
+  processedAt?: string;
+  createdAt: string;
 }
 
 // ─── Derived / View Types ───────────────────────────────────────────────────
