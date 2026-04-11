@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, query, where, doc, getDoc, updateDoc, addDoc, writeBatch } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/components/FirebaseProvider';
+import { useAuth } from '@/components/AuthProvider';
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { CalendarDays, Check, X, Plus, Users } from 'lucide-react';
@@ -45,49 +43,35 @@ export default function AdminCleaningRequestsPage() {
   const loadData = async () => {
     if (!user || !profile) return;
     try {
-      const propSnap = await getDocs(collection(db, 'properties'));
+      const [propsRes, appsRes, cleaningsRes] = await Promise.all([
+        fetch('/api/properties'),
+        fetch('/api/cleaning-applications'),
+        fetch('/api/cleanings?isOpen=true'),
+      ]);
+      if (!propsRes.ok || !appsRes.ok || !cleaningsRes.ok) throw new Error('Failed to fetch data');
+
+      const propsData: any[] = await propsRes.json();
       const propNames: Record<string, string> = {};
       const propList: { id: string; name: string }[] = [];
-      propSnap.docs.forEach(d => {
-        propNames[d.id] = d.data().name;
-        propList.push({ id: d.id, name: d.data().name });
+      propsData.forEach(d => {
+        propNames[d.id] = d.name;
+        propList.push({ id: d.id, name: d.name });
       });
       setProperties(propList);
       if (propList.length > 0 && !newCleaningProp) setNewCleaningProp(propList[0].id);
 
-      // Fetch all applications
-      const appsSnap = await getDocs(collection(db, 'cleaning_applications'));
-      const apps: EnrichedApplication[] = await Promise.all(appsSnap.docs.map(async d => {
-        const data = d.data();
-        let cleaningDate = '';
-        let propertyName = propNames[data.propertyId] ?? '';
-        try {
-          const cleaningDoc = await getDoc(doc(db, 'cleanings', data.cleaningId));
-          if (cleaningDoc.exists()) {
-            const cd = cleaningDoc.data();
-            cleaningDate = cd.date;
-            if (!propertyName) propertyName = propNames[cd.propertyId] ?? '알 수 없는 숙소';
-          }
-        } catch { /* ignore */ }
-        return {
-          ...data,
-          id: d.id,
-          propertyName,
-          cleaningDate,
-        } as EnrichedApplication;
-      }));
+      const appsData: any[] = await appsRes.json();
+      const apps: EnrichedApplication[] = appsData.map(d => ({
+        ...d,
+        propertyName: propNames[d.propertyId] ?? '알 수 없는 숙소',
+        cleaningDate: d.cleaningDate ?? '',
+      } as EnrichedApplication));
 
       setApplications(apps.sort((a, b) => {
-        const statusOrder = { pending: 0, approved: 1, rejected: 2 };
+        const statusOrder: Record<string, number> = { pending: 0, approved: 1, rejected: 2 };
         if (statusOrder[a.status] !== statusOrder[b.status]) return statusOrder[a.status] - statusOrder[b.status];
         return b.createdAt.localeCompare(a.createdAt);
       }));
-
-      // Fetch open cleanings
-      const cleaningsSnap = await getDocs(query(
-        collection(db, 'cleanings'),
-        where('isOpen', '==', true)
-      ));
 
       // Count applications per cleaning
       const appCounts: Record<string, number> = {};
@@ -95,15 +79,12 @@ export default function AdminCleaningRequestsPage() {
         appCounts[a.cleaningId] = (appCounts[a.cleaningId] ?? 0) + 1;
       });
 
-      const opens: OpenCleaning[] = cleaningsSnap.docs.map(d => {
-        const data = d.data();
-        return {
-          ...data,
-          id: d.id,
-          propertyName: propNames[data.propertyId] ?? '알 수 없는 숙소',
-          applicationCount: appCounts[d.id] ?? 0,
-        } as OpenCleaning;
-      }).sort((a, b) => a.date.localeCompare(b.date));
+      const cleaningsData: any[] = await cleaningsRes.json();
+      const opens: OpenCleaning[] = cleaningsData.map(d => ({
+        ...d,
+        propertyName: propNames[d.propertyId] ?? '알 수 없는 숙소',
+        applicationCount: appCounts[d.id] ?? 0,
+      } as OpenCleaning)).sort((a, b) => a.date.localeCompare(b.date));
 
       setOpenCleanings(opens);
     } catch (err) {
@@ -117,37 +98,51 @@ export default function AdminCleaningRequestsPage() {
     if (!user) return;
     setUpdating(app.id);
     try {
-      const batch = writeBatch(db);
-
       // Approve this application
-      batch.update(doc(db, 'cleaning_applications', app.id), {
-        status: 'approved',
-        processedBy: user.uid,
-        processedAt: new Date().toISOString(),
+      const approveRes = await fetch('/api/cleaning-applications', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: app.id,
+          status: 'approved',
+          processedBy: user.id,
+          processedAt: new Date().toISOString(),
+        }),
       });
+      if (!approveRes.ok) throw new Error('Failed to approve application');
 
       // Assign cleaner to the cleaning
-      batch.update(doc(db, 'cleanings', app.cleaningId), {
-        cleanerId: app.applicantId,
-        isOpen: false,
-        assignmentType: 'applied',
-        updatedAt: new Date().toISOString(),
+      const assignRes = await fetch('/api/cleanings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: app.cleaningId,
+          cleanerId: app.applicantId,
+          isOpen: false,
+          assignmentType: 'applied',
+          updatedAt: new Date().toISOString(),
+        }),
       });
+      if (!assignRes.ok) throw new Error('Failed to assign cleaner');
 
       // Reject other pending applications for the same cleaning
       const otherApps = applications.filter(
         a => a.cleaningId === app.cleaningId && a.id !== app.id && a.status === 'pending'
       );
       for (const other of otherApps) {
-        batch.update(doc(db, 'cleaning_applications', other.id), {
-          status: 'rejected',
-          rejectedReason: '다른 담당자가 배정되었습니다',
-          processedBy: user.uid,
-          processedAt: new Date().toISOString(),
+        await fetch('/api/cleaning-applications', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: other.id,
+            status: 'rejected',
+            rejectedReason: '다른 담당자가 배정되었습니다',
+            processedBy: user.id,
+            processedAt: new Date().toISOString(),
+          }),
         });
       }
 
-      await batch.commit();
       await loadData();
     } catch (err) {
       console.error(err);
@@ -161,12 +156,18 @@ export default function AdminCleaningRequestsPage() {
     if (!user) return;
     setUpdating(app.id);
     try {
-      await updateDoc(doc(db, 'cleaning_applications', app.id), {
-        status: 'rejected',
-        rejectedReason: rejectReasons[app.id] || null,
-        processedBy: user.uid,
-        processedAt: new Date().toISOString(),
+      const res = await fetch('/api/cleaning-applications', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: app.id,
+          status: 'rejected',
+          rejectedReason: rejectReasons[app.id] || null,
+          processedBy: user.id,
+          processedAt: new Date().toISOString(),
+        }),
       });
+      if (!res.ok) throw new Error('Failed to reject application');
       await loadData();
     } catch (err) {
       console.error(err);
@@ -180,15 +181,20 @@ export default function AdminCleaningRequestsPage() {
     if (!newCleaningProp || !newCleaningDate) return;
     setCreating(true);
     try {
-      await addDoc(collection(db, 'cleanings'), {
-        propertyId: newCleaningProp,
-        date: newCleaningDate,
-        cleanerId: null,
-        status: 'pending',
-        isOpen: true,
-        notes: newCleaningNotes.trim() || null,
-        createdAt: new Date().toISOString(),
+      const res = await fetch('/api/cleanings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          propertyId: newCleaningProp,
+          date: newCleaningDate,
+          cleanerId: null,
+          status: 'pending',
+          isOpen: true,
+          notes: newCleaningNotes.trim() || null,
+          createdAt: new Date().toISOString(),
+        }),
       });
+      if (!res.ok) throw new Error('Failed to create cleaning');
       setNewCleaningDate('');
       setNewCleaningNotes('');
       setShowCreateForm(false);

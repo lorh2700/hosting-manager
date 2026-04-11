@@ -2,12 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import {
-  collection, query, where, getDocs, orderBy,
-  onSnapshot, doc, updateDoc,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/components/FirebaseProvider';
+import { useAuth } from '@/components/AuthProvider';
 import { MessageSquare, Send, ChevronRight, RefreshCw } from 'lucide-react';
 
 interface Message {
@@ -62,16 +57,17 @@ function MessagesContent() {
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const unsubRef = useRef<(() => void) | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Load properties once
   useEffect(() => {
     if (!user) return;
     const loadProperties = async () => {
-      const q = query(collection(db, 'properties'), where('ownerId', '==', user.uid));
-      const snap = await getDocs(q);
+      const res = await fetch('/api/properties');
+      if (!res.ok) return;
+      const data = await res.json();
       const map: Record<string, string> = {};
-      snap.docs.forEach(d => { map[d.id] = (d.data() as { name: string }).name; });
+      data.forEach((p: any) => { map[p.id] = p.name; });
       setProperties(map);
     };
     loadProperties();
@@ -83,60 +79,41 @@ function MessagesContent() {
     setLoading(true);
     try {
       const propertyIds = Object.keys(properties);
-      const chunks: string[][] = [];
-      for (let i = 0; i < propertyIds.length; i += 30) {
-        chunks.push(propertyIds.slice(i, i + 30));
-      }
+      const propertyIdsParam = propertyIds.join(',');
 
       // Load messages
-      const allMessages: Message[] = [];
-      for (const chunk of chunks) {
-        const q = query(collection(db, 'messages'), where('propertyId', 'in', chunk));
-        const snap = await getDocs(q);
-        snap.docs.forEach(d => {
-          allMessages.push({ id: d.id, ...d.data() } as Message);
-        });
-      }
+      const msgsRes = await fetch(`/api/messages?propertyIds=${propertyIdsParam}`);
+      const allMessages: Message[] = msgsRes.ok ? await msgsRes.json() : [];
 
-      // Load events (reservations only, recent and upcoming)
+      // Load events (reservations only)
+      const eventsRes = await fetch(`/api/events?propertyIds=${propertyIdsParam}&type=reservation`);
       const allEvents: EventInfo[] = [];
-      for (const chunk of chunks) {
-        const q = query(
-          collection(db, 'events'),
-          where('propertyId', 'in', chunk),
-          where('type', '==', 'reservation'),
-        );
-        const snap = await getDocs(q);
-        snap.docs.forEach(d => {
-          const data = d.data();
+      if (eventsRes.ok) {
+        const eventsData = await eventsRes.json();
+        eventsData.forEach((d: any) => {
           allEvents.push({
             id: d.id,
-            propertyId: data.propertyId,
-            title: data.title,
-            start: data.start,
-            end: data.end,
-            description: data.description,
+            propertyId: d.propertyId,
+            title: d.title,
+            start: d.startDate || d.start,
+            end: d.endDate || d.end,
+            description: d.description,
           });
         });
       }
 
       // Also load bookings
-      for (const chunk of chunks) {
-        const q = query(
-          collection(db, 'bookings'),
-          where('propertyId', 'in', chunk),
-          where('status', '==', 'confirmed'),
-        );
-        const snap = await getDocs(q);
-        snap.docs.forEach(d => {
-          const data = d.data();
+      const bookingsRes = await fetch(`/api/bookings?propertyIds=${propertyIdsParam}&status=confirmed`);
+      if (bookingsRes.ok) {
+        const bookingsData = await bookingsRes.json();
+        bookingsData.forEach((d: any) => {
           allEvents.push({
             id: d.id,
-            propertyId: data.propertyId,
-            title: data.name || '게스트',
-            start: data.checkIn,
-            end: data.checkOut,
-            description: data.message || `게스트: ${data.name}\n연락처: ${data.email}\n인원: ${data.guests}명`,
+            propertyId: d.propertyId,
+            title: d.name || '게스트',
+            start: d.checkIn,
+            end: d.checkOut,
+            description: d.message || `게스트: ${d.name}\n연락처: ${d.email}\n인원: ${d.guests}명`,
           });
         });
       }
@@ -228,34 +205,46 @@ function MessagesContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [properties]);
 
-  // Subscribe to messages for selected conversation
+  // Poll messages for selected conversation (replaces onSnapshot)
+  const fetchMessages = useCallback(async () => {
+    if (!selectedConv) return;
+    try {
+      const res = await fetch(`/api/messages?eventId=${selectedConv.eventId}`);
+      if (!res.ok) return;
+      const msgs: Message[] = await res.json();
+      msgs.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      setMessages(msgs);
+
+      // Mark guest messages as read
+      const unreadIds = msgs.filter(m => m.sender === 'guest' && !m.read).map(m => m.id);
+      if (unreadIds.length > 0) {
+        await fetch('/api/messages', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: unreadIds, read: true }),
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch messages', err);
+    }
+  }, [selectedConv]);
+
   useEffect(() => {
-    if (unsubRef.current) {
-      unsubRef.current();
-      unsubRef.current = null;
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
     }
     if (!selectedConv) return;
 
-    const q = query(
-      collection(db, 'messages'),
-      where('eventId', '==', selectedConv.eventId),
-      orderBy('createdAt', 'asc'),
-    );
+    // Initial fetch
+    fetchMessages();
 
-    const unsub = onSnapshot(q, (snap) => {
-      const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Message));
-      setMessages(msgs);
-      // Mark guest messages as read
-      snap.docs.forEach(d => {
-        const data = d.data();
-        if (data.sender === 'guest' && !data.read) {
-          updateDoc(doc(db, 'messages', d.id), { read: true });
-        }
-      });
-    });
-    unsubRef.current = unsub;
-    return () => unsub();
-  }, [selectedConv]);
+    // Poll every 5 seconds
+    pollRef.current = setInterval(fetchMessages, 5000);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [selectedConv, fetchMessages]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -271,10 +260,9 @@ function MessagesContent() {
     const text = inputText.trim();
     setInputText('');
     try {
-      const token = await user.getIdToken();
       const res = await fetch('/api/beds24/messages/send', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           eventId: selectedConv.eventId,
           propertyId: selectedConv.propertyId,
@@ -288,6 +276,8 @@ function MessagesContent() {
       } else if (data.deliveryStatus === 'local_only') {
         setSendError(null); // local memo is expected for direct bookings
       }
+      // Refresh messages immediately
+      await fetchMessages();
       // Update conversation in list
       setConversations(prev => prev.map(c =>
         c.eventId === selectedConv.eventId
@@ -320,10 +310,9 @@ function MessagesContent() {
     setSyncing(true);
     setSyncResult(null);
     try {
-      const token = await user.getIdToken();
       const res = await fetch('/api/beds24/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ propertyIds }),
       });
       const data = await res.json();

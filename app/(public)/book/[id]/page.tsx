@@ -7,8 +7,6 @@ import Link from 'next/link';
 import { ChevronLeft, ChevronRight, ArrowRight, Clock, Users as UsersIcon, X } from 'lucide-react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isBefore, startOfToday, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import type { PropertyData } from '@/lib/types';
 
 export default function BookPage() {
@@ -35,55 +33,22 @@ export default function BookPage() {
   useEffect(() => {
     const fetchPropertyAndBookings = async () => {
       try {
-        const docRef = doc(db, 'properties', id);
-        const docSnap = await getDoc(docRef);
-
-        if (docSnap.exists()) {
-          const propertyData = docSnap.data();
-
-          // Fetch bookings for this property
-          const q = query(collection(db, 'bookings'), where('propertyId', '==', id), where('status', '==', 'confirmed'));
-          const bookingSnaps = await getDocs(q);
-
-          const bookingDates = bookingSnaps.docs.map(b => ({
-            start: b.data().checkIn,
-            end: b.data().checkOut,
-            type: 'booking'
-          }));
-
-          // Fetch synced channel events (Beds24 etc.)
-          const eventsQuery = query(collection(db, 'events'), where('propertyId', '==', id), where('type', '==', 'reservation'));
-          const eventSnaps = await getDocs(eventsQuery);
-
-          const eventDates = eventSnaps.docs.map(e => ({
-            start: e.data().start?.substring(0, 10),
-            end: e.data().end?.substring(0, 10),
-            type: 'event'
-          }));
-
-          // Deduplicate by start+end
-          const seen = new Set<string>();
-          const bookedDates = [...bookingDates, ...eventDates].filter(d => {
-            const key = `${d.start}_${d.end}`;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          });
-
+        const res = await fetch(`/api/public/properties/${id}`);
+        if (res.ok) {
+          const data = await res.json();
           setProperty({
-            id: docSnap.id,
-            name: propertyData.name,
-            timezone: propertyData.timezone,
-            permit: propertyData.permit ?? null,
-            ownerId: propertyData.ownerId ?? '',
-            imageUrl: propertyData.imageUrl ?? null,
-            images: propertyData.images ?? [],
-            description: propertyData.description ?? null,
-            checkInTime: propertyData.checkInTime ?? null,
-            checkOutTime: propertyData.checkOutTime ?? null,
-            maxGuests: propertyData.maxGuests ?? null,
-            region: propertyData.region ?? null,
-            bookedDates
+            id: data.id,
+            name: data.name,
+            timezone: data.timezone,
+            permit: data.permit ?? null,
+            imageUrl: data.imageUrl ?? null,
+            images: data.images ?? [],
+            description: data.description ?? null,
+            checkInTime: data.checkInTime ?? null,
+            checkOutTime: data.checkOutTime ?? null,
+            maxGuests: data.maxGuests ?? null,
+            region: data.region ?? null,
+            bookedDates: data.bookedDates ?? [],
           });
         }
       } catch (err) {

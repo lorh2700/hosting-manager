@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { prisma } from '@/lib/prisma';
 
 const FORMSPREE_ENDPOINT = `https://formspree.io/f/${process.env.FORMSPREE_FORM_ID}`;
 
 export async function POST(req: Request) {
   try {
-    const db = getAdminDb();
     const body = await req.json();
     const { propertyId, propertyName, checkIn, checkOut, guests, name, email, phone } = body;
 
@@ -13,16 +12,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: '필수 정보를 모두 입력해주세요.' }, { status: 400 });
     }
 
-    // Check for conflicts with existing events and bookings
-    const eventsSnap = await db.collection('events').where('propertyId', '==', propertyId).get();
-    const bookingsSnap = await db.collection('bookings')
-      .where('propertyId', '==', propertyId)
-      .where('status', '!=', 'cancelled')
-      .get();
+    // Check for conflicts
+    const events = await prisma.event.findMany({
+      where: { propertyId },
+      select: { startDate: true, endDate: true },
+    });
+    const bookings = await prisma.booking.findMany({
+      where: { propertyId, status: { not: 'cancelled' } },
+      select: { checkIn: true, checkOut: true },
+    });
 
     const allDates = [
-      ...eventsSnap.docs.map(d => ({ start: d.data().start as string, end: d.data().end as string })),
-      ...bookingsSnap.docs.map(d => ({ start: d.data().checkIn as string, end: d.data().checkOut as string })),
+      ...events.map(e => ({ start: e.startDate, end: e.endDate })),
+      ...bookings.map(b => ({ start: b.checkIn, end: b.checkOut })),
     ];
 
     const newStart = new Date(checkIn).getTime();
@@ -38,21 +40,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: '선택한 날짜에 이미 예약이 있습니다.' }, { status: 409 });
     }
 
-    // Save booking as 'pending'
-    const bookingRef = await db.collection('bookings').add({
-      propertyId,
-      propertyName: propertyName || '',
-      name,
-      email,
-      phone,
-      guests: Number(guests) || 1,
-      checkIn,
-      checkOut,
-      status: 'pending',
-      createdAt: new Date().toISOString(),
+    const booking = await prisma.booking.create({
+      data: {
+        propertyId,
+        name,
+        email,
+        phone,
+        guests: Number(guests) || 1,
+        checkIn,
+        checkOut,
+        status: 'pending',
+      },
     });
 
-    // Send email notification via Formspree
+    // Send email notification
     try {
       await fetch(FORMSPREE_ENDPOINT, {
         method: 'POST',
@@ -70,10 +71,9 @@ export async function POST(req: Request) {
       });
     } catch (emailError) {
       console.error('Formspree notification failed:', emailError);
-      // Booking is saved, email failure is non-blocking
     }
 
-    return NextResponse.json({ success: true, bookingId: bookingRef.id }, { status: 201 });
+    return NextResponse.json({ success: true, bookingId: booking.id }, { status: 201 });
   } catch (error) {
     console.error('Failed to create booking:', error);
     return NextResponse.json({ error: '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.' }, { status: 500 });

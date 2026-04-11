@@ -4,8 +4,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'motion/react';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { ScrollUnfoldHero } from '@/components/ScrollUnfoldHero';
 import type { Property } from '@/lib/types';
 
@@ -17,17 +15,8 @@ export default function PublicPortal() {
   useEffect(() => {
     const fetchProperties = async () => {
       try {
-        const q = query(collection(db, 'properties'), orderBy('createdAt', 'desc'));
-        const snapshot = await getDocs(q);
-        const data = snapshot.docs.map(doc => ({
-          id: doc.id,
-          name: doc.data().name,
-          timezone: doc.data().timezone,
-          imageUrl: doc.data().imageUrl ?? null,
-          images: doc.data().images ?? [],
-          region: doc.data().region ?? null,
-          description: doc.data().description ?? null,
-        }));
+        const res = await fetch('/api/public/properties');
+        const data = res.ok ? await res.json() : [];
         setProperties(data);
       } catch (err) {
         console.error(err);

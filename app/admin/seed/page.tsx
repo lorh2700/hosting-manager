@@ -1,9 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { collection, query, where, getDocs, addDoc, doc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/components/FirebaseProvider';
+import { useAuth } from '@/components/AuthProvider';
 
 const PROPERTIES = [
   {
@@ -81,13 +79,13 @@ export default function SeedPage() {
     setLogs([]);
 
     try {
-      for (const prop of PROPERTIES) {
-        const existing = await getDocs(
-          query(collection(db, 'properties'), where('name', '==', prop.name))
-        );
+      const res = await fetch('/api/properties');
+      const allProperties: any[] = res.ok ? await res.json() : [];
 
-        if (!existing.empty) {
-          const existingDoc = existing.docs[0];
+      for (const prop of PROPERTIES) {
+        const existing = allProperties.find((p: any) => p.name === prop.name);
+
+        if (existing) {
           const updates: Record<string, unknown> = {};
           for (const field of UPDATE_FIELDS) {
             if (prop[field] !== undefined) {
@@ -96,37 +94,33 @@ export default function SeedPage() {
           }
           updates.updatedAt = new Date().toISOString();
 
-          await updateDoc(doc(db, 'properties', existingDoc.id), updates);
-          log(`[업데이트] "${prop.name}" (id: ${existingDoc.id})`);
-        } else {
-          const channels: Record<string, object> = {};
-          for (const chName of ['Airbnb', 'Booking.com', 'Stayfolio']) {
-            const token = crypto.randomUUID();
-            channels[chName] = {
-              importUrl: '',
-              exportUrl: `/api/export/${token}.ics`,
-              isActive: false,
-              createdAt: new Date().toISOString(),
-            };
-          }
-
-          const docRef = await addDoc(collection(db, 'properties'), {
-            name: prop.name,
-            timezone: 'Asia/Seoul',
-            region: prop.region,
-            ownerId: user.uid,
-            imageUrl: prop.imageUrl,
-            images: prop.images,
-            description: prop.description,
-            checkInTime: prop.checkInTime,
-            checkOutTime: prop.checkOutTime,
-            maxGuests: prop.maxGuests,
-            basePrice: null,
-            channels,
-            createdAt: new Date().toISOString(),
+          const updateRes = await fetch(`/api/properties/${existing.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updates),
           });
-
-          log(`[생성] "${prop.name}" -> ${docRef.id}`);
+          if (!updateRes.ok) throw new Error(`Failed to update ${prop.name}`);
+          log(`[업데이트] "${prop.name}" (id: ${existing.id})`);
+        } else {
+          const createRes = await fetch('/api/properties', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: prop.name,
+              timezone: 'Asia/Seoul',
+              region: prop.region,
+              imageUrl: prop.imageUrl,
+              images: prop.images,
+              description: prop.description,
+              checkInTime: prop.checkInTime,
+              checkOutTime: prop.checkOutTime,
+              maxGuests: prop.maxGuests,
+              basePrice: null,
+            }),
+          });
+          if (!createRes.ok) throw new Error(`Failed to create ${prop.name}`);
+          const data = await createRes.json();
+          log(`[생성] "${prop.name}" -> ${data.id}`);
         }
       }
 

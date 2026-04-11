@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, query, where, doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/components/FirebaseProvider';
+import { useAuth } from '@/components/AuthProvider';
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { AlertTriangle, CheckCircle2, Clock, ArrowRight } from 'lucide-react';
@@ -53,22 +51,24 @@ export default function AdminIssuesPage() {
   const loadIssues = async () => {
     if (!user || !profile) return;
     try {
-      const propSnap = await getDocs(collection(db, 'properties'));
-      const propNames: Record<string, string> = {};
-      propSnap.docs.forEach(d => { propNames[d.id] = d.data().name; });
+      const [propsRes, issuesRes] = await Promise.all([
+        fetch('/api/properties'),
+        fetch('/api/cleaning-issues'),
+      ]);
+      if (!propsRes.ok || !issuesRes.ok) throw new Error('Failed to fetch data');
 
-      const issuesSnap = await getDocs(collection(db, 'cleaning_issues'));
-      const result = issuesSnap.docs.map(d => {
-        const data = d.data();
-        return {
-          ...data,
-          id: d.id,
-          propertyName: propNames[data.propertyId] ?? '알 수 없는 숙소',
-        } as CleaningIssue & { propertyName: string };
-      }).sort((a, b) => {
+      const propsData: any[] = await propsRes.json();
+      const propNames: Record<string, string> = {};
+      propsData.forEach(d => { propNames[d.id] = d.name; });
+
+      const issuesData: any[] = await issuesRes.json();
+      const result = issuesData.map(d => ({
+        ...d,
+        propertyName: propNames[d.propertyId] ?? '알 수 없는 숙소',
+      } as CleaningIssue & { propertyName: string })).sort((a, b) => {
         // urgent first, then by date
-        const urgOrder = { urgent: 0, normal: 1, low: 2 };
-        const statusOrder = { open: 0, in_progress: 1, resolved: 2, closed: 3 };
+        const urgOrder: Record<string, number> = { urgent: 0, normal: 1, low: 2 };
+        const statusOrder: Record<string, number> = { open: 0, in_progress: 1, resolved: 2, closed: 3 };
         if (statusOrder[a.status] !== statusOrder[b.status]) return statusOrder[a.status] - statusOrder[b.status];
         if (urgOrder[a.urgency] !== urgOrder[b.urgency]) return urgOrder[a.urgency] - urgOrder[b.urgency];
         return b.createdAt.localeCompare(a.createdAt);
@@ -89,13 +89,18 @@ export default function AdminIssuesPage() {
 
     setUpdating(issue.id);
     try {
-      const updateData: Record<string, unknown> = { status: nextStatus };
+      const updateData: Record<string, unknown> = { id: issue.id, status: nextStatus };
       if (nextStatus === 'resolved') {
-        updateData.resolvedBy = user.uid;
+        updateData.resolvedBy = user.id;
         updateData.resolvedAt = new Date().toISOString();
         updateData.resolvedNote = resolveNote[issue.id] || null;
       }
-      await updateDoc(doc(db, 'cleaning_issues', issue.id), updateData);
+      const res = await fetch('/api/cleaning-issues', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData),
+      });
+      if (!res.ok) throw new Error('Failed to update issue');
       setIssues(prev => prev.map(i =>
         i.id === issue.id ? { ...i, status: nextStatus, ...updateData } as typeof i : i
       ));

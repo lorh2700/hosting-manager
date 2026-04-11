@@ -1,0 +1,242 @@
+'use client';
+
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useAuth } from '@/components/AuthProvider';
+import {
+  PROPERTY_COLORS, DISABLED_PROPERTY_NAMES,
+  type Property, type RawEvent, type Cleaning, type Cleaner,
+  type ProcessedEvent, type GlobalSupplyTodo, toDateStr,
+} from '../types';
+
+export function useCalendarData() {
+  const { user, profile } = useAuth();
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [channelMap, setChannelMap] = useState<Record<string, string>>({});
+  const [events, setEvents] = useState<RawEvent[]>([]);
+  const [cleanings, setCleanings] = useState<Cleaning[]>([]);
+  const [cleaners, setCleaners] = useState<Cleaner[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeProps, setActiveProps] = useState<Set<string>>(new Set());
+  const [allSupplyTodos, setAllSupplyTodos] = useState<GlobalSupplyTodo[]>([]);
+  const [viewDate, setViewDate] = useState(new Date());
+
+  useEffect(() => {
+    const isLoggedIn = !!user;
+    const fetchAll = async () => {
+      try {
+        if (isLoggedIn) {
+          const propsRes = await fetch('/api/properties');
+          const propsData = propsRes.ok ? await propsRes.json() : [];
+          const props: Property[] = (Array.isArray(propsData) ? propsData : []).map((d: Record<string, unknown>, i: number) => ({
+            id: d.id as string, name: d.name as string, color: PROPERTY_COLORS[i % PROPERTY_COLORS.length],
+            doorPassword: d.doorPassword as string | undefined, addressUrl: d.addressUrl as string | undefined,
+            roomReadyMessage: d.roomReadyMessage as string | undefined,
+          }));
+          setProperties(props);
+          setActiveProps(new Set(props.filter(p => !DISABLED_PROPERTY_NAMES.includes(p.name)).map(p => p.id)));
+          if (props.length === 0) return;
+          const propIds = props.map(p => p.id);
+
+          const cMap: Record<string, string> = {};
+          for (const p of propsData) {
+            if (p.channels) {
+              for (const ch of Array.isArray(p.channels) ? p.channels : []) {
+                cMap[ch.name || ch.id] = ch.name || ch.id;
+              }
+            }
+          }
+          setChannelMap(cMap);
+
+          const [eventsRes, bookingsRes] = await Promise.all([
+            fetch(`/api/events?propertyIds=${propIds.join(',')}`),
+            fetch(`/api/bookings?propertyIds=${propIds.join(',')}&status=confirmed`),
+          ]);
+          const eventsData = eventsRes.ok ? await eventsRes.json() : [];
+          const bookingsData = bookingsRes.ok ? await bookingsRes.json() : [];
+
+          const allEvents: RawEvent[] = eventsData.map((e: Record<string, unknown>) => ({
+            id: e.id, propertyId: e.propertyId, channelId: e.channelId || '', source: e.source,
+            title: e.title || '', start: (e.startDate || e.start) as string, end: (e.endDate || e.end) as string,
+            type: e.type || 'reservation', description: e.description,
+          }));
+          for (const bk of bookingsData) {
+            allEvents.push({
+              id: bk.id, propertyId: bk.propertyId, channelId: 'direct', source: 'direct',
+              title: `${bk.name} 예약`, start: bk.checkIn, end: bk.checkOut, type: 'reservation',
+              description: `게스트: ${bk.name}\n연락처: ${bk.email}\n인원: ${bk.guests}명`,
+            });
+          }
+          setEvents(allEvents);
+
+          const [cleaningsRes, cleanersRes, supplyRes] = await Promise.all([
+            fetch(`/api/cleanings?propertyIds=${propIds.join(',')}`),
+            fetch('/api/cleaners'),
+            fetch('/api/supply-todos'),
+          ]);
+          const cleaningsData = cleaningsRes.ok ? await cleaningsRes.json() : [];
+          setCleanings(cleaningsData.map((c: Record<string, unknown>) => ({
+            id: c.id, propertyId: c.propertyId, date: c.date, cleanerId: c.cleanerId || '',
+            status: c.status || 'pending', supplies: c.supplies,
+          })));
+          setCleaners(cleanersRes.ok ? await cleanersRes.json() : []);
+
+          const supplyData = supplyRes.ok ? await supplyRes.json() : [];
+          const propsNameMap = new Map(props.map(p => [p.id, p.name]));
+          setAllSupplyTodos(supplyData.map((d: Record<string, unknown>) => ({
+            id: d.id as string, propertyId: d.propertyId as string,
+            propertyName: propsNameMap.get(d.propertyId as string) || '',
+            date: d.date as string, text: d.text as string,
+            done: (d.done as boolean) ?? false, createdAt: (d.createdAt as string) ?? '',
+          })));
+        } else {
+          const res = await fetch('/api/public/calendar');
+          if (!res.ok) throw new Error('Failed to fetch');
+          const data = await res.json();
+
+          const props: Property[] = (data.properties ?? []).map((p: Record<string, unknown>, i: number) => ({
+            id: p.id as string, name: p.name as string, color: PROPERTY_COLORS[i % PROPERTY_COLORS.length],
+            doorPassword: p.doorPassword as string | undefined, addressUrl: p.addressUrl as string | undefined,
+            roomReadyMessage: p.roomReadyMessage as string | undefined,
+          }));
+          setProperties(props);
+          setActiveProps(new Set(props.filter(p => !DISABLED_PROPERTY_NAMES.includes(p.name)).map(p => p.id)));
+          setChannelMap(data.channelMap ?? {});
+
+          const allEvents: RawEvent[] = [...(data.events ?? [])];
+          (data.bookings ?? []).forEach((bk: { id: string; propertyId: string; name: string; email: string; guests: number; checkIn: string; checkOut: string }) => {
+            allEvents.push({
+              id: bk.id, propertyId: bk.propertyId, channelId: 'direct', source: 'direct',
+              title: `${bk.name} 예약`, start: bk.checkIn, end: bk.checkOut, type: 'reservation',
+              description: `게스트: ${bk.name}\n연락처: ${bk.email}\n인원: ${bk.guests}명`,
+            });
+          });
+          setEvents(allEvents);
+          setCleanings(data.cleanings ?? []);
+          setCleaners(data.cleaners ?? []);
+
+          const supplyData = data.supplyTodos ?? [];
+          const propsNameMap = new Map(props.map(p => [p.id, p.name]));
+          setAllSupplyTodos(supplyData.map((d: Record<string, unknown>) => ({
+            id: d.id as string, propertyId: d.propertyId as string,
+            propertyName: propsNameMap.get(d.propertyId as string) || '',
+            date: d.date as string, text: d.text as string,
+            done: (d.done as boolean) ?? false, createdAt: (d.createdAt as string) ?? '',
+          })));
+        }
+      } catch (err) {
+        console.error('Failed to load calendar data', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAll();
+  }, [user, profile]);
+
+  // Weeks for current month view
+  const weeks = useMemo(() => {
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const start = new Date(firstDay);
+    start.setDate(start.getDate() - start.getDay());
+    const result: Date[][] = [];
+    const cur = new Date(start);
+    while (true) {
+      const week: Date[] = [];
+      for (let d = 0; d < 7; d++) { week.push(new Date(cur)); cur.setDate(cur.getDate() + 1); }
+      result.push(week);
+      if (cur > lastDay) break;
+    }
+    return result;
+  }, [viewDate]);
+
+  const cleanersMap = useMemo(() => new Map(cleaners.map(c => [c.id, c])), [cleaners]);
+
+  const processedEvents = useMemo((): ProcessedEvent[] => {
+    const isStayfolioChannel = (channelId: string) =>
+      channelId.toLowerCase() === 'stayfolio' || channelId === '스테이폴리오';
+
+    const filtered = events.filter(e => {
+      if (!activeProps.has(e.propertyId)) return false;
+      if (e.type === 'block') return false;
+      if (isStayfolioChannel(e.channelId)) {
+        const diffMs = new Date(e.end.substring(0, 10)).getTime() - new Date(e.start.substring(0, 10)).getTime();
+        if (diffMs <= 24 * 60 * 60 * 1000) return false;
+      }
+      return true;
+    });
+    return filtered.map(e => {
+      const prop = properties.find(p => p.id === e.propertyId);
+      const color = prop?.color ?? '#6366f1';
+      const end = e.end.substring(0, 10);
+      const cleaning = cleanings.find(c => c.propertyId === e.propertyId && c.date === end);
+      const cleanerName = cleaning?.cleanerId ? (cleanersMap.get(cleaning.cleanerId)?.name ?? null) : null;
+      return {
+        id: e.id, propertyId: e.propertyId, color, propName: prop?.name ?? '',
+        start: e.start.substring(0, 10), end,
+        title: e.title, channelId: e.channelId, source: e.source, description: e.description,
+        cleaningId: cleaning?.id ?? null, cleanerId: cleaning?.cleanerId ?? null,
+        cleanerName, supplies: cleaning?.supplies ?? null, status: cleaning?.status ?? null,
+      };
+    });
+  }, [events, cleanings, activeProps, properties, cleanersMap]);
+
+  const activeProperties = useMemo(
+    () => properties.filter(p => activeProps.has(p.id)),
+    [properties, activeProps],
+  );
+
+  const eventsByProp = useMemo(() => {
+    const map = new Map<string, ProcessedEvent[]>();
+    processedEvents.forEach(e => {
+      const list = map.get(e.propertyId) || [];
+      list.push(e);
+      map.set(e.propertyId, list);
+    });
+    return map;
+  }, [processedEvents]);
+
+  const today = toDateStr(new Date());
+
+  const unassignedCleanings = useMemo(() => {
+    const monthStart = `${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, '0')}-01`;
+    const nextMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1);
+    const monthEnd = toDateStr(nextMonth);
+    return processedEvents.filter(e =>
+      e.end >= today && e.end >= monthStart && e.end < monthEnd && !e.cleanerId
+    );
+  }, [processedEvents, viewDate, today]);
+
+  const sortedUnassigned = useMemo(
+    () => [...unassignedCleanings].sort((a, b) => a.end.localeCompare(b.end)),
+    [unassignedCleanings],
+  );
+
+  const toggleProp = useCallback((propId: string) => {
+    setActiveProps(prev => {
+      const n = new Set(prev);
+      n.has(propId) ? n.delete(propId) : n.add(propId);
+      return n;
+    });
+  }, []);
+
+  const prevMonth = useCallback(() => {
+    setViewDate(d => { const nd = new Date(d); nd.setMonth(nd.getMonth() - 1); return nd; });
+  }, []);
+
+  const nextMonth = useCallback(() => {
+    setViewDate(d => { const nd = new Date(d); nd.setMonth(nd.getMonth() + 1); return nd; });
+  }, []);
+
+  const goToday = useCallback(() => setViewDate(new Date()), []);
+
+  return {
+    user, properties, channelMap, cleaners, cleanings, setCleanings,
+    loading, activeProps, viewDate, weeks, today,
+    processedEvents, activeProperties, eventsByProp,
+    unassignedCleanings, sortedUnassigned,
+    allSupplyTodos, setAllSupplyTodos,
+    toggleProp, prevMonth, nextMonth, goToday,
+  };
+}

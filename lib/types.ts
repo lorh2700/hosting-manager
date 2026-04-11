@@ -96,19 +96,7 @@ export interface Booking {
   updatedAt?: string;
 }
 
-// ─── Channel (legacy, migrating to Integration) ────────────────────────────
-
-export interface Channel {
-  id: string;
-  propertyId: string;
-  name: string;
-  importUrl: string;
-  exportUrl?: string;
-  isActive: boolean;
-  createdAt?: string;
-}
-
-// ─── Integration (replaces Channel) ────────────────────────────────────────
+// ─── Integration ───────────────────────────────────────────────────────────
 
 export type IntegrationProvider = 'airbnb' | 'booking' | 'beds24' | 'stayfolio' | 'agoda' | 'naver';
 export type IntegrationType = 'ical' | 'api';
@@ -138,22 +126,6 @@ export interface Integration {
   updatedAt: string;
 }
 
-// ─── Reservation Event ─────────────────────────────────────────────────────
-
-export interface ReservationEvent {
-  id: string;
-  propertyId: string;
-  channelId: string;
-  title: string;
-  start: string;
-  end: string;
-  type: 'reservation' | 'block';
-  source?: string;
-  description?: string;
-  originalUid?: string;
-  createdAt?: string;
-}
-
 // ─── Sync Log ───────────────────────────────────────────────────────────────
 
 export type SyncType = 'ical_import' | 'ical_export' | 'beds24_sync' | 'manual';
@@ -176,16 +148,6 @@ export interface SyncLog {
 }
 
 // ─── Cleaning ───────────────────────────────────────────────────────────────
-
-export interface CleaningTask {
-  id: string;
-  propertyId: string;
-  date: string;
-  cleanerName: string;
-  inventoryNote: string;
-  completed: boolean;
-  bookingName?: string;
-}
 
 export interface Cleaner {
   id: string;

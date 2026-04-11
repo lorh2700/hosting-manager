@@ -1,18 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { beds24Post } from '@/lib/beds24';
-import { getAdminDb, verifyAuthToken } from '@/lib/firebase-admin';
+import { prisma } from '@/lib/prisma';
+import { verifySession } from '@/lib/auth';
 
 /**
  * POST /api/beds24/messages/send
- * Send a message to a guest via Beds24, and save a copy to Firestore.
+ * Send a message to a guest via Beds24, and save a copy to DB.
  * For direct bookings (no Beds24 ID), saves as local memo only.
- *
- * Body: { eventId: string, propertyId: string, text: string }
  */
 export async function POST(req: NextRequest) {
-  try {
-    await verifyAuthToken(req);
-  } catch {
+  const session = await verifySession(req);
+  if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -27,29 +25,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'eventId, propertyId, and text are required' }, { status: 400 });
     }
 
-    const db = getAdminDb();
-    const now = new Date().toISOString();
-
     // Look up the event to find Beds24 booking ID
-    const eventDoc = await db.collection('events').doc(eventId).get();
+    const event = await prisma.event.findUnique({ where: { id: eventId } });
     let beds24BookingId: string | null = null;
     let guestName = '게스트';
 
-    if (eventDoc.exists) {
-      const eventData = eventDoc.data()!;
-      beds24BookingId = eventData.originalUid ? String(eventData.originalUid) : null;
-      guestName = (eventData.title || '게스트').replace(/ 예약$/, '');
+    if (event) {
+      beds24BookingId = event.originalUid || null;
+      guestName = (event.title || '게스트').replace(/ 예약$/, '');
     } else {
-      // Check bookings collection (direct bookings)
-      const bookingDoc = await db.collection('bookings').doc(eventId).get();
-      if (bookingDoc.exists) {
-        guestName = bookingDoc.data()?.name || '게스트';
+      const booking = await prisma.booking.findUnique({ where: { id: eventId } });
+      if (booking) {
+        guestName = booking.name || '게스트';
       }
     }
 
     let deliveryStatus: 'sent' | 'failed' | 'local_only' = 'local_only';
 
-    // Send via Beds24 if we have a booking ID
     if (beds24BookingId) {
       try {
         await beds24Post('/bookings/messages', [{
@@ -64,23 +56,21 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Save to Firestore
-    const messageData = {
-      eventId,
-      propertyId,
-      guestName,
-      text: text.trim(),
-      sender: 'host' as const,
-      createdAt: now,
-      read: true,
-      type: beds24BookingId ? 'message' : 'memo',
-      deliveryStatus,
-    };
-
-    const docRef = await db.collection('messages').add(messageData);
+    const message = await prisma.message.create({
+      data: {
+        eventId,
+        propertyId,
+        guestName,
+        text: text.trim(),
+        sender: 'host',
+        read: true,
+        type: beds24BookingId ? 'message' : 'memo',
+        deliveryStatus,
+      },
+    });
 
     return NextResponse.json({
-      id: docRef.id,
+      id: message.id,
       deliveryStatus,
       isBeds24: !!beds24BookingId,
     });

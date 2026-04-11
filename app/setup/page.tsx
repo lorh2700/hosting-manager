@@ -4,14 +4,9 @@
  * One-time bootstrap page.
  * Promotes the currently logged-in user to super_admin
  * ONLY if no super_admin exists in the users collection yet.
- *
- * Usage: log in first, then visit /setup
- * Delete or restrict this page once setup is complete.
  */
 
 import { useState } from 'react';
-import { collection, getDocs, doc, setDoc, query, where } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
 
 export default function SetupPage() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error' | 'blocked'>('idle');
@@ -20,39 +15,25 @@ export default function SetupPage() {
   const handleSetup = async () => {
     setStatus('loading');
     try {
-      const user = auth.currentUser;
-      if (!user) {
-        setStatus('error');
-        setMessage('로그인 상태가 아닙니다. /admin 에서 로그인 후 다시 시도하세요.');
+      const res = await fetch('/api/setup', { method: 'POST' });
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          setStatus('error');
+          setMessage('로그인 상태가 아닙니다. /admin 에서 로그인 후 다시 시도하세요.');
+        } else if (res.status === 409) {
+          setStatus('blocked');
+          setMessage(data.error);
+        } else {
+          setStatus('error');
+          setMessage(data.error || '오류가 발생했습니다.');
+        }
         return;
       }
-
-      // Check if any super_admin already exists
-      const snap = await getDocs(query(collection(db, 'users'), where('role', '==', 'super_admin')));
-      if (!snap.empty) {
-        setStatus('blocked');
-        setMessage('이미 super_admin 계정이 존재합니다. 이 페이지는 더 이상 사용할 수 없습니다.');
-        return;
-      }
-
-      // Also check for legacy 'admin' role
-      const legacySnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'admin')));
-      if (!legacySnap.empty) {
-        setStatus('blocked');
-        setMessage('기존 admin 계정이 존재합니다. /admin/users 에서 역할을 변경하거나 Firebase Console에서 직접 수정하세요.');
-        return;
-      }
-
-      await setDoc(doc(db, 'users', user.uid), {
-        email: user.email ?? '',
-        displayName: user.displayName ?? user.email ?? '',
-        role: 'super_admin',
-        propertyIds: [],
-        createdAt: new Date().toISOString(),
-      }, { merge: true });
 
       setStatus('done');
-      setMessage(`완료! ${user.email} 계정이 super_admin으로 설정되었습니다. /admin 으로 이동하세요.`);
+      setMessage(data.message || '완료! super_admin으로 설정되었습니다.');
     } catch (e) {
       setStatus('error');
       setMessage(`오류: ${e}`);

@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, query, where, doc, getDoc, updateDoc, addDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/components/FirebaseProvider';
+import { useAuth } from '@/components/AuthProvider';
 import { format, parseISO, isToday, isTomorrow, isPast } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { CheckCircle2, Clock, CalendarDays, AlertTriangle, ChevronDown, ChevronUp, Send } from 'lucide-react';
@@ -63,53 +61,46 @@ export default function CleanerPage() {
   const loadTasks = async () => {
     if (!user || !profile) return;
     try {
-      let propertyIds: string[] = [];
-      if (profile.role === 'super_admin') {
-        const snap = await getDocs(collection(db, 'properties'));
-        propertyIds = snap.docs.map(d => d.id);
-      } else {
-        propertyIds = profile.propertyIds;
+      // Fetch properties
+      const propsRes = await fetch('/api/properties');
+      const propsData = await propsRes.json();
+      const propNames: Record<string, string> = {};
+      const propertyIds: string[] = [];
+      for (const p of propsData) {
+        propNames[p.id] = p.name;
+        propertyIds.push(p.id);
       }
       if (propertyIds.length === 0) { setLoading(false); return; }
 
-      const propNames: Record<string, string> = {};
-      await Promise.all(propertyIds.map(async pid => {
-        const snap = await getDoc(doc(db, 'properties', pid));
-        if (snap.exists()) propNames[pid] = snap.data().name;
-      }));
+      // Fetch cleanings
+      const cleaningsRes = await fetch(`/api/cleanings?propertyIds=${propertyIds.join(',')}`);
+      const cleaningsData = await cleaningsRes.json();
 
-      const cleaningsQuery = profile.role === 'super_admin'
-        ? query(collection(db, 'cleanings'), where('propertyId', 'in', propertyIds.slice(0, 10)))
-        : query(collection(db, 'cleanings'), where('cleanerId', '==', user.uid), where('propertyId', 'in', propertyIds.slice(0, 10)));
+      // Filter by cleanerId if not super_admin
+      const filteredCleanings = profile.role === 'super_admin'
+        ? cleaningsData
+        : cleaningsData.filter((c: { cleanerId?: string }) => c.cleanerId === user.id);
 
-      const cleaningsSnap = await getDocs(cleaningsQuery);
-
-      const bookingsSnap = await getDocs(query(
-        collection(db, 'bookings'),
-        where('propertyId', 'in', propertyIds.slice(0, 10)),
-        where('status', '==', 'confirmed')
-      ));
+      // Fetch bookings for guest names
+      const bookingsRes = await fetch(`/api/bookings?propertyIds=${propertyIds.join(',')}&status=confirmed`);
+      const bookingsData = await bookingsRes.json();
       const guestByKey: Record<string, string> = {};
-      bookingsSnap.docs.forEach(d => {
-        const data = d.data();
-        guestByKey[`${data.propertyId}_${data.checkOut}`] = data.name;
-      });
+      for (const b of bookingsData) {
+        guestByKey[`${b.propertyId}_${b.checkOut}`] = b.name;
+      }
 
-      const result: CleaningTask[] = cleaningsSnap.docs.map(d => {
-        const data = d.data();
-        return {
-          cleaningId: d.id,
-          propertyId: data.propertyId,
-          propertyName: propNames[data.propertyId] ?? '알 수 없는 숙소',
-          date: data.date,
-          guestName: guestByKey[`${data.propertyId}_${data.date}`] ?? '',
-          supplies: data.supplies ?? '',
-          status: data.status ?? 'pending',
-          completionNote: data.completionNote,
-          completedAt: data.completedAt,
-          hasIssue: data.hasIssue,
-        };
-      }).sort((a, b) => a.date.localeCompare(b.date));
+      const result: CleaningTask[] = filteredCleanings.map((c: Record<string, unknown>) => ({
+        cleaningId: c.id as string,
+        propertyId: c.propertyId as string,
+        propertyName: propNames[c.propertyId as string] ?? '알 수 없는 숙소',
+        date: c.date as string,
+        guestName: guestByKey[`${c.propertyId}_${c.date}`] ?? '',
+        supplies: (c.supplies as string) ?? '',
+        status: (c.status as string) ?? 'pending',
+        completionNote: c.completionNote as string | undefined,
+        completedAt: c.completedAt as string | undefined,
+        hasIssue: c.hasIssue as boolean | undefined,
+      })).sort((a: CleaningTask, b: CleaningTask) => a.date.localeCompare(b.date));
 
       setTasks(result);
     } catch (err) {
@@ -123,13 +114,20 @@ export default function CleanerPage() {
     if (!user) return;
     setCompleting(task.cleaningId);
     try {
-      await updateDoc(doc(db, 'cleanings', task.cleaningId), {
-        status: 'done',
-        completedAt: new Date().toISOString(),
-        completionNote: completionNote || null,
-        reportedBy: user.uid,
-        updatedAt: new Date().toISOString(),
+      const res = await fetch('/api/cleanings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: task.cleaningId,
+          status: 'done',
+          completedAt: new Date().toISOString(),
+          completionNote: completionNote || null,
+          reportedBy: user.id,
+          updatedAt: new Date().toISOString(),
+        }),
       });
+      if (!res.ok) throw new Error('Failed to update');
+
       setTasks(prev => prev.map(t =>
         t.cleaningId === task.cleaningId
           ? { ...t, status: 'done', completedAt: new Date().toISOString(), completionNote }
@@ -149,22 +147,33 @@ export default function CleanerPage() {
     if (!user || !profile || !issueTitle.trim()) return;
     setSubmittingIssue(true);
     try {
-      await addDoc(collection(db, 'cleaning_issues'), {
-        cleaningId: task.cleaningId,
-        propertyId: task.propertyId,
-        reportedBy: user.uid,
-        reportedByName: profile.displayName || user.email || 'unknown',
-        category: issueCategory,
-        title: issueTitle.trim(),
-        description: issueDesc.trim(),
-        urgency: issueUrgency,
-        status: 'open',
-        createdAt: new Date().toISOString(),
+      const issueRes = await fetch('/api/cleaning-issues', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cleaningId: task.cleaningId,
+          propertyId: task.propertyId,
+          reportedBy: user.id,
+          reportedByName: profile.displayName || user.email || 'unknown',
+          category: issueCategory,
+          title: issueTitle.trim(),
+          description: issueDesc.trim(),
+          urgency: issueUrgency,
+          status: 'open',
+        }),
       });
-      await updateDoc(doc(db, 'cleanings', task.cleaningId), {
-        hasIssue: true,
-        updatedAt: new Date().toISOString(),
+      if (!issueRes.ok) throw new Error('Failed to create issue');
+
+      await fetch('/api/cleanings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: task.cleaningId,
+          hasIssue: true,
+          updatedAt: new Date().toISOString(),
+        }),
       });
+
       setTasks(prev => prev.map(t =>
         t.cleaningId === task.cleaningId ? { ...t, hasIssue: true } : t
       ));

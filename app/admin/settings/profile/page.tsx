@@ -1,10 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { doc, updateDoc } from 'firebase/firestore';
-import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/components/FirebaseProvider';
+import { useAuth } from '@/components/AuthProvider';
 import { Save, Lock } from 'lucide-react';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -35,11 +32,17 @@ export default function ProfilePage() {
     setSaveMessage('');
 
     try {
-      await updateDoc(doc(db, 'users', user.uid), {
-        displayName,
-        phone: phone || null,
-        updatedAt: new Date().toISOString(),
+      const res = await fetch('/api/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: user.id,
+          displayName,
+          phone: phone || null,
+          updatedAt: new Date().toISOString(),
+        }),
       });
+      if (!res.ok) throw new Error('Failed to save');
       await refreshProfile();
       setSaveMessage('프로필이 저장되었습니다.');
     } catch (err) {
@@ -68,16 +71,25 @@ export default function ProfilePage() {
     setPasswordMessage('');
 
     try {
-      const credential = EmailAuthProvider.credential(user.email, currentPassword);
-      await reauthenticateWithCredential(user, credential);
-      await updatePassword(user, newPassword);
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to change password');
+      }
       setPasswordMessage('비밀번호가 변경되었습니다.');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (err: unknown) {
-      const e = err as { code?: string };
-      if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
+      const e = err as { message?: string };
+      if (e.message?.includes('wrong-password') || e.message?.includes('invalid-credential')) {
         setPasswordMessage('현재 비밀번호가 올바르지 않습니다.');
       } else {
         setPasswordMessage('비밀번호 변경에 실패했습니다.');

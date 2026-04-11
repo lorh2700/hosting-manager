@@ -1,6 +1,5 @@
-import { getAdminDb } from '@/lib/firebase-admin';
+import { prisma } from '@/lib/prisma';
 import { v4 as uuidv4 } from 'uuid';
-import type { SyncLog } from '@/lib/types';
 
 // ─── iCal Parsing ───────────────────────────────────────────────────────────
 
@@ -141,18 +140,15 @@ export async function syncICalChannel(
   result.eventsFound = parsedEvents.length;
 
   // Load existing events for this channel
-  const db = getAdminDb();
-  const existingSnap = await db.collection('events')
-    .where('propertyId', '==', propertyId)
-    .where('channelId', '==', channelId)
-    .get();
-  const existingByUid = new Map<string, { docId: string; data: Record<string, unknown> }>();
-  existingSnap.docs.forEach(d => {
-    const data = d.data();
-    if (data.originalUid) {
-      existingByUid.set(data.originalUid as string, { docId: d.id, data: data as Record<string, unknown> });
-    }
+  const existingEvents = await prisma.event.findMany({
+    where: { propertyId, channelId },
   });
+  const existingByUid = new Map<string, { id: string; startDate: string; endDate: string; title: string | null }>();
+  for (const e of existingEvents) {
+    if (e.originalUid) {
+      existingByUid.set(e.originalUid, { id: e.id, startDate: e.startDate, endDate: e.endDate, title: e.title });
+    }
+  }
 
   const seenUids = new Set<string>();
 
@@ -168,29 +164,33 @@ export async function syncICalChannel(
     const isOneDaySpan = diffMs <= 24 * 60 * 60 * 1000;
     const eventType = (summary && isBlockSummary(summary)) || (isStayfolio && isOneDaySpan) ? 'block' : 'reservation';
 
-    const eventData = {
-      propertyId,
-      channelId,
-      title: summary || `${provider} 예약`,
-      start: event.start,
-      end: event.end,
-      type: eventType,
-      source: provider,
-      originalUid: uid,
-      description: event.description || '',
-      createdAt: new Date().toISOString(),
-    };
+    const startDate = event.start.substring(0, 10);
+    const endDate = event.end.substring(0, 10);
+    const title = summary || `${provider} 예약`;
 
     const existing = existingByUid.get(uid);
     if (existing) {
-      // Update if changed
-      if (existing.data.start !== event.start || existing.data.end !== event.end || existing.data.title !== eventData.title) {
-        await db.collection('events').doc(existing.docId).set(eventData);
+      if (existing.startDate !== startDate || existing.endDate !== endDate || existing.title !== title) {
+        await prisma.event.update({
+          where: { id: existing.id },
+          data: { startDate, endDate, title, type: eventType, source: provider, description: event.description || '' },
+        });
         result.eventsUpdated++;
       }
     } else {
-      // Create new
-      await db.collection('events').add(eventData);
+      await prisma.event.create({
+        data: {
+          propertyId,
+          channelId,
+          title,
+          startDate,
+          endDate,
+          type: eventType,
+          source: provider,
+          originalUid: uid,
+          description: event.description || '',
+        },
+      });
       result.eventsCreated++;
     }
   }
@@ -198,7 +198,7 @@ export async function syncICalChannel(
   // Remove events that no longer exist in the iCal feed
   for (const [uid, existing] of existingByUid) {
     if (!seenUids.has(uid)) {
-      await db.collection('events').doc(existing.docId).delete();
+      await prisma.event.delete({ where: { id: existing.id } });
       result.eventsRemoved++;
     }
   }
@@ -207,29 +207,31 @@ export async function syncICalChannel(
 }
 
 /**
- * Log a sync operation to sync_logs collection.
+ * Log a sync operation.
  */
 export async function logSync(
   propertyId: string,
   channelId: string,
-  type: SyncLog['type'],
+  syncType: string,
   result: SyncResult,
   durationMs: number,
   triggeredBy: string,
 ): Promise<void> {
-  const db = getAdminDb();
-  await db.collection('sync_logs').add({
-    propertyId,
-    channelId,
-    type,
-    status: result.error ? 'failed' : (result.eventsFound === 0 ? 'partial' : 'success'),
-    eventsFound: result.eventsFound,
-    eventsCreated: result.eventsCreated,
-    eventsUpdated: result.eventsUpdated,
-    eventsRemoved: result.eventsRemoved,
-    errorMessage: result.error || null,
-    durationMs,
-    triggeredBy,
-    createdAt: new Date().toISOString(),
+  await prisma.syncLog.create({
+    data: {
+      propertyId,
+      channelId,
+      syncType,
+      result: {
+        status: result.error ? 'failed' : (result.eventsFound === 0 ? 'partial' : 'success'),
+        eventsFound: result.eventsFound,
+        eventsCreated: result.eventsCreated,
+        eventsUpdated: result.eventsUpdated,
+        eventsRemoved: result.eventsRemoved,
+        errorMessage: result.error || null,
+      },
+      durationMs,
+      triggeredBy,
+    },
   });
 }

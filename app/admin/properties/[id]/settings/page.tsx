@@ -4,9 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { ArrowLeft, Save, Trash2 } from 'lucide-react';
-import { doc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/components/FirebaseProvider';
+import { useAuth } from '@/components/AuthProvider';
 
 interface Property {
   id: string;
@@ -27,11 +25,11 @@ export default function PropertySettingsPage() {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
-  
+
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  
+
   // Form state
   const [name, setName] = useState('');
   const [timezone, setTimezone] = useState('Asia/Seoul');
@@ -48,10 +46,10 @@ export default function PropertySettingsPage() {
 
     const fetchProperty = async () => {
       try {
-        const propDoc = await getDoc(doc(db, 'properties', id));
-        if (propDoc.exists()) {
-          const data = propDoc.data() as Property;
-          setProperty({ ...data, id: propDoc.id });
+        const res = await fetch(`/api/properties/${id}`);
+        if (res.ok) {
+          const data = await res.json();
+          setProperty(data);
           setName(data.name || '');
           setTimezone(data.timezone || 'Asia/Seoul');
           setDescription(data.description || '');
@@ -76,18 +74,23 @@ export default function PropertySettingsPage() {
     if (!user || !property) return;
     setSaving(true);
     try {
-      await updateDoc(doc(db, 'properties', id), {
-        name,
-        timezone,
-        description,
-        basePrice: basePrice === '' ? null : Number(basePrice),
-        maxGuests: maxGuests === '' ? null : Number(maxGuests),
-        beds24PropId: beds24PropId.trim() || null,
-        doorPassword: doorPassword.trim() || null,
-        addressUrl: addressUrl.trim() || null,
-        roomReadyMessage: roomReadyMessage.trim() || null,
-        updatedAt: new Date().toISOString()
+      const res = await fetch(`/api/properties/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          timezone,
+          description,
+          basePrice: basePrice === '' ? null : Number(basePrice),
+          maxGuests: maxGuests === '' ? null : Number(maxGuests),
+          beds24PropId: beds24PropId.trim() || null,
+          doorPassword: doorPassword.trim() || null,
+          addressUrl: addressUrl.trim() || null,
+          roomReadyMessage: roomReadyMessage.trim() || null,
+          updatedAt: new Date().toISOString()
+        }),
       });
+      if (!res.ok) throw new Error('Failed to save');
       alert('숙소 설정이 저장되었습니다.');
     } catch (error) {
       console.error('Error saving property', error);
@@ -105,12 +108,8 @@ export default function PropertySettingsPage() {
     if (!deleteConfirm) { setDeleteConfirm(true); return; }
     setDeleting(true);
     try {
-      // Delete events
-      const eventSnap = await getDocs(query(collection(db, 'events'), where('propertyId', '==', id)));
-      await Promise.all(eventSnap.docs.map(d => deleteDoc(d.ref)));
-
-      // Delete property (channels are embedded in the property doc)
-      await deleteDoc(doc(db, 'properties', id));
+      const res = await fetch(`/api/properties/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete');
       router.push('/admin/properties');
     } catch (error) {
       console.error('Error deleting property', error);
@@ -167,21 +166,21 @@ export default function PropertySettingsPage() {
 
       <div className="bg-[#111] border border-white/10 p-8 max-w-3xl">
         <h2 className="text-lg font-light tracking-wide text-white mb-8">기본 정보</h2>
-        
+
         <div className="space-y-6">
           <div>
             <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">숙소 이름</label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full bg-black/50 border border-white/10 rounded-none px-4 py-3 text-sm text-white focus:outline-none focus:border-white/30 transition-colors"
             />
           </div>
-          
+
           <div>
             <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">시간대 (Timezone)</label>
-            <select 
+            <select
               value={timezone}
               onChange={(e) => setTimezone(e.target.value)}
               className="w-full bg-black/50 border border-white/10 rounded-none px-4 py-3 text-sm text-white focus:outline-none focus:border-white/30 transition-colors"
@@ -197,7 +196,7 @@ export default function PropertySettingsPage() {
 
           <div>
             <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">숙소 설명</label>
-            <textarea 
+            <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
@@ -256,8 +255,8 @@ export default function PropertySettingsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">기본 1박 요금 (₩)</label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 value={basePrice}
                 onChange={(e) => setBasePrice(e.target.value ? Number(e.target.value) : '')}
                 placeholder="예: 150000"
@@ -266,8 +265,8 @@ export default function PropertySettingsPage() {
             </div>
             <div>
               <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">최대 수용 인원 (명)</label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 value={maxGuests}
                 onChange={(e) => setMaxGuests(e.target.value ? Number(e.target.value) : '')}
                 placeholder="예: 4"

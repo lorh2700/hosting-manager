@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useAuth } from '@/components/FirebaseProvider';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { useAuth } from '@/components/AuthProvider';
 import { CalendarDays, AlertTriangle, Package, History, ClipboardList } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -36,15 +34,20 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
     setIsLoggingIn(true);
     setError('');
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-    } catch (err: unknown) {
-      const e = err as { code?: string };
-      if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password' || e.code === 'auth/user-not-found') {
-        setError('이메일 또는 비밀번호가 올바르지 않습니다.');
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || '로그인에 실패했습니다.');
       } else {
-        setError('로그인에 실패했습니다.');
-        console.error('Login failed', err);
+        window.location.reload();
       }
+    } catch (err: unknown) {
+      setError('로그인에 실패했습니다.');
+      console.error('Login failed', err);
     } finally {
       setIsLoggingIn(false);
     }

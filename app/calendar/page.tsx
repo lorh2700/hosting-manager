@@ -1,9 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy } from 'firebase/firestore';
-import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '@/lib/firebase';
 import { ChevronLeft, ChevronRight, X, Save, Trash2, Send } from 'lucide-react';
 
 const PROPERTY_COLORS = [
@@ -39,7 +36,7 @@ function getChannelLabel(channelId: string, source: string | undefined, channelM
 
 interface Property { id: string; name: string; color: string; }
 interface RawEvent { id: string; propertyId: string; channelId: string; source?: string; title: string; start: string; end: string; type: 'reservation' | 'block'; description?: string; }
-interface Cleaning { id: string; propertyId: string; date: string; cleanerId: string; status: 'pending' | 'done'; supplies?: string; }
+interface Cleaning { id: string; propertyId: string; date: string; cleanerId: string; status: 'pending' | 'done'; supplies?: string; cleaner?: { id: string; name: string; phone?: string } | null; }
 interface Cleaner { id: string; name: string; phone: string; }
 interface SelectedEvent {
   eventId: string;
@@ -59,7 +56,6 @@ interface ProcessedEvent {
 }
 
 export default function PublicCalendarPage() {
-  const [authReady, setAuthReady] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
   const [channelMap, setChannelMap] = useState<Record<string, string>>({});
   const [events, setEvents] = useState<RawEvent[]>([]);
@@ -77,66 +73,70 @@ export default function PublicCalendarPage() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
-  // Anonymous auth
+  // Fetch all calendar data from API
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setAuthReady(true);
-      } else {
-        signInAnonymously(auth).catch(console.error);
-      }
-    });
-    return () => unsub();
-  }, []);
-
-  // Fetch data after auth
-  useEffect(() => {
-    if (!authReady) return;
     const fetchAll = async () => {
       try {
-        const propsSnap = await getDocs(collection(db, 'properties'));
-        const props: Property[] = propsSnap.docs.map((d, i) => ({
-          id: d.id, name: d.data().name, color: PROPERTY_COLORS[i % PROPERTY_COLORS.length],
+        // Fetch properties
+        const propsRes = await fetch('/api/properties');
+        const propsData = propsRes.ok ? await propsRes.json() : [];
+        const props: Property[] = propsData.map((d: { id: string; name: string }, i: number) => ({
+          id: d.id, name: d.name, color: PROPERTY_COLORS[i % PROPERTY_COLORS.length],
         }));
         setProperties(props);
         setActiveProps(new Set(props.map(p => p.id)));
-        if (props.length === 0) return;
+        if (props.length === 0) { setLoading(false); return; }
         const propIds = props.map(p => p.id);
 
+        // Build channel map
         const cMap: Record<string, string> = {};
-        propsSnap.docs.forEach(d => {
-          const propChannels = (d.data().channels ?? {}) as Record<string, unknown>;
-          Object.keys(propChannels).forEach(name => { cMap[name] = name; });
+        propsData.forEach((d: { channels?: { name: string }[] }) => {
+          if (d.channels && Array.isArray(d.channels)) {
+            d.channels.forEach((ch: { name: string }) => { if (ch.name) cMap[ch.name] = ch.name; });
+          }
         });
         setChannelMap(cMap);
 
-        const allEvents: RawEvent[] = [];
-        for (let i = 0; i < propIds.length; i += 10) {
-          const snap = await getDocs(query(collection(db, 'events'), where('propertyId', 'in', propIds.slice(i, i + 10))));
-          snap.docs.forEach(d => allEvents.push({ id: d.id, ...d.data() } as RawEvent));
-        }
-        for (let i = 0; i < propIds.length; i += 10) {
-          const snap = await getDocs(query(
-            collection(db, 'bookings'),
-            where('propertyId', 'in', propIds.slice(i, i + 10)),
-            where('status', '==', 'confirmed')
-          ));
-          snap.docs.forEach(d => {
-            const bk = d.data();
-            allEvents.push({ id: d.id, propertyId: bk.propertyId, channelId: 'direct', source: 'direct', title: `${bk.name} 예약`, start: bk.checkIn, end: bk.checkOut, type: 'reservation', description: `게스트: ${bk.name}\n연락처: ${bk.email}\n인원: ${bk.guests}명` });
+        // Fetch events (API returns startDate/endDate)
+        const eventsRes = await fetch(`/api/events?propertyIds=${propIds.join(',')}`);
+        const eventsData = eventsRes.ok ? await eventsRes.json() : [];
+        const allEvents: RawEvent[] = eventsData.map((e: Record<string, unknown>) => ({
+          id: e.id as string,
+          propertyId: e.propertyId as string,
+          channelId: (e.channelId as string) || '',
+          source: e.source as string | undefined,
+          title: (e.title as string) || '',
+          start: ((e.startDate as string) || '').substring(0, 10),
+          end: ((e.endDate as string) || '').substring(0, 10),
+          type: (e.type as string) || 'reservation',
+          description: e.description as string | undefined,
+        }));
+
+        // Fetch confirmed bookings
+        const bookingsRes = await fetch(`/api/bookings?propertyIds=${propIds.join(',')}&status=confirmed`);
+        const bookingsData = bookingsRes.ok ? await bookingsRes.json() : [];
+        bookingsData.forEach((bk: Record<string, unknown>) => {
+          allEvents.push({
+            id: bk.id as string, propertyId: bk.propertyId as string,
+            channelId: 'direct', source: 'direct',
+            title: `${bk.name} 예약`, start: bk.checkIn as string, end: bk.checkOut as string,
+            type: 'reservation',
+            description: `게스트: ${bk.name}\n연락처: ${bk.email}\n인원: ${bk.guests}명`,
           });
-        }
+        });
         setEvents(allEvents);
 
-        const allCleanings: Cleaning[] = [];
-        for (let i = 0; i < propIds.length; i += 10) {
-          const snap = await getDocs(query(collection(db, 'cleanings'), where('propertyId', 'in', propIds.slice(i, i + 10))));
-          snap.docs.forEach(d => allCleanings.push({ id: d.id, ...d.data() } as Cleaning));
-        }
-        setCleanings(allCleanings);
+        // Fetch cleanings (includes cleaner relation)
+        const cleaningsRes = await fetch(`/api/cleanings?propertyIds=${propIds.join(',')}`);
+        const cleaningsData = cleaningsRes.ok ? await cleaningsRes.json() : [];
+        setCleanings(cleaningsData);
 
-        const cleanersSnap = await getDocs(collection(db, 'cleaners'));
-        setCleaners(cleanersSnap.docs.map(d => ({ id: d.id, ...d.data() } as Cleaner)));
+        // Fetch cleaners
+        const cleanersRes = await fetch('/api/cleaners');
+        const cleanersData = cleanersRes.ok ? await cleanersRes.json() : [];
+        setCleaners(cleanersData.map((c: Record<string, unknown>) => ({
+          id: c.id as string, name: c.name as string, phone: (c.phone as string) || '',
+        })));
       } catch (err) {
         console.error('Failed to load calendar data', err);
       } finally {
@@ -144,7 +144,7 @@ export default function PublicCalendarPage() {
       }
     };
     fetchAll();
-  }, [authReady]);
+  }, []);
 
   const weeks = useMemo(() => {
     const year = viewDate.getFullYear();
@@ -183,7 +183,9 @@ export default function PublicCalendarPage() {
       const color = prop?.color ?? '#6366f1';
       const rawEnd = e.end.substring(0, 10);
       const cleaning = cleanings.find(c => c.propertyId === e.propertyId && c.date === rawEnd);
-      const cleanerName = cleaning?.cleanerId ? (cleanersMap.get(cleaning.cleanerId)?.name ?? null) : null;
+      const cleanerName = cleaning?.cleanerId
+        ? (cleaning.cleaner?.name ?? cleanersMap.get(cleaning.cleanerId)?.name ?? null)
+        : null;
       return {
         id: e.id, propertyId: e.propertyId, color, propName: prop?.name ?? '',
         start: e.start.substring(0, 10), end: rawEnd, rawEnd,
@@ -220,20 +222,35 @@ export default function PublicCalendarPage() {
     const checkoutDate = selectedEvent.end.substring(0, 10);
     try {
       if (selectedEvent.cleaningId) {
-        await updateDoc(doc(db, 'cleanings', selectedEvent.cleaningId), {
-          cleanerId: selectedCleaner, supplies: selectedSupplies, updatedAt: new Date().toISOString(),
+        const res = await fetch('/api/cleanings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: selectedEvent.cleaningId,
+            cleanerId: selectedCleaner,
+            supplies: selectedSupplies,
+          }),
         });
+        if (!res.ok) throw new Error('Failed to update cleaning');
         setCleanings(prev => prev.map(c =>
           c.id === selectedEvent.cleaningId ? { ...c, cleanerId: selectedCleaner, supplies: selectedSupplies } : c
         ));
       } else {
-        const newDoc = await addDoc(collection(db, 'cleanings'), {
-          propertyId: selectedEvent.propertyId, date: checkoutDate,
-          cleanerId: selectedCleaner, status: 'pending' as const,
-          supplies: selectedSupplies, createdAt: new Date().toISOString(),
+        const res = await fetch('/api/cleanings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            propertyId: selectedEvent.propertyId,
+            date: checkoutDate,
+            cleanerId: selectedCleaner,
+            status: 'pending',
+            supplies: selectedSupplies,
+          }),
         });
+        if (!res.ok) throw new Error('Failed to create cleaning');
+        const newCleaning = await res.json();
         setCleanings(prev => [...prev, {
-          id: newDoc.id, propertyId: selectedEvent.propertyId, date: checkoutDate,
+          id: newCleaning.id, propertyId: selectedEvent.propertyId, date: checkoutDate,
           cleanerId: selectedCleaner, status: 'pending' as const, supplies: selectedSupplies,
         }]);
       }
@@ -247,7 +264,8 @@ export default function PublicCalendarPage() {
     if (!confirm('청소 담당자 배정을 삭제하시겠습니까?')) return;
     setCleanerSaving(true);
     try {
-      await deleteDoc(doc(db, 'cleanings', selectedEvent.cleaningId));
+      const res = await fetch(`/api/cleanings?id=${selectedEvent.cleaningId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete cleaning');
       setCleanings(prev => prev.filter(c => c.id !== selectedEvent.cleaningId));
       setSelectedEvent(prev => prev ? { ...prev, cleaningId: null, cleanerId: null, cleanerName: null, supplies: null, status: null } : null);
       setSelectedCleaner('');
@@ -260,12 +278,15 @@ export default function PublicCalendarPage() {
     const loadMessages = async () => {
       setLoadingMessages(true);
       try {
-        const q = query(collection(db, 'messages'), where('eventId', '==', selectedEvent.eventId), orderBy('createdAt', 'asc'));
-        const snap = await getDocs(q);
-        setModalMessages(snap.docs.map(d => {
-          const data = d.data();
-          return { id: d.id, text: data.text, sender: data.sender, createdAt: data.createdAt };
-        }));
+        const res = await fetch(`/api/messages?eventId=${selectedEvent.eventId}`);
+        if (res.ok) {
+          const msgs = await res.json();
+          setModalMessages(Array.isArray(msgs) ? msgs.map((m: { id: string; text: string; sender: string; createdAt: string }) => ({
+            id: m.id, text: m.text, sender: m.sender, createdAt: m.createdAt,
+          })) : []);
+        } else {
+          setModalMessages([]);
+        }
       } catch { setModalMessages([]); }
       finally { setLoadingMessages(false); }
     };
@@ -276,13 +297,21 @@ export default function PublicCalendarPage() {
     if (!selectedEvent?.eventId || !newMessage.trim() || sendingMessage) return;
     setSendingMessage(true);
     try {
-      const msgData = {
-        eventId: selectedEvent.eventId, propertyId: selectedEvent.propertyId,
-        guestName: selectedEvent.title, text: newMessage.trim(),
-        sender: 'host', createdAt: new Date().toISOString(), read: true,
-      };
-      const docRef = await addDoc(collection(db, 'messages'), msgData);
-      setModalMessages(prev => [...prev, { id: docRef.id, text: msgData.text, sender: msgData.sender, createdAt: msgData.createdAt }]);
+      const res = await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventId: selectedEvent.eventId,
+          propertyId: selectedEvent.propertyId,
+          guestName: selectedEvent.title,
+          text: newMessage.trim(),
+          sender: 'host',
+          read: true,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to send message');
+      const newMsg = await res.json();
+      setModalMessages(prev => [...prev, { id: newMsg.id, text: newMsg.text, sender: newMsg.sender, createdAt: newMsg.createdAt }]);
       setNewMessage('');
     } catch { alert('메시지 전송에 실패했습니다.'); }
     finally { setSendingMessage(false); }
@@ -301,7 +330,7 @@ export default function PublicCalendarPage() {
   const prevMonth = () => { const d = new Date(viewDate); d.setMonth(d.getMonth() - 1); setViewDate(d); };
   const nextMonth = () => { const d = new Date(viewDate); d.setMonth(d.getMonth() + 1); setViewDate(d); };
 
-  if (!authReady || loading) return (
+  if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-[#050505]">
       <div className="w-6 h-6 border-t-2 border-white rounded-full animate-spin" />
     </div>

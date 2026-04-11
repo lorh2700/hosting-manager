@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/components/FirebaseProvider';
+import { useAuth } from '@/components/AuthProvider';
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { Package, Check, X } from 'lucide-react';
@@ -32,19 +30,21 @@ export default function AdminSuppliesPage() {
 
   const loadData = async () => {
     try {
-      const propSnap = await getDocs(collection(db, 'properties'));
-      const propNames: Record<string, string> = {};
-      propSnap.docs.forEach(d => { propNames[d.id] = d.data().name; });
+      const [propsRes, reqRes] = await Promise.all([
+        fetch('/api/properties'),
+        fetch('/api/supply-requests'),
+      ]);
+      if (!propsRes.ok || !reqRes.ok) throw new Error('Failed to fetch data');
 
-      const reqSnap = await getDocs(collection(db, 'supply_requests'));
-      const result = reqSnap.docs.map(d => {
-        const data = d.data();
-        return {
-          ...data,
-          id: d.id,
-          propertyName: propNames[data.propertyId] ?? '알 수 없는 숙소',
-        } as SupplyRequest & { propertyName: string };
-      }).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      const propsData: any[] = await propsRes.json();
+      const propNames: Record<string, string> = {};
+      propsData.forEach(d => { propNames[d.id] = d.name; });
+
+      const reqData: any[] = await reqRes.json();
+      const result = reqData.map(d => ({
+        ...d,
+        propertyName: propNames[d.propertyId] ?? '알 수 없는 숙소',
+      } as SupplyRequest & { propertyName: string })).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
       setRequests(result);
     } catch (err) {
@@ -58,14 +58,20 @@ export default function AdminSuppliesPage() {
     if (!user) return;
     setUpdating(reqId);
     try {
-      await updateDoc(doc(db, 'supply_requests', reqId), {
-        status: action,
-        statusNote: statusNotes[reqId] || null,
-        processedBy: user.uid,
-        processedAt: new Date().toISOString(),
+      const res = await fetch('/api/supply-requests', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: reqId,
+          status: action,
+          statusNote: statusNotes[reqId] || null,
+          processedBy: user.id,
+          processedAt: new Date().toISOString(),
+        }),
       });
+      if (!res.ok) throw new Error('Failed to update request');
       setRequests(prev => prev.map(r =>
-        r.id === reqId ? { ...r, status: action, processedBy: user.uid, processedAt: new Date().toISOString(), statusNote: statusNotes[reqId] || undefined } : r
+        r.id === reqId ? { ...r, status: action, processedBy: user.id, processedAt: new Date().toISOString(), statusNote: statusNotes[reqId] || undefined } : r
       ));
     } catch (err) {
       console.error(err);

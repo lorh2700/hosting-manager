@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/components/FirebaseProvider';
+import { useAuth } from '@/components/AuthProvider';
 import { Save, UserCog, UserPlus, Copy, Check, Ban, ShieldCheck } from 'lucide-react';
 import type { UserRole, UserStatus } from '@/lib/types';
 
@@ -67,30 +65,36 @@ export default function UsersPage() {
     if (profile?.role !== 'super_admin' && profile?.role !== 'admin') return;
     const load = async () => {
       try {
-        const [usersSnap, propsSnap, invSnap] = await Promise.all([
-          getDocs(collection(db, 'users')),
-          getDocs(collection(db, 'properties')),
-          getDocs(collection(db, 'invitations')),
+        const [usersRes, propsRes, invRes] = await Promise.all([
+          fetch('/api/users'),
+          fetch('/api/properties'),
+          fetch('/api/invitations'),
         ]);
-        setUsers(usersSnap.docs.map(d => ({
+        if (!usersRes.ok || !propsRes.ok || !invRes.ok) throw new Error('Failed to fetch data');
+
+        const usersData = await usersRes.json();
+        const propsData = await propsRes.json();
+        const invData = await invRes.json();
+
+        setUsers((usersData as any[]).map(d => ({
           id: d.id,
-          email: d.data().email ?? '',
-          displayName: d.data().displayName ?? '',
-          role: (d.data().role as UserRole) ?? 'host',
-          status: (d.data().status as UserStatus) ?? 'active',
-          propertyIds: (d.data().propertyIds as string[]) ?? [],
-          lastLoginAt: d.data().lastLoginAt,
-          createdAt: d.data().createdAt,
+          email: d.email ?? '',
+          displayName: d.displayName ?? '',
+          role: (d.role as UserRole) ?? 'host',
+          status: (d.status as UserStatus) ?? 'active',
+          propertyIds: (d.propertyIds as string[]) ?? [],
+          lastLoginAt: d.lastLoginAt,
+          createdAt: d.createdAt,
         })));
-        setProperties(propsSnap.docs.map(d => ({ id: d.id, name: d.data().name })));
-        setInvitations(invSnap.docs.map(d => ({
+        setProperties((propsData as any[]).map(d => ({ id: d.id, name: d.name })));
+        setInvitations((invData as any[]).map(d => ({
           id: d.id,
-          email: d.data().email ?? '',
-          role: (d.data().role as UserRole) ?? 'host',
-          status: d.data().status ?? 'pending',
-          createdAt: d.data().createdAt ?? '',
-          expiresAt: d.data().expiresAt ?? '',
-          token: d.data().token ?? '',
+          email: d.email ?? '',
+          role: (d.role as UserRole) ?? 'host',
+          status: d.status ?? 'pending',
+          createdAt: d.createdAt ?? '',
+          expiresAt: d.expiresAt ?? '',
+          token: d.token ?? '',
         })));
       } catch (err) {
         console.error(err);
@@ -116,13 +120,19 @@ export default function UsersPage() {
   const handleSave = async (userRecord: UserRecord) => {
     setSaving(userRecord.id);
     try {
-      await updateDoc(doc(db, 'users', userRecord.id), {
-        role: userRecord.role,
-        status: userRecord.status,
-        propertyIds: userRecord.propertyIds,
-        displayName: userRecord.displayName,
-        updatedAt: new Date().toISOString(),
+      const res = await fetch('/api/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: userRecord.id,
+          role: userRecord.role,
+          status: userRecord.status,
+          propertyIds: userRecord.propertyIds,
+          displayName: userRecord.displayName,
+          updatedAt: new Date().toISOString(),
+        }),
       });
+      if (!res.ok) throw new Error('Failed to save user');
     } catch (err) {
       console.error(err);
       alert('저장에 실패했습니다.');
@@ -139,10 +149,7 @@ export default function UsersPage() {
     try {
       const res = await fetch('/api/invitations', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.uid}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: inviteEmail,
           role: inviteRole,

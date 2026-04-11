@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/components/FirebaseProvider';
+import { useAuth } from '@/components/AuthProvider';
 import { format, parseISO, isPast, isToday } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { CheckCircle2, Clock, History } from 'lucide-react';
@@ -33,43 +31,39 @@ export default function CleanerHistoryPage() {
   const loadHistory = async () => {
     if (!user || !profile) return;
     try {
-      let propertyIds: string[] = [];
-      if (profile.role === 'super_admin') {
-        const snap = await getDocs(collection(db, 'properties'));
-        propertyIds = snap.docs.map(d => d.id);
-      } else {
-        propertyIds = profile.propertyIds;
+      // Fetch properties
+      const propsRes = await fetch('/api/properties');
+      const propsData = await propsRes.json();
+      const propNames: Record<string, string> = {};
+      const propertyIds: string[] = [];
+      for (const p of propsData) {
+        propNames[p.id] = p.name;
+        propertyIds.push(p.id);
       }
       if (propertyIds.length === 0) { setLoading(false); return; }
 
-      const propNames: Record<string, string> = {};
-      await Promise.all(propertyIds.map(async pid => {
-        const snap = await getDoc(doc(db, 'properties', pid));
-        if (snap.exists()) propNames[pid] = snap.data().name;
-      }));
+      // Fetch cleanings
+      const cleaningsRes = await fetch(`/api/cleanings?propertyIds=${propertyIds.join(',')}`);
+      const cleaningsData = await cleaningsRes.json();
 
-      const cleaningsQuery = profile.role === 'super_admin'
-        ? query(collection(db, 'cleanings'), where('propertyId', 'in', propertyIds.slice(0, 10)))
-        : query(collection(db, 'cleanings'), where('cleanerId', '==', user.uid), where('propertyId', 'in', propertyIds.slice(0, 10)));
+      // Filter by cleanerId if not super_admin
+      const filteredCleanings = profile.role === 'super_admin'
+        ? cleaningsData
+        : cleaningsData.filter((c: { cleanerId?: string }) => c.cleanerId === user.id);
 
-      const snap = await getDocs(cleaningsQuery);
-
-      const pastItems: PastCleaning[] = snap.docs
-        .map(d => {
-          const data = d.data();
-          return {
-            id: d.id,
-            propertyName: propNames[data.propertyId] ?? '알 수 없는 숙소',
-            date: data.date,
-            status: data.status ?? 'pending',
-            completionNote: data.completionNote,
-            completedAt: data.completedAt,
-            hasIssue: data.hasIssue,
-            supplies: data.supplies,
-          };
-        })
-        .filter(c => isPast(parseISO(c.date)) && !isToday(parseISO(c.date)))
-        .sort((a, b) => b.date.localeCompare(a.date));
+      const pastItems: PastCleaning[] = filteredCleanings
+        .map((c: Record<string, unknown>) => ({
+          id: c.id as string,
+          propertyName: propNames[c.propertyId as string] ?? '알 수 없는 숙소',
+          date: c.date as string,
+          status: (c.status as string) ?? 'pending',
+          completionNote: c.completionNote as string | undefined,
+          completedAt: c.completedAt as string | undefined,
+          hasIssue: c.hasIssue as boolean | undefined,
+          supplies: c.supplies as string | undefined,
+        }))
+        .filter((c: PastCleaning) => isPast(parseISO(c.date)) && !isToday(parseISO(c.date)))
+        .sort((a: PastCleaning, b: PastCleaning) => b.date.localeCompare(a.date));
 
       setHistory(pastItems);
     } catch (err) {

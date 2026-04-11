@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { collection, query, getDocs, where, doc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/components/FirebaseProvider';
+import { useAuth } from '@/components/AuthProvider';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { BookOpen, X, CheckCircle2, Clock, Filter, Plus, Loader2 } from 'lucide-react';
@@ -106,17 +104,20 @@ export default function BookingsPage() {
     if (!user) return;
     try {
       // Fetch properties
-      const propsSnapshot = profile?.role === 'super_admin'
-        ? await getDocs(collection(db, 'properties'))
-        : await getDocs(query(collection(db, 'properties'), where('ownerId', '==', user.uid)));
+      const propsParams = new URLSearchParams();
+      if (profile?.role !== 'super_admin') {
+        propsParams.set('ownerId', user.id);
+      }
+      const propsRes = await fetch(`/api/properties?${propsParams}`);
+      if (!propsRes.ok) throw new Error('Failed to fetch properties');
+      const propsData: any[] = await propsRes.json();
 
       const propsMap = new Map<string, PropertyInfo>();
-      propsSnapshot.docs.forEach(d => {
-        const data = d.data();
+      propsData.forEach(d => {
         propsMap.set(d.id, {
           id: d.id,
-          name: data.name,
-          beds24PropId: data.beds24PropId || null,
+          name: d.name,
+          beds24PropId: d.beds24PropId || null,
         });
       });
       setProperties(propsMap);
@@ -130,75 +131,70 @@ export default function BookingsPage() {
       const allBookings: Booking[] = [];
       const bookingRefSet = new Set<string>();
 
-      // 1. Fetch from bookings collection
-      for (let i = 0; i < propertyIds.length; i += 10) {
-        const chunk = propertyIds.slice(i, i + 10);
-        const bookingsSnapshot = await getDocs(
-          query(collection(db, 'bookings'), where('propertyId', 'in', chunk))
-        );
-        bookingsSnapshot.docs.forEach(d => {
-          const data = d.data();
-          const propInfo = propsMap.get(data.propertyId);
-          const ref = data.channelBookingRef;
+      // 1. Fetch from bookings API
+      const bookingsParams = new URLSearchParams();
+      bookingsParams.set('propertyIds', propertyIds.join(','));
+      const bookingsRes = await fetch(`/api/bookings?${bookingsParams}`);
+      if (bookingsRes.ok) {
+        const bookingsData: any[] = await bookingsRes.json();
+        bookingsData.forEach(d => {
+          const propInfo = propsMap.get(d.propertyId);
+          const ref = d.channelBookingRef;
           if (ref) bookingRefSet.add(String(ref));
 
           allBookings.push({
             id: d.id,
-            propertyId: data.propertyId,
+            propertyId: d.propertyId,
             propertyName: propInfo?.name ?? '알 수 없는 숙소',
-            name: data.name ?? '',
-            email: data.email ?? '',
-            phone: data.phone ?? '',
-            checkIn: data.checkIn ?? '',
-            checkOut: data.checkOut ?? '',
-            guests: data.guests ?? 1,
-            adults: data.adults,
-            children: data.children,
-            status: data.status ?? 'pending',
-            createdAt: data.createdAt ?? '',
-            source: data.channelId === 'beds24' ? 'beds24' : 'direct',
+            name: d.name ?? '',
+            email: d.email ?? '',
+            phone: d.phone ?? '',
+            checkIn: d.checkIn ?? '',
+            checkOut: d.checkOut ?? '',
+            guests: d.guests ?? 1,
+            adults: d.adults,
+            children: d.children,
+            status: d.status ?? 'pending',
+            createdAt: d.createdAt ?? '',
+            source: d.channelId === 'beds24' ? 'beds24' : 'direct',
             channelBookingRef: ref ? String(ref) : undefined,
             dataSource: 'bookings',
           });
         });
       }
 
-      // 2. Fetch from events collection (beds24/OTA synced)
-      for (let i = 0; i < propertyIds.length; i += 10) {
-        const chunk = propertyIds.slice(i, i + 10);
-        const eventsSnapshot = await getDocs(
-          query(
-            collection(db, 'events'),
-            where('propertyId', 'in', chunk),
-            where('type', '==', 'reservation')
-          )
-        );
-        eventsSnapshot.docs.forEach(d => {
-          const data = d.data();
-          const uid = data.originalUid ? String(data.originalUid) : '';
+      // 2. Fetch from events API (beds24/OTA synced)
+      const eventsParams = new URLSearchParams();
+      eventsParams.set('propertyIds', propertyIds.join(','));
+      eventsParams.set('type', 'reservation');
+      const eventsRes = await fetch(`/api/events?${eventsParams}`);
+      if (eventsRes.ok) {
+        const eventsData: any[] = await eventsRes.json();
+        eventsData.forEach(d => {
+          const uid = d.originalUid ? String(d.originalUid) : '';
 
           // Deduplicate: skip if already in bookings via channelBookingRef
           if (uid && bookingRefSet.has(uid)) return;
 
-          const propInfo = propsMap.get(data.propertyId);
-          const parsed = parseEventDescription(data.description || '');
+          const propInfo = propsMap.get(d.propertyId);
+          const parsed = parseEventDescription(d.description || '');
 
           allBookings.push({
             id: d.id,
-            propertyId: data.propertyId,
+            propertyId: d.propertyId,
             propertyName: propInfo?.name ?? '알 수 없는 숙소',
-            name: data.title || parsed.name,
+            name: d.title || parsed.name,
             email: parsed.email,
             phone: parsed.phone,
-            checkIn: data.start ?? '',
-            checkOut: data.end ?? '',
+            checkIn: d.startDate ?? '',
+            checkOut: d.endDate ?? '',
             guests: parsed.guests,
             status: 'confirmed',
-            createdAt: data.createdAt ?? '',
-            source: data.source || data.channelId || 'ota',
+            createdAt: d.createdAt ?? '',
+            source: d.source || d.channelId || 'ota',
             channelBookingRef: uid || undefined,
             dataSource: 'events',
-            description: data.description,
+            description: d.description,
           });
         });
       }
@@ -238,11 +234,17 @@ export default function BookingsPage() {
           throw new Error(data.error || '취소에 실패했습니다.');
         }
       } else {
-        // Direct Firestore cancel
-        await updateDoc(doc(db, 'bookings', booking.id), {
-          status: 'cancelled',
-          cancelledAt: new Date().toISOString(),
+        // Cancel via API
+        const res = await fetch('/api/bookings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: booking.id,
+            status: 'cancelled',
+            cancelledAt: new Date().toISOString(),
+          }),
         });
+        if (!res.ok) throw new Error('Failed to cancel booking');
       }
       setBookings(prev =>
         prev.map(b => b.id === booking.id ? { ...b, status: 'cancelled' } : b)

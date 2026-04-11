@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { FieldValue } from 'firebase-admin/firestore';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { prisma } from '@/lib/prisma';
 import { syncICalChannel, logSync } from '@/lib/sync-engine';
 
 export async function POST(req: Request) {
@@ -8,15 +7,13 @@ export async function POST(req: Request) {
   const { propertyId, triggeredBy } = body as { propertyId?: string; triggeredBy?: string };
 
   try {
-    const db = getAdminDb();
-
     // Determine which properties to sync
     let propertyIds: string[] = [];
     if (propertyId) {
       propertyIds = [propertyId];
     } else {
-      const propsSnap = await db.collection('properties').get();
-      propertyIds = propsSnap.docs.map(d => d.id);
+      const props = await prisma.property.findMany({ select: { id: true } });
+      propertyIds = props.map((p: { id: string }) => p.id);
     }
 
     const results: Array<{
@@ -27,140 +24,107 @@ export async function POST(req: Request) {
     }> = [];
 
     for (const propId of propertyIds) {
-      // Track synced import URLs to avoid double-syncing
       const syncedUrls = new Set<string>();
 
-      // 1. Fetch and process integrations (for API-based integrations like Beds24)
-      const integrationsSnap = await db.collection('integrations').where('propertyId', '==', propId).where('status', '==', 'active').get();
+      // 1. Sync integrations (iCal)
+      const integrations = await prisma.integration.findMany({
+        where: { propertyId: propId, status: 'active', type: 'ical' },
+      });
 
-      for (const integDoc of integrationsSnap.docs) {
-        const integ = integDoc.data();
-        if (integ.type !== 'ical' || !integ.config?.importUrl) continue;
+      for (const integ of integrations) {
+        const config = integ.config as Record<string, string>;
+        if (!config?.importUrl) continue;
 
-        syncedUrls.add(integ.config.importUrl);
-
+        syncedUrls.add(config.importUrl);
         const startTime = Date.now();
+
         try {
-          const syncResult = await syncICalChannel(
-            propId,
-            integDoc.id,
-            integ.config.importUrl,
-            integ.provider,
-          );
-
+          const syncResult = await syncICalChannel(propId, integ.id, config.importUrl, integ.provider);
           const durationMs = Date.now() - startTime;
-          await logSync(propId, integDoc.id, 'ical_import', syncResult, durationMs, triggeredBy ?? 'system');
+          await logSync(propId, integ.id, 'ical_import', syncResult, durationMs, triggeredBy ?? 'system');
 
-          // Update integration status
-          await db.collection('integrations').doc(integDoc.id).update({
-            lastSyncAt: new Date().toISOString(),
-            lastSyncStatus: syncResult.error ? 'failed' : 'success',
-            lastErrorMessage: syncResult.error || null,
-            updatedAt: new Date().toISOString(),
+          await prisma.integration.update({
+            where: { id: integ.id },
+            data: {
+              lastSyncAt: new Date(),
+              lastSyncStatus: syncResult.error ? 'failed' : 'success',
+              lastErrorMessage: syncResult.error || null,
+            },
           });
 
-          results.push({
-            propertyId: propId,
-            integrationId: integDoc.id,
-            provider: integ.provider,
-            result: syncResult,
-          });
+          results.push({ propertyId: propId, integrationId: integ.id, provider: integ.provider, result: syncResult });
         } catch (err) {
           const durationMs = Date.now() - startTime;
           const errorMsg = String(err);
-          await logSync(propId, integDoc.id, 'ical_import', {
+          await logSync(propId, integ.id, 'ical_import', {
             eventsFound: 0, eventsCreated: 0, eventsUpdated: 0, eventsRemoved: 0, error: errorMsg,
           }, durationMs, triggeredBy ?? 'system');
 
-          await db.collection('integrations').doc(integDoc.id).update({
-            lastSyncAt: new Date().toISOString(),
-            lastSyncStatus: 'failed',
-            lastErrorMessage: errorMsg,
-            updatedAt: new Date().toISOString(),
+          await prisma.integration.update({
+            where: { id: integ.id },
+            data: { lastSyncAt: new Date(), lastSyncStatus: 'failed', lastErrorMessage: errorMsg },
           });
 
           results.push({
-            propertyId: propId,
-            integrationId: integDoc.id,
-            provider: integ.provider,
+            propertyId: propId, integrationId: integ.id, provider: integ.provider,
             result: { eventsFound: 0, eventsCreated: 0, eventsUpdated: 0, eventsRemoved: 0, error: errorMsg },
           });
         }
       }
 
-      // 2. Sync from property-embedded channels map
-      const propDoc = await db.collection('properties').doc(propId).get();
-      const propData = propDoc.data();
-      const channelsMap = (propData?.channels ?? {}) as Record<string, { importUrl?: string; isActive?: boolean }>;
+      // 2. Sync from property_channels
+      const channels = await prisma.propertyChannel.findMany({
+        where: { propertyId: propId, isActive: true },
+      });
 
-      for (const [channelName, channelConfig] of Object.entries(channelsMap)) {
-        if (!channelConfig.isActive || !channelConfig.importUrl) continue;
-
-        // Skip if already synced via integrations
-        if (syncedUrls.has(channelConfig.importUrl)) continue;
+      for (const ch of channels) {
+        if (!ch.importUrl || syncedUrls.has(ch.importUrl)) continue;
 
         const startTime = Date.now();
         try {
-          const syncResult = await syncICalChannel(propId, channelName, channelConfig.importUrl, channelName);
+          const syncResult = await syncICalChannel(propId, ch.name, ch.importUrl, ch.name);
           const durationMs = Date.now() - startTime;
-          await logSync(propId, channelName, 'ical_import', syncResult, durationMs, triggeredBy ?? 'system');
-
-          results.push({
-            propertyId: propId,
-            integrationId: channelName,
-            provider: channelName,
-            result: syncResult,
-          });
+          await logSync(propId, ch.name, 'ical_import', syncResult, durationMs, triggeredBy ?? 'system');
+          results.push({ propertyId: propId, integrationId: ch.name, provider: ch.name, result: syncResult });
         } catch (err) {
           const durationMs = Date.now() - startTime;
-          await logSync(propId, channelName, 'ical_import', {
+          await logSync(propId, ch.name, 'ical_import', {
             eventsFound: 0, eventsCreated: 0, eventsUpdated: 0, eventsRemoved: 0, error: String(err),
           }, durationMs, triggeredBy ?? 'system');
         }
       }
 
-      // 3. Beds24 API sync for properties with beds24PropId
-      const propData2 = propDoc.data();
-      if (propData2?.beds24PropId) {
+      // 3. Beds24 API sync
+      const property = await prisma.property.findUnique({ where: { id: propId }, select: { beds24PropId: true } });
+      if (property?.beds24PropId) {
         try {
           const beds24Res = await fetch(new URL('/api/beds24/sync', req.url).toString(), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ propertyId: propId, beds24PropId: propData2.beds24PropId }),
+            body: JSON.stringify({ propertyId: propId, beds24PropId: property.beds24PropId }),
           });
           const beds24Data = await beds24Res.json();
           if (beds24Res.ok) {
             results.push({
-              propertyId: propId,
-              integrationId: 'beds24-api',
-              provider: 'beds24',
+              propertyId: propId, integrationId: 'beds24-api', provider: 'beds24',
               result: {
-                eventsFound: beds24Data.total || 0,
-                eventsCreated: beds24Data.eventsCreated || 0,
-                eventsUpdated: beds24Data.eventsUpdated || 0,
-                eventsRemoved: beds24Data.eventsRemoved || 0,
+                eventsFound: beds24Data.total || 0, eventsCreated: beds24Data.eventsCreated || 0,
+                eventsUpdated: beds24Data.eventsUpdated || 0, eventsRemoved: beds24Data.eventsRemoved || 0,
               },
             });
           } else {
             results.push({
-              propertyId: propId,
-              integrationId: 'beds24-api',
-              provider: 'beds24',
+              propertyId: propId, integrationId: 'beds24-api', provider: 'beds24',
               result: { eventsFound: 0, eventsCreated: 0, eventsUpdated: 0, eventsRemoved: 0, error: beds24Data.error },
             });
           }
         } catch (err) {
           results.push({
-            propertyId: propId,
-            integrationId: 'beds24-api',
-            provider: 'beds24',
+            propertyId: propId, integrationId: 'beds24-api', provider: 'beds24',
             result: { eventsFound: 0, eventsCreated: 0, eventsUpdated: 0, eventsRemoved: 0, error: String(err) },
           });
         }
       }
-
-      // Update property lastSyncedAt
-      await db.collection('properties').doc(propId).update({ lastSyncedAt: FieldValue.serverTimestamp() });
     }
 
     const totalCreated = results.reduce((s, r) => s + r.result.eventsCreated, 0);

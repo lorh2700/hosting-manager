@@ -6,7 +6,8 @@
       "Bash(ls -1 /c/voidanchae/unwa-hosting/void-anchae/app/admin/*.tsx)",
       "Bash(npx next:*)",
       "Bash(grep -E \"\\\\.\\(jpg|jpeg|png|webp|svg\\)$\")",
-      "Read(//c/voidanchae/unwa-hosting/void-anchae/**)"
+      "Read(//c/voidanchae/unwa-hosting/void-anchae/**)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" --max-time 15 http://localhost:3001/api/public/calendar)"
     ]
   }
 }

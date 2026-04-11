@@ -9,9 +9,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import koLocale from '@fullcalendar/core/locales/ko';
-import { doc, getDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/components/FirebaseProvider';
+import { useAuth } from '@/components/AuthProvider';
 
 interface Property {
   id: string;
@@ -51,40 +49,34 @@ export default function CalendarPage() {
     if (!user) return;
     try {
       // 1. Fetch direct bookings
-      const qBookings = query(collection(db, 'bookings'), where('propertyId', '==', id), where('status', '==', 'confirmed'));
-      const snapshotBookings = await getDocs(qBookings);
-      const directEvents = snapshotBookings.docs.map(doc => {
-        const d = doc.data();
-        return {
-          id: doc.id,
-          propertyId: d.propertyId,
-          channelId: 'direct',
-          title: `${d.name} 예약`,
-          start: d.checkIn,
-          end: d.checkOut,
-          type: 'reservation' as const,
-          description: `게스트: ${d.name}\n연락처: ${d.email}\n인원: ${d.guests}명`
-        };
-      });
+      const bookingsRes = await fetch(`/api/bookings?propertyIds=${id}&status=confirmed`);
+      const bookingsData = bookingsRes.ok ? await bookingsRes.json() : [];
+      const directEvents = bookingsData.map((d: any) => ({
+        id: d.id,
+        propertyId: d.propertyId,
+        channelId: 'direct',
+        title: `${d.name} 예약`,
+        start: d.checkIn,
+        end: d.checkOut,
+        type: 'reservation' as const,
+        description: `게스트: ${d.name}\n연락처: ${d.email}\n인원: ${d.guests}명`
+      }));
 
       // 2. Fetch channel events
-      const qEvents = query(collection(db, 'events'), where('propertyId', '==', id));
-      const snapshotEvents = await getDocs(qEvents);
-      const channelEvents = snapshotEvents.docs.map(doc => {
-        const d = doc.data();
-        return {
-          id: doc.id,
-          propertyId: d.propertyId,
-          channelId: d.channelId,
-          source: d.source,
-          title: d.title,
-          start: d.start,
-          end: d.end,
-          type: d.type as 'reservation' | 'block',
-          description: d.description,
-          originalUid: d.originalUid
-        };
-      });
+      const eventsRes = await fetch(`/api/events?propertyIds=${id}`);
+      const eventsData = eventsRes.ok ? await eventsRes.json() : [];
+      const channelEvents = eventsData.map((d: any) => ({
+        id: d.id,
+        propertyId: d.propertyId,
+        channelId: d.channelId,
+        source: d.source,
+        title: d.title,
+        start: d.startDate || d.start,
+        end: d.endDate || d.end,
+        type: d.type as 'reservation' | 'block',
+        description: d.description,
+        originalUid: d.originalUid
+      }));
 
       setEvents([...directEvents, ...channelEvents]);
     } catch (error) {
@@ -97,15 +89,14 @@ export default function CalendarPage() {
 
     const fetchData = async () => {
       try {
-        const propDoc = await getDoc(doc(db, 'properties', id));
-        if (!propDoc.exists()) {
+        const propRes = await fetch(`/api/properties/${id}`);
+        if (!propRes.ok) {
           setLoading(false);
           return;
         }
+        const propData = await propRes.json();
+        setProperty(propData);
 
-        setProperty({ id: propDoc.id, ...propDoc.data() } as Property);
-
-        const propData = propDoc.data();
         const channelsMap = propData?.channels ?? {};
         const channelsData = Object.entries(channelsMap).map(([name, ch]: [string, any]) => ({ id: name, ...ch }));
         setChannels(channelsData);
@@ -131,7 +122,7 @@ export default function CalendarPage() {
     setSyncing(true);
     try {
       if (property?.beds24PropId) {
-        // Beds24가 연결된 숙소 → Beds24 API가 Firestore에 직접 upsert
+        // Beds24 connected property
         setBeds24SyncError(null);
         const beds24Response = await fetch('/api/beds24/sync', {
           method: 'POST',
@@ -145,7 +136,7 @@ export default function CalendarPage() {
           console.error('Beds24 sync failed:', errMsg);
         }
       } else {
-        // Beds24 미연결 → iCal 채널 동기화
+        // iCal channel sync
         const activeChs = channels.filter(c => c.isActive && c.importUrl);
         if (activeChs.length === 0) {
           alert('동기화할 채널이 없습니다.');
@@ -157,34 +148,7 @@ export default function CalendarPage() {
           body: JSON.stringify({ propertyId: id, channels: activeChs })
         });
         const result = await response.json();
-        if (result.success && result.events?.length > 0) {
-          // iCal: 기존 이벤트 삭제 후 새 이벤트 저장
-          const qOldEvents = query(collection(db, 'events'), where('propertyId', '==', id));
-          const oldEventsSnapshot = await getDocs(qOldEvents);
-
-          const batch = writeBatch(db);
-          oldEventsSnapshot.docs.forEach(doc => {
-            batch.delete(doc.ref);
-          });
-
-          result.events.forEach((ev: any) => {
-            const newEventRef = doc(collection(db, 'events'));
-            batch.set(newEventRef, {
-              propertyId: ev.propertyId,
-              channelId: ev.channelId,
-              source: ev.source || '',
-              title: (ev.title || '').substring(0, 199),
-              start: ev.start,
-              end: ev.end,
-              type: ev.type,
-              originalUid: (ev.originalUid || '').substring(0, 199),
-              description: (ev.description || '').substring(0, 1999),
-              createdAt: ev.createdAt
-            });
-          });
-
-          await batch.commit();
-        } else {
+        if (!result.success || !result.events?.length) {
           alert('가져온 예약 데이터가 없습니다. 채널 URL을 확인해주세요.');
           return;
         }

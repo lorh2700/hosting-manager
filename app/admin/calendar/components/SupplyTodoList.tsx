@@ -1,0 +1,91 @@
+'use client';
+
+import { ChevronRight, Trash2 } from 'lucide-react';
+import type { GlobalSupplyTodo } from '../types';
+
+interface SupplyTodoListProps {
+  allSupplyTodos: GlobalSupplyTodo[];
+  onToggle: (todoId: string, done: boolean, updateLocal?: boolean) => void;
+  onDelete: (todoId: string, updateLocal?: boolean) => void;
+}
+
+export function SupplyTodoList({ allSupplyTodos, onToggle, onDelete }: SupplyTodoListProps) {
+  const pending = allSupplyTodos.filter(t => !t.done);
+  const done = allSupplyTodos.filter(t => t.done);
+  if (pending.length === 0 && done.length === 0) return null;
+
+  const grouped = new Map<string, typeof pending>();
+  pending.forEach(t => {
+    const list = grouped.get(t.propertyName) || [];
+    list.push(t);
+    grouped.set(t.propertyName, list);
+  });
+
+  return (
+    <div className="bg-[#111] border border-white/10 rounded-2xl overflow-hidden p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium text-white/80 tracking-wide">필요 비품</h3>
+        <span className="text-[10px] text-white/30 tabular-nums">{pending.length}개 미완료</span>
+      </div>
+
+      {pending.length > 0 && (
+        <div className="space-y-4">
+          {Array.from(grouped.entries()).map(([propName, items]) => (
+            <div key={propName} className="space-y-1.5">
+              <p className="text-[10px] tracking-widest text-white/40 font-medium">{propName}</p>
+              {items.map(todo => (
+                <div key={todo.id} className="flex items-center gap-3 group py-1">
+                  <button
+                    onClick={() => onToggle(todo.id, true, false)}
+                    className="w-4 h-4 rounded border border-white/20 hover:border-emerald-400/60 flex items-center justify-center shrink-0 transition-colors"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12px] text-white/70">{todo.text}</p>
+                    <p className="text-[10px] text-white/25 mt-0.5">{todo.date}</p>
+                  </div>
+                  <button
+                    onClick={() => onDelete(todo.id, false)}
+                    className="opacity-0 group-hover:opacity-100 text-white/20 hover:text-red-400 transition-all shrink-0"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {done.length > 0 && (
+        <details className="group">
+          <summary className="text-[10px] text-white/25 cursor-pointer hover:text-white/40 transition-colors tracking-wide list-none flex items-center gap-1.5">
+            <ChevronRight size={10} className="group-open:rotate-90 transition-transform" />
+            완료 ({done.length})
+          </summary>
+          <div className="mt-2 space-y-1">
+            {done.map(todo => (
+              <div key={todo.id} className="flex items-center gap-3 group py-1">
+                <button
+                  onClick={() => onToggle(todo.id, false, false)}
+                  className="w-4 h-4 rounded bg-emerald-500/30 border border-emerald-500/50 flex items-center justify-center shrink-0 transition-colors"
+                >
+                  <span className="text-emerald-400 text-[10px]">✓</span>
+                </button>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[12px] text-white/30 line-through">{todo.text}</p>
+                  <p className="text-[10px] text-white/15 mt-0.5">{todo.propertyName} · {todo.date}</p>
+                </div>
+                <button
+                  onClick={() => onDelete(todo.id, false)}
+                  className="opacity-0 group-hover:opacity-100 text-white/20 hover:text-red-400 transition-all shrink-0"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+    </div>
+  );
+}

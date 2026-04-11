@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, doc, updateDoc, query, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/components/FirebaseProvider';
+import { useAuth } from '@/components/AuthProvider';
 import { Users, Save, Search } from 'lucide-react';
 
 interface GuestRecord {
@@ -37,8 +35,10 @@ export default function GuestsPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const snap = await getDocs(query(collection(db, 'guests'), orderBy('createdAt', 'desc')));
-        setGuests(snap.docs.map(d => ({ id: d.id, ...d.data() } as GuestRecord)));
+        const res = await fetch('/api/guests?orderBy=createdAt&order=desc');
+        if (!res.ok) throw new Error('Failed to fetch guests');
+        const data: GuestRecord[] = await res.json();
+        setGuests(data);
       } catch (err) {
         console.error(err);
       } finally {
@@ -51,10 +51,16 @@ export default function GuestsPage() {
   const handleUpdateNotes = async (guestId: string, notes: string) => {
     setSavingId(guestId);
     try {
-      await updateDoc(doc(db, 'guests', guestId), {
-        notes,
-        updatedAt: new Date().toISOString(),
+      const res = await fetch('/api/guests', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: guestId,
+          notes,
+          updatedAt: new Date().toISOString(),
+        }),
       });
+      if (!res.ok) throw new Error('Failed to update guest notes');
       setGuests(prev => prev.map(g => g.id === guestId ? { ...g, notes } : g));
     } catch (err) {
       console.error(err);

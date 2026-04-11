@@ -3,9 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/sidebar';
-import { useAuth } from '@/components/FirebaseProvider';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { useAuth } from '@/components/AuthProvider';
 
 const PUBLIC_PATHS = ['/admin/calendar'];
 
@@ -32,15 +30,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     setIsLoggingIn(true);
     setError('');
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-    } catch (err: unknown) {
-      const e = err as { code?: string };
-      if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password' || e.code === 'auth/user-not-found') {
-        setError('이메일 또는 비밀번호가 올바르지 않습니다.');
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || '로그인에 실패했습니다.');
       } else {
-        setError('로그인에 실패했습니다.');
-        console.error('Login failed', err);
+        // Refresh auth context after successful login
+        window.location.reload();
       }
+    } catch (err) {
+      setError('로그인에 실패했습니다.');
+      console.error('Login failed', err);
     } finally {
       setIsLoggingIn(false);
     }
@@ -54,8 +58,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  // Public paths: skip login, render without sidebar (anonymous or no profile)
-  if (isPublicPath && (!profile || user?.isAnonymous)) {
+  // Public paths: skip login, render without sidebar
+  if (isPublicPath && !profile) {
     return (
       <div className="min-h-screen bg-[#050505] font-sans text-white selection:bg-white/20">
         <main className="p-4 pb-24 md:p-8 lg:p-12 md:pb-12 overflow-y-auto">

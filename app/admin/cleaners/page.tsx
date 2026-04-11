@@ -2,9 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Users, Plus, Trash2, Save, Phone } from 'lucide-react';
-import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/components/FirebaseProvider';
+import { useAuth } from '@/components/AuthProvider';
 
 interface Cleaner {
   id: string;
@@ -25,11 +23,14 @@ export default function CleanersPage() {
   const fetchCleaners = async () => {
     if (!user) return;
     try {
-      const q = profile?.role === 'super_admin'
-        ? collection(db, 'cleaners')
-        : query(collection(db, 'cleaners'), where('ownerId', '==', user.uid));
-      const snapshot = await getDocs(q);
-      setCleaners(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Cleaner)));
+      const params = new URLSearchParams();
+      if (profile?.role !== 'super_admin') {
+        params.set('ownerId', user.id);
+      }
+      const res = await fetch(`/api/cleaners?${params}`);
+      if (!res.ok) throw new Error('Failed to fetch cleaners');
+      const data: Cleaner[] = await res.json();
+      setCleaners(data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -45,12 +46,17 @@ export default function CleanersPage() {
     if (!newName.trim() || !user) return;
     setAdding(true);
     try {
-      await addDoc(collection(db, 'cleaners'), {
-        name: newName.trim(),
-        phone: newPhone.trim(),
-        ownerId: user.uid,
-        createdAt: new Date().toISOString(),
+      const res = await fetch('/api/cleaners', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newName.trim(),
+          phone: newPhone.trim(),
+          ownerId: user.id,
+          createdAt: new Date().toISOString(),
+        }),
       });
+      if (!res.ok) throw new Error('Failed to add cleaner');
       setNewName('');
       setNewPhone('');
       await fetchCleaners();
@@ -65,10 +71,16 @@ export default function CleanersPage() {
   const handleUpdate = async (cleaner: Cleaner) => {
     setSaving(cleaner.id);
     try {
-      await updateDoc(doc(db, 'cleaners', cleaner.id), {
-        name: cleaner.name,
-        phone: cleaner.phone,
+      const res = await fetch('/api/cleaners', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: cleaner.id,
+          name: cleaner.name,
+          phone: cleaner.phone,
+        }),
       });
+      if (!res.ok) throw new Error('Failed to update cleaner');
     } catch (err) {
       console.error(err);
       alert('수정에 실패했습니다.');
@@ -80,7 +92,8 @@ export default function CleanersPage() {
   const handleDelete = async (cleanerId: string) => {
     if (!confirm('이 담당자를 삭제하시겠습니까?')) return;
     try {
-      await deleteDoc(doc(db, 'cleaners', cleanerId));
+      const res = await fetch(`/api/cleaners?id=${cleanerId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete cleaner');
       setCleaners(prev => prev.filter(c => c.id !== cleanerId));
     } catch (err) {
       console.error(err);

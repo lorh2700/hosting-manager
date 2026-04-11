@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, deleteDoc, doc, query, where, setDoc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/components/FirebaseProvider';
+import { useAuth } from '@/components/AuthProvider';
 
 // Properties with different names that are actually the same place
 const NAME_ALIASES: Record<string, string> = {
@@ -44,27 +42,29 @@ export default function CleanupPage() {
   const [subToEmbedLog, setSubToEmbedLog] = useState<string[]>([]);
   const [migratingSubToEmbed, setMigratingSubToEmbed] = useState(false);
 
-  useEffect(() => {
-    if (!user || profile?.role !== 'super_admin') return;
+  const loadGroups = async () => {
+    try {
+      const [propsRes, eventsRes] = await Promise.all([
+        fetch('/api/properties'),
+        fetch('/api/events'),
+      ]);
+      if (!propsRes.ok || !eventsRes.ok) throw new Error('Failed to fetch data');
 
-    const load = async () => {
-      const propsSnap = await getDocs(collection(db, 'properties'));
-      const props = propsSnap.docs.map(d => ({ id: d.id, name: d.data().name, ownerId: d.data().ownerId }));
+      const propsData: any[] = await propsRes.json();
+      const props = propsData.map(d => ({ id: d.id, name: d.name, ownerId: d.ownerId }));
 
-      // Count events per property
-      const eventsSnap = await getDocs(collection(db, 'events'));
+      const eventsData: any[] = await eventsRes.json();
       const eventCounts: Record<string, number> = {};
-      eventsSnap.docs.forEach(d => {
-        const pid = d.data().propertyId;
+      eventsData.forEach(d => {
+        const pid = d.propertyId;
         eventCounts[pid] = (eventCounts[pid] ?? 0) + 1;
       });
 
-      // Count channels per property (subcollection)
+      // Channel counts from property data (embedded channels)
       const channelCounts: Record<string, number> = {};
-      for (const p of props) {
-        const chSnap = await getDocs(collection(db, 'properties', p.id, 'channels'));
-        channelCounts[p.id] = chSnap.size;
-      }
+      propsData.forEach(d => {
+        channelCounts[d.id] = d.channels ? Object.keys(d.channels).length : 0;
+      });
 
       const grouped: Record<string, PropInfo[]> = {};
       props.forEach(p => {
@@ -80,10 +80,16 @@ export default function CleanupPage() {
       });
 
       setGroups(grouped);
+    } catch (err) {
+      console.error(err);
+    } finally {
       setLoading(false);
-    };
+    }
+  };
 
-    load();
+  useEffect(() => {
+    if (!user || profile?.role !== 'super_admin') return;
+    loadGroups();
   }, [user, profile]);
 
   const handleCleanup = async () => {
@@ -100,19 +106,29 @@ export default function CleanupPage() {
       newLog.push(`[${name}] 유지: ${keep.id} (events: ${keep.eventCount})`);
 
       for (const p of toDelete) {
-        // Delete associated channels (subcollection)
-        const chSnap = await getDocs(collection(db, 'properties', p.id, 'channels'));
-        for (const ch of chSnap.docs) {
-          await deleteDoc(ch.ref);
+        try {
+          // Delete associated bookings
+          const bookingsRes = await fetch(`/api/bookings?propertyIds=${p.id}`);
+          if (bookingsRes.ok) {
+            const bookingsData: any[] = await bookingsRes.json();
+            for (const b of bookingsData) {
+              await fetch(`/api/bookings?id=${b.id}`, { method: 'DELETE' });
+            }
+          }
+          // Delete associated events
+          const eventsRes = await fetch(`/api/events?propertyIds=${p.id}`);
+          if (eventsRes.ok) {
+            const eventsData: any[] = await eventsRes.json();
+            for (const ev of eventsData) {
+              await fetch(`/api/events?id=${ev.id}`, { method: 'DELETE' });
+            }
+          }
+          // Delete property
+          await fetch(`/api/properties?id=${p.id}`, { method: 'DELETE' });
+          newLog.push(`  삭제: ${p.id} (events: ${p.eventCount})`);
+        } catch (err) {
+          newLog.push(`  오류: ${p.id} - ${err}`);
         }
-        // Delete associated cleanings
-        const clSnap = await getDocs(query(collection(db, 'cleanings'), where('propertyId', '==', p.id)));
-        for (const cl of clSnap.docs) {
-          await deleteDoc(doc(db, 'cleanings', cl.id));
-        }
-        // Delete property
-        await deleteDoc(doc(db, 'properties', p.id));
-        newLog.push(`  삭제: ${p.id} (events: ${p.eventCount})`);
       }
     }
 
@@ -120,37 +136,24 @@ export default function CleanupPage() {
     setCleaning(false);
 
     // Reload
-    const propsSnap = await getDocs(collection(db, 'properties'));
-    const props = propsSnap.docs.map(d => ({ id: d.id, name: d.data().name, ownerId: d.data().ownerId }));
-    const eventsSnap = await getDocs(collection(db, 'events'));
-    const eventCounts: Record<string, number> = {};
-    eventsSnap.docs.forEach(d => { const pid = d.data().propertyId; eventCounts[pid] = (eventCounts[pid] ?? 0) + 1; });
-    const channelCounts: Record<string, number> = {};
-    for (const p of props) {
-      const chSnap = await getDocs(collection(db, 'properties', p.id, 'channels'));
-      channelCounts[p.id] = chSnap.size;
-    }
-    const grouped: Record<string, PropInfo[]> = {};
-    props.forEach(p => {
-      const key = normalizePropertyName(p.name);
-      if (!grouped[key]) grouped[key] = [];
-      grouped[key].push({ id: p.id, name: p.name, ownerId: p.ownerId, eventCount: eventCounts[p.id] ?? 0, channelCount: channelCounts[p.id] ?? 0 });
-    });
-    setGroups(grouped);
+    await loadGroups();
   };
 
   const handleRestoreChannels = async () => {
     setRestoringChannels(true);
     const newLog: string[] = [];
     try {
-      const propsSnap = await getDocs(collection(db, 'properties'));
-      for (const propDoc of propsSnap.docs) {
-        const propName = propDoc.data().name as string;
+      const propsRes = await fetch('/api/properties');
+      if (!propsRes.ok) throw new Error('Failed to fetch properties');
+      const propsData: any[] = await propsRes.json();
+
+      for (const propDoc of propsData) {
+        const propName = propDoc.name as string;
         const missing = MISSING_CHANNELS[propName];
         if (!missing) continue;
 
-        const existingSnap = await getDocs(collection(db, 'properties', propDoc.id, 'channels'));
-        const existingNames = new Set(existingSnap.docs.map(d => d.id));
+        const existingChannels = propDoc.channels ?? {};
+        const existingNames = new Set(Object.keys(existingChannels));
 
         for (const ch of missing) {
           if (existingNames.has(ch.name)) {
@@ -158,13 +161,26 @@ export default function CleanupPage() {
             continue;
           }
           const token = Math.random().toString(36).substring(2, 15);
-          await setDoc(doc(db, 'properties', propDoc.id, 'channels', ch.name), {
-            importUrl: ch.importUrl,
-            exportUrl: `/api/export/${token}.ics`,
-            isActive: true,
-            createdAt: new Date().toISOString(),
+          // Update property with new channel embedded
+          const updatedChannels = {
+            ...existingChannels,
+            [ch.name]: {
+              importUrl: ch.importUrl,
+              exportUrl: `/api/export/${token}.ics`,
+              isActive: true,
+              createdAt: new Date().toISOString(),
+            },
+          };
+          const res = await fetch('/api/properties', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: propDoc.id, channels: updatedChannels }),
           });
-          newLog.push(`[${propName}] ${ch.name}: 추가 완료`);
+          if (res.ok) {
+            newLog.push(`[${propName}] ${ch.name}: 추가 완료`);
+          } else {
+            newLog.push(`[${propName}] ${ch.name}: 추가 실패`);
+          }
         }
       }
     } catch (err) {
@@ -181,23 +197,8 @@ export default function CleanupPage() {
     setMigrating(true);
     const newLog: string[] = [];
     try {
-      const flatSnap = await getDocs(collection(db, 'channels'));
-      if (flatSnap.empty) { newLog.push('flat channels 컬렉션이 비어있습니다. 이미 마이그레이션 완료됐을 수 있습니다.'); }
-      for (const ch of flatSnap.docs) {
-        const d = ch.data();
-        const propId = d.propertyId as string;
-        const name = d.name as string;
-        if (!propId || !name) { newLog.push(`SKIP ${ch.id}: propertyId 또는 name 없음`); continue; }
-        await setDoc(doc(db, 'properties', propId, 'channels', name), {
-          importUrl: d.importUrl ?? '',
-          exportUrl: d.exportUrl ?? '',
-          isActive: d.isActive ?? false,
-          createdAt: d.createdAt ?? new Date().toISOString(),
-        });
-        await deleteDoc(ch.ref);
-        newLog.push(`✓ ${name} → properties/${propId}/channels/${name}`);
-      }
-      newLog.push('마이그레이션 완료!');
+      newLog.push('이 기능은 Firebase 직접 접근이 필요하여 API 기반에서는 지원되지 않습니다.');
+      newLog.push('서버 측 마이그레이션 스크립트를 사용해주세요.');
     } catch (err) {
       newLog.push('오류: ' + String(err));
     } finally {
@@ -211,26 +212,10 @@ export default function CleanupPage() {
     setMigratingSubToEmbed(true);
     const newLog: string[] = [];
     try {
-      const propsSnap = await getDocs(collection(db, 'properties'));
-      for (const propDoc of propsSnap.docs) {
-        const existing = propDoc.data().channels;
-        const subSnap = await getDocs(collection(db, 'properties', propDoc.id, 'channels'));
-        if (subSnap.empty) {
-          newLog.push(`SKIP ${propDoc.data().name}: subcollection 없음${existing ? ' (이미 embedded)' : ''}`);
-          continue;
-        }
-        const channelsMap: Record<string, object> = existing ?? {};
-        subSnap.docs.forEach(d => {
-          if (!channelsMap[d.id]) { // don't overwrite existing
-            channelsMap[d.id] = d.data();
-          }
-        });
-        await updateDoc(doc(db, 'properties', propDoc.id), { channels: channelsMap });
-        newLog.push(`✓ ${propDoc.data().name}: ${subSnap.size}개 채널 마이그레이션`);
-      }
-      newLog.push('완료');
-    } catch (e) {
-      newLog.push(`오류: ${e}`);
+      newLog.push('이 기능은 Firebase 직접 접근이 필요하여 API 기반에서는 지원되지 않습니다.');
+      newLog.push('서버 측 마이그레이션 스크립트를 사용해주세요.');
+    } catch (err) {
+      newLog.push(`오류: ${err}`);
     } finally {
       setSubToEmbedLog(newLog);
       setMigratingSubToEmbed(false);
@@ -347,34 +332,49 @@ export default function CleanupPage() {
             setMigratingCleanings(true);
             const log: string[] = [];
             try {
-              const cleanersSnap = await getDocs(collection(db, 'cleaners'));
-              const nameToId = new Map<string, string>();
-              cleanersSnap.docs.forEach(d => nameToId.set(d.data().name as string, d.id));
+              const [cleanersRes, cleaningsRes] = await Promise.all([
+                fetch('/api/cleaners'),
+                fetch('/api/cleanings'),
+              ]);
+              if (!cleanersRes.ok || !cleaningsRes.ok) throw new Error('Failed to fetch data');
 
-              const cleaningsSnap = await getDocs(collection(db, 'cleanings'));
+              const cleanersData: any[] = await cleanersRes.json();
+              const nameToId = new Map<string, string>();
+              cleanersData.forEach(d => nameToId.set(d.name as string, d.id));
+
+              const cleaningsData: any[] = await cleaningsRes.json();
               let migrated = 0, skipped = 0, failed = 0;
 
-              for (const d of cleaningsSnap.docs) {
-                const data = d.data();
+              for (const d of cleaningsData) {
                 // Already migrated
-                if (data.cleanerId) { skipped++; continue; }
+                if (d.cleanerId) { skipped++; continue; }
                 // Old schema: has 'cleaner' name string
-                if (!data.cleaner) { log.push(`SKIP ${d.id}: cleaner 필드 없음`); skipped++; continue; }
+                if (!d.cleaner) { log.push(`SKIP ${d.id}: cleaner 필드 없음`); skipped++; continue; }
 
-                const cleanerId = nameToId.get(data.cleaner as string);
+                const cleanerId = nameToId.get(d.cleaner as string);
                 if (!cleanerId) {
-                  log.push(`WARN ${d.id}: "${data.cleaner}" 이름의 담당자를 찾을 수 없음`);
+                  log.push(`WARN ${d.id}: "${d.cleaner}" 이름의 담당자를 찾을 수 없음`);
                   failed++;
                   continue;
                 }
 
-                await updateDoc(doc(db, 'cleanings', d.id), {
-                  cleanerId,
-                  status: data.cleaningStatus ?? 'pending',
-                  updatedAt: new Date().toISOString(),
+                const res = await fetch('/api/cleanings', {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    id: d.id,
+                    cleanerId,
+                    status: d.cleaningStatus ?? 'pending',
+                    updatedAt: new Date().toISOString(),
+                  }),
                 });
-                log.push(`✓ ${d.id}: "${data.cleaner}" → ${cleanerId}`);
-                migrated++;
+                if (res.ok) {
+                  log.push(`OK ${d.id}: "${d.cleaner}" → ${cleanerId}`);
+                  migrated++;
+                } else {
+                  log.push(`FAIL ${d.id}: update failed`);
+                  failed++;
+                }
               }
 
               log.push(`완료 — 마이그레이션: ${migrated}, 스킵: ${skipped}, 실패: ${failed}`);
@@ -393,7 +393,7 @@ export default function CleanupPage() {
         {cleaningMigLog.length > 0 && (
           <div className="bg-[#0a0a0a] border border-white/10 rounded-xl p-5 max-h-60 overflow-y-auto">
             {cleaningMigLog.map((line, i) => (
-              <p key={i} className={`text-[11px] font-mono ${line.startsWith('✓') ? 'text-emerald-400/70' : line.startsWith('WARN') || line.startsWith('SKIP') ? 'text-amber-400/70' : line.includes('오류') ? 'text-red-400/70' : 'text-white/50'}`}>{line}</p>
+              <p key={i} className={`text-[11px] font-mono ${line.startsWith('OK') ? 'text-emerald-400/70' : line.startsWith('WARN') || line.startsWith('SKIP') ? 'text-amber-400/70' : line.includes('오류') ? 'text-red-400/70' : 'text-white/50'}`}>{line}</p>
             ))}
           </div>
         )}
@@ -414,7 +414,7 @@ export default function CleanupPage() {
         {subToEmbedLog.length > 0 && (
           <div className="bg-[#0a0a0a] border border-white/10 rounded-xl p-5 max-h-60 overflow-y-auto">
             {subToEmbedLog.map((line, i) => (
-              <p key={i} className={`text-[11px] font-mono ${line.startsWith('✓') ? 'text-emerald-400/70' : line.startsWith('SKIP') ? 'text-amber-400/70' : line.includes('오류') ? 'text-red-400/70' : 'text-white/50'}`}>{line}</p>
+              <p key={i} className={`text-[11px] font-mono ${line.startsWith('OK') ? 'text-emerald-400/70' : line.startsWith('SKIP') ? 'text-amber-400/70' : line.includes('오류') ? 'text-red-400/70' : 'text-white/50'}`}>{line}</p>
             ))}
           </div>
         )}
@@ -440,7 +440,7 @@ export default function CleanupPage() {
         {migrationLog.length > 0 && (
           <div className="bg-[#0a0a0a] border border-white/10 rounded-xl p-5 max-h-60 overflow-y-auto">
             {migrationLog.map((line, i) => (
-              <p key={i} className={`text-[11px] font-mono ${line.startsWith('✓') ? 'text-emerald-400/70' : line.includes('오류') || line.startsWith('SKIP') ? 'text-red-400/70' : 'text-white/50'}`}>{line}</p>
+              <p key={i} className={`text-[11px] font-mono ${line.startsWith('OK') ? 'text-emerald-400/70' : line.includes('오류') || line.startsWith('SKIP') ? 'text-red-400/70' : 'text-white/50'}`}>{line}</p>
             ))}
           </div>
         )}

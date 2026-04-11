@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, query, where, doc, addDoc, updateDoc, deleteDoc, orderBy, limit } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/components/FirebaseProvider';
+import { useAuth } from '@/components/AuthProvider';
 import { Link2, Plus, RefreshCw, Trash2, CheckCircle2, XCircle, Clock, AlertTriangle } from 'lucide-react';
 import type { IntegrationProvider, IntegrationType, IntegrationStatus } from '@/lib/types';
 
@@ -73,35 +71,31 @@ export default function IntegrationsPage() {
     if (!user) return;
     const load = async () => {
       try {
-        const propsSnap = profile?.role === 'super_admin' || profile?.role === 'admin'
-          ? await getDocs(collection(db, 'properties'))
-          : await getDocs(query(collection(db, 'properties'), where('ownerId', '==', user.uid)));
-
+        // Fetch properties
+        const propsRes = await fetch('/api/properties');
+        const propsData = propsRes.ok ? await propsRes.json() : [];
         const propsMap = new Map<string, string>();
-        propsSnap.docs.forEach(d => propsMap.set(d.id, d.data().name));
+        propsData.forEach((p: any) => propsMap.set(p.id, p.name));
         setProperties(propsMap);
 
         const propIds = Array.from(propsMap.keys());
         if (propIds.length === 0) { setLoading(false); return; }
 
         // Fetch integrations
-        const allIntegrations: IntegrationRecord[] = [];
-        for (let i = 0; i < propIds.length; i += 10) {
-          const batch = propIds.slice(i, i + 10);
-          const snap = await getDocs(query(collection(db, 'integrations'), where('propertyId', 'in', batch)));
-          allIntegrations.push(...snap.docs.map(d => ({
-            id: d.id,
-            ...d.data(),
-            propertyName: propsMap.get(d.data().propertyId as string),
-          } as IntegrationRecord)));
-        }
+        const intRes = await fetch('/api/integrations');
+        const intData = intRes.ok ? await intRes.json() : [];
+        const allIntegrations: IntegrationRecord[] = intData.map((i: any) => ({
+          ...i,
+          propertyName: propsMap.get(i.propertyId),
+        }));
         setIntegrations(allIntegrations);
 
         // Fetch recent sync logs
-        const logsSnap = await getDocs(
-          query(collection(db, 'sync_logs'), orderBy('createdAt', 'desc'), limit(50))
-        );
-        setSyncLogs(logsSnap.docs.map(d => ({ id: d.id, ...d.data() } as SyncLogRecord)));
+        const logsRes = await fetch('/api/integrations?type=sync_logs&limit=50');
+        if (logsRes.ok) {
+          const logsData = await logsRes.json();
+          setSyncLogs(logsData);
+        }
 
         if (propIds.length > 0 && !newPropertyId) {
           setNewPropertyId(propIds[0]);
@@ -122,7 +116,7 @@ export default function IntegrationsPage() {
       const res = await fetch('/api/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ triggeredBy: user.uid }),
+        body: JSON.stringify({ triggeredBy: user.id }),
       });
       const data = await res.json();
       if (data.success) {
@@ -147,7 +141,7 @@ export default function IntegrationsPage() {
       const res = await fetch('/api/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ propertyId: integration.propertyId, triggeredBy: user.uid }),
+        body: JSON.stringify({ propertyId: integration.propertyId, triggeredBy: user.id }),
       });
       const data = await res.json();
       if (data.success) {
@@ -182,9 +176,15 @@ export default function IntegrationsPage() {
         updatedAt: now,
       };
 
-      const docRef = await addDoc(collection(db, 'integrations'), integration);
+      const res = await fetch('/api/integrations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(integration),
+      });
+      if (!res.ok) throw new Error('Failed to add integration');
+      const data = await res.json();
       setIntegrations(prev => [...prev, {
-        id: docRef.id,
+        id: data.id,
         ...integration,
         propertyName: properties.get(newPropertyId),
       }]);
@@ -201,7 +201,8 @@ export default function IntegrationsPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('이 연동을 삭제하시겠습니까?')) return;
     try {
-      await deleteDoc(doc(db, 'integrations', id));
+      const res = await fetch(`/api/integrations?id=${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete');
       setIntegrations(prev => prev.filter(i => i.id !== id));
     } catch (err) {
       console.error(err);
@@ -211,10 +212,16 @@ export default function IntegrationsPage() {
   const handleToggleStatus = async (integration: IntegrationRecord) => {
     const newStatus: IntegrationStatus = integration.status === 'active' ? 'inactive' : 'active';
     try {
-      await updateDoc(doc(db, 'integrations', integration.id), {
-        status: newStatus,
-        updatedAt: new Date().toISOString(),
+      const res = await fetch('/api/integrations', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: integration.id,
+          status: newStatus,
+          updatedAt: new Date().toISOString(),
+        }),
       });
+      if (!res.ok) throw new Error('Failed to update');
       setIntegrations(prev => prev.map(i => i.id === integration.id ? { ...i, status: newStatus } : i));
     } catch (err) {
       console.error(err);

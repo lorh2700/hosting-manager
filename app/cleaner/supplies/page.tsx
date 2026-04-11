@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, query, where, doc, getDoc, addDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/components/FirebaseProvider';
+import { useAuth } from '@/components/AuthProvider';
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { Package, Plus, Trash2, Send } from 'lucide-react';
@@ -43,41 +41,32 @@ export default function CleanerSuppliesPage() {
   const loadData = async () => {
     if (!user || !profile) return;
     try {
-      let propertyIds: string[] = [];
-      if (profile.role === 'super_admin') {
-        const snap = await getDocs(collection(db, 'properties'));
-        propertyIds = snap.docs.map(d => d.id);
-      } else {
-        propertyIds = profile.propertyIds;
-      }
-
+      // Fetch properties
+      const propsRes = await fetch('/api/properties');
+      const propsData = await propsRes.json();
       const propNames: Record<string, string> = {};
       const propList: { id: string; name: string }[] = [];
-      await Promise.all(propertyIds.map(async pid => {
-        const snap = await getDoc(doc(db, 'properties', pid));
-        if (snap.exists()) {
-          propNames[pid] = snap.data().name;
-          propList.push({ id: pid, name: snap.data().name });
-        }
-      }));
+      for (const p of propsData) {
+        propNames[p.id] = p.name;
+        propList.push({ id: p.id, name: p.name });
+      }
       setProperties(propList);
       if (propList.length > 0 && !selectedProperty) setSelectedProperty(propList[0].id);
 
-      const reqSnap = await getDocs(query(
-        collection(db, 'supply_requests'),
-        where('requestedBy', '==', user.uid)
-      ));
+      // Fetch supply requests
+      const propertyIds = propList.map(p => p.id);
+      const reqRes = await fetch(`/api/supply-requests?propertyIds=${propertyIds.join(',')}`);
+      const reqData = await reqRes.json();
 
-      const result = reqSnap.docs.map(d => {
-        const data = d.data();
-        return {
-          ...data,
-          id: d.id,
-          propertyName: propNames[data.propertyId] ?? '알 수 없는 숙소',
-        } as SupplyRequest & { propertyName: string };
-      }).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      // Filter to only requests by current user
+      const myRequests = reqData.filter((r: Record<string, unknown>) => r.requestedBy === user.id);
 
-      setRequests(result);
+      const result = myRequests.map((r: Record<string, unknown>) => ({
+        ...r,
+        propertyName: propNames[r.propertyId as string] ?? '알 수 없는 숙소',
+      })).sort((a: { createdAt: string }, b: { createdAt: string }) => b.createdAt.localeCompare(a.createdAt));
+
+      setRequests(result as (SupplyRequest & { propertyName: string })[]);
     } catch (err) {
       console.error(err);
     } finally {
@@ -97,15 +86,20 @@ export default function CleanerSuppliesPage() {
     if (validItems.length === 0) { alert('품목을 입력해주세요.'); return; }
     setSubmitting(true);
     try {
-      await addDoc(collection(db, 'supply_requests'), {
-        propertyId: selectedProperty,
-        requestedBy: user.uid,
-        requestedByName: profile.displayName || user.email || 'unknown',
-        items: validItems.map(i => ({ name: i.name.trim(), quantity: i.quantity, note: i.note || null })),
-        urgency,
-        status: 'pending',
-        createdAt: new Date().toISOString(),
+      const res = await fetch('/api/supply-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          propertyId: selectedProperty,
+          requestedBy: user.id,
+          requestedByName: profile.displayName || user.email || 'unknown',
+          items: validItems.map(i => ({ name: i.name.trim(), quantity: i.quantity, note: i.note || null })),
+          urgency,
+          status: 'pending',
+        }),
       });
+      if (!res.ok) throw new Error('Failed to create request');
+
       setItems([{ name: '', quantity: 1 }]);
       setUrgency('normal');
       setShowForm(false);

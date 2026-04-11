@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { prisma } from '@/lib/prisma';
 import { beds24Post, beds24Put, BEDS24_REFRESH_TOKEN } from '@/lib/beds24';
 
 export async function POST(req: Request) {
@@ -8,27 +8,13 @@ export async function POST(req: Request) {
   }
 
   try {
-    const db = getAdminDb();
     const body = await req.json();
-    const {
-      propertyId,
-      beds24PropId,
-      firstName,
-      lastName,
-      email,
-      phone,
-      numAdult,
-      numChild,
-      arrival,
-      departure,
-      notes,
-    } = body;
+    const { propertyId, beds24PropId, firstName, lastName, email, phone, numAdult, numChild, arrival, departure, notes } = body;
 
     if (!propertyId || !beds24PropId || !arrival || !departure || !firstName) {
       return NextResponse.json({ error: '필수 항목이 누락되었습니다.' }, { status: 400 });
     }
 
-    // Create booking on Beds24
     const beds24Response = await beds24Post('/bookings', [{
       propertyId: Number(beds24PropId),
       arrival,
@@ -43,32 +29,28 @@ export async function POST(req: Request) {
       notes: notes || '',
     }]);
 
-    // Beds24 API v2 returns array for batch operations
     const created = Array.isArray(beds24Response) ? beds24Response[0] : beds24Response;
     const beds24BookingId = created?.id || created?.bookingId;
 
-    // Save to Firestore bookings collection
     const guestName = [firstName, lastName].filter(Boolean).join(' ');
-    const bookingRef = await db.collection('bookings').add({
-      propertyId,
-      channelId: 'beds24',
-      channelBookingRef: beds24BookingId ? String(beds24BookingId) : '',
-      name: guestName,
-      email: email || '',
-      phone: phone || '',
-      guests: (Number(numAdult) || 1) + (Number(numChild) || 0),
-      adults: Number(numAdult) || 1,
-      children: Number(numChild) || 0,
-      checkIn: arrival,
-      checkOut: departure,
-      status: 'confirmed',
-      message: notes || '',
-      createdAt: new Date().toISOString(),
+    const booking = await prisma.booking.create({
+      data: {
+        propertyId,
+        name: guestName,
+        email: email || '',
+        phone: phone || '',
+        guests: (Number(numAdult) || 1) + (Number(numChild) || 0),
+        checkIn: arrival,
+        checkOut: departure,
+        status: 'confirmed',
+        message: notes || '',
+        source: 'beds24',
+      },
     });
 
     return NextResponse.json({
       success: true,
-      bookingId: bookingRef.id,
+      bookingId: booking.id,
       beds24BookingId: beds24BookingId || null,
     }, { status: 201 });
   } catch (error) {
@@ -83,7 +65,6 @@ export async function PUT(req: Request) {
   }
 
   try {
-    const db = getAdminDb();
     const body = await req.json();
     const { beds24BookingId, firestoreBookingId, action } = body;
 
@@ -92,7 +73,6 @@ export async function PUT(req: Request) {
     }
 
     if (action === 'cancel') {
-      // Cancel on Beds24 if beds24BookingId exists
       if (beds24BookingId) {
         await beds24Put('/bookings', [{
           id: Number(beds24BookingId),
@@ -100,11 +80,9 @@ export async function PUT(req: Request) {
         }]);
       }
 
-      // Update Firestore
-      await db.collection('bookings').doc(firestoreBookingId).update({
-        status: 'cancelled',
-        cancelledAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+      await prisma.booking.update({
+        where: { id: firestoreBookingId },
+        data: { status: 'cancelled' },
       });
 
       return NextResponse.json({ success: true });

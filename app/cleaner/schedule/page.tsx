@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, query, where, doc, getDoc, addDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/components/FirebaseProvider';
+import { useAuth } from '@/components/AuthProvider';
 import { format, parseISO, addDays, startOfWeek, isToday } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { CalendarDays, Hand, CheckCircle2, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -51,77 +49,58 @@ export default function CleanerSchedulePage() {
     if (!user || !profile) return;
     setLoading(true);
     try {
-      let propertyIds: string[] = [];
-      if (profile.role === 'super_admin') {
-        const snap = await getDocs(collection(db, 'properties'));
-        propertyIds = snap.docs.map(d => d.id);
-      } else {
-        propertyIds = profile.propertyIds;
+      // Fetch properties
+      const propsRes = await fetch('/api/properties');
+      const propsData = await propsRes.json();
+      const propNames: Record<string, string> = {};
+      const propertyIds: string[] = [];
+      for (const p of propsData) {
+        propNames[p.id] = p.name;
+        propertyIds.push(p.id);
       }
       if (propertyIds.length === 0) { setLoading(false); return; }
 
-      const propNames: Record<string, string> = {};
-      await Promise.all(propertyIds.map(async pid => {
-        const snap = await getDoc(doc(db, 'properties', pid));
-        if (snap.exists()) propNames[pid] = snap.data().name;
-      }));
+      // Fetch open cleanings
+      const cleaningsRes = await fetch(`/api/cleanings?propertyIds=${propertyIds.join(',')}&isOpen=true`);
+      const cleaningsData = await cleaningsRes.json();
 
-      // Fetch open cleanings (isOpen === true, no cleanerId)
-      const cleaningsSnap = await getDocs(query(
-        collection(db, 'cleanings'),
-        where('propertyId', 'in', propertyIds.slice(0, 10)),
-        where('isOpen', '==', true)
-      ));
-
-      const opens: OpenCleaning[] = cleaningsSnap.docs.map(d => {
-        const data = d.data();
-        return {
-          id: d.id,
-          propertyId: data.propertyId,
-          propertyName: propNames[data.propertyId] ?? '알 수 없는 숙소',
-          date: data.date,
-          supplies: data.supplies,
-          notes: data.notes,
-          isOpen: data.isOpen,
-          cleanerId: data.cleanerId,
-          status: data.status,
-        };
-      }).sort((a, b) => a.date.localeCompare(b.date));
+      const opens: OpenCleaning[] = cleaningsData.map((c: Record<string, unknown>) => ({
+        id: c.id as string,
+        propertyId: c.propertyId as string,
+        propertyName: propNames[c.propertyId as string] ?? '알 수 없는 숙소',
+        date: c.date as string,
+        supplies: c.supplies as string | undefined,
+        notes: c.notes as string | undefined,
+        isOpen: c.isOpen as boolean,
+        cleanerId: c.cleanerId as string | undefined,
+        status: c.status as 'pending' | 'done',
+      })).sort((a: OpenCleaning, b: OpenCleaning) => a.date.localeCompare(b.date));
 
       setOpenCleanings(opens);
 
       // Fetch my applications
-      const appsSnap = await getDocs(query(
-        collection(db, 'cleaning_applications'),
-        where('applicantId', '==', user.uid)
-      ));
+      const appsRes = await fetch(`/api/cleaning-applications?propertyIds=${propertyIds.join(',')}`);
+      const appsData = await appsRes.json();
 
-      const apps: MyApplication[] = await Promise.all(appsSnap.docs.map(async d => {
-        const data = d.data();
-        // Get cleaning info for property name + date
-        let propertyName = '';
-        let date = '';
-        try {
-          const cleaningDoc = await getDoc(doc(db, 'cleanings', data.cleaningId));
-          if (cleaningDoc.exists()) {
-            const cd = cleaningDoc.data();
-            propertyName = propNames[cd.propertyId] ?? '알 수 없는 숙소';
-            date = cd.date;
-          }
-        } catch { /* ignore */ }
+      // Filter to only my applications
+      const myApps = appsData.filter((a: Record<string, unknown>) => a.applicantId === user.id);
+
+      const apps: MyApplication[] = myApps.map((a: Record<string, unknown>) => {
+        // Find cleaning info from already fetched cleanings
+        const cleaning = cleaningsData.find((c: Record<string, unknown>) => c.id === a.cleaningId);
         return {
-          id: d.id,
-          cleaningId: data.cleaningId,
-          propertyName,
-          date,
-          note: data.note,
-          status: data.status,
-          rejectedReason: data.rejectedReason,
-          createdAt: data.createdAt,
+          id: a.id as string,
+          cleaningId: a.cleaningId as string,
+          propertyName: cleaning ? propNames[cleaning.propertyId as string] ?? '알 수 없는 숙소' : '',
+          date: cleaning ? (cleaning.date as string) : '',
+          note: a.note as string | undefined,
+          status: a.status as 'pending' | 'approved' | 'rejected',
+          rejectedReason: a.rejectedReason as string | undefined,
+          createdAt: a.createdAt as string,
         };
-      }));
+      }).sort((a: MyApplication, b: MyApplication) => b.createdAt.localeCompare(a.createdAt));
 
-      setMyApplications(apps.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+      setMyApplications(apps);
     } catch (err) {
       console.error(err);
     } finally {
@@ -133,15 +112,20 @@ export default function CleanerSchedulePage() {
     if (!user || !profile) return;
     setApplying(cleaning.id);
     try {
-      await addDoc(collection(db, 'cleaning_applications'), {
-        cleaningId: cleaning.id,
-        propertyId: cleaning.propertyId,
-        applicantId: user.uid,
-        applicantName: profile.displayName || user.email || 'unknown',
-        note: applyNote.trim() || null,
-        status: 'pending',
-        createdAt: new Date().toISOString(),
+      const res = await fetch('/api/cleaning-applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cleaningId: cleaning.id,
+          propertyId: cleaning.propertyId,
+          applicantId: user.id,
+          applicantName: profile.displayName || user.email || 'unknown',
+          note: applyNote.trim() || null,
+          status: 'pending',
+        }),
       });
+      if (!res.ok) throw new Error('Failed to apply');
+
       setShowApplyForm(null);
       setApplyNote('');
       alert('신청이 완료되었습니다. 매니저 승인을 기다려주세요.');

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { prisma } from '@/lib/prisma';
 import * as ics from 'ics';
 import { parseISO } from 'date-fns';
 
@@ -23,61 +23,38 @@ export async function GET(
   }
 
   try {
-    const db = getAdminDb();
-
-    // 1. Find channel by scanning all properties' embedded channels map
     const exportUrl = `/api/export/${channelId}`;
-    const propsSnap = await db.collection('properties').get();
-    let foundPropId: string | null = null;
-    let foundChannelName: string | null = null;
 
-    for (const propDoc of propsSnap.docs) {
-      const channels = (propDoc.data().channels ?? {}) as Record<string, { exportUrl?: string }>;
-      for (const [name, ch] of Object.entries(channels)) {
-        if (ch.exportUrl === exportUrl) {
-          foundPropId = propDoc.id;
-          foundChannelName = name;
-          break;
-        }
-      }
-      if (foundPropId) break;
-    }
+    // Find channel by export URL
+    const channel = await prisma.propertyChannel.findFirst({
+      where: { exportUrl },
+    });
 
-    if (!foundPropId) {
+    if (!channel) {
       return new NextResponse('Channel not found', { status: 404 });
     }
 
-    // 2. Fetch all events for this property
-    const eventsSnap = await db.collection('events').where('propertyId', '==', foundPropId).get();
-    const channelEvents = eventsSnap.docs.map(d => d.data() as {
-      id?: string;
-      title: string;
-      start: string;
-      end: string;
-      type: string;
-      description?: string;
+    const foundPropId = channel.propertyId;
+    const foundChannelName = channel.name;
+
+    // Fetch all events for this property
+    const events = await prisma.event.findMany({
+      where: { propertyId: foundPropId },
     });
 
-    // 3. Fetch confirmed direct bookings
-    const bookingsSnap = await db.collection('bookings')
-      .where('propertyId', '==', foundPropId)
-      .where('status', '==', 'confirmed')
-      .get();
-    const bookings = bookingsSnap.docs.map(d => ({ id: d.id, ...d.data() } as {
-      id: string;
-      name: string;
-      checkIn: string;
-      checkOut: string;
-    }));
+    // Fetch confirmed direct bookings
+    const bookings = await prisma.booking.findMany({
+      where: { propertyId: foundPropId, status: 'confirmed' },
+    });
 
-    // 4. Build ICS events
+    // Build ICS events
     const icsEvents: ics.EventAttributes[] = [
-      ...channelEvents.map((e, i) => ({
+      ...events.map((e, i) => ({
         uid: e.id || `event-${i}`,
-        title: e.title,
-        description: e.description,
-        start: dateToIcsTuple(e.start),
-        end: dateToIcsTuple(e.end),
+        title: e.title || undefined,
+        description: e.description || undefined,
+        start: dateToIcsTuple(e.startDate),
+        end: dateToIcsTuple(e.endDate),
       })),
       ...bookings.map(b => ({
         uid: b.id,

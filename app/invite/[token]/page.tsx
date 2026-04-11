@@ -2,10 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { db, auth } from '@/lib/firebase';
-import { useAuth } from '@/components/FirebaseProvider';
+import { useAuth } from '@/components/AuthProvider';
 
 interface InvitationData {
   id: string;
@@ -31,35 +28,16 @@ export default function InvitePage() {
   useEffect(() => {
     async function loadInvitation() {
       try {
-        const q = query(
-          collection(db, 'invitations'),
-          where('token', '==', token),
-          where('status', '==', 'pending')
-        );
-        const snap = await getDocs(q);
+        const res = await fetch(`/api/invitations/${token}`);
+        const data = await res.json();
 
-        if (snap.empty) {
-          setError('유효하지 않거나 만료된 초대 링크입니다.');
+        if (!res.ok) {
+          setError(data.error || '유효하지 않거나 만료된 초대 링크입니다.');
           setLoading(false);
           return;
         }
 
-        const invDoc = snap.docs[0];
-        const data = invDoc.data();
-
-        if (new Date(data.expiresAt) < new Date()) {
-          setError('초대 링크가 만료되었습니다. 관리자에게 다시 요청하세요.');
-          setLoading(false);
-          return;
-        }
-
-        setInvitation({
-          id: invDoc.id,
-          email: data.email,
-          role: data.role,
-          status: data.status,
-          expiresAt: data.expiresAt,
-        });
+        setInvitation(data);
       } catch (e) {
         console.error('Failed to load invitation:', e);
         setError('초대 정보를 불러오는 데 실패했습니다.');
@@ -98,30 +76,51 @@ export default function InvitePage() {
     setError('');
 
     try {
-      // Try to create new account
-      try {
-        await createUserWithEmailAndPassword(auth, invitation.email, password);
-      } catch (createErr: unknown) {
-        const err = createErr as { code?: string };
-        if (err.code === 'auth/email-already-in-use') {
-          // Account exists, try signing in
-          await signInWithEmailAndPassword(auth, invitation.email, password);
-        } else {
-          throw createErr;
-        }
+      // Try to register new account
+      const registerRes = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: invitation.email,
+          password,
+          displayName: invitation.email,
+        }),
+      });
+
+      if (registerRes.ok) {
+        // Registration successful, profile auto-created with invitation data
+        await refreshProfile();
+        router.push('/admin');
+        return;
       }
 
-      // Profile will be auto-created/updated by FirebaseProvider with invitation data
-      await refreshProfile();
-      router.push('/admin');
-    } catch (err: unknown) {
-      const e = err as { code?: string };
-      if (e.code === 'auth/wrong-password') {
-        setError('이미 계정이 존재합니다. 올바른 비밀번호를 입력하세요.');
+      const registerData = await registerRes.json();
+
+      // If email already exists, try logging in
+      if (registerRes.status === 409) {
+        const loginRes = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: invitation.email,
+            password,
+          }),
+        });
+
+        if (loginRes.ok) {
+          await refreshProfile();
+          router.push('/admin');
+          return;
+        }
+
+        const loginData = await loginRes.json();
+        setError(loginData.error || '이미 계정이 존재합니다. 올바른 비밀번호를 입력하세요.');
       } else {
-        setError('계정 생성에 실패했습니다. 다시 시도해주세요.');
-        console.error('Accept invitation error:', err);
+        setError(registerData.error || '계정 생성에 실패했습니다. 다시 시도해주세요.');
       }
+    } catch (err: unknown) {
+      setError('계정 생성에 실패했습니다. 다시 시도해주세요.');
+      console.error('Accept invitation error:', err);
     } finally {
       setIsSubmitting(false);
     }

@@ -2,12 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Home, HomeIcon, Calendar, BookOpen, MessageSquare, Users, UserCog, LogOut, Settings, Link2 } from 'lucide-react';
-import { useAuth } from '@/components/FirebaseProvider';
-import { signOut } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { useAuth } from '@/components/AuthProvider';
 
 const SIDEBAR_LINKS = [
   { href: '/admin', label: '대시보드', icon: Home, roles: ['super_admin', 'admin', 'host'] },
@@ -24,28 +21,35 @@ const SIDEBAR_LINKS = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { profile, user } = useAuth();
   const role = profile?.role ?? 'host';
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Real-time unread message count
+  // Poll unread message count
   useEffect(() => {
-    if (!user || user.isAnonymous) return;
+    if (!user) return;
 
-    const q = query(
-      collection(db, 'messages'),
-      where('sender', '==', 'guest'),
-      where('read', '==', false),
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      setUnreadCount(snap.size);
-    }, () => setUnreadCount(0));
-    return () => unsub();
+    const fetchUnread = async () => {
+      try {
+        const res = await fetch('/api/messages/unread-count');
+        if (res.ok) {
+          const data = await res.json();
+          setUnreadCount(data.count ?? 0);
+        }
+      } catch { /* ignore */ }
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30000);
+    return () => clearInterval(interval);
   }, [user]);
 
   const visibleLinks = SIDEBAR_LINKS.filter(link => link.roles.includes(role));
 
-  const handleLogout = () => signOut(auth);
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.replace('/login');
+  };
 
   return (
     <>

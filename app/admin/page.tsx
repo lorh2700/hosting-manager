@@ -1,12 +1,10 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { RefreshCw, ArrowRight, ArrowDownRight, ArrowUpRight, Sparkles, Check, MessageSquare, Brush, Package, AlertTriangle } from 'lucide-react';
-import { collection, query, getDocs, where, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/components/FirebaseProvider';
-import { parseISO, startOfToday, addDays, format, isToday, isTomorrow } from 'date-fns';
+import { useAuth } from '@/components/AuthProvider';
+import { addDays, format, isToday, isTomorrow, startOfToday } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
 interface Reservation {
@@ -18,13 +16,6 @@ interface Reservation {
   end: string;
   phone?: string;
   email?: string;
-}
-
-interface Cleaning {
-  propertyId: string;
-  date: string;
-  cleanerId: string;
-  status: 'pending' | 'done';
 }
 
 interface DayGroup {
@@ -45,66 +36,26 @@ export default function Dashboard() {
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [pendingSupplies, setPendingSupplies] = useState(0);
   const [openIssues, setOpenIssues] = useState(0);
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
 
   useEffect(() => {
     if (!user) return;
     const load = async () => {
       try {
-        const propsSnap = profile?.role === 'super_admin'
-          ? await getDocs(collection(db, 'properties'))
-          : await getDocs(query(collection(db, 'properties'), where('ownerId', '==', user.uid)));
+        const res = await fetch('/api/dashboard');
+        if (!res.ok) { setLoading(false); return; }
+        const data = await res.json();
 
-        const propsMap = new Map<string, string>();
-        propsSnap.docs.forEach(d => { propsMap.set(d.id, d.data().name); });
-        const propIds = Array.from(propsMap.keys());
-        setTotalProperties(propsSnap.size);
-        if (propIds.length === 0) { setLoading(false); return; }
+        setTotalProperties(data.properties);
+        setUnreadMessages(data.unreadMessages);
+        setPendingSupplies(data.pendingSupplies);
+        setOpenIssues(data.openIssues);
 
-        const todayStr = format(startOfToday(), 'yyyy-MM-dd');
-        const endStr = format(addDays(startOfToday(), 7), 'yyyy-MM-dd');
+        if (!data.reservations?.length) { setLoading(false); return; }
 
-        // Fetch all reservations
-        const allRes: Reservation[] = [];
-        for (let i = 0; i < propIds.length; i += 10) {
-          const chunk = propIds.slice(i, i + 10);
-          const evtSnap = await getDocs(query(collection(db, 'events'), where('propertyId', 'in', chunk), where('type', '==', 'reservation')));
-          evtSnap.docs.forEach(d => {
-            const data = d.data();
-            const desc = (data.description || '') as string;
-            const phoneMatch = desc.match(/연락처:\s*(.+)/);
-            const emailMatch = desc.match(/이메일:\s*(.+)/);
-            allRes.push({ id: d.id, propertyId: data.propertyId, propertyName: propsMap.get(data.propertyId) || '', title: data.title, start: data.start?.substring(0, 10), end: data.end?.substring(0, 10), phone: phoneMatch?.[1]?.trim(), email: emailMatch?.[1]?.trim() });
-          });
-          const bkSnap = await getDocs(query(collection(db, 'bookings'), where('propertyId', 'in', chunk), where('status', '==', 'confirmed')));
-          bkSnap.docs.forEach(d => {
-            const data = d.data();
-            allRes.push({ id: d.id, propertyId: data.propertyId, propertyName: propsMap.get(data.propertyId) || '', title: `${data.name}`, start: data.checkIn, end: data.checkOut, phone: data.phone, email: data.email });
-          });
-        }
-
-        // Deduplicate
-        const seen = new Set<string>();
-        const unique = allRes.filter(r => {
-          const key = `${r.propertyId}_${r.start}_${r.end}`;
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        });
-
-        // Fetch cleanings + cleaners
-        const cleaningsMap = new Map<string, Cleaning>();
-        for (let i = 0; i < propIds.length; i += 10) {
-          const snap = await getDocs(query(collection(db, 'cleanings'), where('propertyId', 'in', propIds.slice(i, i + 10))));
-          snap.docs.forEach(d => {
-            const c = d.data() as Cleaning;
-            cleaningsMap.set(`${c.propertyId}_${c.date}`, c);
-          });
-        }
-        const cleanersSnap = profile?.role === 'super_admin'
-          ? await getDocs(collection(db, 'cleaners'))
-          : await getDocs(query(collection(db, 'cleaners'), where('ownerId', '==', user.uid)));
-        const cleanersMap = new Map(cleanersSnap.docs.map(d => [d.id, d.data().name as string]));
+        const propsMap: Record<string, string> = data.propsMap;
+        const cleaningsMap: Record<string, { cleanerId: string; status: string }> = data.cleaningsMap;
+        const cleanersMap: Record<string, string> = data.cleanersMap;
 
         // Build day groups
         const groups: DayGroup[] = [];
@@ -112,22 +63,22 @@ export default function Dashboard() {
           const d = addDays(startOfToday(), offset);
           const dateStr = format(d, 'yyyy-MM-dd');
 
-          const checkins = unique
+          const checkins = (data.reservations as Reservation[])
             .filter(r => r.start === dateStr)
             .map(r => {
               const nights = Math.round((new Date(r.end).getTime() - new Date(r.start).getTime()) / 86400000);
-              return { reservation: r, nights };
+              return { reservation: { ...r, propertyName: r.propertyName || propsMap[r.propertyId] || '' }, nights };
             });
 
-          const checkouts = unique
+          const checkouts = (data.reservations as Reservation[])
             .filter(r => r.end === dateStr)
             .map(r => {
-              const cleaning = cleaningsMap.get(`${r.propertyId}_${dateStr}`);
-              const cleanerName = cleaning?.cleanerId ? (cleanersMap.get(cleaning.cleanerId) || '') : '';
+              const cleaning = cleaningsMap[`${r.propertyId}_${dateStr}`];
+              const cleanerName = cleaning?.cleanerId ? (cleanersMap[cleaning.cleanerId] || '') : '';
               const cleaningStatus: 'done' | 'pending' | 'unassigned' = cleaning
                 ? (cleaning.status === 'done' ? 'done' : 'pending')
                 : 'unassigned';
-              return { reservation: r, cleanerName, cleaningStatus };
+              return { reservation: { ...r, propertyName: r.propertyName || propsMap[r.propertyId] || '' }, cleanerName, cleaningStatus };
             });
 
           if (checkins.length > 0 || checkouts.length > 0) {
@@ -136,14 +87,7 @@ export default function Dashboard() {
             else if (isTomorrow(d)) label = '내일';
             else label = format(d, 'M월 d일 (EEE)', { locale: ko });
 
-            groups.push({
-              date: dateStr,
-              label,
-              isToday: isToday(d),
-              isTomorrow: isTomorrow(d),
-              checkins,
-              checkouts,
-            });
+            groups.push({ date: dateStr, label, isToday: isToday(d), isTomorrow: isTomorrow(d), checkins, checkouts });
           }
         }
 
@@ -155,34 +99,6 @@ export default function Dashboard() {
       }
     };
     load();
-  }, [user]);
-
-  // Real-time unread messages
-  useEffect(() => {
-    if (!user) return;
-    const q = query(
-      collection(db, 'messages'),
-      where('sender', '==', 'guest'),
-      where('read', '==', false),
-    );
-    const unsub = onSnapshot(q, (snap) => setUnreadMessages(snap.size), () => setUnreadMessages(0));
-    return () => unsub();
-  }, [user]);
-
-  // Load pending supplies & open issues
-  useEffect(() => {
-    if (!user) return;
-    const loadActionItems = async () => {
-      try {
-        const [supplySnap, issueSnap] = await Promise.all([
-          getDocs(query(collection(db, 'supply_requests'), where('status', '==', 'pending'))),
-          getDocs(query(collection(db, 'cleaning_issues'), where('status', 'in', ['open', 'in_progress']))),
-        ]);
-        setPendingSupplies(supplySnap.size);
-        setOpenIssues(issueSnap.size);
-      } catch { /* silent */ }
-    };
-    loadActionItems();
   }, [user]);
 
   const handleSync = async () => {
@@ -203,7 +119,6 @@ export default function Dashboard() {
     }
   };
 
-  // Summary stats
   const todayGroup = dayGroups.find(g => g.isToday);
   const todayIn = todayGroup?.checkins.length ?? 0;
   const todayOut = todayGroup?.checkouts.length ?? 0;
@@ -232,7 +147,6 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-10">
-      {/* Header */}
       <header className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-start">
         <div>
           <h1 className="text-2xl font-light tracking-tight text-white mb-1">
@@ -252,7 +166,6 @@ export default function Dashboard() {
         </button>
       </header>
 
-      {/* Action Hub */}
       {hasActions && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
           {actionItems.map(item => {
@@ -266,11 +179,7 @@ export default function Dashboard() {
             };
             const c = colorMap[item.color];
             return active ? (
-              <Link
-                key={item.label}
-                href={item.href}
-                className={`${c.bg} border ${c.border} rounded-2xl p-4 flex items-center gap-3 hover:brightness-125 transition-all`}
-              >
+              <Link key={item.label} href={item.href} className={`${c.bg} border ${c.border} rounded-2xl p-4 flex items-center gap-3 hover:brightness-125 transition-all`}>
                 <Icon size={18} className={c.text} />
                 <div>
                   <p className={`text-xl font-light ${c.text}`}>{item.count}</p>
@@ -278,10 +187,7 @@ export default function Dashboard() {
                 </div>
               </Link>
             ) : (
-              <div
-                key={item.label}
-                className="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-4 flex items-center gap-3"
-              >
+              <div key={item.label} className="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-4 flex items-center gap-3">
                 <Icon size={18} className="text-white/15" />
                 <div>
                   <p className="text-xl font-light text-white/15">0</p>
@@ -293,7 +199,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Today's Key Numbers */}
       <div className="grid grid-cols-3 gap-3">
         <div className={`rounded-2xl p-5 text-center ${todayIn > 0 ? 'bg-emerald-500/[0.08] border border-emerald-500/20' : 'bg-white/[0.03] border border-white/[0.06]'}`}>
           <p className={`text-3xl font-light mb-1 ${todayIn > 0 ? 'text-emerald-400' : 'text-white/20'}`}>{todayIn}</p>
@@ -309,7 +214,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Day-by-day timeline */}
       <div className="space-y-2">
         {dayGroups.length === 0 ? (
           <div className="text-center py-20">
@@ -320,30 +224,16 @@ export default function Dashboard() {
           </div>
         ) : (
           dayGroups.map(group => (
-            <div key={group.date} className={`rounded-2xl border overflow-hidden ${
-              group.isToday ? 'border-white/15 bg-white/[0.03]' : 'border-white/[0.06] bg-white/[0.015]'
-            }`}>
-              {/* Day header */}
+            <div key={group.date} className={`rounded-2xl border overflow-hidden ${group.isToday ? 'border-white/15 bg-white/[0.03]' : 'border-white/[0.06] bg-white/[0.015]'}`}>
               <div className={`px-5 py-3.5 flex items-center gap-3 ${group.isToday ? 'border-b border-white/[0.08]' : 'border-b border-white/[0.04]'}`}>
-                <span className={`text-sm font-medium ${group.isToday ? 'text-white' : 'text-white/50'}`}>
-                  {group.label}
-                </span>
-                {group.isToday && (
-                  <span className="text-[9px] bg-white/15 text-white/70 px-2 py-0.5 rounded-full font-medium tracking-wider">TODAY</span>
-                )}
-                <span className="text-[11px] text-white/25 ml-auto tabular-nums">
-                  {group.date}
-                </span>
+                <span className={`text-sm font-medium ${group.isToday ? 'text-white' : 'text-white/50'}`}>{group.label}</span>
+                {group.isToday && <span className="text-[9px] bg-white/15 text-white/70 px-2 py-0.5 rounded-full font-medium tracking-wider">TODAY</span>}
+                <span className="text-[11px] text-white/25 ml-auto tabular-nums">{group.date}</span>
               </div>
-
-              {/* Events */}
               <div className="divide-y divide-white/[0.04]">
-                {/* Check-ins */}
                 {group.checkins.map(({ reservation: r, nights }) => (
                   <div key={r.id + '-in'} className="px-5 py-3.5 flex items-center gap-4">
-                    <div className="w-8 flex justify-center shrink-0">
-                      <ArrowDownRight size={16} className="text-emerald-400" />
-                    </div>
+                    <div className="w-8 flex justify-center shrink-0"><ArrowDownRight size={16} className="text-emerald-400" /></div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] text-white/90 truncate">{r.title}</p>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -352,39 +242,27 @@ export default function Dashboard() {
                         {!r.phone && r.email && <span className="text-[10px] text-white/30">{r.email}</span>}
                       </div>
                     </div>
-                    <span className="text-[10px] bg-emerald-500/10 text-emerald-400/80 px-2.5 py-1 rounded-lg font-medium shrink-0">
-                      체크인
-                    </span>
+                    <span className="text-[10px] bg-emerald-500/10 text-emerald-400/80 px-2.5 py-1 rounded-lg font-medium shrink-0">체크인</span>
                   </div>
                 ))}
-
-                {/* Check-outs + cleaning */}
                 {group.checkouts.map(({ reservation: r, cleanerName, cleaningStatus }) => (
                   <div key={r.id + '-out'} className="px-5 py-3.5 flex items-center gap-4">
-                    <div className="w-8 flex justify-center shrink-0">
-                      <ArrowUpRight size={16} className="text-amber-400" />
-                    </div>
+                    <div className="w-8 flex justify-center shrink-0"><ArrowUpRight size={16} className="text-amber-400" /></div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] text-white/90 truncate">{r.title}</p>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-[11px] text-white/35">{r.propertyName}</span>
                         <span className="text-white/10">·</span>
                         {cleaningStatus === 'done' ? (
-                          <span className="text-[11px] text-emerald-400/70 flex items-center gap-1">
-                            <Check size={10} /> {cleanerName}
-                          </span>
+                          <span className="text-[11px] text-emerald-400/70 flex items-center gap-1"><Check size={10} /> {cleanerName}</span>
                         ) : cleaningStatus === 'pending' ? (
-                          <span className="text-[11px] text-white/40 flex items-center gap-1">
-                            <Sparkles size={10} /> {cleanerName}
-                          </span>
+                          <span className="text-[11px] text-white/40 flex items-center gap-1"><Sparkles size={10} /> {cleanerName}</span>
                         ) : (
                           <span className="text-[11px] text-rose-400/70">청소 미배정</span>
                         )}
                       </div>
                     </div>
-                    <span className="text-[10px] bg-amber-500/10 text-amber-400/80 px-2.5 py-1 rounded-lg font-medium shrink-0">
-                      체크아웃
-                    </span>
+                    <span className="text-[10px] bg-amber-500/10 text-amber-400/80 px-2.5 py-1 rounded-lg font-medium shrink-0">체크아웃</span>
                   </div>
                 ))}
               </div>
@@ -393,7 +271,6 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Footer link */}
       {dayGroups.length > 0 && (
         <div className="text-center pb-4">
           <Link href="/admin/calendar" className="text-white/30 hover:text-white/60 text-xs tracking-wide inline-flex items-center gap-1.5 transition-colors">

@@ -1,0 +1,334 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ── 사용자 ──
+model User {
+  id          String    @id @default(uuid())
+  email       String    @unique
+  password    String
+  displayName String?   @map("display_name")
+  phone       String?
+  role        String    @default("host") // super_admin, admin, host, cleaner, viewer
+  status      String    @default("active") // active, suspended, pending_invite
+  lastLoginAt DateTime? @map("last_login_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  properties     UserProperty[]
+  ownedProperties Property[]
+  cleaners       Cleaner[]
+  invitationsSent Invitation[] @relation("InvitedBy")
+
+  @@map("users")
+}
+
+// ── 사용자-숙소 연결 ──
+model UserProperty {
+  userId     String @map("user_id")
+  propertyId String @map("property_id")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@id([userId, propertyId])
+  @@map("user_properties")
+}
+
+// ── 숙소 ──
+model Property {
+  id               String   @id @default(uuid())
+  name             String
+  timezone         String   @default("Asia/Seoul")
+  ownerId          String   @map("owner_id")
+  beds24PropId     String?  @map("beds24_prop_id")
+  doorPassword     String?  @map("door_password")
+  addressUrl       String?  @map("address_url")
+  roomReadyMessage String?  @map("room_ready_message")
+  basePrice        Decimal? @map("base_price")
+  maxGuests        Int?     @map("max_guests")
+  description      String?
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  owner        User              @relation(fields: [ownerId], references: [id])
+  users        UserProperty[]
+  channels     PropertyChannel[]
+  integrations Integration[]
+  events       Event[]
+  bookings     Booking[]
+  cleanings    Cleaning[]
+  messages     Message[]
+  supplyTodos  SupplyTodo[]
+  supplyRequests SupplyRequest[]
+  cleaningIssues CleaningIssue[]
+  cleaningApplications CleaningApplication[]
+  syncLogs     SyncLog[]
+
+  @@map("properties")
+}
+
+// ── 채널 ──
+model PropertyChannel {
+  id         String   @id @default(uuid())
+  propertyId String   @map("property_id")
+  name       String
+  importUrl  String?  @map("import_url")
+  exportUrl  String?  @map("export_url")
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyId, name])
+  @@map("property_channels")
+}
+
+// ── 연동 ──
+model Integration {
+  id                 String    @id @default(uuid())
+  propertyId         String    @map("property_id")
+  provider           String
+  type               String    @default("ical")
+  config             Json      @default("{}")
+  status             String    @default("active")
+  syncIntervalMinutes Int?     @map("sync_interval_minutes") @default(60)
+  lastSyncAt         DateTime? @map("last_sync_at")
+  lastSyncStatus     String?   @map("last_sync_status")
+  lastErrorMessage   String?   @map("last_error_message")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  property Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  syncLogs SyncLog[]
+
+  @@map("integrations")
+}
+
+// ── 이벤트 (캘린더) ──
+model Event {
+  id          String   @id @default(uuid())
+  propertyId  String   @map("property_id")
+  channelId   String?  @map("channel_id")
+  source      String?
+  title       String?
+  startDate   String   @map("start_date") // YYYY-MM-DD
+  endDate     String   @map("end_date")   // YYYY-MM-DD
+  type        String   @default("reservation")
+  originalUid String?  @map("original_uid")
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  property Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@unique([propertyId, channelId, originalUid])
+  @@map("events")
+}
+
+// ── 예약 ──
+model Booking {
+  id         String   @id @default(uuid())
+  propertyId String   @map("property_id")
+  name       String?
+  email      String?
+  phone      String?
+  guests     Int      @default(1)
+  checkIn    String   @map("check_in")  // YYYY-MM-DD
+  checkOut   String   @map("check_out") // YYYY-MM-DD
+  status     String   @default("pending") // pending, confirmed, cancelled
+  message    String?
+  source     String   @default("direct")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@map("bookings")
+}
+
+// ── 게스트 ──
+model Guest {
+  id           String   @id @default(uuid())
+  name         String?
+  email        String?
+  phone        String?
+  bookingCount Int      @default(0) @map("booking_count")
+  source       String?
+  notes        String?
+  lastStayAt   String?  @map("last_stay_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("guests")
+}
+
+// ── 청소 담당자 ──
+model Cleaner {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String?
+  ownerId   String   @map("owner_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  owner     User       @relation(fields: [ownerId], references: [id])
+  cleanings Cleaning[]
+
+  @@map("cleaners")
+}
+
+// ── 청소 일정 ──
+model Cleaning {
+  id             String   @id @default(uuid())
+  propertyId     String   @map("property_id")
+  date           String   // YYYY-MM-DD
+  cleanerId      String?  @map("cleaner_id")
+  status         String   @default("pending") // pending, done
+  supplies       String?
+  notes          String?
+  hasIssue       Boolean  @default(false) @map("has_issue")
+  isOpen         Boolean  @default(false) @map("is_open")
+  assignmentType String   @default("direct") @map("assignment_type")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  property     Property              @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  cleaner      Cleaner?              @relation(fields: [cleanerId], references: [id], onDelete: SetNull)
+  applications CleaningApplication[]
+  issues       CleaningIssue[]
+
+  @@map("cleanings")
+}
+
+// ── 청소 지원 ──
+model CleaningApplication {
+  id            String    @id @default(uuid())
+  cleaningId    String    @map("cleaning_id")
+  propertyId    String    @map("property_id")
+  applicantId   String    @map("applicant_id")
+  applicantName String?   @map("applicant_name")
+  status        String    @default("pending") // pending, approved, rejected
+  rejectedReason String?  @map("rejected_reason")
+  processedBy   String?   @map("processed_by")
+  processedAt   DateTime? @map("processed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  cleaning Cleaning @relation(fields: [cleaningId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id])
+
+  @@map("cleaning_applications")
+}
+
+// ── 청소 이슈 ──
+model CleaningIssue {
+  id             String   @id @default(uuid())
+  cleaningId     String?  @map("cleaning_id")
+  propertyId     String   @map("property_id")
+  reportedBy     String?  @map("reported_by")
+  reportedByName String?  @map("reported_by_name")
+  category       String?  // damage, malfunction, missing, hygiene, other
+  title          String?
+  description    String?
+  urgency        String   @default("normal") // low, normal, urgent
+  status         String   @default("open") // open, in_progress, resolved, closed
+  resolvedNote   String?  @map("resolved_note")
+  resolvedBy     String?  @map("resolved_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  cleaning Cleaning? @relation(fields: [cleaningId], references: [id])
+  property Property  @relation(fields: [propertyId], references: [id])
+
+  @@map("cleaning_issues")
+}
+
+// ── 메시지 ──
+model Message {
+  id               String   @id @default(uuid())
+  eventId          String?  @map("event_id")
+  propertyId       String?  @map("property_id")
+  guestName        String?  @map("guest_name")
+  text             String
+  sender           String   // host, guest
+  read             Boolean  @default(false)
+  source           String?  // beds24, null
+  beds24BookingId  String?  @map("beds24_booking_id")
+  beds24MessageType String? @map("beds24_message_type")
+  type             String   @default("message") // message, memo
+  deliveryStatus   String?  @map("delivery_status") // sent, failed, local_only
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  event    Event?    @relation(fields: [eventId], references: [id])
+  property Property? @relation(fields: [propertyId], references: [id])
+
+  @@index([eventId])
+  @@index([sender, read])
+  @@map("messages")
+}
+
+// ── 비품 요청 ──
+model SupplyRequest {
+  id              String   @id @default(uuid())
+  propertyId      String   @map("property_id")
+  requestedBy     String?  @map("requested_by")
+  requestedByName String?  @map("requested_by_name")
+  items           Json     @default("[]")
+  urgency         String   @default("normal")
+  status          String   @default("pending") // pending, approved, rejected, completed
+  statusNote      String?  @map("status_note")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  property Property @relation(fields: [propertyId], references: [id])
+
+  @@map("supply_requests")
+}
+
+// ── 비품 TODO ──
+model SupplyTodo {
+  id         String   @id @default(uuid())
+  propertyId String   @map("property_id")
+  date       String?  // YYYY-MM-DD
+  text       String?
+  done       Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  property Property @relation(fields: [propertyId], references: [id])
+
+  @@map("supply_todos")
+}
+
+// ── 초대 ──
+model Invitation {
+  id          String    @id @default(uuid())
+  email       String
+  role        String
+  propertyIds Json      @default("[]") @map("property_ids")
+  invitedBy   String?   @map("invited_by")
+  status      String    @default("pending") // pending, accepted, expired
+  token       String    @unique
+  expiresAt   DateTime  @map("expires_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  inviter User? @relation("InvitedBy", fields: [invitedBy], references: [id])
+
+  @@map("invitations")
+}
+
+// ── 동기화 로그 ──
+model SyncLog {
+  id            String   @id @default(uuid())
+  propertyId    String?  @map("property_id")
+  integrationId String?  @map("integration_id")
+  channelId     String?  @map("channel_id")
+  syncType      String?  @map("sync_type")
+  result        Json?
+  durationMs    Int?     @map("duration_ms")
+  triggeredBy   String?  @map("triggered_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  property    Property?    @relation(fields: [propertyId], references: [id])
+  integration Integration? @relation(fields: [integrationId], references: [id])
+
+  @@map("sync_logs")
+}

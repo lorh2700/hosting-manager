@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter, Cormorant_Garamond } from 'next/font/google';
 import './globals.css';
-import { FirebaseProvider } from '@/components/FirebaseProvider';
+import { AuthProvider } from '@/components/AuthProvider';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -23,9 +23,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko" className={`${inter.variable} ${cormorantGaramond.variable}`}>
       <body suppressHydrationWarning>
-        <FirebaseProvider>
+        <AuthProvider>
           {children}
-        </FirebaseProvider>
+        </AuthProvider>
       </body>
     </html>
   );

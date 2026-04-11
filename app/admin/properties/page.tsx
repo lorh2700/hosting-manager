@@ -3,9 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Building, Plus, ChevronRight } from 'lucide-react';
-import { collection, query, getDocs, addDoc, orderBy, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/components/FirebaseProvider';
+import { useAuth } from '@/components/AuthProvider';
 
 interface Property {
   id: string;
@@ -24,15 +22,10 @@ export default function PropertiesPage() {
   const fetchProperties = async () => {
     if (!user) return;
     try {
-      const snapshot = profile?.role === 'super_admin'
-        ? await getDocs(query(collection(db, 'properties'), orderBy('createdAt', 'desc')))
-        : await getDocs(query(collection(db, 'properties'), where('ownerId', '==', user.uid), orderBy('createdAt', 'desc')));
-      setProperties(snapshot.docs.map(doc => ({
-        id: doc.id,
-        name: doc.data().name,
-        timezone: doc.data().timezone,
-        ownerId: doc.data().ownerId,
-      })));
+      const res = await fetch('/api/properties');
+      if (!res.ok) throw new Error('Failed to fetch properties');
+      const data = await res.json();
+      setProperties(data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -44,35 +37,17 @@ export default function PropertiesPage() {
     fetchProperties();
   }, [user]);
 
-  const addPropertyWithChannels = async (name: string) => {
-    if (!user) return;
-    const defaultChannels = ['Airbnb', 'Booking.com', 'Stayfolio'];
-    const channelsMap: Record<string, { importUrl: string; exportUrl: string; isActive: boolean; createdAt: string }> = {};
-    for (const chName of defaultChannels) {
-      const token = crypto.randomUUID();
-      channelsMap[chName] = {
-        importUrl: '',
-        exportUrl: `/api/export/${token}.ics`,
-        isActive: false,
-        createdAt: new Date().toISOString(),
-      };
-    }
-    const propRef = await addDoc(collection(db, 'properties'), {
-      name,
-      timezone: 'Asia/Seoul',
-      ownerId: user.uid,
-      channels: channelsMap,
-      createdAt: new Date().toISOString(),
-    });
-    return propRef.id;
-  };
-
   const handleAddProperty = async () => {
     if (!user || !newPropertyName.trim()) return;
     setLoading(true);
     setIsAddModalOpen(false);
     try {
-      await addPropertyWithChannels(newPropertyName.trim());
+      const res = await fetch('/api/properties', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newPropertyName.trim() }),
+      });
+      if (!res.ok) throw new Error('Failed to add property');
       setNewPropertyName('');
       await fetchProperties();
     } catch (error) {

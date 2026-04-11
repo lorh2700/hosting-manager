@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, query, where, doc, getDoc, addDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/components/FirebaseProvider';
+import { useAuth } from '@/components/AuthProvider';
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { AlertTriangle, Plus, Send } from 'lucide-react';
@@ -54,42 +52,32 @@ export default function CleanerIssuesPage() {
   const loadData = async () => {
     if (!user || !profile) return;
     try {
-      let propertyIds: string[] = [];
-      if (profile.role === 'super_admin') {
-        const snap = await getDocs(collection(db, 'properties'));
-        propertyIds = snap.docs.map(d => d.id);
-      } else {
-        propertyIds = profile.propertyIds;
-      }
-
+      // Fetch properties
+      const propsRes = await fetch('/api/properties');
+      const propsData = await propsRes.json();
       const propNames: Record<string, string> = {};
       const propList: { id: string; name: string }[] = [];
-      await Promise.all(propertyIds.map(async pid => {
-        const snap = await getDoc(doc(db, 'properties', pid));
-        if (snap.exists()) {
-          propNames[pid] = snap.data().name;
-          propList.push({ id: pid, name: snap.data().name });
-        }
-      }));
+      for (const p of propsData) {
+        propNames[p.id] = p.name;
+        propList.push({ id: p.id, name: p.name });
+      }
       setProperties(propList);
       if (propList.length > 0 && !selectedProperty) setSelectedProperty(propList[0].id);
 
-      // Fetch issues reported by me
-      const issuesSnap = await getDocs(query(
-        collection(db, 'cleaning_issues'),
-        where('reportedBy', '==', user.uid)
-      ));
+      // Fetch issues
+      const propertyIds = propList.map(p => p.id);
+      const issuesRes = await fetch(`/api/cleaning-issues?propertyIds=${propertyIds.join(',')}`);
+      const issuesData = await issuesRes.json();
 
-      const result = issuesSnap.docs.map(d => {
-        const data = d.data();
-        return {
-          ...data,
-          id: d.id,
-          propertyName: propNames[data.propertyId] ?? '알 수 없는 숙소',
-        } as CleaningIssue & { propertyName: string };
-      }).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      // Filter to only issues reported by current user
+      const myIssues = issuesData.filter((i: Record<string, unknown>) => i.reportedBy === user.id);
 
-      setIssues(result);
+      const result = myIssues.map((i: Record<string, unknown>) => ({
+        ...i,
+        propertyName: propNames[i.propertyId as string] ?? '알 수 없는 숙소',
+      })).sort((a: { createdAt: string }, b: { createdAt: string }) => b.createdAt.localeCompare(a.createdAt));
+
+      setIssues(result as (CleaningIssue & { propertyName: string })[]);
     } catch (err) {
       console.error(err);
     } finally {
@@ -101,18 +89,22 @@ export default function CleanerIssuesPage() {
     if (!user || !profile || !title.trim() || !selectedProperty) return;
     setSubmitting(true);
     try {
-      await addDoc(collection(db, 'cleaning_issues'), {
-        cleaningId: '',
-        propertyId: selectedProperty,
-        reportedBy: user.uid,
-        reportedByName: profile.displayName || user.email || 'unknown',
-        category,
-        title: title.trim(),
-        description: description.trim(),
-        urgency,
-        status: 'open',
-        createdAt: new Date().toISOString(),
+      const res = await fetch('/api/cleaning-issues', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          propertyId: selectedProperty,
+          reportedBy: user.id,
+          reportedByName: profile.displayName || user.email || 'unknown',
+          category,
+          title: title.trim(),
+          description: description.trim(),
+          urgency,
+          status: 'open',
+        }),
       });
+      if (!res.ok) throw new Error('Failed to create issue');
+
       setTitle('');
       setDescription('');
       setCategory('other');

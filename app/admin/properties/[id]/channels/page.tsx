@@ -4,9 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { ArrowLeft, Save, Link as LinkIcon, CheckCircle2, XCircle, Copy, Trash2 } from 'lucide-react';
-import { doc, getDoc, updateDoc, deleteField, collection, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/components/FirebaseProvider';
+import { useAuth } from '@/components/AuthProvider';
 
 interface Property {
   id: string;
@@ -38,20 +36,10 @@ export default function ChannelsPage() {
   const fetchChannels = useCallback(async () => {
     if (!user) return;
     try {
-      const propDoc = await getDoc(doc(db, 'properties', id));
-      const data = propDoc.data();
-      let channelsMap: Record<string, object> = data?.channels ?? {};
-
-      // Fallback: if embedded map is empty, read from subcollection and auto-migrate
-      if (Object.keys(channelsMap).length === 0) {
-        const subSnap = await getDocs(collection(db, 'properties', id, 'channels'));
-        if (!subSnap.empty) {
-          subSnap.docs.forEach(d => { channelsMap[d.id] = d.data(); });
-          // Migrate to embedded map
-          await updateDoc(doc(db, 'properties', id), { channels: channelsMap });
-        }
-      }
-
+      const res = await fetch(`/api/properties/${id}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const channelsMap: Record<string, object> = data?.channels ?? {};
       const channelsList = Object.entries(channelsMap).map(([name, ch]) => ({ id: name, ...(ch as object) })) as ChannelConnection[];
       setChannels(channelsList);
     } catch (error) {
@@ -64,9 +52,10 @@ export default function ChannelsPage() {
 
     const fetchData = async () => {
       try {
-        const propDoc = await getDoc(doc(db, 'properties', id));
-        if (propDoc.exists()) {
-          setProperty({ id: propDoc.id, ...propDoc.data() } as Property);
+        const res = await fetch(`/api/properties/${id}`);
+        if (res.ok) {
+          const data = await res.json();
+          setProperty(data);
         }
         await fetchChannels();
       } catch (error) {
@@ -88,13 +77,17 @@ export default function ChannelsPage() {
     try {
       const token = crypto.randomUUID();
       const name = newChannelName.trim();
-      await updateDoc(doc(db, 'properties', id), {
-        [`channels.${name}`]: {
-          importUrl: newChannelImportUrl,
-          exportUrl: `/api/export/${token}.ics`,
-          isActive: true,
-          createdAt: new Date().toISOString(),
-        },
+      await fetch(`/api/properties/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          [`channels.${name}`]: {
+            importUrl: newChannelImportUrl,
+            exportUrl: `/api/export/${token}.ics`,
+            isActive: true,
+            createdAt: new Date().toISOString(),
+          },
+        }),
       });
       await fetchChannels();
       setNewChannelName('');
@@ -116,7 +109,11 @@ export default function ChannelsPage() {
         updates[`channels.${ch.id}.importUrl`] = ch.importUrl;
         updates[`channels.${ch.id}.isActive`] = !!ch.importUrl.trim();
       }
-      await updateDoc(doc(db, 'properties', id), updates);
+      await fetch(`/api/properties/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
       await fetchChannels();
       alert('채널 설정이 저장되었습니다.');
     } catch (error) {
@@ -130,8 +127,12 @@ export default function ChannelsPage() {
   const handleDeleteChannel = async (channelName: string) => {
     if (!confirm(`"${channelName}" 채널을 삭제하시겠습니까?`)) return;
     try {
-      await updateDoc(doc(db, 'properties', id), {
-        [`channels.${channelName}`]: deleteField(),
+      await fetch(`/api/properties/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          [`channels.${channelName}`]: '__delete__',
+        }),
       });
       setChannels((prev) => prev.filter(c => c.id !== channelName));
     } catch (error) {
@@ -227,7 +228,7 @@ export default function ChannelsPage() {
               disabled={saving || !newChannelImportUrl.trim() || !newChannelName.trim()}
               className={`w-full py-4 text-[11px] tracking-widest font-semibold transition-colors ${
                 newChannelImportUrl.trim() && newChannelName.trim()
-                  ? 'bg-white hover:bg-white/90 text-black' 
+                  ? 'bg-white hover:bg-white/90 text-black'
                   : 'bg-white/5 text-white/30 cursor-not-allowed'
               }`}
             >
@@ -253,7 +254,7 @@ export default function ChannelsPage() {
                 >
                   <Trash2 size={18} strokeWidth={1.5} />
                 </button>
-                
+
                 <div className="flex items-center gap-4 pr-12">
                   <div className={`p-2 rounded-full ${channel.isActive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-white/5 text-white/30'}`}>
                     {channel.isActive ? <CheckCircle2 size={20} strokeWidth={1.5} /> : <XCircle size={20} strokeWidth={1.5} />}
@@ -272,7 +273,7 @@ export default function ChannelsPage() {
                       className="w-full px-4 py-3 border border-white/10 bg-white/5 focus:border-white outline-none transition-colors font-mono text-xs text-white/70 font-light"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-[10px] tracking-widest font-medium text-white/40 mb-2">내보내기 URL</label>
                     <div className="flex items-center gap-3">
@@ -282,7 +283,7 @@ export default function ChannelsPage() {
                         value={typeof window !== 'undefined' ? `${window.location.origin}${channel.exportUrl}` : ''}
                         className="w-full px-4 py-3 border border-white/10 bg-transparent outline-none font-mono text-xs text-white/50 font-light"
                       />
-                      <button 
+                      <button
                         onClick={() => {
                           const url = `${window.location.origin}${channel.exportUrl}`;
                           navigator.clipboard.writeText(url);

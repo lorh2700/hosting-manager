@@ -11,3 +11,5 @@ firebase-config.json
 firebase-applet-config.json
 gen-lang-client-*.json
 *-firebase-adminsdk-*.json
+
+/generated/prisma
