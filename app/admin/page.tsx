@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { RefreshCw, ArrowRight, ArrowDownRight, ArrowUpRight, Sparkles, Check } from 'lucide-react';
-import { collection, query, getDocs, where } from 'firebase/firestore';
+import { RefreshCw, ArrowRight, ArrowDownRight, ArrowUpRight, Sparkles, Check, MessageSquare, Brush, Package, AlertTriangle } from 'lucide-react';
+import { collection, query, getDocs, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/FirebaseProvider';
 import { parseISO, startOfToday, addDays, format, isToday, isTomorrow } from 'date-fns';
@@ -16,6 +16,8 @@ interface Reservation {
   title: string;
   start: string;
   end: string;
+  phone?: string;
+  email?: string;
 }
 
 interface Cleaning {
@@ -40,6 +42,9 @@ export default function Dashboard() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState('');
   const [loading, setLoading] = useState(true);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const [pendingSupplies, setPendingSupplies] = useState(0);
+  const [openIssues, setOpenIssues] = useState(0);
   const { user, profile } = useAuth();
 
   useEffect(() => {
@@ -66,12 +71,15 @@ export default function Dashboard() {
           const evtSnap = await getDocs(query(collection(db, 'events'), where('propertyId', 'in', chunk), where('type', '==', 'reservation')));
           evtSnap.docs.forEach(d => {
             const data = d.data();
-            allRes.push({ id: d.id, propertyId: data.propertyId, propertyName: propsMap.get(data.propertyId) || '', title: data.title, start: data.start?.substring(0, 10), end: data.end?.substring(0, 10) });
+            const desc = (data.description || '') as string;
+            const phoneMatch = desc.match(/연락처:\s*(.+)/);
+            const emailMatch = desc.match(/이메일:\s*(.+)/);
+            allRes.push({ id: d.id, propertyId: data.propertyId, propertyName: propsMap.get(data.propertyId) || '', title: data.title, start: data.start?.substring(0, 10), end: data.end?.substring(0, 10), phone: phoneMatch?.[1]?.trim(), email: emailMatch?.[1]?.trim() });
           });
           const bkSnap = await getDocs(query(collection(db, 'bookings'), where('propertyId', 'in', chunk), where('status', '==', 'confirmed')));
           bkSnap.docs.forEach(d => {
             const data = d.data();
-            allRes.push({ id: d.id, propertyId: data.propertyId, propertyName: propsMap.get(data.propertyId) || '', title: `${data.name}`, start: data.checkIn, end: data.checkOut });
+            allRes.push({ id: d.id, propertyId: data.propertyId, propertyName: propsMap.get(data.propertyId) || '', title: `${data.name}`, start: data.checkIn, end: data.checkOut, phone: data.phone, email: data.email });
           });
         }
 
@@ -149,6 +157,34 @@ export default function Dashboard() {
     load();
   }, [user]);
 
+  // Real-time unread messages
+  useEffect(() => {
+    if (!user) return;
+    const q = query(
+      collection(db, 'messages'),
+      where('sender', '==', 'guest'),
+      where('read', '==', false),
+    );
+    const unsub = onSnapshot(q, (snap) => setUnreadMessages(snap.size), () => setUnreadMessages(0));
+    return () => unsub();
+  }, [user]);
+
+  // Load pending supplies & open issues
+  useEffect(() => {
+    if (!user) return;
+    const loadActionItems = async () => {
+      try {
+        const [supplySnap, issueSnap] = await Promise.all([
+          getDocs(query(collection(db, 'supply_requests'), where('status', '==', 'pending'))),
+          getDocs(query(collection(db, 'cleaning_issues'), where('status', 'in', ['open', 'in_progress']))),
+        ]);
+        setPendingSupplies(supplySnap.size);
+        setOpenIssues(issueSnap.size);
+      } catch { /* silent */ }
+    };
+    loadActionItems();
+  }, [user]);
+
   const handleSync = async () => {
     setIsSyncing(true);
     setSyncMsg('');
@@ -174,6 +210,17 @@ export default function Dashboard() {
   const pendingCleanings = dayGroups.reduce(
     (sum, g) => sum + g.checkouts.filter(c => c.cleaningStatus !== 'done').length, 0
   );
+  const unassignedCleanings = dayGroups.reduce(
+    (sum, g) => sum + g.checkouts.filter(c => c.cleaningStatus === 'unassigned').length, 0
+  );
+
+  const actionItems = [
+    { count: unreadMessages, label: '미읽은 메시지', href: '/admin/messages', icon: MessageSquare, color: 'indigo' },
+    { count: unassignedCleanings, label: '미배정 청소', href: '/admin/calendar', icon: Brush, color: 'rose' },
+    { count: pendingSupplies, label: '비품 요청', href: '/admin/supplies', icon: Package, color: 'amber' },
+    { count: openIssues, label: '미해결 이슈', href: '/admin/issues', icon: AlertTriangle, color: 'orange' },
+  ];
+  const hasActions = actionItems.some(a => a.count > 0);
 
   if (loading) {
     return (
@@ -204,6 +251,47 @@ export default function Dashboard() {
           {isSyncing ? '동기화 중...' : syncMsg || '채널 동기화'}
         </button>
       </header>
+
+      {/* Action Hub */}
+      {hasActions && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          {actionItems.map(item => {
+            const Icon = item.icon;
+            const active = item.count > 0;
+            const colorMap: Record<string, { bg: string; border: string; text: string }> = {
+              indigo: { bg: 'bg-indigo-500/[0.08]', border: 'border-indigo-500/20', text: 'text-indigo-400' },
+              rose: { bg: 'bg-rose-500/[0.08]', border: 'border-rose-500/20', text: 'text-rose-400' },
+              amber: { bg: 'bg-amber-500/[0.08]', border: 'border-amber-500/20', text: 'text-amber-400' },
+              orange: { bg: 'bg-orange-500/[0.08]', border: 'border-orange-500/20', text: 'text-orange-400' },
+            };
+            const c = colorMap[item.color];
+            return active ? (
+              <Link
+                key={item.label}
+                href={item.href}
+                className={`${c.bg} border ${c.border} rounded-2xl p-4 flex items-center gap-3 hover:brightness-125 transition-all`}
+              >
+                <Icon size={18} className={c.text} />
+                <div>
+                  <p className={`text-xl font-light ${c.text}`}>{item.count}</p>
+                  <p className="text-[10px] text-white/40 tracking-wide">{item.label}</p>
+                </div>
+              </Link>
+            ) : (
+              <div
+                key={item.label}
+                className="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-4 flex items-center gap-3"
+              >
+                <Icon size={18} className="text-white/15" />
+                <div>
+                  <p className="text-xl font-light text-white/15">0</p>
+                  <p className="text-[10px] text-white/25 tracking-wide">{item.label}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Today's Key Numbers */}
       <div className="grid grid-cols-3 gap-3">
@@ -258,7 +346,11 @@ export default function Dashboard() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] text-white/90 truncate">{r.title}</p>
-                      <p className="text-[11px] text-white/35 mt-0.5">{r.propertyName} · {nights}박</p>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <span className="text-[11px] text-white/35">{r.propertyName} · {nights}박</span>
+                        {r.phone && <span className="text-[10px] text-white/30">{r.phone}</span>}
+                        {!r.phone && r.email && <span className="text-[10px] text-white/30">{r.email}</span>}
+                      </div>
                     </div>
                     <span className="text-[10px] bg-emerald-500/10 text-emerald-400/80 px-2.5 py-1 rounded-lg font-medium shrink-0">
                       체크인

@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/FirebaseProvider';
-import { ChevronLeft, ChevronRight, X, Save, Trash2, Send, CheckCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Save, Trash2, Send, CheckCircle, RefreshCw } from 'lucide-react';
 
 const PROPERTY_COLORS = [
   '#6366f1', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316',
@@ -75,10 +75,11 @@ export default function UnifiedCalendarPage() {
   const [allSupplyTodos, setAllSupplyTodos] = useState<{id: string; propertyId: string; propertyName: string; date: string; text: string; done: boolean; createdAt: string}[]>([]);
   const [newSupply, setNewSupply] = useState('');
   const [viewDate, setViewDate] = useState(new Date());
-  const [modalMessages, setModalMessages] = useState<{id: string; text: string; sender: string; createdAt: string}[]>([]);
+  const [modalMessages, setModalMessages] = useState<{id: string; text: string; sender: string; createdAt: string; source?: string; beds24MessageType?: string; deliveryStatus?: string; read?: boolean}[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [syncingMessages, setSyncingMessages] = useState(false);
   const [completingCleaning, setCompletingCleaning] = useState(false);
 
   useEffect(() => {
@@ -407,12 +408,16 @@ export default function UnifiedCalendarPage() {
     const q = query(
       collection(db, 'messages'),
       where('eventId', '==', selectedEvent.eventId),
-      orderBy('createdAt', 'asc')
+      orderBy('createdAt', 'desc')
     );
     const unsub = onSnapshot(q, (snap) => {
       setModalMessages(snap.docs.map(d => {
         const data = d.data();
-        return { id: d.id, text: data.text, sender: data.sender, createdAt: data.createdAt };
+        // Mark unread guest messages as read
+        if (data.sender === 'guest' && !data.read) {
+          updateDoc(doc(db, 'messages', d.id), { read: true });
+        }
+        return { id: d.id, text: data.text, sender: data.sender, createdAt: data.createdAt, source: data.source, beds24MessageType: data.beds24MessageType, deliveryStatus: data.deliveryStatus, read: data.read };
       }));
       setLoadingMessages(false);
     }, () => {
@@ -444,6 +449,20 @@ export default function UnifiedCalendarPage() {
     } finally {
       setSendingMessage(false);
     }
+  };
+
+  const handleSyncMessages = async () => {
+    if (syncingMessages || !selectedEvent?.propertyId || !user) return;
+    setSyncingMessages(true);
+    try {
+      const token = await user.getIdToken();
+      await fetch('/api/beds24/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ propertyIds: [selectedEvent.propertyId] }),
+      });
+    } catch { /* onSnapshot will pick up new messages */ }
+    finally { setSyncingMessages(false); }
   };
 
   // For a given day+property, classify what to show in the cell
@@ -1090,27 +1109,67 @@ export default function UnifiedCalendarPage() {
             </div>
 
             {/* ── Messages / Memo ── */}
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] tracking-[0.2em] text-white/40 uppercase">메시지 / 메모</p>
+                <p className="text-[10px] tracking-[0.2em] text-white/40 uppercase">메시지</p>
+                {selectedEvent?.channelId === 'beds24' && (
+                  <button
+                    onClick={handleSyncMessages}
+                    disabled={syncingMessages}
+                    className="flex items-center gap-1.5 text-[9px] tracking-wide text-white/40 hover:text-white/60 transition-colors disabled:opacity-30"
+                  >
+                    <RefreshCw size={10} className={syncingMessages ? 'animate-spin' : ''} />
+                    {syncingMessages ? '동기화 중' : '동기화'}
+                  </button>
+                )}
               </div>
 
               {loadingMessages ? (
                 <p className="text-[10px] text-white/30 text-center py-4">불러오는 중...</p>
               ) : modalMessages.length > 0 ? (
-                <div className="max-h-40 overflow-y-auto space-y-2 pr-1">
-                  {modalMessages.map(msg => (
-                    <div key={msg.id} className={`text-xs p-3 rounded-lg ${msg.sender === 'host' ? 'bg-white/10 ml-4' : 'bg-indigo-500/20 mr-4'}`}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-medium text-white/60">{msg.sender === 'host' ? '호스트' : '게스트'}</span>
-                        <span className="text-[9px] text-white/30">{new Date(msg.createdAt).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                  {modalMessages.map((msg, idx) => {
+                    // Date separator
+                    const msgDate = new Date(msg.createdAt).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
+                    const prevDate = idx > 0 ? new Date(modalMessages[idx - 1].createdAt).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' }) : null;
+                    const showDate = idx === 0 || msgDate !== prevDate;
+
+                    return (
+                      <div key={msg.id}>
+                        {showDate && (
+                          <div className="flex items-center gap-2 py-2">
+                            <div className="flex-1 h-px bg-white/8" />
+                            <span className="text-[9px] text-white/25 tracking-wide">{msgDate}</span>
+                            <div className="flex-1 h-px bg-white/8" />
+                          </div>
+                        )}
+                        <div className={`flex ${msg.sender === 'host' ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-[11px] leading-relaxed ${
+                            msg.sender === 'host'
+                              ? 'bg-white text-black rounded-tr-sm'
+                              : msg.source === 'beds24'
+                                ? 'bg-indigo-500/15 border border-indigo-500/20 text-white/80 rounded-tl-sm'
+                                : 'bg-white/[0.07] text-white/80 rounded-tl-sm'
+                          }`}>
+                            {msg.source === 'beds24' && (
+                              <p className={`text-[8px] font-medium mb-0.5 ${
+                                msg.sender === 'host' ? 'text-black/30' : 'text-indigo-400/70'
+                              }`}>
+                                Beds24 · {msg.beds24MessageType || msg.sender}
+                              </p>
+                            )}
+                            <p className="whitespace-pre-wrap">{msg.text}</p>
+                            <p className={`text-[8px] mt-1 ${msg.sender === 'host' ? 'text-black/40' : 'text-white/25'}`}>
+                              {new Date(msg.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                      <p className="text-white/80 leading-relaxed">{msg.text}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
-                <p className="text-[10px] text-white/30 text-center py-2">메모가 없습니다.</p>
+                <p className="text-[10px] text-white/30 text-center py-2">아직 메시지가 없습니다</p>
               )}
 
               <div className="flex gap-2">
@@ -1119,7 +1178,7 @@ export default function UnifiedCalendarPage() {
                   value={newMessage}
                   onChange={e => setNewMessage(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-                  placeholder="메모 추가..."
+                  placeholder="메시지 입력..."
                   className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 transition-colors"
                 />
                 <button

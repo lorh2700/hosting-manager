@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { beds24Get } from '@/lib/beds24';
+import { beds24Get, getBeds24Token, BEDS24_BASE_URL } from '@/lib/beds24';
 import { getAdminDb, verifyAuthToken } from '@/lib/firebase-admin';
 
 /**
@@ -14,10 +14,13 @@ interface Beds24Message {
   id?: number;
   bookingId: number;
   message: string;
-  from?: string;       // e.g. 'guest', 'host', 'ota'
-  type?: string;       // e.g. 'guest', 'host', 'internalNote', 'system'
-  datetime?: string;   // ISO datetime
-  status?: string;
+  source?: string;     // 'guest' | 'host'
+  time?: string;       // ISO datetime (e.g. '2026-04-11T08:35:06Z')
+  read?: boolean;
+  // Legacy field names (kept for backwards compatibility)
+  from?: string;
+  type?: string;
+  datetime?: string;
 }
 
 // GET: fetch messages for a single booking from Beds24
@@ -35,7 +38,8 @@ export async function GET(req: NextRequest) {
 
   try {
     const data = await beds24Get('/bookings/messages', { bookingId });
-    return NextResponse.json({ messages: Array.isArray(data) ? data : [] });
+    const messages = Array.isArray(data) ? data : (data?.data && Array.isArray(data.data) ? data.data : []);
+    return NextResponse.json({ messages });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     console.error('Beds24 messages fetch error:', message);
@@ -84,61 +88,98 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ synced: 0, message: 'No Beds24 events found' });
     }
 
-    // 2. Fetch messages from Beds24 for each booking
+    // 2. Fetch messages from Beds24 in parallel batches
     let totalSynced = 0;
     const beds24BookingIds = Array.from(eventsByBeds24Id.keys());
+    const token = await getBeds24Token();
+    const BATCH_SIZE = 10;
 
-    for (const beds24Id of beds24BookingIds) {
-      try {
-        const data = await beds24Get('/bookings/messages', { bookingId: beds24Id });
-        const messages: Beds24Message[] = Array.isArray(data) ? data : [];
+    for (let i = 0; i < beds24BookingIds.length; i += BATCH_SIZE) {
+      const batch = beds24BookingIds.slice(i, i + BATCH_SIZE);
 
-        if (messages.length === 0) continue;
+      // Fetch messages for batch in parallel
+      const results = await Promise.allSettled(
+        batch.map(async (beds24Id) => {
+          const res = await fetch(`${BEDS24_BASE_URL}/bookings/messages?bookingId=${beds24Id}`, {
+            headers: { token },
+          });
+          if (!res.ok) return { beds24Id, messages: [] as Beds24Message[] };
+          const raw = await res.json();
+          const messages: Beds24Message[] = Array.isArray(raw) ? raw : (raw?.data && Array.isArray(raw.data) ? raw.data : []);
+          return { beds24Id, messages };
+        })
+      );
 
-        const eventInfo = eventsByBeds24Id.get(beds24Id)!;
+      // Collect all eventIds that have messages to batch the dedupe query
+      const bookingsWithMessages = results
+        .filter((r): r is PromiseFulfilledResult<{ beds24Id: string; messages: Beds24Message[] }> =>
+          r.status === 'fulfilled' && r.value.messages.length > 0)
+        .map(r => r.value);
 
-        // 3. Check existing messages to avoid duplicates
+      if (bookingsWithMessages.length === 0) continue;
+
+      // Batch load existing messages for deduplication
+      const eventIds = bookingsWithMessages.map(b => eventsByBeds24Id.get(b.beds24Id)!.eventId);
+      const existingByEvent = new Map<string, Set<string>>();
+
+      for (let j = 0; j < eventIds.length; j += 10) {
+        const chunk = eventIds.slice(j, j + 10);
         const existingSnap = await db.collection('messages')
-          .where('eventId', '==', eventInfo.eventId)
+          .where('eventId', 'in', chunk)
           .where('source', '==', 'beds24')
           .get();
-        const existingKeys = new Set(
-          existingSnap.docs.map(d => {
-            const data = d.data();
-            return `${data.createdAt}|${data.text?.substring(0, 50)}`;
-          })
-        );
+        existingSnap.docs.forEach(d => {
+          const data = d.data();
+          const key = `${data.createdAt}|${data.text?.substring(0, 50)}`;
+          if (!existingByEvent.has(data.eventId)) existingByEvent.set(data.eventId, new Set());
+          existingByEvent.get(data.eventId)!.add(key);
+        });
+      }
 
-        // 4. Write new messages to Firestore
+      // Write new messages using batched writes
+      let writeBatch = db.batch();
+      let batchCount = 0;
+
+      for (const { beds24Id, messages } of bookingsWithMessages) {
+        const eventInfo = eventsByBeds24Id.get(beds24Id)!;
+        const existingKeys = existingByEvent.get(eventInfo.eventId) || new Set();
+
         for (const msg of messages) {
-          const createdAt = msg.datetime || new Date().toISOString();
+          const createdAt = msg.time || msg.datetime || new Date().toISOString();
           const text = msg.message || '';
           const dedupeKey = `${createdAt}|${text.substring(0, 50)}`;
 
           if (existingKeys.has(dedupeKey) || !text.trim()) continue;
 
-          // Determine sender: guest messages vs host/system
-          const senderType = (msg.type || msg.from || '').toLowerCase();
+          const senderType = (msg.source || msg.type || msg.from || '').toLowerCase();
           const sender = senderType.includes('guest') ? 'guest' : 'host';
 
-          await db.collection('messages').add({
+          const ref = db.collection('messages').doc();
+          writeBatch.set(ref, {
             eventId: eventInfo.eventId,
             propertyId: eventInfo.propertyId,
             guestName: eventInfo.title.replace(/ 예약$/, ''),
             text: text.trim(),
             sender,
             createdAt,
-            read: sender === 'host', // host messages are already read
+            read: sender === 'host',
             source: 'beds24',
             beds24BookingId: beds24Id,
-            beds24MessageType: msg.type || msg.from || 'unknown',
+            beds24MessageType: msg.source || msg.type || msg.from || 'unknown',
           });
+          batchCount++;
           totalSynced++;
+
+          // Firestore batch limit is 500
+          if (batchCount >= 490) {
+            await writeBatch.commit();
+            writeBatch = db.batch();
+            batchCount = 0;
+          }
         }
-      } catch (err) {
-        // Skip individual booking errors
-        console.warn(`Failed to fetch messages for booking ${beds24Id}:`, err);
       }
+
+      if (batchCount > 0) await writeBatch.commit();
     }
 
     return NextResponse.json({ synced: totalSynced, bookingsChecked: beds24BookingIds.length });

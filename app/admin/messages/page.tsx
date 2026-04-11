@@ -154,23 +154,22 @@ function MessagesContent() {
 
       const convMap: Record<string, Conversation> = {};
 
-      // Create conversations from events
+      // Create conversations only from events that have messages
       allEvents.forEach(evt => {
-        const msgs = msgGrouped[evt.id] || [];
+        const msgs = msgGrouped[evt.id];
+        if (!msgs || msgs.length === 0) return;
+
         const sorted = [...msgs].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-        const last = sorted.length > 0 ? sorted[sorted.length - 1] : null;
+        const last = sorted[sorted.length - 1];
         const unread = msgs.filter(m => m.sender === 'guest' && !m.read).length;
-        const descPreview = evt.description
-          ? evt.description.split('\n').filter(l => !l.trimStart().startsWith('금액')).join(' ').slice(0, 60)
-          : '';
 
         convMap[evt.id] = {
           eventId: evt.id,
           propertyId: evt.propertyId,
           guestName: evt.title.replace(/ 예약$/, ''),
           propertyName: properties[evt.propertyId] || evt.propertyId,
-          lastMessage: last ? last.text : (descPreview || '메시지 없음'),
-          lastMessageAt: last ? last.createdAt : evt.start,
+          lastMessage: last.text,
+          lastMessageAt: last.createdAt,
           unread,
           eventDescription: evt.description,
           checkIn: evt.start,
@@ -195,7 +194,8 @@ function MessagesContent() {
         };
       });
 
-      const convs = Object.values(convMap).sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt));
+      const convs = Object.values(convMap)
+        .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt));
       setConversations(convs);
 
       // Auto-select from URL params
