@@ -47,9 +47,14 @@ export default function PublicPortal() {
           <Link href="#spaces" className="hover:text-stone-50 transition-colors">공간</Link>
           <Link href="#about" className="hover:text-stone-50 transition-colors">소개</Link>
         </div>
-        <Link href="/admin" className="text-xs uppercase tracking-widest font-medium border border-stone-700 px-4 py-2 rounded-full hover:bg-stone-50 hover:text-stone-900 transition-colors">
-          호스트
-        </Link>
+        <div className="flex items-center gap-3">
+          <a href="https://lab.voidanchae.com" target="_blank" rel="noopener noreferrer" className="text-xs uppercase tracking-widest font-medium border border-stone-700 px-4 py-2 rounded-full hover:bg-stone-50 hover:text-stone-900 transition-colors">
+            Lab
+          </a>
+          <Link href="/admin" className="text-xs uppercase tracking-widest font-medium border border-stone-700 px-4 py-2 rounded-full hover:bg-stone-50 hover:text-stone-900 transition-colors">
+            호스트
+          </Link>
+        </div>
       </nav>
 
       {/* Hero Section */}
