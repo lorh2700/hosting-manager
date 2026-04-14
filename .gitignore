@@ -6,10 +6,4 @@ coverage/
 .env*
 !.env.example
 
-# Firebase secrets
-firebase-config.json
-firebase-applet-config.json
-gen-lang-client-*.json
-*-firebase-adminsdk-*.json
-
 /generated/prisma
