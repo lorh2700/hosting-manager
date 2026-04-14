@@ -6,7 +6,7 @@
  */
 
 export interface PropertyKnowledge {
-  id: string;               // Firestore property ID
+  id: string;
   beds24PropId?: string;     // Beds24 property ID
   name: { ko: string; en: string };
   address: { ko: string; en: string };
@@ -27,7 +27,7 @@ export interface PropertyKnowledge {
 
 /**
  * 숙소별 지식 베이스
- * ⚠️ 비밀번호 등 민감 정보 포함 — 환경변수로 분리하거나 Firestore에서 가져오는 것을 추후 고려
+ * ⚠️ 비밀번호 등 민감 정보 포함 — 환경변수로 분리하거나 DB에서 가져오는 것을 추후 고려
  */
 export const PROPERTY_KNOWLEDGE: PropertyKnowledge[] = [
   {

@@ -66,9 +66,9 @@ export async function PUT(req: Request) {
 
   try {
     const body = await req.json();
-    const { beds24BookingId, firestoreBookingId, action } = body;
+    const { beds24BookingId, bookingId, action } = body;
 
-    if (!firestoreBookingId || !action) {
+    if (!bookingId || !action) {
       return NextResponse.json({ error: '필수 항목이 누락되었습니다.' }, { status: 400 });
     }
 
@@ -81,7 +81,7 @@ export async function PUT(req: Request) {
       }
 
       await prisma.booking.update({
-        where: { id: firestoreBookingId },
+        where: { id: bookingId },
         data: { status: 'cancelled' },
       });
 

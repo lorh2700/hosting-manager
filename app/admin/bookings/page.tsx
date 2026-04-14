@@ -225,7 +225,7 @@ export default function BookingsPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             beds24BookingId: booking.channelBookingRef,
-            firestoreBookingId: booking.id,
+            bookingId: booking.id,
             action: 'cancel',
           }),
         });
