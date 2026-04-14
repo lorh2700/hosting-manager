@@ -22,6 +22,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" className={`${inter.variable} ${cormorantGaramond.variable}`}>
+      <head>
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2695326208203895"
+          crossOrigin="anonymous"
+        />
+      </head>
       <body suppressHydrationWarning>
         <AuthProvider>
           {children}
