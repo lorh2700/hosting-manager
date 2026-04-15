@@ -1,8 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/components/AuthProvider';
 
 export default function LoginPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -11,9 +9,6 @@ export default function LoginPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const router = useRouter();
-  const { refreshProfile } = useAuth();
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
@@ -29,8 +24,7 @@ export default function LoginPage() {
       if (!res.ok) {
         setError(data.error || '로그인에 실패했습니다.');
       } else {
-        await refreshProfile();
-        router.replace('/admin');
+        window.location.href = '/admin';
       }
     } catch {
       setError('로그인에 실패했습니다.');
@@ -69,8 +63,7 @@ export default function LoginPage() {
           body: JSON.stringify({ email, password }),
         });
         if (loginRes.ok) {
-          await refreshProfile();
-          router.replace('/admin');
+          window.location.href = '/admin';
         } else {
           setMode('login');
           setError('가입 완료! 로그인해 주세요.');
