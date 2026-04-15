@@ -6,27 +6,15 @@ import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { AlertTriangle, Plus, Send } from 'lucide-react';
 import type { CleaningIssue, IssueCategory, IssueUrgency } from '@/lib/types';
+import { ISSUE_STATUS_CONFIG, ISSUE_CATEGORY_LABELS, URGENCY_LABELS } from '@/lib/constants';
 
-const CATEGORIES: { value: IssueCategory; label: string }[] = [
-  { value: 'damage', label: '파손' },
-  { value: 'malfunction', label: '고장' },
-  { value: 'missing_item', label: '분실/부족' },
-  { value: 'hygiene', label: '위생 문제' },
-  { value: 'other', label: '기타' },
-];
+const CATEGORIES: { value: IssueCategory; label: string }[] = (
+  Object.entries(ISSUE_CATEGORY_LABELS) as [IssueCategory, string][]
+).map(([value, label]) => ({ value, label }));
 
-const URGENCY: { value: IssueUrgency; label: string }[] = [
-  { value: 'low', label: '낮음' },
-  { value: 'normal', label: '보통' },
-  { value: 'urgent', label: '긴급' },
-];
-
-const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  open: { label: '접수', color: 'bg-amber-500/20 text-amber-400' },
-  in_progress: { label: '처리중', color: 'bg-blue-500/20 text-blue-400' },
-  resolved: { label: '해결', color: 'bg-green-500/20 text-green-400' },
-  closed: { label: '종료', color: 'bg-white/10 text-white/40' },
-};
+const URGENCY: { value: IssueUrgency; label: string }[] = (
+  Object.entries(URGENCY_LABELS) as [IssueUrgency, { label: string }][]
+).map(([value, { label }]) => ({ value, label }));
 
 export default function CleanerIssuesPage() {
   const { user, profile } = useAuth();
@@ -221,13 +209,13 @@ export default function CleanerIssuesPage() {
           </div>
         ) : (
           issues.map(issue => {
-            const st = STATUS_LABELS[issue.status] ?? STATUS_LABELS.open;
+            const st = ISSUE_STATUS_CONFIG[issue.status] ?? ISSUE_STATUS_CONFIG.open;
             return (
               <div key={issue.id} className="border border-white/10 bg-[#111] p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-[10px] px-1.5 py-0.5 tracking-wider ${st.color}`}>{st.label}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 tracking-wider ${st.bg} ${st.color}`}>{st.label}</span>
                       <span className="text-[10px] text-white/30 tracking-wider">
                         {CATEGORIES.find(c => c.value === issue.category)?.label}
                       </span>

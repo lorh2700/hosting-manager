@@ -128,13 +128,16 @@ export default function BookingsPage() {
         return;
       }
 
+      // Fetch bookings + events in parallel
+      const propIdsParam = propertyIds.join(',');
+      const [bookingsRes, eventsRes] = await Promise.all([
+        fetch(`/api/bookings?propertyIds=${propIdsParam}`),
+        fetch(`/api/events?propertyIds=${propIdsParam}&type=reservation`),
+      ]);
+
       const allBookings: Booking[] = [];
       const bookingRefSet = new Set<string>();
 
-      // 1. Fetch from bookings API
-      const bookingsParams = new URLSearchParams();
-      bookingsParams.set('propertyIds', propertyIds.join(','));
-      const bookingsRes = await fetch(`/api/bookings?${bookingsParams}`);
       if (bookingsRes.ok) {
         const bookingsData: any[] = await bookingsRes.json();
         bookingsData.forEach(d => {
@@ -163,11 +166,6 @@ export default function BookingsPage() {
         });
       }
 
-      // 2. Fetch from events API (beds24/OTA synced)
-      const eventsParams = new URLSearchParams();
-      eventsParams.set('propertyIds', propertyIds.join(','));
-      eventsParams.set('type', 'reservation');
-      const eventsRes = await fetch(`/api/events?${eventsParams}`);
       if (eventsRes.ok) {
         const eventsData: any[] = await eventsRes.json();
         eventsData.forEach(d => {
@@ -399,19 +397,19 @@ export default function BookingsPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-12">
+    <div className="max-w-6xl mx-auto space-y-8 sm:space-y-12">
       {/* Header */}
-      <header className="border-b border-white/10 pb-8 flex items-end justify-between">
+      <header className="border-b border-white/10 pb-6 sm:pb-8 flex flex-col sm:flex-row gap-4 sm:items-end sm:justify-between">
         <div>
-          <p className="text-[10px] tracking-[0.3em] text-white/50 mb-4">예약</p>
-          <h1 className="text-4xl font-light tracking-tight text-white">예약 관리</h1>
-          <p className="text-white/50 mt-4 text-sm font-light tracking-wide">
+          <p className="text-[10px] tracking-[0.3em] text-white/50 mb-3 sm:mb-4">예약</p>
+          <h1 className="text-2xl sm:text-4xl font-light tracking-tight text-white">예약 관리</h1>
+          <p className="text-white/50 mt-2 sm:mt-4 text-sm font-light tracking-wide">
             직접 예약과 OTA 채널 예약을 통합 관리하세요.
           </p>
         </div>
         <button
           onClick={() => setIsCreateOpen(true)}
-          className="flex items-center gap-2 px-5 py-3 bg-white text-black text-[11px] tracking-widest font-semibold hover:bg-white/90 transition-colors"
+          className="flex items-center justify-center gap-2 px-5 py-3 bg-white text-black text-[11px] tracking-widest font-semibold hover:bg-white/90 active:scale-[0.98] transition-all shrink-0"
         >
           <Plus size={14} />
           새 예약
@@ -419,65 +417,61 @@ export default function BookingsPage() {
       </header>
 
       {/* Filter Bar */}
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          {/* Status pill filters */}
-          <div className="flex items-center gap-2">
-            <Filter size={14} className="text-white/30 mr-1" />
-            {(['all', 'confirmed', 'cancelled'] as const).map(s => (
-              <button
-                key={s}
-                onClick={() => setStatusFilter(s)}
-                className={`px-4 py-1.5 text-[11px] tracking-widest uppercase transition-colors ${
-                  statusFilter === s
-                    ? 'bg-white text-black font-semibold'
-                    : 'border border-white/20 text-white/50 hover:text-white hover:border-white/40'
-                }`}
+      <div className="space-y-3">
+        {/* Status pill filters */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0">
+          <Filter size={14} className="text-white/30 mr-1 shrink-0" />
+          {(['all', 'confirmed', 'cancelled'] as const).map(s => (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`px-4 py-2 text-xs tracking-widest uppercase transition-colors shrink-0 rounded-lg ${
+                statusFilter === s
+                  ? 'bg-white text-black font-semibold'
+                  : 'border border-white/20 text-white/50 hover:text-white hover:border-white/40'
+              }`}
+            >
+              {s === 'all' ? '전체' : s === 'confirmed' ? '확정' : '취소됨'}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          {/* Source filter */}
+          {(['all', 'direct', 'ota'] as const).map(s => (
+            <button
+              key={s}
+              onClick={() => setSourceFilter(s)}
+              className={`px-3 py-2 text-xs tracking-widest uppercase transition-colors rounded-lg ${
+                sourceFilter === s
+                  ? 'bg-white/10 text-white border border-white/30 font-semibold'
+                  : 'border border-white/10 text-white/40 hover:text-white/60 hover:border-white/20'
+              }`}
+            >
+              {s === 'all' ? '전체 소스' : s === 'direct' ? '직접' : 'OTA'}
+            </button>
+          ))}
+
+          {/* Property dropdown */}
+          {properties.size > 0 && (
+            <div className="relative">
+              <select
+                value={propertyFilter}
+                onChange={e => setPropertyFilter(e.target.value)}
+                className="appearance-none bg-[#111] border border-white/20 text-white/70 text-xs tracking-widest px-4 py-2 pr-8 rounded-lg focus:outline-none focus:border-white/40 transition-colors cursor-pointer hover:border-white/30"
               >
-                {s === 'all' ? '전체' : s === 'confirmed' ? '확정' : '취소됨'}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-3">
-            {/* Source filter */}
-            <div className="flex items-center gap-2">
-              {(['all', 'direct', 'ota'] as const).map(s => (
-                <button
-                  key={s}
-                  onClick={() => setSourceFilter(s)}
-                  className={`px-3 py-1.5 text-[11px] tracking-widest uppercase transition-colors ${
-                    sourceFilter === s
-                      ? 'bg-white/10 text-white border border-white/30 font-semibold'
-                      : 'border border-white/10 text-white/40 hover:text-white/60 hover:border-white/20'
-                  }`}
-                >
-                  {s === 'all' ? '전체 소스' : s === 'direct' ? '직접' : 'OTA'}
-                </button>
-              ))}
-            </div>
-
-            {/* Property dropdown */}
-            {properties.size > 0 && (
-              <div className="relative">
-                <select
-                  value={propertyFilter}
-                  onChange={e => setPropertyFilter(e.target.value)}
-                  className="appearance-none bg-[#111] border border-white/20 text-white/70 text-[11px] tracking-widest px-4 py-2 pr-8 focus:outline-none focus:border-white/40 transition-colors cursor-pointer hover:border-white/30"
-                >
-                  <option value="all">전체 숙소</option>
-                  {Array.from(properties.entries()).map(([id, prop]) => (
-                    <option key={id} value={id}>{prop.name}</option>
-                  ))}
-                </select>
-                <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/40">
-                  <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
-                    <path d="M1 1l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </div>
+                <option value="all">전체 숙소</option>
+                {Array.from(properties.entries()).map(([id, prop]) => (
+                  <option key={id} value={id}>{prop.name}</option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/40">
+                <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
+                  <path d="M1 1l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -519,52 +513,41 @@ export default function BookingsPage() {
                   }`}
                 >
                   {/* Mobile layout */}
-                  <div className="lg:hidden flex flex-col gap-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-[10px] uppercase tracking-widest text-white/40 mb-1">
+                  <div className="lg:hidden flex flex-col gap-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] uppercase tracking-widest text-white/40 mb-1">
                           {booking.propertyName}
                         </p>
-                        <p className="text-base font-light text-white">{booking.name}</p>
-                        <p className="text-xs text-white/40 mt-0.5">{booking.email}</p>
+                        <p className="text-base font-light text-white truncate">{booking.name}</p>
+                        {booking.email && <p className="text-xs text-white/40 mt-0.5 truncate">{booking.email}</p>}
                       </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] uppercase tracking-widest font-medium rounded-full whitespace-nowrap ${statusBadgeClass[booking.status]}`}>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`inline-flex items-center px-2 py-1 text-[10px] uppercase tracking-widest font-medium rounded-full border ${getSourceBadgeClass(booking.source)}`}>
+                          {getSourceLabel(booking.source)}
+                        </span>
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-[10px] uppercase tracking-widest font-medium rounded-full whitespace-nowrap ${statusBadgeClass[booking.status]}`}>
                           <StatusIcon status={booking.status} />
                           {statusLabel[booking.status]}
                         </span>
-                        <span className={`inline-flex items-center px-2 py-0.5 text-[9px] uppercase tracking-widest font-medium rounded-full border ${getSourceBadgeClass(booking.source)}`}>
-                          {getSourceLabel(booking.source)}
-                        </span>
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-x-6 gap-y-2">
-                      <div>
-                        <p className="text-[10px] uppercase tracking-widest text-white/40 mb-1">체크인 → 체크아웃</p>
-                        <p className="text-sm text-white/70 font-light">
-                          {formatDate(booking.checkIn)} → {formatDate(booking.checkOut)}
-                          {nights > 0 && (
-                            <span className="text-white/30 ml-2 text-xs">{nights}박</span>
-                          )}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] uppercase tracking-widest text-white/40 mb-1">인원</p>
-                        <p className="text-sm text-white/70 font-light">{booking.guests}명</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] uppercase tracking-widest text-white/40 mb-1">등록일</p>
-                        <p className="text-sm text-white/40 font-light">{formatCreatedAt(booking.createdAt)}</p>
-                      </div>
+                    <div className="flex items-center gap-4 text-sm text-white/60">
+                      <span>
+                        {formatDate(booking.checkIn)} → {formatDate(booking.checkOut)}
+                        {nights > 0 && <span className="text-white/30 ml-1.5">{nights}박</span>}
+                      </span>
+                      <span className="text-white/30">·</span>
+                      <span>{booking.guests}명</span>
                     </div>
 
                     {booking.status === 'confirmed' && (
-                      <div className="flex justify-end">
+                      <div className="flex justify-end pt-1">
                         <button
                           onClick={() => setConfirmCancelBooking(booking)}
                           disabled={isCancelling}
-                          className="flex items-center gap-1.5 text-[11px] tracking-widest text-white/40 hover:text-red-400 border border-white/10 hover:border-red-400/30 px-4 py-2 transition-colors disabled:opacity-30"
+                          className="flex items-center gap-1.5 text-xs tracking-widest text-white/40 hover:text-red-400 border border-white/10 hover:border-red-400/30 px-4 py-2.5 rounded-lg transition-colors disabled:opacity-30 active:scale-[0.98]"
                         >
                           <X size={12} />
                           취소
@@ -647,8 +630,8 @@ export default function BookingsPage() {
 
       {/* Cancel Confirmation Modal */}
       {confirmCancelBooking && (
-        <div className="fixed inset-0 bg-[#050505]/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-[#111] border border-white/10 p-10 w-full max-w-md">
+        <div className="fixed inset-0 bg-[#050505]/80 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 backdrop-blur-sm">
+          <div className="bg-[#111] border border-white/10 p-6 sm:p-10 w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl">
             <h2 className="text-xl font-light tracking-wide text-white mb-3">예약을 취소하시겠습니까?</h2>
             <p className="text-white/50 text-sm font-light tracking-wide mb-2">
               이 작업은 되돌릴 수 없습니다. 예약 상태가 &apos;취소됨&apos;으로 변경됩니다.
@@ -687,8 +670,8 @@ export default function BookingsPage() {
 
       {/* Create Booking Modal */}
       {isCreateOpen && (
-        <div className="fixed inset-0 bg-[#050505]/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-[#111] border border-white/10 p-10 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-[#050505]/80 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 backdrop-blur-sm">
+          <div className="bg-[#111] border border-white/10 p-6 sm:p-10 w-full sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl">
             <div className="flex items-center justify-between mb-8">
               <h2 className="text-xl font-light tracking-wide text-white">새 예약</h2>
               <button

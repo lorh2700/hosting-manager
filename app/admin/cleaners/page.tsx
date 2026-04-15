@@ -114,18 +114,18 @@ export default function CleanersPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-12">
-      <header className="border-b border-white/10 pb-8">
-        <p className="text-[10px] tracking-[0.3em] text-white/50 mb-4">설정</p>
-        <h1 className="text-3xl md:text-4xl font-light tracking-tight text-white">청소 담당자 관리</h1>
-        <p className="text-white/50 mt-4 text-sm font-light tracking-wide">
+    <div className="max-w-4xl mx-auto space-y-8 sm:space-y-12">
+      <header className="border-b border-white/10 pb-6 sm:pb-8">
+        <p className="text-[10px] tracking-[0.3em] text-white/50 mb-3 sm:mb-4">설정</p>
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-light tracking-tight text-white">청소 담당자 관리</h1>
+        <p className="text-white/50 mt-2 sm:mt-4 text-sm font-light tracking-wide">
           청소 담당자를 등록하고 청소 일정에 배정하세요.
         </p>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
         {/* 새 담당자 추가 폼 */}
-        <div className="bg-[#111] border border-white/10 p-8 lg:sticky lg:top-6">
+        <div className="bg-[#111] border border-white/10 p-5 sm:p-8 rounded-2xl sm:rounded-none lg:sticky lg:top-6">
           <h2 className="text-sm tracking-widest font-medium text-white mb-6">새 담당자 추가</h2>
 
           <div className="space-y-4 mb-8">
@@ -180,7 +180,7 @@ export default function CleanersPage() {
             </div>
           ) : (
             cleaners.map(cleaner => (
-              <div key={cleaner.id} className="bg-[#111] border border-white/10 p-6 group hover:border-white/30 transition-colors">
+              <div key={cleaner.id} className="bg-[#111] border border-white/10 p-5 sm:p-6 rounded-2xl sm:rounded-none group hover:border-white/30 transition-colors">
                 <div className="space-y-4">
                   <div>
                     <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">이름</label>

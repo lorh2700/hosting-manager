@@ -2,9 +2,10 @@ import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { prisma } from './prisma';
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'void-anchae-secret-key-change-in-production'
-);
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET 환경변수가 설정되지 않았습니다.');
+}
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 const COOKIE_NAME = 'va_session';
 const TOKEN_EXPIRY = '7d';
 
@@ -103,4 +104,27 @@ export async function verifySession(req: Request): Promise<{ userId: string; ema
   }
 
   return verifyToken(token);
+}
+
+/** Verify session AND load user + propertyIds in one step (eliminates duplicate DB queries) */
+export async function getSessionWithUser(req: Request) {
+  const session = await verifySession(req);
+  if (!session) return null;
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    include: { properties: { select: { propertyId: true } } },
+  });
+  if (!user) return null;
+
+  const isAdmin = ['super_admin', 'admin'].includes(user.role);
+
+  return {
+    session,
+    user,
+    isAdmin,
+    propertyIds: isAdmin
+      ? null // null = all properties (caller should query without filter)
+      : user.properties.map(p => p.propertyId),
+  };
 }

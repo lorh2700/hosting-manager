@@ -127,6 +127,7 @@ model Event {
   messages Message[]
 
   @@unique([propertyId, channelId, originalUid])
+  @@index([propertyId, type])
   @@map("events")
 }
 
@@ -147,6 +148,7 @@ model Booking {
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
+  @@index([propertyId, status])
   @@map("bookings")
 }
 
@@ -199,6 +201,8 @@ model Cleaning {
   applications CleaningApplication[]
   issues       CleaningIssue[]
 
+  @@index([propertyId, date])
+  @@index([cleanerId])
   @@map("cleanings")
 }
 
@@ -218,6 +222,7 @@ model CleaningApplication {
   cleaning Cleaning @relation(fields: [cleaningId], references: [id], onDelete: Cascade)
   property Property @relation(fields: [propertyId], references: [id])
 
+  @@index([cleaningId])
   @@map("cleaning_applications")
 }
 
@@ -240,6 +245,7 @@ model CleaningIssue {
   cleaning Cleaning? @relation(fields: [cleaningId], references: [id])
   property Property  @relation(fields: [propertyId], references: [id])
 
+  @@index([propertyId, status])
   @@map("cleaning_issues")
 }
 
@@ -263,6 +269,7 @@ model Message {
   property Property? @relation(fields: [propertyId], references: [id])
 
   @@index([eventId])
+  @@index([propertyId])
   @@index([sender, read])
   @@map("messages")
 }

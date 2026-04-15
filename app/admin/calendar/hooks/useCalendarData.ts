@@ -47,9 +47,12 @@ export function useCalendarData() {
           }
           setChannelMap(cMap);
 
-          const [eventsRes, bookingsRes] = await Promise.all([
+          const [eventsRes, bookingsRes, cleaningsRes, cleanersRes, supplyRes] = await Promise.all([
             fetch(`/api/events?propertyIds=${propIds.join(',')}`),
             fetch(`/api/bookings?propertyIds=${propIds.join(',')}&status=confirmed`),
+            fetch(`/api/cleanings?propertyIds=${propIds.join(',')}`),
+            fetch('/api/cleaners'),
+            fetch('/api/supply-todos'),
           ]);
           const eventsData = eventsRes.ok ? await eventsRes.json() : [];
           const bookingsData = bookingsRes.ok ? await bookingsRes.json() : [];
@@ -68,11 +71,6 @@ export function useCalendarData() {
           }
           setEvents(allEvents);
 
-          const [cleaningsRes, cleanersRes, supplyRes] = await Promise.all([
-            fetch(`/api/cleanings?propertyIds=${propIds.join(',')}`),
-            fetch('/api/cleaners'),
-            fetch('/api/supply-todos'),
-          ]);
           const cleaningsData = cleaningsRes.ok ? await cleaningsRes.json() : [];
           setCleanings(cleaningsData.map((c: Record<string, unknown>) => ({
             id: c.id, propertyId: c.propertyId, date: c.date, cleanerId: c.cleanerId || '',
@@ -142,16 +140,26 @@ export function useCalendarData() {
     start.setDate(start.getDate() - start.getDay());
     const result: Date[][] = [];
     const cur = new Date(start);
-    while (true) {
+    for (let w = 0; w < 6 && !(w > 0 && cur > lastDay); w++) {
       const week: Date[] = [];
       for (let d = 0; d < 7; d++) { week.push(new Date(cur)); cur.setDate(cur.getDate() + 1); }
       result.push(week);
-      if (cur > lastDay) break;
     }
     return result;
   }, [viewDate]);
 
   const cleanersMap = useMemo(() => new Map(cleaners.map(c => [c.id, c])), [cleaners]);
+
+  const propertiesMap = useMemo(
+    () => new Map(properties.map(p => [p.id, p])),
+    [properties],
+  );
+
+  const cleaningsIndex = useMemo(() => {
+    const map = new Map<string, Cleaning>();
+    cleanings.forEach(c => map.set(`${c.propertyId}_${c.date}`, c));
+    return map;
+  }, [cleanings]);
 
   const processedEvents = useMemo((): ProcessedEvent[] => {
     const isStayfolioChannel = (channelId: string) =>
@@ -167,10 +175,10 @@ export function useCalendarData() {
       return true;
     });
     return filtered.map(e => {
-      const prop = properties.find(p => p.id === e.propertyId);
+      const prop = propertiesMap.get(e.propertyId);
       const color = prop?.color ?? '#6366f1';
       const end = e.end.substring(0, 10);
-      const cleaning = cleanings.find(c => c.propertyId === e.propertyId && c.date === end);
+      const cleaning = cleaningsIndex.get(`${e.propertyId}_${end}`);
       const cleanerName = cleaning?.cleanerId ? (cleanersMap.get(cleaning.cleanerId)?.name ?? null) : null;
       return {
         id: e.id, propertyId: e.propertyId, color, propName: prop?.name ?? '',
@@ -180,7 +188,7 @@ export function useCalendarData() {
         cleanerName, supplies: cleaning?.supplies ?? null, status: cleaning?.status ?? null,
       };
     });
-  }, [events, cleanings, activeProps, properties, cleanersMap]);
+  }, [events, cleanings, activeProps, propertiesMap, cleanersMap, cleaningsIndex]);
 
   const activeProperties = useMemo(
     () => properties.filter(p => activeProps.has(p.id)),

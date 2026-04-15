@@ -59,16 +59,16 @@ export default function PropertiesPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-12">
-      <header className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-end border-b border-white/10 pb-8">
+    <div className="max-w-5xl mx-auto space-y-8 sm:space-y-12">
+      <header className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-end border-b border-white/10 pb-6 sm:pb-8">
         <div>
-          <p className="text-[10px] tracking-[0.3em] text-white/50 mb-4">관리</p>
-          <h1 className="text-3xl md:text-4xl font-light tracking-tight text-white">숙소 관리</h1>
-          <p className="text-white/50 mt-4 text-sm font-light tracking-wide">숙소와 채널 연결을 관리하세요.</p>
+          <p className="text-[10px] tracking-[0.3em] text-white/50 mb-3 sm:mb-4">관리</p>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-light tracking-tight text-white">숙소 관리</h1>
+          <p className="text-white/50 mt-2 sm:mt-4 text-sm font-light tracking-wide">숙소와 채널 연결을 관리하세요.</p>
         </div>
         <button
           onClick={() => setIsAddModalOpen(true)}
-          className="bg-white text-black px-6 py-3 text-[11px] tracking-widest font-semibold flex items-center justify-center gap-3 hover:bg-white/90 transition-colors shrink-0"
+          className="bg-white text-black px-6 py-3 text-[11px] tracking-widest font-semibold flex items-center justify-center gap-3 hover:bg-white/90 active:scale-[0.98] transition-all shrink-0"
         >
           <Plus size={16} />
           숙소 추가
@@ -84,9 +84,9 @@ export default function PropertiesPage() {
               <Link
                 key={property.id}
                 href={`/admin/properties/${property.id}`}
-                className="bg-[#111] p-8 border border-white/10 hover:border-white/40 transition-all group flex flex-col"
+                className="bg-[#111] p-6 sm:p-8 border border-white/10 hover:border-white/40 active:scale-[0.98] transition-all group flex flex-col rounded-2xl sm:rounded-none"
               >
-                <div className="flex justify-between items-start mb-8">
+                <div className="flex justify-between items-start mb-6 sm:mb-8">
                   <div className="text-white/50 group-hover:text-white transition-colors">
                     <Building size={24} strokeWidth={1.5} />
                   </div>
@@ -94,8 +94,8 @@ export default function PropertiesPage() {
                     <ChevronRight size={20} strokeWidth={1.5} />
                   </div>
                 </div>
-                <h2 className="text-xl font-light text-white mb-2 tracking-wide">{property.name}</h2>
-                <p className="text-[10px] tracking-widest text-white/40">시간대: {property.timezone}</p>
+                <h2 className="text-lg sm:text-xl font-light text-white mb-2 tracking-wide">{property.name}</h2>
+                <p className="text-[11px] tracking-widest text-white/40">시간대: {property.timezone}</p>
               </Link>
             ))}
           </div>
@@ -108,8 +108,8 @@ export default function PropertiesPage() {
       )}
 
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-[#050505]/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-[#111] border border-white/10 p-10 w-full max-w-md">
+        <div className="fixed inset-0 bg-[#050505]/80 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 backdrop-blur-sm">
+          <div className="bg-[#111] border border-white/10 p-6 sm:p-10 w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl">
             <h2 className="text-xl font-light tracking-widest text-white mb-8">새 숙소 추가</h2>
             <p className="text-white/40 text-xs font-light mb-6 leading-relaxed">
               숙소를 추가한 후 채널 설정에서 iCal URL을 설정하세요.

@@ -6,13 +6,8 @@ import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { Package, Check, X } from 'lucide-react';
 import type { SupplyRequest } from '@/lib/types';
-
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  pending: { label: '대기', color: 'text-amber-400', bg: 'bg-amber-500/20' },
-  approved: { label: '승인', color: 'text-blue-400', bg: 'bg-blue-500/20' },
-  rejected: { label: '거절', color: 'text-red-400', bg: 'bg-red-500/20' },
-  completed: { label: '완료', color: 'text-green-400', bg: 'bg-green-500/20' },
-};
+import { SUPPLY_STATUS_CONFIG } from '@/lib/constants';
+import { fetchPropertyNames, enrichWithPropertyName, apiPut } from '@/lib/api-client';
 
 export default function AdminSuppliesPage() {
   const { user, profile } = useAuth();
@@ -30,21 +25,13 @@ export default function AdminSuppliesPage() {
 
   const loadData = async () => {
     try {
-      const [propsRes, reqRes] = await Promise.all([
-        fetch('/api/properties'),
-        fetch('/api/supply-requests'),
+      const [propNames, reqData] = await Promise.all([
+        fetchPropertyNames(),
+        fetch('/api/supply-requests').then(r => r.json()) as Promise<SupplyRequest[]>,
       ]);
-      if (!propsRes.ok || !reqRes.ok) throw new Error('Failed to fetch data');
 
-      const propsData: any[] = await propsRes.json();
-      const propNames: Record<string, string> = {};
-      propsData.forEach(d => { propNames[d.id] = d.name; });
-
-      const reqData: any[] = await reqRes.json();
-      const result = reqData.map(d => ({
-        ...d,
-        propertyName: propNames[d.propertyId] ?? '알 수 없는 숙소',
-      } as SupplyRequest & { propertyName: string })).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      const result = enrichWithPropertyName(reqData, propNames)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
       setRequests(result);
     } catch (err) {
@@ -58,18 +45,13 @@ export default function AdminSuppliesPage() {
     if (!user) return;
     setUpdating(reqId);
     try {
-      const res = await fetch('/api/supply-requests', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: reqId,
-          status: action,
-          statusNote: statusNotes[reqId] || null,
-          processedBy: user.id,
-          processedAt: new Date().toISOString(),
-        }),
+      await apiPut('/api/supply-requests', {
+        id: reqId,
+        status: action,
+        statusNote: statusNotes[reqId] || null,
+        processedBy: user.id,
+        processedAt: new Date().toISOString(),
       });
-      if (!res.ok) throw new Error('Failed to update request');
       setRequests(prev => prev.map(r =>
         r.id === reqId ? { ...r, status: action, processedBy: user.id, processedAt: new Date().toISOString(), statusNote: statusNotes[reqId] || undefined } : r
       ));
@@ -92,10 +74,10 @@ export default function AdminSuppliesPage() {
   const pendingCount = requests.filter(r => r.status === 'pending').length;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8">
-      <header className="border-b border-white/10 pb-6">
+    <div className="max-w-3xl mx-auto space-y-6 sm:space-y-8">
+      <header className="border-b border-white/10 pb-5 sm:pb-6">
         <p className="text-[10px] tracking-[0.3em] text-white/50 mb-3">관리</p>
-        <h1 className="text-3xl font-light tracking-tight text-white">비품 요청 관리</h1>
+        <h1 className="text-2xl sm:text-3xl font-light tracking-tight text-white">비품 요청 관리</h1>
         {pendingCount > 0 && (
           <p className="text-amber-400 text-sm mt-2">{pendingCount}건의 새 요청</p>
         )}
@@ -109,7 +91,7 @@ export default function AdminSuppliesPage() {
           <button
             key={f.key}
             onClick={() => setFilter(f.key as typeof filter)}
-            className={`px-4 py-2 text-[10px] uppercase tracking-widest font-semibold transition-colors ${
+            className={`px-4 py-2.5 text-[11px] uppercase tracking-widest font-semibold rounded-lg transition-colors ${
               filter === f.key ? 'bg-white text-black' : 'border border-white/10 text-white/50 hover:text-white'
             }`}
           >
@@ -126,9 +108,9 @@ export default function AdminSuppliesPage() {
           </div>
         ) : (
           filtered.map(req => {
-            const st = STATUS_CONFIG[req.status];
+            const st = SUPPLY_STATUS_CONFIG[req.status];
             return (
-              <div key={req.id} className="bg-[#111] border border-white/10 p-5 space-y-3">
+              <div key={req.id} className="bg-[#111] border border-white/10 p-4 sm:p-5 rounded-2xl sm:rounded-none space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
@@ -161,28 +143,30 @@ export default function AdminSuppliesPage() {
 
                 {/* Actions */}
                 {req.status === 'pending' && (
-                  <div className="flex items-center gap-3 pt-2 border-t border-white/5">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 pt-2 border-t border-white/5">
                     <input
                       type="text"
                       value={statusNotes[req.id] ?? ''}
                       onChange={e => setStatusNotes(prev => ({ ...prev, [req.id]: e.target.value }))}
                       placeholder="메모 (선택)"
-                      className="flex-1 bg-black/50 border border-white/10 px-3 py-2 text-xs text-white focus:outline-none focus:border-white/30"
+                      className="flex-1 bg-black/50 border border-white/10 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 rounded-lg"
                     />
-                    <button
-                      onClick={() => handleAction(req.id, 'approved')}
-                      disabled={updating === req.id}
-                      className="bg-green-500/20 text-green-400 px-4 py-2 text-[10px] uppercase tracking-widest font-semibold hover:bg-green-500/30 transition-colors flex items-center gap-1"
-                    >
-                      <Check size={12} /> 승인
-                    </button>
-                    <button
-                      onClick={() => handleAction(req.id, 'rejected')}
-                      disabled={updating === req.id}
-                      className="bg-red-500/20 text-red-400 px-4 py-2 text-[10px] uppercase tracking-widest font-semibold hover:bg-red-500/30 transition-colors flex items-center gap-1"
-                    >
-                      <X size={12} /> 거절
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleAction(req.id, 'approved')}
+                        disabled={updating === req.id}
+                        className="flex-1 sm:flex-initial bg-green-500/20 text-green-400 px-4 py-2.5 text-[11px] uppercase tracking-widest font-semibold hover:bg-green-500/30 active:scale-[0.98] transition-all flex items-center justify-center gap-1 rounded-lg"
+                      >
+                        <Check size={13} /> 승인
+                      </button>
+                      <button
+                        onClick={() => handleAction(req.id, 'rejected')}
+                        disabled={updating === req.id}
+                        className="flex-1 sm:flex-initial bg-red-500/20 text-red-400 px-4 py-2.5 text-[11px] uppercase tracking-widest font-semibold hover:bg-red-500/30 active:scale-[0.98] transition-all flex items-center justify-center gap-1 rounded-lg"
+                      >
+                        <X size={13} /> 거절
+                      </button>
+                    </div>
                   </div>
                 )}
                 {req.status === 'approved' && (

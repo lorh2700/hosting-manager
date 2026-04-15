@@ -6,6 +6,7 @@ import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { CalendarDays, Check, X, Plus, Users } from 'lucide-react';
 import type { CleaningApplication, Cleaning } from '@/lib/types';
+import { fetchPropertyNames, enrichWithPropertyName, apiPut, apiPost } from '@/lib/api-client';
 
 interface EnrichedApplication extends CleaningApplication {
   propertyName: string;
@@ -43,29 +44,20 @@ export default function AdminCleaningRequestsPage() {
   const loadData = async () => {
     if (!user || !profile) return;
     try {
-      const [propsRes, appsRes, cleaningsRes] = await Promise.all([
-        fetch('/api/properties'),
-        fetch('/api/cleaning-applications'),
-        fetch('/api/cleanings?isOpen=true'),
+      const [propNames, appsData, cleaningsData] = await Promise.all([
+        fetchPropertyNames(),
+        fetch('/api/cleaning-applications').then(r => r.json()) as Promise<CleaningApplication[]>,
+        fetch('/api/cleanings?isOpen=true').then(r => r.json()),
       ]);
-      if (!propsRes.ok || !appsRes.ok || !cleaningsRes.ok) throw new Error('Failed to fetch data');
 
-      const propsData: any[] = await propsRes.json();
-      const propNames: Record<string, string> = {};
-      const propList: { id: string; name: string }[] = [];
-      propsData.forEach(d => {
-        propNames[d.id] = d.name;
-        propList.push({ id: d.id, name: d.name });
-      });
+      const propList = Object.entries(propNames).map(([id, name]) => ({ id, name }));
       setProperties(propList);
       if (propList.length > 0 && !newCleaningProp) setNewCleaningProp(propList[0].id);
 
-      const appsData: any[] = await appsRes.json();
-      const apps: EnrichedApplication[] = appsData.map(d => ({
+      const apps: EnrichedApplication[] = enrichWithPropertyName(appsData, propNames).map(d => ({
         ...d,
-        propertyName: propNames[d.propertyId] ?? '알 수 없는 숙소',
-        cleaningDate: d.cleaningDate ?? '',
-      } as EnrichedApplication));
+        cleaningDate: (d as unknown as Record<string, unknown>).cleaningDate as string ?? '',
+      }));
 
       setApplications(apps.sort((a, b) => {
         const statusOrder: Record<string, number> = { pending: 0, approved: 1, rejected: 2 };
@@ -79,10 +71,8 @@ export default function AdminCleaningRequestsPage() {
         appCounts[a.cleaningId] = (appCounts[a.cleaningId] ?? 0) + 1;
       });
 
-      const cleaningsData: any[] = await cleaningsRes.json();
-      const opens: OpenCleaning[] = cleaningsData.map(d => ({
+      const opens: OpenCleaning[] = enrichWithPropertyName(cleaningsData as (Cleaning & { propertyId: string })[], propNames).map(d => ({
         ...d,
-        propertyName: propNames[d.propertyId] ?? '알 수 없는 숙소',
         applicationCount: appCounts[d.id] ?? 0,
       } as OpenCleaning)).sort((a, b) => a.date.localeCompare(b.date));
 
@@ -98,48 +88,31 @@ export default function AdminCleaningRequestsPage() {
     if (!user) return;
     setUpdating(app.id);
     try {
-      // Approve this application
-      const approveRes = await fetch('/api/cleaning-applications', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: app.id,
-          status: 'approved',
-          processedBy: user.id,
-          processedAt: new Date().toISOString(),
-        }),
+      await apiPut('/api/cleaning-applications', {
+        id: app.id,
+        status: 'approved',
+        processedBy: user.id,
+        processedAt: new Date().toISOString(),
       });
-      if (!approveRes.ok) throw new Error('Failed to approve application');
 
-      // Assign cleaner to the cleaning
-      const assignRes = await fetch('/api/cleanings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: app.cleaningId,
-          cleanerId: app.applicantId,
-          isOpen: false,
-          assignmentType: 'applied',
-          updatedAt: new Date().toISOString(),
-        }),
+      await apiPut('/api/cleanings', {
+        id: app.cleaningId,
+        cleanerId: app.applicantId,
+        isOpen: false,
+        assignmentType: 'applied',
+        updatedAt: new Date().toISOString(),
       });
-      if (!assignRes.ok) throw new Error('Failed to assign cleaner');
 
-      // Reject other pending applications for the same cleaning
       const otherApps = applications.filter(
         a => a.cleaningId === app.cleaningId && a.id !== app.id && a.status === 'pending'
       );
       for (const other of otherApps) {
-        await fetch('/api/cleaning-applications', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: other.id,
-            status: 'rejected',
-            rejectedReason: '다른 담당자가 배정되었습니다',
-            processedBy: user.id,
-            processedAt: new Date().toISOString(),
-          }),
+        await apiPut('/api/cleaning-applications', {
+          id: other.id,
+          status: 'rejected',
+          rejectedReason: '다른 담당자가 배정되었습니다',
+          processedBy: user.id,
+          processedAt: new Date().toISOString(),
         });
       }
 
@@ -156,18 +129,13 @@ export default function AdminCleaningRequestsPage() {
     if (!user) return;
     setUpdating(app.id);
     try {
-      const res = await fetch('/api/cleaning-applications', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: app.id,
-          status: 'rejected',
-          rejectedReason: rejectReasons[app.id] || null,
-          processedBy: user.id,
-          processedAt: new Date().toISOString(),
-        }),
+      await apiPut('/api/cleaning-applications', {
+        id: app.id,
+        status: 'rejected',
+        rejectedReason: rejectReasons[app.id] || null,
+        processedBy: user.id,
+        processedAt: new Date().toISOString(),
       });
-      if (!res.ok) throw new Error('Failed to reject application');
       await loadData();
     } catch (err) {
       console.error(err);
@@ -181,20 +149,15 @@ export default function AdminCleaningRequestsPage() {
     if (!newCleaningProp || !newCleaningDate) return;
     setCreating(true);
     try {
-      const res = await fetch('/api/cleanings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          propertyId: newCleaningProp,
-          date: newCleaningDate,
-          cleanerId: null,
-          status: 'pending',
-          isOpen: true,
-          notes: newCleaningNotes.trim() || null,
-          createdAt: new Date().toISOString(),
-        }),
+      await apiPost('/api/cleanings', {
+        propertyId: newCleaningProp,
+        date: newCleaningDate,
+        cleanerId: null,
+        status: 'pending',
+        isOpen: true,
+        notes: newCleaningNotes.trim() || null,
+        createdAt: new Date().toISOString(),
       });
-      if (!res.ok) throw new Error('Failed to create cleaning');
       setNewCleaningDate('');
       setNewCleaningNotes('');
       setShowCreateForm(false);
@@ -214,10 +177,10 @@ export default function AdminCleaningRequestsPage() {
   const pendingApps = applications.filter(a => a.status === 'pending');
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8">
-      <header className="border-b border-white/10 pb-6">
+    <div className="max-w-3xl mx-auto space-y-6 sm:space-y-8">
+      <header className="border-b border-white/10 pb-5 sm:pb-6">
         <p className="text-[10px] tracking-[0.3em] text-white/50 mb-3">관리</p>
-        <h1 className="text-3xl font-light tracking-tight text-white">청소 일정 신청 관리</h1>
+        <h1 className="text-2xl sm:text-3xl font-light tracking-tight text-white">청소 일정 신청 관리</h1>
         {pendingApps.length > 0 && (
           <p className="text-amber-400 text-sm mt-2">{pendingApps.length}건의 대기 중인 신청</p>
         )}

@@ -174,14 +174,16 @@ export function useEventModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEvent?.eventId]);
 
-  // Fetch messages when modal opens + poll
+  // Fetch messages when modal opens + poll (only for beds24 channels)
   useEffect(() => {
     if (!selectedEvent?.eventId) { setModalMessages([]); setNewMessage(''); return; }
+    const isBeds24 = selectedEvent.channelId === 'beds24';
     setLoadingMessages(true);
+    let cancelled = false;
     const fetchMessages = async () => {
       try {
         const res = await fetch(`/api/messages?eventId=${selectedEvent.eventId}`);
-        if (!res.ok) { setModalMessages([]); return; }
+        if (!res.ok || cancelled) { if (!cancelled) setModalMessages([]); return; }
         const data = await res.json();
         const msgs: ModalMessage[] = (Array.isArray(data) ? data : []).map((m: Record<string, unknown>) => ({
           id: m.id as string, text: m.text as string, sender: m.sender as string,
@@ -190,17 +192,18 @@ export function useEventModal({
           deliveryStatus: m.deliveryStatus as string | undefined, read: m.read as boolean | undefined,
         }));
         msgs.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-        setModalMessages(msgs);
+        if (!cancelled) setModalMessages(msgs);
         const unreadIds = msgs.filter(m => m.sender === 'guest' && !m.read).map(m => m.id);
         if (unreadIds.length > 0) {
           fetch('/api/messages', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: unreadIds, read: true }) });
         }
-      } catch { setModalMessages([]); }
-      finally { setLoadingMessages(false); }
+      } catch { if (!cancelled) setModalMessages([]); }
+      finally { if (!cancelled) setLoadingMessages(false); }
     };
     fetchMessages();
-    const interval = setInterval(fetchMessages, 10000);
-    return () => clearInterval(interval);
+    // Only poll for beds24 channels (external messages)
+    const interval = isBeds24 ? setInterval(fetchMessages, 15000) : null;
+    return () => { cancelled = true; if (interval) clearInterval(interval); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEvent?.eventId]);
 

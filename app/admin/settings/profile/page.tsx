@@ -3,14 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { Save, Lock } from 'lucide-react';
-
-const ROLE_LABELS: Record<string, string> = {
-  super_admin: '슈퍼 어드민',
-  admin: '관리자',
-  host: '호스트',
-  cleaner: '청소 담당자',
-  viewer: '뷰어',
-};
+import { ROLE_LABELS } from '@/lib/constants';
 
 export default function ProfilePage() {
   const { user, profile, refreshProfile } = useAuth();
@@ -104,10 +97,10 @@ export default function ProfilePage() {
   if (!user || !profile) return null;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-12">
-      <header className="border-b border-white/10 pb-8">
-        <p className="text-[10px] tracking-[0.3em] text-white/50 mb-4">설정</p>
-        <h1 className="text-3xl md:text-4xl font-light tracking-tight text-white">내 프로필</h1>
+    <div className="max-w-2xl mx-auto space-y-8 sm:space-y-12">
+      <header className="border-b border-white/10 pb-6 sm:pb-8">
+        <p className="text-[10px] tracking-[0.3em] text-white/50 mb-3 sm:mb-4">설정</p>
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-light tracking-tight text-white">내 프로필</h1>
       </header>
 
       {/* Profile Info */}

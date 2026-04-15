@@ -31,19 +31,7 @@ interface Property {
   name: string;
 }
 
-const ROLE_LABELS: Record<UserRole, string> = {
-  super_admin: '슈퍼 어드민',
-  admin: '관리자',
-  host: '호스트',
-  cleaner: '청소 담당자',
-  viewer: '뷰어',
-};
-
-const STATUS_LABELS: Record<UserStatus, string> = {
-  active: '활성',
-  suspended: '비활성',
-  pending_invite: '승인 대기',
-};
+import { ROLE_LABELS, USER_STATUS_LABELS as STATUS_LABELS } from '@/lib/constants';
 
 export default function UsersPage() {
   const { user, profile } = useAuth();
@@ -212,18 +200,18 @@ export default function UsersPage() {
   const pendingInvitations = invitations.filter(i => i.status === 'pending');
 
   return (
-    <div className="max-w-4xl mx-auto space-y-12">
-      <header className="border-b border-white/10 pb-8 flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-end">
+    <div className="max-w-4xl mx-auto space-y-8 sm:space-y-12">
+      <header className="border-b border-white/10 pb-6 sm:pb-8 flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-end">
         <div>
-          <p className="text-[10px] tracking-[0.3em] text-white/50 mb-4">설정</p>
-          <h1 className="text-3xl md:text-4xl font-light tracking-tight text-white">유저 관리</h1>
-          <p className="text-white/50 mt-4 text-sm font-light tracking-wide">
+          <p className="text-[10px] tracking-[0.3em] text-white/50 mb-3 sm:mb-4">설정</p>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-light tracking-tight text-white">유저 관리</h1>
+          <p className="text-white/50 mt-2 sm:mt-4 text-sm font-light tracking-wide">
             유저의 역할, 상태 및 숙소 접근 권한을 관리합니다.
           </p>
         </div>
         <button
           onClick={() => setShowInviteForm(!showInviteForm)}
-          className="flex items-center gap-2 bg-white text-black px-6 py-3 text-[11px] uppercase tracking-widest font-semibold hover:bg-white/90 transition-colors shrink-0"
+          className="flex items-center justify-center gap-2 bg-white text-black px-6 py-3 text-[11px] uppercase tracking-widest font-semibold hover:bg-white/90 active:scale-[0.98] transition-all shrink-0"
         >
           <UserPlus size={14} />
           사용자 초대

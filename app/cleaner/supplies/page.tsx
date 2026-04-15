@@ -6,19 +6,11 @@ import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { Package, Plus, Trash2, Send } from 'lucide-react';
 import type { SupplyRequest, SupplyItem, IssueUrgency } from '@/lib/types';
+import { SUPPLY_STATUS_CONFIG, URGENCY_LABELS } from '@/lib/constants';
 
-const URGENCY: { value: IssueUrgency; label: string }[] = [
-  { value: 'low', label: '낮음' },
-  { value: 'normal', label: '보통' },
-  { value: 'urgent', label: '긴급' },
-];
-
-const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  pending: { label: '대기', color: 'bg-amber-500/20 text-amber-400' },
-  approved: { label: '승인', color: 'bg-blue-500/20 text-blue-400' },
-  rejected: { label: '거절', color: 'bg-red-500/20 text-red-400' },
-  completed: { label: '완료', color: 'bg-green-500/20 text-green-400' },
-};
+const URGENCY: { value: IssueUrgency; label: string }[] = (
+  Object.entries(URGENCY_LABELS) as [IssueUrgency, { label: string }][]
+).map(([value, { label }]) => ({ value, label }));
 
 export default function CleanerSuppliesPage() {
   const { user, profile } = useAuth();
@@ -215,7 +207,7 @@ export default function CleanerSuppliesPage() {
           </div>
         ) : (
           requests.map(req => {
-            const st = STATUS_LABELS[req.status] ?? STATUS_LABELS.pending;
+            const st = SUPPLY_STATUS_CONFIG[req.status] ?? SUPPLY_STATUS_CONFIG.pending;
             return (
               <div key={req.id} className="border border-white/10 bg-[#111] p-5">
                 <div className="flex items-start justify-between gap-3 mb-3">
@@ -225,7 +217,7 @@ export default function CleanerSuppliesPage() {
                       {format(parseISO(req.createdAt), 'M월 d일', { locale: ko })}
                     </p>
                   </div>
-                  <span className={`text-[10px] px-1.5 py-0.5 tracking-wider ${st.color}`}>{st.label}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 tracking-wider ${st.bg} ${st.color}`}>{st.label}</span>
                 </div>
                 <div className="space-y-1">
                   {req.items.map((item, i) => (

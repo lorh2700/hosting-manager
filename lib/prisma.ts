@@ -10,6 +10,9 @@ const pool = new pg.Pool({
   database: process.env.DB_NAME || 'postgres',
   user: process.env.DB_USER || 'postgres.hhftvzockfgigsfonivp',
   password: process.env.DB_PASSWORD || '',
+  max: 10,                // max connections in pool (default 10, explicit for clarity)
+  idleTimeoutMillis: 20000, // close idle connections after 20s
+  connectionTimeoutMillis: 5000, // fail fast if can't connect in 5s
 });
 const adapter = new PrismaPg(pool);
 

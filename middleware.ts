@@ -2,25 +2,22 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'void-anchae-secret-key-change-in-production'
-);
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET 환경변수가 설정되지 않았습니다.');
+}
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 const COOKIE_NAME = 'va_session';
 
 const PUBLIC_PATHS = [
   '/login',
+  '/setup',
+  '/invite',
   '/api/auth/login',
   '/api/auth/register',
   '/api/auth/logout',
   '/api/public',
-  '/api/cleanings',
-  '/api/cleaners',
-  '/api/supply-todos',
-  '/api/messages',
-  '/api/events',
-  '/api/bookings',
+  '/api/setup',
   '/api/sync',
-  '/admin/calendar',
   '/book',
   '/_next',
   '/favicon.ico',
