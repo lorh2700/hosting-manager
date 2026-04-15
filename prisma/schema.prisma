@@ -191,6 +191,8 @@ model Cleaning {
   status         String   @default("pending") // pending, done
   supplies       String?
   notes          String?
+  completionNote String?  @map("completion_note")
+  completedAt    DateTime? @map("completed_at")
   hasIssue       Boolean  @default(false) @map("has_issue")
   isOpen         Boolean  @default(false) @map("is_open")
   assignmentType String   @default("direct") @map("assignment_type")

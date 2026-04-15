@@ -122,8 +122,6 @@ export default function CleanerPage() {
           status: 'done',
           completedAt: new Date().toISOString(),
           completionNote: completionNote || null,
-          reportedBy: user.id,
-          updatedAt: new Date().toISOString(),
         }),
       });
       if (!res.ok) throw new Error('Failed to update');
@@ -170,7 +168,6 @@ export default function CleanerPage() {
         body: JSON.stringify({
           id: task.cleaningId,
           hasIssue: true,
-          updatedAt: new Date().toISOString(),
         }),
       });
 
