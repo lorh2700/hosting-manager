@@ -25,44 +25,25 @@ export function useCalendarData() {
     const fetchAll = async () => {
       try {
         if (isLoggedIn) {
-          const propsRes = await fetch('/api/properties');
-          const propsData = propsRes.ok ? await propsRes.json() : [];
-          const props: Property[] = (Array.isArray(propsData) ? propsData : []).map((d: Record<string, unknown>, i: number) => ({
+          const res = await fetch('/api/admin/calendar');
+          if (!res.ok) throw new Error('Failed to fetch admin calendar');
+          const data = await res.json();
+
+          const props: Property[] = (data.properties ?? []).map((d: Record<string, unknown>, i: number) => ({
             id: d.id as string, name: d.name as string, color: PROPERTY_COLORS[i % PROPERTY_COLORS.length],
             doorPassword: d.doorPassword as string | undefined, addressUrl: d.addressUrl as string | undefined,
             roomReadyMessage: d.roomReadyMessage as string | undefined,
           }));
           setProperties(props);
           setActiveProps(new Set(props.filter(p => !DISABLED_PROPERTY_NAMES.includes(p.name)).map(p => p.id)));
-          if (props.length === 0) return;
-          const propIds = props.map(p => p.id);
+          setChannelMap(data.channelMap ?? {});
 
-          const cMap: Record<string, string> = {};
-          for (const p of propsData) {
-            if (p.channels) {
-              for (const ch of Array.isArray(p.channels) ? p.channels : []) {
-                cMap[ch.name || ch.id] = ch.name || ch.id;
-              }
-            }
-          }
-          setChannelMap(cMap);
-
-          const [eventsRes, bookingsRes, cleaningsRes, cleanersRes, supplyRes] = await Promise.all([
-            fetch(`/api/events?propertyIds=${propIds.join(',')}`),
-            fetch(`/api/bookings?propertyIds=${propIds.join(',')}&status=confirmed`),
-            fetch(`/api/cleanings?propertyIds=${propIds.join(',')}`),
-            fetch('/api/cleaners'),
-            fetch('/api/supply-todos'),
-          ]);
-          const eventsData = eventsRes.ok ? await eventsRes.json() : [];
-          const bookingsData = bookingsRes.ok ? await bookingsRes.json() : [];
-
-          const allEvents: RawEvent[] = eventsData.map((e: Record<string, unknown>) => ({
+          const allEvents: RawEvent[] = (data.events ?? []).map((e: Record<string, unknown>) => ({
             id: e.id, propertyId: e.propertyId, channelId: e.channelId || '', source: e.source,
             title: e.title || '', start: (e.startDate || e.start) as string, end: (e.endDate || e.end) as string,
             type: e.type || 'reservation', description: e.description,
           }));
-          for (const bk of bookingsData) {
+          for (const bk of data.bookings ?? []) {
             allEvents.push({
               id: bk.id, propertyId: bk.propertyId, channelId: 'direct', source: 'direct',
               title: `${bk.name} 예약`, start: bk.checkIn, end: bk.checkOut, type: 'reservation',
@@ -71,14 +52,14 @@ export function useCalendarData() {
           }
           setEvents(allEvents);
 
-          const cleaningsData = cleaningsRes.ok ? await cleaningsRes.json() : [];
+          const cleaningsData = data.cleanings ?? [];
           setCleanings(cleaningsData.map((c: Record<string, unknown>) => ({
             id: c.id, propertyId: c.propertyId, date: c.date, cleanerId: c.cleanerId || '',
             status: c.status || 'pending', supplies: c.supplies,
           })));
-          setCleaners(cleanersRes.ok ? await cleanersRes.json() : []);
+          setCleaners(data.cleaners ?? []);
 
-          const supplyData = supplyRes.ok ? await supplyRes.json() : [];
+          const supplyData = data.supplyTodos ?? [];
           const propsNameMap = new Map(props.map(p => [p.id, p.name]));
           setAllSupplyTodos(supplyData.map((d: Record<string, unknown>) => ({
             id: d.id as string, propertyId: d.propertyId as string,

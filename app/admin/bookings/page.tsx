@@ -103,17 +103,12 @@ export default function BookingsPage() {
   const fetchData = async () => {
     if (!user) return;
     try {
-      // Fetch properties
-      const propsParams = new URLSearchParams();
-      if (profile?.role !== 'super_admin') {
-        propsParams.set('ownerId', user.id);
-      }
-      const propsRes = await fetch(`/api/properties?${propsParams}`);
-      if (!propsRes.ok) throw new Error('Failed to fetch properties');
-      const propsData: any[] = await propsRes.json();
+      const res = await fetch('/api/admin/bookings');
+      if (!res.ok) throw new Error('Failed to fetch bookings data');
+      const data = await res.json();
 
       const propsMap = new Map<string, PropertyInfo>();
-      propsData.forEach(d => {
+      (data.properties ?? []).forEach((d: any) => {
         propsMap.set(d.id, {
           id: d.id,
           name: d.name,
@@ -122,80 +117,61 @@ export default function BookingsPage() {
       });
       setProperties(propsMap);
 
-      const propertyIds = Array.from(propsMap.keys());
-      if (propertyIds.length === 0) {
-        setBookings([]);
-        return;
-      }
-
-      // Fetch bookings + events in parallel
-      const propIdsParam = propertyIds.join(',');
-      const [bookingsRes, eventsRes] = await Promise.all([
-        fetch(`/api/bookings?propertyIds=${propIdsParam}`),
-        fetch(`/api/events?propertyIds=${propIdsParam}&type=reservation`),
-      ]);
-
       const allBookings: Booking[] = [];
       const bookingRefSet = new Set<string>();
 
-      if (bookingsRes.ok) {
-        const bookingsData: any[] = await bookingsRes.json();
-        bookingsData.forEach(d => {
-          const propInfo = propsMap.get(d.propertyId);
-          const ref = d.channelBookingRef;
-          if (ref) bookingRefSet.add(String(ref));
+      (data.bookings ?? []).forEach((d: any) => {
+        const propInfo = propsMap.get(d.propertyId);
+        const ref = d.channelBookingRef;
+        if (ref) bookingRefSet.add(String(ref));
 
-          allBookings.push({
-            id: d.id,
-            propertyId: d.propertyId,
-            propertyName: propInfo?.name ?? '알 수 없는 숙소',
-            name: d.name ?? '',
-            email: d.email ?? '',
-            phone: d.phone ?? '',
-            checkIn: d.checkIn ?? '',
-            checkOut: d.checkOut ?? '',
-            guests: d.guests ?? 1,
-            adults: d.adults,
-            children: d.children,
-            status: d.status ?? 'pending',
-            createdAt: d.createdAt ?? '',
-            source: d.channelId === 'beds24' ? 'beds24' : 'direct',
-            channelBookingRef: ref ? String(ref) : undefined,
-            dataSource: 'bookings',
-          });
+        allBookings.push({
+          id: d.id,
+          propertyId: d.propertyId,
+          propertyName: propInfo?.name ?? '알 수 없는 숙소',
+          name: d.name ?? '',
+          email: d.email ?? '',
+          phone: d.phone ?? '',
+          checkIn: d.checkIn ?? '',
+          checkOut: d.checkOut ?? '',
+          guests: d.guests ?? 1,
+          adults: d.adults,
+          children: d.children,
+          status: d.status ?? 'pending',
+          createdAt: d.createdAt ?? '',
+          source: d.channelId === 'beds24' ? 'beds24' : 'direct',
+          channelBookingRef: ref ? String(ref) : undefined,
+          dataSource: 'bookings',
         });
-      }
+      });
 
-      if (eventsRes.ok) {
-        const eventsData: any[] = await eventsRes.json();
-        eventsData.forEach(d => {
-          const uid = d.originalUid ? String(d.originalUid) : '';
+      (data.events ?? []).forEach((d: any) => {
+        const uid = d.originalUid ? String(d.originalUid) : '';
 
-          // Deduplicate: skip if already in bookings via channelBookingRef
-          if (uid && bookingRefSet.has(uid)) return;
+        // Deduplicate: skip if already in bookings via channelBookingRef
+        if (uid && bookingRefSet.has(uid)) return;
 
-          const propInfo = propsMap.get(d.propertyId);
-          const parsed = parseEventDescription(d.description || '');
+        const propInfo = propsMap.get(d.propertyId);
+        const parsed = parseEventDescription(d.description || '');
 
-          allBookings.push({
-            id: d.id,
-            propertyId: d.propertyId,
-            propertyName: propInfo?.name ?? '알 수 없는 숙소',
-            name: d.title || parsed.name,
-            email: parsed.email,
-            phone: parsed.phone,
-            checkIn: d.startDate ?? '',
-            checkOut: d.endDate ?? '',
-            guests: parsed.guests,
-            status: 'confirmed',
-            createdAt: d.createdAt ?? '',
-            source: d.source || d.channelId || 'ota',
-            channelBookingRef: uid || undefined,
-            dataSource: 'events',
-            description: d.description,
-          });
+        allBookings.push({
+          id: d.id,
+          propertyId: d.propertyId,
+          propertyName: propInfo?.name ?? '알 수 없는 숙소',
+          name: d.title || parsed.name,
+          email: parsed.email,
+          phone: parsed.phone,
+          checkIn: d.startDate ?? '',
+          checkOut: d.endDate ?? '',
+          guests: parsed.guests,
+          status: 'confirmed',
+          createdAt: d.createdAt ?? '',
+          source: d.source || d.channelId || 'ota',
+          channelBookingRef: uid || undefined,
+          dataSource: 'events',
+          description: d.description,
         });
-      }
+      });
 
       allBookings.sort((a, b) => {
         // Sort by checkIn date descending
