@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, HomeIcon, Calendar, BookOpen, MessageSquare, Users, UserCog, LogOut, Settings, Link2, MoreHorizontal, X, FileBarChart } from 'lucide-react';
+import { Home, HomeIcon, Calendar, BookOpen, MessageSquare, Users, UserCog, LogOut, Settings, MoreHorizontal, X, FileBarChart } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 
 const SIDEBAR_LINKS = [
@@ -16,7 +16,6 @@ const SIDEBAR_LINKS = [
   { href: '/admin/cleaners', label: '청소 담당자', icon: Users, roles: ['super_admin', 'admin', 'host'] },
   { href: '/admin/cleaning-report', label: '청소 보고서', icon: FileBarChart, roles: ['super_admin', 'admin', 'host'] },
   { href: '/admin/users', label: '유저 관리', icon: UserCog, roles: ['super_admin', 'admin'] },
-  { href: '/admin/integrations', label: '연동 관리', icon: Link2, roles: ['super_admin', 'admin'] },
   { href: '/admin/settings/profile', label: '프로필', icon: Settings, roles: ['super_admin', 'admin', 'host', 'cleaner', 'viewer'] },
 ];
 

@@ -9,9 +9,20 @@ export async function GET(req: Request) {
 
     const propertyWhere = auth.isAdmin ? {} : { id: { in: auth.propertyIds! } };
 
+    // Date range: 2 months back ~ 13 months forward
+    const now = new Date();
+    const rangeFrom = new Date(now.getFullYear(), now.getMonth() - 2, 1)
+      .toISOString().split('T')[0];
+    const rangeTo = new Date(now.getFullYear(), now.getMonth() + 13, 0)
+      .toISOString().split('T')[0];
+
     const properties = await prisma.property.findMany({
       where: propertyWhere,
-      include: { channels: { select: { id: true, name: true } } },
+      select: {
+        id: true, name: true, doorPassword: true,
+        addressUrl: true, roomReadyMessage: true,
+        channels: { select: { id: true, name: true } },
+      },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -27,22 +38,36 @@ export async function GET(req: Request) {
 
     const [events, bookings, cleanings, cleaners, supplyTodos] = await Promise.all([
       prisma.event.findMany({
-        where: pidFilter,
+        where: { ...pidFilter, endDate: { gte: rangeFrom }, startDate: { lte: rangeTo } },
+        select: {
+          id: true, propertyId: true, channelId: true, source: true,
+          title: true, startDate: true, endDate: true, type: true, description: true,
+        },
         orderBy: { startDate: 'asc' },
-        take: 2000,
       }),
       prisma.booking.findMany({
-        where: { ...pidFilter, status: 'confirmed' },
-        orderBy: { createdAt: 'desc' },
-        take: 500,
+        where: { ...pidFilter, status: 'confirmed', checkOut: { gte: rangeFrom } },
+        select: {
+          id: true, propertyId: true, name: true, email: true,
+          guests: true, checkIn: true, checkOut: true,
+        },
+        orderBy: { checkIn: 'asc' },
       }),
       prisma.cleaning.findMany({
-        where: pidFilter,
-        include: { cleaner: true, applications: true },
+        where: { ...pidFilter, date: { gte: rangeFrom, lte: rangeTo } },
+        select: {
+          id: true, propertyId: true, date: true,
+          cleanerId: true, status: true, supplies: true,
+        },
         orderBy: { date: 'desc' },
       }),
-      prisma.cleaner.findMany(),
-      prisma.supplyTodo.findMany({ where: pidFilter }),
+      prisma.cleaner.findMany({
+        select: { id: true, name: true, phone: true },
+      }),
+      prisma.supplyTodo.findMany({
+        where: pidFilter,
+        select: { id: true, propertyId: true, date: true, text: true, done: true, createdAt: true },
+      }),
     ]);
 
     const channelMap: Record<string, string> = {};

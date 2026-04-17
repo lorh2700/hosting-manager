@@ -1,10 +1,17 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { syncICalChannel, logSync } from '@/lib/sync-engine';
+import { syncICalChannel, syncBeds24Property, logSync } from '@/lib/sync-engine';
 
 export async function POST(req: Request) {
-  const body = await req.json();
-  const { propertyId, triggeredBy } = body as { propertyId?: string; triggeredBy?: string };
+  let propertyId: string | undefined;
+  let triggeredBy: string | undefined;
+  try {
+    const body = await req.json();
+    propertyId = body.propertyId;
+    triggeredBy = body.triggeredBy;
+  } catch {
+    // body may be empty (e.g. dashboard sync button)
+  }
 
   try {
     // Determine which properties to sync
@@ -94,30 +101,19 @@ export async function POST(req: Request) {
         }
       }
 
-      // 3. Beds24 API sync
+      // 3. Beds24 API sync (direct function call — no internal HTTP)
       const property = await prisma.property.findUnique({ where: { id: propId }, select: { beds24PropId: true } });
       if (property?.beds24PropId) {
         try {
-          const beds24Res = await fetch(new URL('/api/beds24/sync', req.url).toString(), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ propertyId: propId, beds24PropId: property.beds24PropId }),
+          const beds24Data = await syncBeds24Property(propId, property.beds24PropId);
+          results.push({
+            propertyId: propId, integrationId: 'beds24-api', provider: 'beds24',
+            result: {
+              eventsFound: beds24Data.total, eventsCreated: beds24Data.eventsCreated,
+              eventsUpdated: beds24Data.eventsUpdated, eventsRemoved: beds24Data.eventsRemoved,
+              error: beds24Data.error,
+            },
           });
-          const beds24Data = await beds24Res.json();
-          if (beds24Res.ok) {
-            results.push({
-              propertyId: propId, integrationId: 'beds24-api', provider: 'beds24',
-              result: {
-                eventsFound: beds24Data.total || 0, eventsCreated: beds24Data.eventsCreated || 0,
-                eventsUpdated: beds24Data.eventsUpdated || 0, eventsRemoved: beds24Data.eventsRemoved || 0,
-              },
-            });
-          } else {
-            results.push({
-              propertyId: propId, integrationId: 'beds24-api', provider: 'beds24',
-              result: { eventsFound: 0, eventsCreated: 0, eventsUpdated: 0, eventsRemoved: 0, error: beds24Data.error },
-            });
-          }
         } catch (err) {
           results.push({
             propertyId: propId, integrationId: 'beds24-api', provider: 'beds24',
