@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionWithUser } from '@/lib/auth';
+import { addDays, endOfMonth, format, startOfMonth } from 'date-fns';
 
 export async function GET(req: Request) {
   try {
@@ -21,18 +22,37 @@ export async function GET(req: Request) {
       return NextResponse.json({ properties: 0, dayGroups: [], unreadMessages: 0, pendingSupplies: 0, openIssues: 0 });
     }
 
+    const now = new Date();
+    const rangeStart = format(startOfMonth(now), 'yyyy-MM-dd');
+    const weekEndStr = format(addDays(now, 6), 'yyyy-MM-dd');
+    const monthEndStr = format(endOfMonth(now), 'yyyy-MM-dd');
+    const rangeEnd = weekEndStr > monthEndStr ? weekEndStr : monthEndStr;
+
     // All data queries in parallel (was 2 sequential rounds before)
     const [events, bookings, cleanings, cleaners, unreadMessages, pendingSupplies, openIssues] = await Promise.all([
       prisma.event.findMany({
-        where: { propertyId: { in: propIds }, type: 'reservation' },
+        where: {
+          propertyId: { in: propIds },
+          type: 'reservation',
+          startDate: { lte: rangeEnd },
+          endDate: { gte: rangeStart },
+        },
         select: { id: true, propertyId: true, title: true, startDate: true, endDate: true, description: true },
       }),
       prisma.booking.findMany({
-        where: { propertyId: { in: propIds }, status: 'confirmed' },
-        select: { id: true, propertyId: true, name: true, checkIn: true, checkOut: true, phone: true, email: true },
+        where: {
+          propertyId: { in: propIds },
+          status: 'confirmed',
+          checkIn: { lte: rangeEnd },
+          checkOut: { gte: rangeStart },
+        },
+        select: { id: true, propertyId: true, name: true, checkIn: true, checkOut: true, phone: true, email: true, guests: true },
       }),
       prisma.cleaning.findMany({
-        where: { propertyId: { in: propIds } },
+        where: {
+          propertyId: { in: propIds },
+          date: { gte: rangeStart, lte: rangeEnd },
+        },
         select: { propertyId: true, date: true, cleanerId: true, status: true },
       }),
       auth.isAdmin
@@ -50,16 +70,23 @@ export async function GET(req: Request) {
         const desc = e.description || '';
         const phoneMatch = desc.match(/연락처:\s*(.+)/);
         const emailMatch = desc.match(/이메일:\s*(.+)/);
+        const adultMatch = desc.match(/성인\s*(\d+)/);
+        const childMatch = desc.match(/아동\s*(\d+)/);
+        const guests = (adultMatch ? Number(adultMatch[1]) : 0) + (childMatch ? Number(childMatch[1]) : 0);
         return {
           id: e.id, propertyId: e.propertyId, propertyName: propsMap[e.propertyId] || '',
           title: e.title || '', start: e.startDate, end: e.endDate,
           phone: phoneMatch?.[1]?.trim(), email: emailMatch?.[1]?.trim(),
+          guests: guests || undefined,
+          dataSource: 'event' as const,
         };
       }),
       ...bookings.map(b => ({
         id: b.id, propertyId: b.propertyId, propertyName: propsMap[b.propertyId] || '',
         title: b.name || '', start: b.checkIn, end: b.checkOut,
         phone: b.phone || undefined, email: b.email || undefined,
+        guests: b.guests || undefined,
+        dataSource: 'booking' as const,
       })),
     ];
 

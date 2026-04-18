@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
-import { format, parseISO, isToday, isTomorrow, isPast } from 'date-fns';
+import { format, parseISO, isToday, isTomorrow, isPast, differenceInCalendarDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { CheckCircle2, Clock, CalendarDays, AlertTriangle, ChevronDown, ChevronUp, Send } from 'lucide-react';
 import type { IssueCategory, IssueUrgency } from '@/lib/types';
@@ -196,15 +196,84 @@ export default function CleanerPage() {
     );
   }
 
-  const getDateLabel = (dateStr: string) => {
-    const d = parseISO(dateStr);
-    if (isToday(d)) return '오늘';
-    if (isTomorrow(d)) return '내일';
-    return format(d, 'M월 d일 (EEE)', { locale: ko });
-  };
-
   const upcoming = tasks.filter(t => !isPast(parseISO(t.date)) || isToday(parseISO(t.date)));
   const past = tasks.filter(t => isPast(parseISO(t.date)) && !isToday(parseISO(t.date)));
+
+  const groupByDate = (items: CleaningTask[]) => {
+    const map = new Map<string, CleaningTask[]>();
+    for (const t of items) {
+      const arr = map.get(t.date) ?? [];
+      arr.push(t);
+      map.set(t.date, arr);
+    }
+    return Array.from(map.entries());
+  };
+  const upcomingGroups = groupByDate(upcoming);
+  const pastGroups = groupByDate(past).reverse();
+
+  const WEEKDAY_KO = ['일', '월', '화', '수', '목', '금', '토'];
+
+  const DateHeader = ({ dateStr, count, variant }: { dateStr: string; count: number; variant: 'upcoming' | 'past' }) => {
+    const d = parseISO(dateStr);
+    const todayFlag = isToday(d);
+    const tomorrowFlag = isTomorrow(d);
+    const weekday = WEEKDAY_KO[d.getDay()];
+    const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+    const diff = differenceInCalendarDays(d, new Date());
+    let badge: { text: string; cls: string } | null = null;
+    if (todayFlag) badge = { text: '오늘', cls: 'bg-emerald-500 text-black' };
+    else if (tomorrowFlag) badge = { text: '내일', cls: 'bg-sky-500 text-black' };
+    else if (variant === 'upcoming' && diff > 0 && diff <= 7) badge = { text: `D-${diff}`, cls: 'bg-white/10 text-white/70' };
+
+    const isPastVariant = variant === 'past';
+    const containerCls = isPastVariant
+      ? 'bg-white/[0.06] border-white/20'
+      : todayFlag
+        ? 'bg-emerald-500/20 border-emerald-400/60 ring-1 ring-emerald-400/40'
+        : tomorrowFlag
+          ? 'bg-sky-500/15 border-sky-400/50'
+          : 'bg-white/10 border-white/30';
+
+    const dayCls = isPastVariant
+      ? 'text-white/60'
+      : todayFlag
+        ? 'text-emerald-200'
+        : tomorrowFlag
+          ? 'text-sky-200'
+          : 'text-white';
+
+    const weekdayCls = isPastVariant
+      ? 'text-white/40'
+      : isWeekend
+        ? d.getDay() === 0
+          ? 'text-rose-300'
+          : 'text-sky-300'
+        : 'text-white/80';
+
+    return (
+      <div className={`sticky top-0 z-10 backdrop-blur-md border rounded-xl px-4 py-3 flex items-center gap-3 ${containerCls}`}>
+        <div className="flex items-baseline gap-2 min-w-0 flex-1">
+          <span className={`text-3xl font-light tabular-nums tracking-tight ${dayCls}`}>
+            {format(d, 'd')}
+          </span>
+          <span className={`text-xs tracking-widest uppercase ${weekdayCls}`}>
+            {weekday}
+          </span>
+          <span className={`text-[11px] ${isPastVariant ? 'text-white/50' : 'text-white/70'}`}>
+            {format(d, 'yyyy.MM')}
+          </span>
+        </div>
+        {badge && (
+          <span className={`text-[10px] font-bold tracking-widest px-2 py-1 rounded-md ${badge.cls}`}>
+            {badge.text}
+          </span>
+        )}
+        <span className={`text-[11px] tracking-widest ${isPastVariant ? 'text-white/50' : 'text-white/80'}`}>
+          {count}건
+        </span>
+      </div>
+    );
+  };
 
   const TaskCard = ({ task }: { task: CleaningTask }) => {
     const isExpanded = expandedTask === task.cleaningId;
@@ -246,10 +315,6 @@ export default function CleanerPage() {
               )}
             </div>
             <div className="text-right shrink-0 flex flex-col items-end gap-2">
-              <div>
-                <p className="text-white text-sm font-medium">{getDateLabel(task.date)}</p>
-                <p className="text-white/30 text-[10px] mt-0.5">{task.date}</p>
-              </div>
               {task.status === 'pending' && (
                 isExpanded
                   ? <ChevronUp size={14} className="text-white/30" />
@@ -375,16 +440,30 @@ export default function CleanerPage() {
         </div>
       ) : (
         <>
-          {upcoming.length > 0 && (
-            <section className="space-y-3">
+          {upcomingGroups.length > 0 && (
+            <section className="space-y-6">
               <h2 className="text-[10px] uppercase tracking-widest text-white/40">예정된 일정 ({upcoming.length})</h2>
-              {upcoming.map(t => <TaskCard key={t.cleaningId} task={t} />)}
+              {upcomingGroups.map(([dateStr, items]) => (
+                <div key={dateStr} className="space-y-2">
+                  <DateHeader dateStr={dateStr} count={items.length} variant="upcoming" />
+                  <div className="space-y-2 pl-1">
+                    {items.map(t => <TaskCard key={t.cleaningId} task={t} />)}
+                  </div>
+                </div>
+              ))}
             </section>
           )}
-          {past.length > 0 && (
-            <section className="space-y-3">
+          {pastGroups.length > 0 && (
+            <section className="space-y-6">
               <h2 className="text-[10px] uppercase tracking-widest text-white/40">지난 일정 ({past.length})</h2>
-              {past.map(t => <TaskCard key={t.cleaningId} task={t} />)}
+              {pastGroups.map(([dateStr, items]) => (
+                <div key={dateStr} className="space-y-2">
+                  <DateHeader dateStr={dateStr} count={items.length} variant="past" />
+                  <div className="space-y-2 pl-1 opacity-75">
+                    {items.map(t => <TaskCard key={t.cleaningId} task={t} />)}
+                  </div>
+                </div>
+              ))}
             </section>
           )}
         </>

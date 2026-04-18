@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -319,6 +319,36 @@ export default function BookingsPage() {
     });
   }, [bookings, statusFilter, propertyFilter, sourceFilter]);
 
+  const PAGE_SIZE = 10;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [statusFilter, sourceFilter, propertyFilter]);
+
+  const visibleBookings = useMemo(
+    () => filteredBookings.slice(0, visibleCount),
+    [filteredBookings, visibleCount],
+  );
+  const hasMore = visibleCount < filteredBookings.length;
+
+  useEffect(() => {
+    if (!hasMore) return;
+    const node = loadMoreRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleCount(c => Math.min(c + PAGE_SIZE, filteredBookings.length));
+        }
+      },
+      { rootMargin: '200px' },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasMore, filteredBookings.length]);
+
   const statusLabel: Record<Booking['status'], string> = {
     confirmed: '확정',
     cancelled: '취소됨',
@@ -477,7 +507,7 @@ export default function BookingsPage() {
           </div>
 
           <div className="divide-y divide-white/5">
-            {filteredBookings.map(booking => {
+            {visibleBookings.map(booking => {
               const nights = getNights(booking.checkIn, booking.checkOut);
               const isCancelling = cancellingId === booking.id;
 
@@ -593,10 +623,20 @@ export default function BookingsPage() {
             })}
           </div>
 
+          {/* Infinite scroll sentinel */}
+          {hasMore && (
+            <div
+              ref={loadMoreRef}
+              className="flex items-center justify-center py-6 border-t border-white/5"
+            >
+              <Loader2 size={14} className="animate-spin text-white/30" />
+            </div>
+          )}
+
           {/* Footer count */}
           <div className="px-6 py-4 border-t border-white/5">
             <p className="text-[10px] tracking-widest text-white/25">
-              총 {filteredBookings.length}건
+              {visibleBookings.length} / {filteredBookings.length}건
               {statusFilter !== 'all' && ` · ${statusFilter === 'confirmed' ? '확정' : '취소됨'} 필터`}
               {sourceFilter !== 'all' && ` · ${sourceFilter === 'direct' ? '직접 예약' : 'OTA'} 필터`}
             </p>

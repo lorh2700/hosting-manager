@@ -3,7 +3,9 @@
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
-import { MessageSquare, Send, ChevronRight, RefreshCw } from 'lucide-react';
+import { MessageSquare, Send, ChevronRight, RefreshCw, Loader2 } from 'lucide-react';
+
+const PAGE_SIZE = 20;
 
 interface Message {
   id: string;
@@ -54,10 +56,14 @@ function MessagesContent() {
   const [sending, setSending] = useState(false);
   const [properties, setProperties] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const selectedEventIdRef = useRef<string | null>(null);
 
   // Load properties once
   useEffect(() => {
@@ -73,115 +79,31 @@ function MessagesContent() {
     loadProperties();
   }, [user]);
 
-  // Load all conversations (from events + messages)
-  const loadConversations = useCallback(async () => {
-    if (!user || Object.keys(properties).length === 0) return;
-    setLoading(true);
+  // Load a page of conversations from server (infinite scroll)
+  const loadPage = useCallback(async (offset: number, replace: boolean) => {
+    if (!user) return;
+    if (replace) setLoading(true); else setLoadingMore(true);
     try {
-      const propertyIds = Object.keys(properties);
-      const propertyIdsParam = propertyIds.join(',');
-
-      // Load messages
-      const msgsRes = await fetch(`/api/messages?propertyIds=${propertyIdsParam}`);
-      const allMessages: Message[] = msgsRes.ok ? await msgsRes.json() : [];
-
-      // Load events (reservations only)
-      const eventsRes = await fetch(`/api/events?propertyIds=${propertyIdsParam}&type=reservation`);
-      const allEvents: EventInfo[] = [];
-      if (eventsRes.ok) {
-        const eventsData = await eventsRes.json();
-        eventsData.forEach((d: any) => {
-          allEvents.push({
-            id: d.id,
-            propertyId: d.propertyId,
-            title: d.title,
-            start: d.startDate || d.start,
-            end: d.endDate || d.end,
-            description: d.description,
-          });
-        });
-      }
-
-      // Also load bookings
-      const bookingsRes = await fetch(`/api/bookings?propertyIds=${propertyIdsParam}&status=confirmed`);
-      if (bookingsRes.ok) {
-        const bookingsData = await bookingsRes.json();
-        bookingsData.forEach((d: any) => {
-          allEvents.push({
-            id: d.id,
-            propertyId: d.propertyId,
-            title: d.name || '게스트',
-            start: d.checkIn,
-            end: d.checkOut,
-            description: d.message || `게스트: ${d.name}\n연락처: ${d.email}\n인원: ${d.guests}명`,
-          });
-        });
-      }
-
-      // Group messages by eventId
-      const msgGrouped: Record<string, Message[]> = {};
-      allMessages.forEach(m => {
-        if (!msgGrouped[m.eventId]) msgGrouped[m.eventId] = [];
-        msgGrouped[m.eventId].push(m);
+      const res = await fetch(`/api/conversations?limit=${PAGE_SIZE}&offset=${offset}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const page: Conversation[] = data.conversations || [];
+      setHasMore(!!data.hasMore);
+      setConversations(prev => {
+        if (replace) return page;
+        const existing = new Set(prev.map(c => c.eventId));
+        return [...prev, ...page.filter(c => !existing.has(c.eventId))];
       });
 
-      // Build conversations from ALL events (not just those with messages)
-      const eventMap: Record<string, EventInfo> = {};
-      allEvents.forEach(e => { eventMap[e.id] = e; });
-
-      const convMap: Record<string, Conversation> = {};
-
-      // Create conversations only from events that have messages
-      allEvents.forEach(evt => {
-        const msgs = msgGrouped[evt.id];
-        if (!msgs || msgs.length === 0) return;
-
-        const sorted = [...msgs].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-        const last = sorted[sorted.length - 1];
-        const unread = msgs.filter(m => m.sender === 'guest' && !m.read).length;
-
-        convMap[evt.id] = {
-          eventId: evt.id,
-          propertyId: evt.propertyId,
-          guestName: evt.title.replace(/ 예약$/, ''),
-          propertyName: properties[evt.propertyId] || evt.propertyId,
-          lastMessage: last.text,
-          lastMessageAt: last.createdAt,
-          unread,
-          eventDescription: evt.description,
-          checkIn: evt.start,
-          checkOut: evt.end,
-        };
-      });
-
-      // Also add message-only conversations (not linked to known events)
-      Object.entries(msgGrouped).forEach(([eventId, msgs]) => {
-        if (convMap[eventId]) return;
-        const sorted = [...msgs].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-        const last = sorted[sorted.length - 1];
-        const unread = msgs.filter(m => m.sender === 'guest' && !m.read).length;
-        convMap[eventId] = {
-          eventId,
-          propertyId: last.propertyId,
-          guestName: last.guestName,
-          propertyName: properties[last.propertyId] || last.propertyId,
-          lastMessage: last.text,
-          lastMessageAt: last.createdAt,
-          unread,
-        };
-      });
-
-      const convs = Object.values(convMap)
-        .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt));
-      setConversations(convs);
-
-      // Auto-select from URL params
-      if (initialEventId && !selectedConv) {
-        const existing = convs.find(c => c.eventId === initialEventId);
+      // Auto-select from URL params (only on initial load)
+      if (replace && initialEventId && !selectedEventIdRef.current) {
+        const existing = page.find(c => c.eventId === initialEventId);
         if (existing) {
+          selectedEventIdRef.current = existing.eventId;
           setSelectedConv(existing);
         } else if (initialGuestName && initialPropertyId) {
-          const newConv: Conversation = {
+          selectedEventIdRef.current = initialEventId;
+          setSelectedConv({
             eventId: initialEventId,
             propertyId: initialPropertyId,
             guestName: decodeURIComponent(initialGuestName),
@@ -189,21 +111,34 @@ function MessagesContent() {
             lastMessage: '',
             lastMessageAt: new Date().toISOString(),
             unread: 0,
-          };
-          setSelectedConv(newConv);
+          });
         }
       }
     } finally {
-      setLoading(false);
+      if (replace) setLoading(false); else setLoadingMore(false);
     }
-  }, [user, properties, initialEventId, initialGuestName, initialPropertyId, selectedConv]);
+  }, [user, initialEventId, initialGuestName, initialPropertyId, properties]);
+
+  const loadConversations = useCallback(() => loadPage(0, true), [loadPage]);
 
   useEffect(() => {
-    if (Object.keys(properties).length > 0) {
-      loadConversations();
-    }
+    if (!user) return;
+    loadPage(0, true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [properties]);
+  }, [user]);
+
+  // Infinite scroll: observe sentinel
+  useEffect(() => {
+    const el = loadMoreRef.current;
+    if (!el || !hasMore || loading || loadingMore) return;
+    const observer = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) {
+        loadPage(conversations.length, false);
+      }
+    }, { rootMargin: '200px' });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, loading, loadingMore, conversations.length, loadPage]);
 
   // Poll messages for selected conversation (replaces onSnapshot)
   const fetchMessages = useCallback(async () => {
@@ -420,6 +355,16 @@ function MessagesContent() {
                   </div>
                 </button>
               ))
+            )}
+
+            {!loading && hasMore && (
+              <div ref={loadMoreRef} className="flex items-center justify-center py-4">
+                {loadingMore ? (
+                  <Loader2 size={16} className="animate-spin text-white/40" />
+                ) : (
+                  <span className="text-[10px] text-white/20 tracking-widest">스크롤하여 더 보기</span>
+                )}
+              </div>
             )}
 
             {/* Start new conversation from URL params when no existing conv */}
