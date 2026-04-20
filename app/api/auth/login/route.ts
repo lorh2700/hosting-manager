@@ -2,17 +2,25 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { signToken, setSessionCookie } from '@/lib/auth';
+import { phoneToSyntheticEmail } from '@/lib/phone';
 
 export async function POST(req: Request) {
   try {
-    const { email, password } = await req.json();
+    const { email, phone, password } = await req.json();
 
-    if (!email || !password) {
-      return NextResponse.json({ error: '이메일과 비밀번호를 입력해주세요.' }, { status: 400 });
+    if (!password || (!email && !phone)) {
+      return NextResponse.json({ error: '이메일 또는 전화번호와 비밀번호를 입력해주세요.' }, { status: 400 });
+    }
+
+    // Phone login resolves to the synthetic email used by the cleaner's
+    // auto-created User account.
+    const lookupEmail = email ?? (phone ? phoneToSyntheticEmail(phone) : null);
+    if (!lookupEmail) {
+      return NextResponse.json({ error: '전화번호 형식이 올바르지 않습니다.' }, { status: 400 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { email: lookupEmail },
       include: { properties: true },
     });
 

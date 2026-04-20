@@ -1,10 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/components/AuthProvider';
-import { format, parseISO, addDays, startOfWeek, isToday } from 'date-fns';
+import {
+  format,
+  parseISO,
+  addDays,
+  addMonths,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  isSameMonth,
+  isToday,
+  isBefore,
+  isAfter,
+  isSameDay,
+} from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { CalendarDays, Hand, CheckCircle2, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarDays, Hand, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface OpenCleaning {
   id: string;
@@ -29,6 +43,8 @@ interface MyApplication {
   createdAt: string;
 }
 
+const FORWARD_DAYS = 28;
+
 export default function CleanerSchedulePage() {
   const { user, profile } = useAuth();
   const [openCleanings, setOpenCleanings] = useState<OpenCleaning[]>([]);
@@ -37,19 +53,19 @@ export default function CleanerSchedulePage() {
   const [applying, setApplying] = useState<string | null>(null);
   const [applyNote, setApplyNote] = useState('');
   const [showApplyForm, setShowApplyForm] = useState<string | null>(null);
-  const [weekOffset, setWeekOffset] = useState(0);
+  const [monthCursor, setMonthCursor] = useState(() => startOfMonth(new Date()));
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user || !profile) return;
     loadData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, profile, weekOffset]);
+  }, [user, profile]);
 
   const loadData = async () => {
     if (!user || !profile) return;
     setLoading(true);
     try {
-      // Fetch properties
       const propsRes = await fetch('/api/properties');
       const propsData = await propsRes.json();
       const propNames: Record<string, string> = {};
@@ -60,9 +76,11 @@ export default function CleanerSchedulePage() {
       }
       if (propertyIds.length === 0) { setLoading(false); return; }
 
-      // Fetch open cleanings
       const cleaningsRes = await fetch(`/api/cleanings?propertyIds=${propertyIds.join(',')}&isOpen=true`);
       const cleaningsData = await cleaningsRes.json();
+
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const cutoff = format(addDays(new Date(), FORWARD_DAYS), 'yyyy-MM-dd');
 
       const opens: OpenCleaning[] = cleaningsData.map((c: Record<string, unknown>) => ({
         id: c.id as string,
@@ -74,19 +92,16 @@ export default function CleanerSchedulePage() {
         isOpen: c.isOpen as boolean,
         cleanerId: c.cleanerId as string | undefined,
         status: c.status as 'pending' | 'done',
-      })).sort((a: OpenCleaning, b: OpenCleaning) => a.date.localeCompare(b.date));
+      }))
+        .filter((c: OpenCleaning) => c.date >= today && c.date <= cutoff)
+        .sort((a: OpenCleaning, b: OpenCleaning) => a.date.localeCompare(b.date));
 
       setOpenCleanings(opens);
 
-      // Fetch my applications
-      const appsRes = await fetch(`/api/cleaning-applications?propertyIds=${propertyIds.join(',')}`);
+      const appsRes = await fetch(`/api/cleaning-applications`);
       const appsData = await appsRes.json();
 
-      // Filter to only my applications
-      const myApps = appsData.filter((a: Record<string, unknown>) => a.applicantId === user.id);
-
-      const apps: MyApplication[] = myApps.map((a: Record<string, unknown>) => {
-        // Find cleaning info from already fetched cleanings
+      const apps: MyApplication[] = appsData.map((a: Record<string, unknown>) => {
         const cleaning = cleaningsData.find((c: Record<string, unknown>) => c.id === a.cleaningId);
         return {
           id: a.id as string,
@@ -138,17 +153,47 @@ export default function CleanerSchedulePage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="w-8 h-8 border-t-2 border-white rounded-full animate-spin" />
-      </div>
-    );
-  }
+  const today = new Date();
+  const windowStart = today;
+  const windowEnd = addDays(today, FORWARD_DAYS);
 
-  // Week navigation
-  const weekStart = startOfWeek(addDays(new Date(), weekOffset * 7), { weekStartsOn: 1 });
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const cleaningsByDate = useMemo(() => {
+    const map = new Map<string, OpenCleaning[]>();
+    for (const c of openCleanings) {
+      if (!map.has(c.date)) map.set(c.date, []);
+      map.get(c.date)!.push(c);
+    }
+    return map;
+  }, [openCleanings]);
+
+  const applicationsByCleaningId = useMemo(() => {
+    const map = new Map<string, MyApplication>();
+    for (const a of myApplications) {
+      // Prefer the most recent non-rejected record
+      const existing = map.get(a.cleaningId);
+      if (!existing || (existing.status === 'rejected' && a.status !== 'rejected')) {
+        map.set(a.cleaningId, a);
+      }
+    }
+    return map;
+  }, [myApplications]);
+
+  const calendarDays = useMemo(() => {
+    const gridStart = startOfWeek(startOfMonth(monthCursor), { weekStartsOn: 1 });
+    const gridEnd = endOfWeek(endOfMonth(monthCursor), { weekStartsOn: 1 });
+    const days: Date[] = [];
+    for (let d = gridStart; !isAfter(d, gridEnd); d = addDays(d, 1)) {
+      days.push(d);
+    }
+    return days;
+  }, [monthCursor]);
+
+  const selectedCleanings = selectedDate ? cleaningsByDate.get(selectedDate) ?? [] : [];
+
+  const hasApplied = (cleaningId: string) => {
+    const app = applicationsByCleaningId.get(cleaningId);
+    return app && app.status !== 'rejected';
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -159,103 +204,264 @@ export default function CleanerSchedulePage() {
     }
   };
 
-  // Check if user already applied for a cleaning
-  const hasApplied = (cleaningId: string) =>
-    myApplications.some(a => a.cleaningId === cleaningId && a.status !== 'rejected');
+  const canGoPrev = isAfter(startOfMonth(monthCursor), startOfMonth(today));
+  const canGoNext = isBefore(startOfMonth(monthCursor), startOfMonth(windowEnd));
+
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="w-8 h-8 border-t-2 border-white rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-10">
       <header className="border-b border-white/10 pb-6 mt-4">
         <p className="text-[10px] tracking-[0.3em] text-white/50 mb-2">일정 관리</p>
         <h1 className="text-2xl font-light tracking-tight text-white">청소 일정 신청</h1>
+        <p className="text-white/40 text-xs mt-2 tracking-wide">
+          앞으로 4주 이내의 미배정 청소를 신청할 수 있습니다.
+        </p>
       </header>
 
-      {/* Week Navigation */}
-      <div className="flex items-center justify-between">
-        <button onClick={() => setWeekOffset(w => w - 1)} className="text-white/40 hover:text-white p-2">
-          <ChevronLeft size={20} />
-        </button>
-        <div className="flex gap-1">
-          {weekDays.map(d => (
-            <div key={d.toISOString()} className={`text-center px-2 py-1 text-xs ${
-              isToday(d) ? 'text-white bg-white/10' : 'text-white/40'
-            }`}>
-              <div className="text-[9px] uppercase">{format(d, 'EEE', { locale: ko })}</div>
-              <div>{format(d, 'd')}</div>
+      {/* Month calendar */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => canGoPrev && setMonthCursor(addMonths(monthCursor, -1))}
+            disabled={!canGoPrev}
+            className="text-white/40 hover:text-white p-2 disabled:opacity-20 disabled:cursor-not-allowed"
+            aria-label="이전 달"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <h2 className="text-white text-lg font-light tracking-widest">
+            {format(monthCursor, 'yyyy년 M월', { locale: ko })}
+          </h2>
+          <button
+            onClick={() => canGoNext && setMonthCursor(addMonths(monthCursor, 1))}
+            disabled={!canGoNext}
+            className="text-white/40 hover:text-white p-2 disabled:opacity-20 disabled:cursor-not-allowed"
+            aria-label="다음 달"
+          >
+            <ChevronRight size={20} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-7 gap-px bg-white/5 border border-white/10">
+          {['월', '화', '수', '목', '금', '토', '일'].map(d => (
+            <div key={d} className="bg-[#0a0a0a] text-center py-2 text-[10px] uppercase tracking-widest text-white/40">
+              {d}
             </div>
           ))}
-        </div>
-        <button onClick={() => setWeekOffset(w => w + 1)} className="text-white/40 hover:text-white p-2">
-          <ChevronRight size={20} />
-        </button>
-      </div>
+          {calendarDays.map(d => {
+            const dateStr = format(d, 'yyyy-MM-dd');
+            const dayCleanings = cleaningsByDate.get(dateStr) ?? [];
+            const inWindow = !isBefore(d, startOfMonth(windowStart)) &&
+                             !isAfter(d, windowEnd) &&
+                             !isBefore(d, new Date(windowStart.getFullYear(), windowStart.getMonth(), windowStart.getDate()));
+            const inCurrentMonth = isSameMonth(d, monthCursor);
+            const isSelected = selectedDate === dateStr;
+            const todayCell = isToday(d);
+            const hasOpen = dayCleanings.length > 0;
+            const myAppOnDay = dayCleanings.some(c => hasApplied(c.id));
 
-      {/* Open Cleanings */}
-      <section className="space-y-3">
-        <h2 className="text-[10px] uppercase tracking-widest text-white/40">신청 가능한 일정 ({openCleanings.length})</h2>
-        {openCleanings.length === 0 ? (
-          <div className="flex flex-col items-center text-white/40 py-12">
-            <CalendarDays size={28} className="mb-3 opacity-50" />
-            <p className="text-sm">현재 신청 가능한 일정이 없습니다.</p>
-          </div>
-        ) : (
-          openCleanings.map(c => (
-            <div key={c.id} className="border border-white/10 bg-[#111] p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1">
-                  <p className="text-white font-medium text-sm">{c.propertyName}</p>
-                  <p className="text-white/40 text-xs mt-1">
-                    {format(parseISO(c.date), 'M월 d일 (EEE)', { locale: ko })}
-                  </p>
-                  {c.notes && <p className="text-white/30 text-xs mt-1">{c.notes}</p>}
+            return (
+              <button
+                key={dateStr}
+                onClick={() => hasOpen && setSelectedDate(isSelected ? null : dateStr)}
+                disabled={!hasOpen}
+                className={`bg-[#0f0f0f] min-h-[72px] p-2 flex flex-col items-start text-left transition-colors ${
+                  hasOpen ? 'hover:bg-[#1a1a1a] cursor-pointer' : 'cursor-default'
+                } ${isSelected ? 'ring-1 ring-white/60 bg-[#1a1a1a]' : ''} ${
+                  !inCurrentMonth ? 'opacity-30' : ''
+                } ${!inWindow && inCurrentMonth ? 'opacity-50' : ''}`}
+              >
+                <div className={`text-xs ${todayCell ? 'text-white font-semibold' : 'text-white/60'} ${
+                  isSameDay(d, today) ? 'bg-white/10 px-1.5 rounded-sm' : ''
+                }`}>
+                  {format(d, 'd')}
                 </div>
-                <div>
-                  {hasApplied(c.id) ? (
-                    <span className="text-[10px] text-green-400 tracking-wider flex items-center gap-1">
-                      <CheckCircle2 size={12} /> 신청완료
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => setShowApplyForm(showApplyForm === c.id ? null : c.id)}
-                      className="border border-white/20 text-white px-3 py-2 text-[10px] uppercase tracking-widest font-semibold hover:bg-white/5 transition-colors flex items-center gap-1.5"
-                    >
-                      <Hand size={12} /> 신청
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {showApplyForm === c.id && (
-                <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">메모 (선택)</label>
-                    <input
-                      type="text"
-                      value={applyNote}
-                      onChange={e => setApplyNote(e.target.value)}
-                      placeholder="예: 오전에 가능합니다"
-                      className="w-full bg-black/50 border border-white/10 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30"
-                    />
-                  </div>
-                  <button
-                    onClick={() => handleApply(c)}
-                    disabled={applying === c.id}
-                    className="w-full bg-white text-black py-3 text-[11px] uppercase tracking-widest font-semibold hover:bg-white/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {applying === c.id ? (
-                      <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                    ) : (
-                      '신청하기'
+                {hasOpen && (
+                  <div className="mt-auto w-full space-y-0.5">
+                    {dayCleanings.slice(0, 2).map(c => (
+                      <div
+                        key={c.id}
+                        className={`text-[9px] truncate px-1 py-0.5 tracking-wide ${
+                          hasApplied(c.id)
+                            ? 'bg-green-500/20 text-green-400'
+                            : 'bg-white/10 text-white/70'
+                        }`}
+                      >
+                        {c.propertyName}
+                      </div>
+                    ))}
+                    {dayCleanings.length > 2 && (
+                      <div className="text-[9px] text-white/40 px-1">+{dayCleanings.length - 2}</div>
                     )}
-                  </button>
-                </div>
-              )}
-            </div>
-          ))
-        )}
+                    {myAppOnDay && dayCleanings.length <= 2 && (
+                      <div className="text-[9px] text-green-400/60 px-1 flex items-center gap-0.5">
+                        <CheckCircle2 size={8} />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center gap-4 text-[10px] text-white/40 tracking-wider">
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 bg-white/10 inline-block" /> 신청 가능
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 bg-green-500/20 inline-block" /> 신청함
+          </div>
+        </div>
       </section>
 
-      {/* My Applications */}
+      {/* Selected day detail */}
+      {selectedDate && (
+        <section className="space-y-3">
+          <h2 className="text-[10px] uppercase tracking-widest text-white/40">
+            {format(parseISO(selectedDate), 'M월 d일 (EEE)', { locale: ko })} 신청 가능한 일정 ({selectedCleanings.length})
+          </h2>
+          {selectedCleanings.length === 0 ? (
+            <div className="flex flex-col items-center text-white/40 py-8">
+              <CalendarDays size={24} className="mb-2 opacity-50" />
+              <p className="text-xs">이 날짜에 신청 가능한 일정이 없습니다.</p>
+            </div>
+          ) : (
+            selectedCleanings.map(c => (
+              <div key={c.id} className="border border-white/10 bg-[#111] p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <p className="text-white font-medium text-sm">{c.propertyName}</p>
+                    <p className="text-white/40 text-xs mt-1">
+                      {format(parseISO(c.date), 'M월 d일 (EEE)', { locale: ko })}
+                    </p>
+                    {c.notes && <p className="text-white/30 text-xs mt-1">{c.notes}</p>}
+                  </div>
+                  <div>
+                    {hasApplied(c.id) ? (
+                      <span className="text-[10px] text-green-400 tracking-wider flex items-center gap-1">
+                        <CheckCircle2 size={12} /> 신청완료
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setShowApplyForm(showApplyForm === c.id ? null : c.id)}
+                        className="border border-white/20 text-white px-3 py-2 text-[10px] uppercase tracking-widest font-semibold hover:bg-white/5 transition-colors flex items-center gap-1.5"
+                      >
+                        <Hand size={12} /> 신청
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {showApplyForm === c.id && (
+                  <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">메모 (선택)</label>
+                      <input
+                        type="text"
+                        value={applyNote}
+                        onChange={e => setApplyNote(e.target.value)}
+                        placeholder="예: 오전에 가능합니다"
+                        className="w-full bg-black/50 border border-white/10 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30"
+                      />
+                    </div>
+                    <button
+                      onClick={() => handleApply(c)}
+                      disabled={applying === c.id}
+                      className="w-full bg-white text-black py-3 text-[11px] uppercase tracking-widest font-semibold hover:bg-white/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {applying === c.id ? (
+                        <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                      ) : (
+                        '신청하기'
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </section>
+      )}
+
+      {/* Upcoming list */}
+      {!selectedDate && (
+        <section className="space-y-3">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-[10px] uppercase tracking-widest text-white/40">신청 가능한 일정 ({openCleanings.length})</h2>
+            <p className="text-[10px] text-white/30 tracking-wider">앞으로 4주</p>
+          </div>
+          {openCleanings.length === 0 ? (
+            <div className="flex flex-col items-center text-white/40 py-12">
+              <CalendarDays size={28} className="mb-3 opacity-50" />
+              <p className="text-sm">앞으로 4주간 신청 가능한 일정이 없습니다.</p>
+            </div>
+          ) : (
+            openCleanings.map(c => (
+              <div key={c.id} className="border border-white/10 bg-[#111] p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <p className="text-white font-medium text-sm">{c.propertyName}</p>
+                    <p className="text-white/40 text-xs mt-1">
+                      {format(parseISO(c.date), 'M월 d일 (EEE)', { locale: ko })}
+                    </p>
+                    {c.notes && <p className="text-white/30 text-xs mt-1">{c.notes}</p>}
+                  </div>
+                  <div>
+                    {hasApplied(c.id) ? (
+                      <span className="text-[10px] text-green-400 tracking-wider flex items-center gap-1">
+                        <CheckCircle2 size={12} /> 신청완료
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setShowApplyForm(showApplyForm === c.id ? null : c.id)}
+                        className="border border-white/20 text-white px-3 py-2 text-[10px] uppercase tracking-widest font-semibold hover:bg-white/5 transition-colors flex items-center gap-1.5"
+                      >
+                        <Hand size={12} /> 신청
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {showApplyForm === c.id && (
+                  <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">메모 (선택)</label>
+                      <input
+                        type="text"
+                        value={applyNote}
+                        onChange={e => setApplyNote(e.target.value)}
+                        placeholder="예: 오전에 가능합니다"
+                        className="w-full bg-black/50 border border-white/10 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30"
+                      />
+                    </div>
+                    <button
+                      onClick={() => handleApply(c)}
+                      disabled={applying === c.id}
+                      className="w-full bg-white text-black py-3 text-[11px] uppercase tracking-widest font-semibold hover:bg-white/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {applying === c.id ? (
+                        <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                      ) : (
+                        '신청하기'
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </section>
+      )}
+
+      {/* My applications */}
       {myApplications.length > 0 && (
         <section className="space-y-3">
           <h2 className="text-[10px] uppercase tracking-widest text-white/40">내 신청 내역 ({myApplications.length})</h2>

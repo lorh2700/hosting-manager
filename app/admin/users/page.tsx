@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
-import { Save, UserCog, UserPlus, Copy, Check, Ban, ShieldCheck } from 'lucide-react';
+import { Save, UserCog, UserPlus, Copy, Check, Ban, ShieldCheck, Trash2 } from 'lucide-react';
 import type { UserRole, UserStatus } from '@/lib/types';
 
 interface UserRecord {
@@ -40,6 +40,7 @@ export default function UsersPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   // Invite form
   const [showInviteForm, setShowInviteForm] = useState(false);
@@ -126,6 +127,30 @@ export default function UsersPage() {
       alert('저장에 실패했습니다.');
     } finally {
       setSaving(null);
+    }
+  };
+
+  const handleDelete = async (userRecord: UserRecord) => {
+    if (userRecord.id === user?.id) {
+      alert('자기 자신은 삭제할 수 없습니다.');
+      return;
+    }
+    const label = userRecord.displayName || userRecord.email;
+    if (!confirm(`${label} 계정을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+    setDeleting(userRecord.id);
+    try {
+      const res = await fetch(`/api/users/${userRecord.id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || '삭제에 실패했습니다.');
+        return;
+      }
+      setUsers(prev => prev.filter(u => u.id !== userRecord.id));
+    } catch (err) {
+      console.error(err);
+      alert('삭제에 실패했습니다.');
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -244,9 +269,11 @@ export default function UsersPage() {
                 >
                   <option value="admin">관리자</option>
                   <option value="host">호스트</option>
-                  <option value="cleaner">청소 담당자</option>
                   <option value="viewer">뷰어</option>
                 </select>
+                <p className="text-[10px] text-white/30 mt-1.5">
+                  청소 담당자는 청소 담당자 관리 페이지에서 먼저 등록한 뒤 포털 초대하세요.
+                </p>
               </div>
             </div>
 
@@ -420,7 +447,17 @@ export default function UsersPage() {
                 </div>
               )}
 
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-2">
+                {userRecord.id !== user?.id && (
+                  <button
+                    onClick={() => handleDelete(userRecord)}
+                    disabled={deleting === userRecord.id}
+                    className="flex items-center gap-2 text-red-400/70 hover:text-red-400 border border-red-500/20 hover:border-red-500/40 px-4 py-2 text-[10px] tracking-widest font-semibold transition-colors disabled:opacity-50"
+                  >
+                    <Trash2 size={13} />
+                    {deleting === userRecord.id ? '삭제 중...' : '삭제'}
+                  </button>
+                )}
                 <button
                   onClick={() => handleSave(userRecord)}
                   disabled={saving === userRecord.id}

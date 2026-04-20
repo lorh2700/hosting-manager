@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
-import { CalendarDays, AlertTriangle, Package, History, ClipboardList } from 'lucide-react';
+import { CalendarDays, AlertTriangle, Package, History, ClipboardList, LogOut } from 'lucide-react';
 
 const NAV_ITEMS = [
   { href: '/cleaner', label: '오늘', icon: ClipboardList },
@@ -27,6 +27,16 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
       router.replace('/admin');
     }
   }, [loading, profile, router]);
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (err) {
+      console.error('Logout failed', err);
+    } finally {
+      window.location.href = '/login';
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,7 +134,21 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
     <div className="min-h-screen bg-[#050505] font-sans text-white selection:bg-white/20">
       <header className="border-b border-white/10 px-6 py-4 flex items-center justify-between">
         <span className="text-sm tracking-[0.2em] font-medium text-white">void anchae</span>
-        <span className="text-[10px] tracking-widest text-white/40 uppercase">청소 관리</span>
+        <div className="flex items-center gap-4">
+          {profile?.displayName && (
+            <span className="text-[10px] tracking-widest text-white/40 uppercase hidden sm:inline">
+              {profile.displayName}
+            </span>
+          )}
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-white/40 hover:text-white transition-colors"
+            aria-label="로그아웃"
+          >
+            <LogOut size={14} />
+            <span>로그아웃</span>
+          </button>
+        </div>
       </header>
       <main className="p-4 pb-28 md:p-8 md:pb-28 max-w-2xl mx-auto">
         {children}

@@ -56,6 +56,19 @@ export function EventDetailPanel({
     .join('\n')
     .trim();
 
+  // Pull the guest phone out of the description (synced as "연락처: …")
+  // so we can suggest the last 4 digits as a door password. If unavailable
+  // — or the number is too short — show "없음".
+  const suggestedPassword = (() => {
+    const phoneLine = selectedEvent.description
+      ?.split('\n')
+      .map(l => l.trim())
+      .find(l => l.startsWith('연락처:') || l.toLowerCase().startsWith('phone:'));
+    if (!phoneLine) return '없음';
+    const digits = phoneLine.replace(/\D/g, '');
+    return digits.length >= 4 ? digits.slice(-4) : '없음';
+  })();
+
   const isCheckinDay = selectedEvent.start.substring(0, 10) === today;
 
   return (
@@ -130,6 +143,12 @@ export function EventDetailPanel({
               <span className="text-white/70 text-[11px]">{nights}박 {nights + 1}일</span>
             </div>
           )}
+          <div className="flex justify-between items-center">
+            <span className="text-[10px] tracking-widest text-white/40">추천 비밀번호</span>
+            <span className={`text-[11px] font-mono ${suggestedPassword === '없음' ? 'text-white/30' : 'text-white/80'}`}>
+              {suggestedPassword}
+            </span>
+          </div>
           {filteredDescription && (
             <div className="pt-2.5 mt-1 border-t border-white/[0.06]">
               <p className="text-[10px] tracking-widest text-white/30 mb-1.5">예약 메모</p>

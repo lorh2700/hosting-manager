@@ -1,14 +1,29 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Users, Plus, Trash2, Save, Phone } from 'lucide-react';
+import { Users, Plus, Trash2, Save, Phone, Link as LinkIcon, Copy, RefreshCw, Check, KeyRound, ShieldCheck, Building2 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 
 interface Cleaner {
   id: string;
   name: string;
   phone: string;
+  publicToken: string | null;
   ownerId: string;
+  userId: string | null;
+  linkedUser: { email: string; status: string } | null;
+  assignedPropertyIds: string[];
+}
+
+interface Property {
+  id: string;
+  name: string;
+}
+
+function last4(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, '');
+  return digits.length >= 4 ? digits.slice(-4) : null;
 }
 
 export default function CleanersPage() {
@@ -19,6 +34,11 @@ export default function CleanersPage() {
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [adding, setAdding] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
+  const [resettingId, setResettingId] = useState<string | null>(null);
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [savingScopeId, setSavingScopeId] = useState<string | null>(null);
 
   const fetchCleaners = async () => {
     if (!user) return;
@@ -27,10 +47,17 @@ export default function CleanersPage() {
       if (profile?.role !== 'super_admin') {
         params.set('ownerId', user.id);
       }
-      const res = await fetch(`/api/cleaners?${params}`);
-      if (!res.ok) throw new Error('Failed to fetch cleaners');
-      const data: Cleaner[] = await res.json();
+      const [cleanersRes, propsRes] = await Promise.all([
+        fetch(`/api/cleaners?${params}`),
+        fetch('/api/properties'),
+      ]);
+      if (!cleanersRes.ok) throw new Error('Failed to fetch cleaners');
+      const data: Cleaner[] = await cleanersRes.json();
       setCleaners(data);
+      if (propsRes.ok) {
+        const propsData: Property[] = await propsRes.json();
+        setProperties(propsData);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -40,7 +67,41 @@ export default function CleanersPage() {
 
   useEffect(() => {
     fetchCleaners();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  const togglePropertyScope = async (cleaner: Cleaner, propertyId: string) => {
+    if (!cleaner.userId) {
+      alert('로그인 계정이 없는 담당자는 지점을 지정할 수 없습니다. 먼저 로그인 계정을 만들어 주세요.');
+      return;
+    }
+    const current = cleaner.assignedPropertyIds ?? [];
+    const next = current.includes(propertyId)
+      ? current.filter(id => id !== propertyId)
+      : [...current, propertyId];
+
+    setSavingScopeId(cleaner.id);
+    // Optimistic update
+    setCleaners(prev => prev.map(c => c.id === cleaner.id ? { ...c, assignedPropertyIds: next } : c));
+    try {
+      const res = await fetch(`/api/cleaners/${cleaner.id}/properties`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ propertyIds: next }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || 'Failed to update scope');
+      }
+    } catch (err) {
+      console.error(err);
+      alert(err instanceof Error ? err.message : '지점 지정에 실패했습니다.');
+      // Revert
+      setCleaners(prev => prev.map(c => c.id === cleaner.id ? { ...c, assignedPropertyIds: current } : c));
+    } finally {
+      setSavingScopeId(null);
+    }
+  };
 
   const handleAdd = async () => {
     if (!newName.trim() || !user) return;
@@ -52,8 +113,6 @@ export default function CleanersPage() {
         body: JSON.stringify({
           name: newName.trim(),
           phone: newPhone.trim(),
-          ownerId: user.id,
-          createdAt: new Date().toISOString(),
         }),
       });
       if (!res.ok) throw new Error('Failed to add cleaner');
@@ -103,6 +162,64 @@ export default function CleanersPage() {
 
   const updateLocal = (id: string, field: keyof Cleaner, value: string) => {
     setCleaners(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
+  };
+
+  const publicUrl = (token: string | null) =>
+    token && typeof window !== 'undefined' ? `${window.location.origin}/c/${token}` : '';
+
+  const handleCopyLink = async (cleaner: Cleaner) => {
+    const url = publicUrl(cleaner.publicToken);
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedId(cleaner.id);
+      setTimeout(() => setCopiedId(prev => prev === cleaner.id ? null : prev), 2000);
+    } catch {
+      alert('링크 복사에 실패했습니다.');
+    }
+  };
+
+  const handleResetPassword = async (cleaner: Cleaner) => {
+    const exists = !!cleaner.linkedUser;
+    const msg = exists
+      ? '비밀번호를 전화번호 뒷 4자리로 초기화하시겠습니까?'
+      : '전화번호 뒷 4자리를 비밀번호로 하는 로그인 계정을 만드시겠습니까?';
+    if (!confirm(msg)) return;
+    setResettingId(cleaner.id);
+    try {
+      const res = await fetch(`/api/cleaners/${cleaner.id}/reset-password`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || '처리에 실패했습니다.');
+        return;
+      }
+      await fetchCleaners();
+    } catch (err) {
+      console.error(err);
+      alert('처리에 실패했습니다.');
+    } finally {
+      setResettingId(null);
+    }
+  };
+
+  const handleRegenerateToken = async (cleaner: Cleaner) => {
+    if (!confirm('공개 링크를 재발급하시겠습니까? 기존 링크는 사용할 수 없게 됩니다.')) return;
+    setRegeneratingId(cleaner.id);
+    try {
+      const res = await fetch('/api/cleaners', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: cleaner.id, regenerateToken: true }),
+      });
+      if (!res.ok) throw new Error('Failed to regenerate token');
+      const updated: Cleaner = await res.json();
+      setCleaners(prev => prev.map(c => c.id === cleaner.id ? { ...c, publicToken: updated.publicToken } : c));
+    } catch (err) {
+      console.error(err);
+      alert('링크 재발급에 실패했습니다.');
+    } finally {
+      setRegeneratingId(null);
+    }
   };
 
   if (loading) {
@@ -203,6 +320,122 @@ export default function CleanersPage() {
                         className="flex-1 bg-black/50 border border-white/10 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 transition-colors"
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">로그인 계정</label>
+                    {!cleaner.phone ? (
+                      <p className="text-xs text-white/40">전화번호를 등록하면 로그인 계정이 자동 생성됩니다.</p>
+                    ) : cleaner.linkedUser ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-xs">
+                          <ShieldCheck size={14} className="text-emerald-400 shrink-0" />
+                          <span className="text-emerald-400">활성</span>
+                          <span className="text-white/50">
+                            전화번호 로그인 · 비번 {last4(cleaner.phone)}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => handleResetPassword(cleaner)}
+                          disabled={resettingId === cleaner.id}
+                          className="text-xs text-white/60 hover:text-white flex items-center gap-2 border border-white/10 hover:border-white/30 px-3 py-1.5 transition-colors disabled:opacity-50"
+                        >
+                          <KeyRound size={12} />
+                          {resettingId === cleaner.id ? '처리 중...' : '비밀번호 초기화'}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleResetPassword(cleaner)}
+                        disabled={resettingId === cleaner.id}
+                        className="text-xs text-white/60 hover:text-white flex items-center gap-2 border border-white/10 hover:border-white/30 px-3 py-2 transition-colors disabled:opacity-50"
+                      >
+                        <KeyRound size={12} />
+                        {resettingId === cleaner.id ? '생성 중...' : '로그인 계정 생성'}
+                      </button>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2 flex items-center gap-2">
+                      <Building2 size={12} /> 관리 가능한 지점
+                      {savingScopeId === cleaner.id && (
+                        <span className="text-white/30 normal-case tracking-normal">저장 중…</span>
+                      )}
+                    </label>
+                    {!cleaner.userId ? (
+                      <p className="text-xs text-white/40">로그인 계정을 먼저 만들어 주세요.</p>
+                    ) : properties.length === 0 ? (
+                      <p className="text-xs text-white/40">등록된 지점이 없습니다.</p>
+                    ) : (
+                      <>
+                        <div className="flex flex-wrap gap-2">
+                          {properties.map(p => {
+                            const active = cleaner.assignedPropertyIds?.includes(p.id);
+                            return (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => togglePropertyScope(cleaner, p.id)}
+                                disabled={savingScopeId === cleaner.id}
+                                className={`text-xs px-3 py-1.5 border tracking-wide transition-colors disabled:opacity-50 ${
+                                  active
+                                    ? 'bg-white text-black border-white'
+                                    : 'bg-transparent text-white/60 border-white/15 hover:border-white/40 hover:text-white'
+                                }`}
+                              >
+                                {p.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <p className="text-[10px] text-white/30 mt-2 tracking-wide">
+                          {cleaner.assignedPropertyIds?.length
+                            ? `${cleaner.assignedPropertyIds.length}개 지점만 보입니다.`
+                            : '지정 없음 — 모든 지점 표시'}
+                        </p>
+                      </>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">공개 캘린더 링크</label>
+                    {cleaner.publicToken ? (
+                      <div className="flex items-center gap-2">
+                        <LinkIcon size={14} className="text-white/30 shrink-0" />
+                        <input
+                          type="text"
+                          readOnly
+                          value={publicUrl(cleaner.publicToken)}
+                          onFocus={e => e.currentTarget.select()}
+                          className="flex-1 bg-black/50 border border-white/10 px-4 py-2.5 text-xs text-white/70 focus:outline-none focus:border-white/30 transition-colors font-mono truncate"
+                        />
+                        <button
+                          onClick={() => handleCopyLink(cleaner)}
+                          className="p-2.5 border border-white/10 text-white/50 hover:text-white hover:border-white/30 transition-colors"
+                          title="링크 복사"
+                        >
+                          {copiedId === cleaner.id ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                        </button>
+                        <button
+                          onClick={() => handleRegenerateToken(cleaner)}
+                          disabled={regeneratingId === cleaner.id}
+                          className="p-2.5 border border-white/10 text-white/50 hover:text-white hover:border-white/30 transition-colors disabled:opacity-50"
+                          title="링크 재발급"
+                        >
+                          <RefreshCw size={14} className={regeneratingId === cleaner.id ? 'animate-spin' : ''} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleRegenerateToken(cleaner)}
+                        disabled={regeneratingId === cleaner.id}
+                        className="text-xs text-white/50 hover:text-white flex items-center gap-2 border border-white/10 px-3 py-2 transition-colors disabled:opacity-50"
+                      >
+                        <RefreshCw size={12} />
+                        링크 발급
+                      </button>
+                    )}
                   </div>
                 </div>
 

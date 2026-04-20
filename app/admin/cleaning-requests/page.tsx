@@ -100,7 +100,6 @@ export default function AdminCleaningRequestsPage() {
         cleanerId: app.applicantId,
         isOpen: false,
         assignmentType: 'applied',
-        updatedAt: new Date().toISOString(),
       });
 
       const otherApps = applications.filter(

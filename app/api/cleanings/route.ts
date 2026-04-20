@@ -1,19 +1,80 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifySession } from '@/lib/auth';
+import { getSessionWithUser } from '@/lib/auth';
+import { notifyCleaningAssigned } from '@/lib/notify';
+
+async function notifyAssignmentByCleaningId(cleaningId: string) {
+  try {
+    const cleaning = await prisma.cleaning.findUnique({
+      where: { id: cleaningId },
+      include: {
+        property: { select: { name: true } },
+        cleaner: { select: { name: true, phone: true, publicToken: true } },
+      },
+    });
+    if (!cleaning?.cleaner?.phone || !cleaning.cleaner.publicToken) return;
+
+    const result = await notifyCleaningAssigned({
+      cleanerPhone: cleaning.cleaner.phone,
+      cleanerName: cleaning.cleaner.name,
+      cleanerToken: cleaning.cleaner.publicToken,
+      items: [
+        {
+          propertyName: cleaning.property?.name ?? '숙소',
+          date: cleaning.date,
+        },
+      ],
+    });
+    if (result && !result.ok) {
+      console.error('[cleanings] notify failed:', result.error);
+    }
+  } catch (e) {
+    console.error('[cleanings] notify error:', e);
+  }
+}
+
+function forbidden() {
+  return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
+}
 
 export async function GET(req: Request) {
   try {
-    const session = await verifySession(req);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await getSessionWithUser(req);
+    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { searchParams } = new URL(req.url);
-    const propertyIds = searchParams.get('propertyIds')?.split(',').filter(Boolean);
+    const requestedPropertyIds = searchParams.get('propertyIds')?.split(',').filter(Boolean);
     const status = searchParams.get('status');
     const isOpen = searchParams.get('isOpen');
 
     const where: Record<string, unknown> = {};
-    if (propertyIds?.length) where.propertyId = { in: propertyIds };
+    const isCleaner = auth.user.role === 'cleaner';
+    const scopedIds = auth.propertyIds ?? [];
+
+    if (auth.isAdmin) {
+      if (requestedPropertyIds?.length) where.propertyId = { in: requestedPropertyIds };
+    } else if (isCleaner && isOpen === 'true') {
+      // Cleaners browsing open cleanings:
+      //   - if admin scoped them to properties, restrict to those
+      //   - otherwise show everything so they can apply broadly
+      if (scopedIds.length > 0) {
+        const ids = requestedPropertyIds?.length
+          ? requestedPropertyIds.filter(id => scopedIds.includes(id))
+          : scopedIds;
+        if (ids.length === 0) return NextResponse.json([]);
+        where.propertyId = { in: ids };
+      } else if (requestedPropertyIds?.length) {
+        where.propertyId = { in: requestedPropertyIds };
+      }
+    } else {
+      if (scopedIds.length === 0) return NextResponse.json([]);
+      const ids = requestedPropertyIds?.length
+        ? requestedPropertyIds.filter(id => scopedIds.includes(id))
+        : scopedIds;
+      if (ids.length === 0) return NextResponse.json([]);
+      where.propertyId = { in: ids };
+    }
+
     if (status) where.status = status;
     if (isOpen === 'true') where.isOpen = true;
 
@@ -31,15 +92,24 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const session = await verifySession(req);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await getSessionWithUser(req);
+    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json();
     if (!body.propertyId || !body.date) {
       return NextResponse.json({ error: 'propertyId, date는 필수입니다.' }, { status: 400 });
     }
 
+    if (!auth.isAdmin && !(auth.propertyIds ?? []).includes(body.propertyId)) {
+      return forbidden();
+    }
+
     const cleaning = await prisma.cleaning.create({ data: body });
+
+    if (cleaning.cleanerId) {
+      await notifyAssignmentByCleaningId(cleaning.id);
+    }
+
     return NextResponse.json(cleaning, { status: 201 });
   } catch (e) {
     console.error('[cleanings] POST error:', e);
@@ -49,14 +119,31 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
   try {
-    const session = await verifySession(req);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await getSessionWithUser(req);
+    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json();
     const { id, ...data } = body;
     if (!id) return NextResponse.json({ error: 'id는 필수입니다.' }, { status: 400 });
 
+    const before = await prisma.cleaning.findUnique({
+      where: { id },
+      select: { cleanerId: true, propertyId: true },
+    });
+    if (!before) return NextResponse.json({ error: 'not found' }, { status: 404 });
+
+    if (!auth.isAdmin && !(auth.propertyIds ?? []).includes(before.propertyId)) {
+      return forbidden();
+    }
+
     const cleaning = await prisma.cleaning.update({ where: { id }, data });
+
+    const assignedNow =
+      cleaning.cleanerId && cleaning.cleanerId !== before.cleanerId;
+    if (assignedNow) {
+      await notifyAssignmentByCleaningId(cleaning.id);
+    }
+
     return NextResponse.json(cleaning);
   } catch (e) {
     console.error('[cleanings] PUT error:', e);
@@ -66,12 +153,22 @@ export async function PUT(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
-    const session = await verifySession(req);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await getSessionWithUser(req);
+    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'id는 필수입니다.' }, { status: 400 });
+
+    const target = await prisma.cleaning.findUnique({
+      where: { id },
+      select: { propertyId: true },
+    });
+    if (!target) return NextResponse.json({ error: 'not found' }, { status: 404 });
+
+    if (!auth.isAdmin && !(auth.propertyIds ?? []).includes(target.propertyId)) {
+      return forbidden();
+    }
 
     await prisma.cleaning.delete({ where: { id } });
     return NextResponse.json({ success: true });

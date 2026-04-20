@@ -22,7 +22,8 @@ model User {
 
   properties     UserProperty[]
   ownedProperties Property[]
-  cleaners       Cleaner[]
+  cleaners       Cleaner[] @relation("OwnedCleaners")
+  cleanerAccount Cleaner?  @relation("CleanerAccount")
   invitationsSent Invitation[] @relation("InvitedBy")
 
   @@map("users")
@@ -170,14 +171,18 @@ model Guest {
 
 // ── 청소 담당자 ──
 model Cleaner {
-  id        String   @id @default(uuid())
-  name      String
-  phone     String?
-  ownerId   String   @map("owner_id")
-  createdAt DateTime @default(now()) @map("created_at")
+  id          String   @id @default(uuid())
+  name        String
+  phone       String?  @unique
+  publicToken String?  @unique @map("public_token")
+  userId      String?  @unique @map("user_id")
+  ownerId     String   @map("owner_id")
+  createdAt   DateTime @default(now()) @map("created_at")
 
-  owner     User       @relation(fields: [ownerId], references: [id])
-  cleanings Cleaning[]
+  owner       User         @relation("OwnedCleaners", fields: [ownerId], references: [id])
+  user        User?        @relation("CleanerAccount", fields: [userId], references: [id], onDelete: SetNull)
+  cleanings   Cleaning[]
+  invitations Invitation[] @relation("CleanerInvitations")
 
   @@map("cleaners")
 }
@@ -314,12 +319,14 @@ model Invitation {
   role        String
   propertyIds Json      @default("[]") @map("property_ids")
   invitedBy   String?   @map("invited_by")
+  cleanerId   String?   @map("cleaner_id")
   status      String    @default("pending") // pending, accepted, expired
   token       String    @unique
   expiresAt   DateTime  @map("expires_at")
   createdAt   DateTime  @default(now()) @map("created_at")
 
-  inviter User? @relation("InvitedBy", fields: [invitedBy], references: [id])
+  inviter User?    @relation("InvitedBy", fields: [invitedBy], references: [id])
+  cleaner Cleaner? @relation("CleanerInvitations", fields: [cleanerId], references: [id], onDelete: SetNull)
 
   @@map("invitations")
 }

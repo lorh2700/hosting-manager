@@ -42,6 +42,11 @@ export default function CleanerHistoryPage() {
       }
       if (propertyIds.length === 0) { setLoading(false); return; }
 
+      // Resolve logged-in user's Cleaner record
+      const meRes = await fetch('/api/cleaners/me');
+      const meData = meRes.ok ? await meRes.json() : { cleaner: null };
+      const myCleanerId: string | null = meData?.cleaner?.id ?? null;
+
       // Fetch cleanings
       const cleaningsRes = await fetch(`/api/cleanings?propertyIds=${propertyIds.join(',')}`);
       const cleaningsData = await cleaningsRes.json();
@@ -49,7 +54,9 @@ export default function CleanerHistoryPage() {
       // Filter by cleanerId if not super_admin
       const filteredCleanings = profile.role === 'super_admin'
         ? cleaningsData
-        : cleaningsData.filter((c: { cleanerId?: string }) => c.cleanerId === user.id);
+        : myCleanerId
+          ? cleaningsData.filter((c: { cleanerId?: string }) => c.cleanerId === myCleanerId)
+          : [];
 
       const pastItems: PastCleaning[] = filteredCleanings
         .map((c: Record<string, unknown>) => ({

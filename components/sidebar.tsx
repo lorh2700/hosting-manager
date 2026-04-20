@@ -35,10 +35,11 @@ export function Sidebar() {
   useEffect(() => {
     if (!user) return;
 
+    const controller = new AbortController();
     const fetchUnread = async () => {
       if (document.hidden) return;
       try {
-        const res = await fetch('/api/messages/unread-count');
+        const res = await fetch('/api/messages/unread-count', { signal: controller.signal });
         if (res.ok) {
           const data = await res.json();
           setUnreadCount(data.count ?? 0);
@@ -49,7 +50,11 @@ export function Sidebar() {
     const interval = setInterval(fetchUnread, 30000);
     const handleVisibility = () => { if (!document.hidden) fetchUnread(); };
     document.addEventListener('visibilitychange', handleVisibility);
-    return () => { clearInterval(interval); document.removeEventListener('visibilitychange', handleVisibility); };
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [user]);
 
   // Close "more" menu on outside click

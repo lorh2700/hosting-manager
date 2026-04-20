@@ -43,10 +43,11 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { email, role, propertyIds } = body as {
+    const { email, role, propertyIds, cleanerId } = body as {
       email: string;
       role: UserRole;
       propertyIds: string[];
+      cleanerId?: string;
     };
 
     if (!email || !role) {
@@ -55,6 +56,22 @@ export async function POST(req: Request) {
 
     if (!['admin', 'host', 'cleaner', 'viewer'].includes(role)) {
       return NextResponse.json({ error: '유효하지 않은 역할입니다.' }, { status: 400 });
+    }
+
+    if (cleanerId) {
+      if (role !== 'cleaner') {
+        return NextResponse.json({ error: 'cleanerId는 cleaner 역할에만 사용할 수 있습니다.' }, { status: 400 });
+      }
+      const cleaner = await prisma.cleaner.findUnique({
+        where: { id: cleanerId },
+        select: { id: true, userId: true },
+      });
+      if (!cleaner) {
+        return NextResponse.json({ error: '청소 담당자를 찾을 수 없습니다.' }, { status: 404 });
+      }
+      if (cleaner.userId) {
+        return NextResponse.json({ error: '이미 포털 계정과 연결된 담당자입니다.' }, { status: 409 });
+      }
     }
 
     const existing = await prisma.invitation.findFirst({
@@ -74,6 +91,7 @@ export async function POST(req: Request) {
         role,
         propertyIds: propertyIds ?? [],
         invitedBy: admin.userId,
+        cleanerId: cleanerId ?? null,
         status: 'pending',
         token,
         expiresAt,

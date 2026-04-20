@@ -7,10 +7,16 @@ export async function GET(req: Request) {
     const auth = await getSessionWithUser(req);
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const properties = auth.isAdmin
+    const isCleaner = auth.user.role === 'cleaner';
+    const scopedIds = auth.propertyIds ?? [];
+    // Cleaner with no explicit scope → sees every property (backwards compat).
+    // Cleaner with scope → restricted to those properties.
+    const cleanerUnrestricted = isCleaner && scopedIds.length === 0;
+
+    const properties = auth.isAdmin || cleanerUnrestricted
       ? await prisma.property.findMany({ orderBy: { createdAt: 'desc' } })
       : await prisma.property.findMany({
-          where: { id: { in: auth.propertyIds! } },
+          where: { id: { in: scopedIds } },
           orderBy: { createdAt: 'desc' },
         });
 

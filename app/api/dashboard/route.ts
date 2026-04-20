@@ -37,7 +37,7 @@ export async function GET(req: Request) {
           startDate: { lte: rangeEnd },
           endDate: { gte: rangeStart },
         },
-        select: { id: true, propertyId: true, title: true, startDate: true, endDate: true, description: true },
+        select: { id: true, propertyId: true, title: true, startDate: true, endDate: true, description: true, source: true, channelId: true },
       }),
       prisma.booking.findMany({
         where: {
@@ -46,7 +46,7 @@ export async function GET(req: Request) {
           checkIn: { lte: rangeEnd },
           checkOut: { gte: rangeStart },
         },
-        select: { id: true, propertyId: true, name: true, checkIn: true, checkOut: true, phone: true, email: true, guests: true },
+        select: { id: true, propertyId: true, name: true, checkIn: true, checkOut: true, phone: true, email: true, guests: true, source: true },
       }),
       prisma.cleaning.findMany({
         where: {
@@ -73,11 +73,14 @@ export async function GET(req: Request) {
         const adultMatch = desc.match(/성인\s*(\d+)/);
         const childMatch = desc.match(/아동\s*(\d+)/);
         const guests = (adultMatch ? Number(adultMatch[1]) : 0) + (childMatch ? Number(childMatch[1]) : 0);
+        const channelMatch = desc.match(/채널:\s*(.+)/);
+        const source = e.source || channelMatch?.[1]?.trim() || e.channelId || null;
         return {
           id: e.id, propertyId: e.propertyId, propertyName: propsMap[e.propertyId] || '',
           title: e.title || '', start: e.startDate, end: e.endDate,
           phone: phoneMatch?.[1]?.trim(), email: emailMatch?.[1]?.trim(),
           guests: guests || undefined,
+          source,
           dataSource: 'event' as const,
         };
       }),
@@ -86,6 +89,7 @@ export async function GET(req: Request) {
         title: b.name || '', start: b.checkIn, end: b.checkOut,
         phone: b.phone || undefined, email: b.email || undefined,
         guests: b.guests || undefined,
+        source: b.source || 'direct',
         dataSource: 'booking' as const,
       })),
     ];

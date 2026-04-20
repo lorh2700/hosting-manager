@@ -17,7 +17,22 @@ interface Reservation {
   phone?: string;
   email?: string;
   guests?: number;
+  source?: string | null;
   dataSource?: 'event' | 'booking';
+}
+
+function formatChannel(source?: string | null): string | null {
+  if (!source) return null;
+  const s = source.toLowerCase();
+  if (s.includes('airbnb') || s.includes('에어비앤비')) return '에어비앤비';
+  if (s.includes('booking')) return '부킹닷컴';
+  if (s.includes('agoda') || s.includes('아고다')) return '아고다';
+  if (s.includes('expedia') || s.includes('익스피디아')) return '익스피디아';
+  if (s.includes('vrbo')) return 'VRBO';
+  if (s.includes('stayfolio') || s.includes('스테이폴리오')) return '스테이폴리오';
+  if (s === 'direct') return '직접예약';
+  if (s === 'beds24') return 'Beds24';
+  return source;
 }
 
 interface GuestMessage {
@@ -354,30 +369,38 @@ export default function Dashboard() {
                 <span className="text-[10px] text-white/30 ml-auto hidden sm:inline">행 클릭 시 대화 내역 확인</span>
               </div>
               <div className="space-y-2">
-                {todayGroup.checkins.map(({ reservation: r, nights }) => (
-                  <button
-                    type="button"
-                    key={r.id + '-today-in'}
-                    onClick={() => openGuest(r, nights)}
-                    className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] hover:border-white/15 transition-all text-left active:scale-[0.995]"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-base text-white truncate">
-                        {r.propertyName}
-                      </p>
-                      <p className="text-sm text-white/55 mt-0.5 truncate flex items-center gap-1.5">
-                        <MessageSquare size={12} className="text-white/35" />
-                        {r.title || '게스트'}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm shrink-0">
-                      {r.guests ? (
-                        <span className="text-emerald-200 bg-emerald-500/15 px-2.5 py-1 rounded-lg tabular-nums font-semibold">{r.guests}명</span>
-                      ) : null}
-                      <span className="text-white/80 bg-white/[0.08] px-2.5 py-1 rounded-lg tabular-nums font-semibold">{nights}박</span>
-                    </div>
-                  </button>
-                ))}
+                {todayGroup.checkins.map(({ reservation: r, nights }) => {
+                  const channel = formatChannel(r.source);
+                  return (
+                    <button
+                      type="button"
+                      key={r.id + '-today-in'}
+                      onClick={() => openGuest(r, nights)}
+                      className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] hover:border-white/15 transition-all text-left active:scale-[0.995]"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-base text-white truncate flex items-center gap-2">
+                          <span className="truncate">{r.propertyName}</span>
+                          {channel && (
+                            <span className="text-[10px] tracking-wide text-white/50 bg-white/[0.06] border border-white/10 px-1.5 py-0.5 rounded-md shrink-0">
+                              {channel}
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-sm text-white/55 mt-0.5 truncate flex items-center gap-1.5">
+                          <MessageSquare size={12} className="text-white/35" />
+                          {r.title || '게스트'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm shrink-0">
+                        {r.guests ? (
+                          <span className="text-emerald-200 bg-emerald-500/15 px-2.5 py-1 rounded-lg tabular-nums font-semibold">{r.guests}명</span>
+                        ) : null}
+                        <span className="text-white/80 bg-white/[0.08] px-2.5 py-1 rounded-lg tabular-nums font-semibold">{nights}박</span>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -433,7 +456,14 @@ export default function Dashboard() {
           >
             <div className="px-6 py-5 border-b border-white/10 flex items-start gap-3">
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] uppercase tracking-widest text-white/40 mb-1">{selectedGuest.reservation.propertyName}</p>
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <p className="text-[10px] uppercase tracking-widest text-white/40">{selectedGuest.reservation.propertyName}</p>
+                  {formatChannel(selectedGuest.reservation.source) && (
+                    <span className="text-[10px] tracking-wide text-white/60 bg-white/[0.06] border border-white/10 px-1.5 py-0.5 rounded-md">
+                      {formatChannel(selectedGuest.reservation.source)}
+                    </span>
+                  )}
+                </div>
                 <p className="text-lg text-white font-medium truncate">{selectedGuest.reservation.title || '게스트'}</p>
                 <div className="flex items-center gap-3 mt-2 text-xs text-white/50 flex-wrap">
                   <span>{format(parseISO(selectedGuest.reservation.start), 'M월 d일 (EEE)', { locale: ko })} 체크인</span>
@@ -594,20 +624,28 @@ export default function Dashboard() {
                 <span className="text-[11px] text-white/25 ml-auto tabular-nums hidden sm:inline">{group.date}</span>
               </div>
               <div className="divide-y divide-white/[0.04]">
-                {group.checkins.map(({ reservation: r, nights }) => (
-                  <div key={r.id + '-in'} className="px-4 sm:px-5 py-3.5 flex items-center gap-3 sm:gap-4">
-                    <div className="w-8 flex justify-center shrink-0"><ArrowDownRight size={18} className="text-emerald-400" /></div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white/90 truncate">{r.title}</p>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        <span className="text-xs text-white/35">{r.propertyName} · {nights}박</span>
-                        {r.phone && <span className="text-[11px] text-white/30">{r.phone}</span>}
-                        {!r.phone && r.email && <span className="text-[11px] text-white/30 truncate max-w-[140px]">{r.email}</span>}
+                {group.checkins.map(({ reservation: r, nights }) => {
+                  const channel = formatChannel(r.source);
+                  return (
+                    <div key={r.id + '-in'} className="px-4 sm:px-5 py-3.5 flex items-center gap-3 sm:gap-4">
+                      <div className="w-8 flex justify-center shrink-0"><ArrowDownRight size={18} className="text-emerald-400" /></div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-white/90 truncate">{r.title}</p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className="text-xs text-white/35">{r.propertyName} · {nights}박</span>
+                          {channel && (
+                            <span className="text-[10px] tracking-wide text-white/50 bg-white/[0.05] border border-white/10 px-1.5 py-0.5 rounded-md">
+                              {channel}
+                            </span>
+                          )}
+                          {r.phone && <span className="text-[11px] text-white/30">{r.phone}</span>}
+                          {!r.phone && r.email && <span className="text-[11px] text-white/30 truncate max-w-[140px]">{r.email}</span>}
+                        </div>
                       </div>
+                      <span className="text-[10px] sm:text-[11px] bg-emerald-500/10 text-emerald-400/80 px-2.5 py-1.5 rounded-lg font-medium shrink-0">체크인</span>
                     </div>
-                    <span className="text-[10px] sm:text-[11px] bg-emerald-500/10 text-emerald-400/80 px-2.5 py-1.5 rounded-lg font-medium shrink-0">체크인</span>
-                  </div>
-                ))}
+                  );
+                })}
                 {group.checkouts.map(({ reservation: r, cleanerName, cleaningStatus }) => {
                   const cleanBadge = cleaningStatus === 'done'
                     ? { text: '정비완료', cls: 'bg-emerald-500/15 text-emerald-300' }

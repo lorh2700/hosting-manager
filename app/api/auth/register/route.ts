@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { randomBytes } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { signToken, setSessionCookie } from '@/lib/auth';
@@ -57,6 +58,39 @@ export async function POST(req: Request) {
       await prisma.userProperty.createMany({
         data: propertyIds.map((pid) => ({ userId: user.id, propertyId: pid })),
       });
+    }
+
+    // Cleaner-first: if the invitation targets a specific Cleaner record,
+    // link it to this user instead of creating a new one. This is the
+    // expected path — admins add cleaners first, then invite them to the
+    // portal. Fallback auto-create remains for legacy invitations and the
+    // bootstrap edge case (no invitation + first-user=cleaner).
+    if (user.role === 'cleaner') {
+      if (invitation?.cleanerId) {
+        await prisma.cleaner.update({
+          where: { id: invitation.cleanerId },
+          data: { userId: user.id },
+        });
+      } else {
+        const ownerId = invitation?.invitedBy
+          ?? (await prisma.user.findFirst({
+            where: { role: { in: ['super_admin', 'admin'] } },
+            select: { id: true },
+          }))?.id;
+
+        if (ownerId) {
+          await prisma.cleaner.create({
+            data: {
+              userId: user.id,
+              name: user.displayName || user.email,
+              ownerId,
+              publicToken: randomBytes(24).toString('base64url'),
+            },
+          });
+        } else {
+          console.warn('[register] no admin found to own cleaner record for', user.email);
+        }
+      }
     }
 
     const token = await signToken({ userId: user.id, email: user.email });

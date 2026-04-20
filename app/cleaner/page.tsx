@@ -72,6 +72,11 @@ export default function CleanerPage() {
       }
       if (propertyIds.length === 0) { setLoading(false); return; }
 
+      // Resolve logged-in user's Cleaner record (null for admins without one)
+      const meRes = await fetch('/api/cleaners/me');
+      const meData = meRes.ok ? await meRes.json() : { cleaner: null };
+      const myCleanerId: string | null = meData?.cleaner?.id ?? null;
+
       // Fetch cleanings
       const cleaningsRes = await fetch(`/api/cleanings?propertyIds=${propertyIds.join(',')}`);
       const cleaningsData = await cleaningsRes.json();
@@ -79,7 +84,9 @@ export default function CleanerPage() {
       // Filter by cleanerId if not super_admin
       const filteredCleanings = profile.role === 'super_admin'
         ? cleaningsData
-        : cleaningsData.filter((c: { cleanerId?: string }) => c.cleanerId === user.id);
+        : myCleanerId
+          ? cleaningsData.filter((c: { cleanerId?: string }) => c.cleanerId === myCleanerId)
+          : [];
 
       // Fetch bookings for guest names
       const bookingsRes = await fetch(`/api/bookings?propertyIds=${propertyIds.join(',')}&status=confirmed`);

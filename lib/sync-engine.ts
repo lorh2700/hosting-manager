@@ -204,7 +204,48 @@ export async function syncICalChannel(
     }
   }
 
+  await ensureCleaningsForProperty(propertyId);
+
   return result;
+}
+
+/**
+ * Guarantee a Cleaning row exists for every reservation checkout date on a
+ * property. New cleanings are created as open (isOpen=true, no cleaner) so
+ * they surface on the cleaner schedule for application. Existing cleanings
+ * are untouched — assignment state, status, and notes are preserved.
+ */
+export async function ensureCleaningsForProperty(propertyId: string): Promise<number> {
+  const events = await prisma.event.findMany({
+    where: { propertyId, type: 'reservation' },
+    select: { endDate: true },
+  });
+
+  const checkoutDates = new Set<string>();
+  for (const e of events) {
+    if (e.endDate) checkoutDates.add(e.endDate);
+  }
+  if (checkoutDates.size === 0) return 0;
+
+  const existing = await prisma.cleaning.findMany({
+    where: { propertyId, date: { in: Array.from(checkoutDates) } },
+    select: { date: true },
+  });
+  const existingDates = new Set(existing.map(c => c.date));
+
+  const toCreate = Array.from(checkoutDates).filter(d => !existingDates.has(d));
+  if (toCreate.length === 0) return 0;
+
+  await prisma.cleaning.createMany({
+    data: toCreate.map(date => ({
+      propertyId,
+      date,
+      status: 'pending',
+      isOpen: true,
+    })),
+  });
+
+  return toCreate.length;
 }
 
 // ─── Beds24 API Sync ───────────────────────────────────────────────────────
@@ -334,6 +375,8 @@ export async function syncBeds24Property(
       eventsRemoved++;
     }
   }
+
+  await ensureCleaningsForProperty(propertyId);
 
   return { total: newEvents.length, eventsCreated, eventsUpdated, eventsRemoved };
 }
