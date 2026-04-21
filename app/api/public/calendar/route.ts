@@ -84,6 +84,8 @@ export async function GET() {
     });
   } catch (err) {
     console.error('Public calendar API error:', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    const code = (err as { code?: string })?.code;
+    return NextResponse.json({ error: 'Internal error', message, code }, { status: 500 });
   }
 }
