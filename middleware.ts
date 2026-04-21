@@ -18,6 +18,7 @@ const PUBLIC_PATHS = [
   '/api/public',
   '/api/setup',
   '/api/sync',
+  '/api/beds24/sync-all',
   '/book',
   '/_next',
   '/favicon.ico',
