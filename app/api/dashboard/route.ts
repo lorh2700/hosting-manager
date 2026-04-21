@@ -117,6 +117,8 @@ export async function GET(req: Request) {
     });
   } catch (e) {
     console.error('[dashboard] GET error:', e);
-    return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
+    const message = e instanceof Error ? e.message : String(e);
+    const code = (e as { code?: string })?.code;
+    return NextResponse.json({ error: '서버 오류가 발생했습니다.', message, code }, { status: 500 });
   }
 }

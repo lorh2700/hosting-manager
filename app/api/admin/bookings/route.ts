@@ -38,6 +38,8 @@ export async function GET(req: Request) {
     return NextResponse.json({ properties, bookings, events });
   } catch (e) {
     console.error('[admin/bookings] GET error:', e);
-    return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
+    const message = e instanceof Error ? e.message : String(e);
+    const code = (e as { code?: string })?.code;
+    return NextResponse.json({ error: '서버 오류가 발생했습니다.', message, code }, { status: 500 });
   }
 }
