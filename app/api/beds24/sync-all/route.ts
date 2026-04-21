@@ -5,20 +5,28 @@ import { getSessionWithUser } from '@/lib/auth';
 
 export const maxDuration = 60;
 
-async function isAuthorized(req: Request): Promise<boolean> {
+type AuthResult =
+  | { ok: true }
+  | { ok: false; reason: string };
+
+async function authorize(req: Request): Promise<AuthResult> {
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const header = req.headers.get('x-cron-secret');
-    if (header && header === cronSecret) return true;
+  const header = req.headers.get('x-cron-secret');
+  if (header) {
+    if (!cronSecret) return { ok: false, reason: 'header_present_but_env_missing' };
+    if (header === cronSecret) return { ok: true };
+    return { ok: false, reason: 'header_mismatch' };
   }
   const auth = await getSessionWithUser(req);
-  return !!auth?.isAdmin;
+  if (auth?.isAdmin) return { ok: true };
+  return { ok: false, reason: 'no_header_and_no_admin_session' };
 }
 
 export async function POST(req: Request) {
   try {
-    if (!(await isAuthorized(req))) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authResult = await authorize(req);
+    if (!authResult.ok) {
+      return NextResponse.json({ error: 'Unauthorized', reason: authResult.reason }, { status: 401 });
     }
 
     const properties = await prisma.property.findMany({

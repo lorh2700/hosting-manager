@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { motion } from 'motion/react';
 import { ScrollUnfoldHero } from '@/components/ScrollUnfoldHero';
+import { Logo } from '@/components/Logo';
 
 export default function PublicPortal() {
 
@@ -10,8 +11,8 @@ export default function PublicPortal() {
     <div className="min-h-screen bg-[#0C0A09] text-stone-50 selection:bg-stone-400/20 font-sans">
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 flex justify-between items-center px-8 py-6 mix-blend-difference">
-        <Link href="/" className="text-sm uppercase tracking-[0.2em] font-medium hover:opacity-70 transition-opacity">
-          void anchae
+        <Link href="/" className="flex items-center hover:opacity-70 transition-opacity" aria-label="void anchae 홈">
+          <Logo width={140} priority />
         </Link>
         <div className="hidden md:flex items-center gap-8 text-xs uppercase tracking-widest font-medium text-stone-400">
           <Link href="#spaces" className="hover:text-stone-50 transition-colors">공간</Link>
@@ -55,8 +56,8 @@ export default function PublicPortal() {
       {/* Footer */}
       <footer className="border-t border-stone-800 py-12 px-6 md:px-12 mt-20">
         <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="text-xs uppercase tracking-[0.3em] font-semibold text-stone-500">
-            void anchae
+          <div className="opacity-60">
+            <Logo width={120} />
           </div>
           <div className="text-xs uppercase tracking-widest text-stone-600">
             © {new Date().getFullYear()} void anchae. All rights reserved.

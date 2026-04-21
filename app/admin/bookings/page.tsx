@@ -77,7 +77,7 @@ export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [properties, setProperties] = useState<Map<string, PropertyInfo>>(new Map());
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('confirmed');
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
   const [propertyFilter, setPropertyFilter] = useState<string>('all');
   const [cancellingId, setCancellingId] = useState<string | null>(null);

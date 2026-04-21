@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/sidebar';
 import { useAuth } from '@/components/AuthProvider';
+import { Logo } from '@/components/Logo';
 
 const PUBLIC_PATHS = ['/admin/calendar'];
 
@@ -72,9 +73,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (!user) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#050505] p-4 font-sans">
+        <div className="mb-10">
+          <Logo width={240} priority />
+        </div>
         <div className="bg-[#111] p-10 border border-white/10 max-w-md w-full">
           <h1 className="text-2xl font-light tracking-widest text-white mb-2 uppercase">호스트 로그인</h1>
-          <p className="text-white/50 mb-8 text-sm font-light tracking-wide">void anchae 숙소를 관리하려면 로그인하세요.</p>
+          <p className="text-white/50 mb-8 text-sm font-light tracking-wide">숙소를 관리하려면 로그인하세요.</p>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>

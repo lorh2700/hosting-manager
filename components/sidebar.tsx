@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Home, HomeIcon, Calendar, BookOpen, MessageSquare, Users, UserCog, LogOut, Settings, MoreHorizontal, X, FileBarChart } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
+import { Logo } from '@/components/Logo';
 
 const SIDEBAR_LINKS = [
   { href: '/admin', label: '대시보드', icon: Home, roles: ['super_admin', 'admin', 'host'] },
@@ -84,11 +85,17 @@ export function Sidebar() {
     <>
       {/* Desktop sidebar */}
       <div className="hidden md:flex w-64 bg-[#050505] text-white/70 min-h-screen flex-col border-r border-white/10">
-        <div className="p-8 border-b border-white/10 flex flex-col gap-4">
-          <span className="text-sm tracking-[0.2em] font-medium text-white">void anchae 관리자</span>
-          <Link href="/" className="text-[10px] tracking-widest text-white/40 hover:text-white transition-colors">
-            ← 예약 포털로 돌아가기
+        <div className="p-8 border-b border-white/10 flex flex-col gap-5">
+          <Link href="/admin" className="flex items-center" aria-label="void anchae 관리자 홈">
+            <Logo width={160} priority />
           </Link>
+          <div className="flex items-center gap-2 text-[10px] tracking-widest text-white/40">
+            <span>관리자</span>
+            <span className="text-white/15">·</span>
+            <Link href="/" className="hover:text-white transition-colors">
+              예약 포털 →
+            </Link>
+          </div>
         </div>
         <nav className="flex-1 py-8 px-6 space-y-4">
           {visibleLinks.map((link) => {
