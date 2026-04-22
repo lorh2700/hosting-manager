@@ -46,17 +46,33 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST: sync Beds24 messages into DB for all bookings of given properties
-export async function POST(req: NextRequest) {
+async function authorize(req: NextRequest): Promise<boolean> {
+  const cronSecret = process.env.CRON_SECRET;
+  const header = req.headers.get('x-cron-secret');
+  if (header && cronSecret && header === cronSecret) return true;
   const session = await verifySession(req);
-  if (!session) {
+  return !!session;
+}
+
+// POST: sync Beds24 messages into DB for all bookings of given properties
+// Body: { propertyIds?: string[] } — if omitted, defaults to all properties with a Beds24 id
+export async function POST(req: NextRequest) {
+  if (!(await authorize(req))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
-    const { propertyIds } = await req.json() as { propertyIds: string[] };
+    const body = await req.json().catch(() => ({})) as { propertyIds?: string[] };
+    let propertyIds = body.propertyIds;
     if (!propertyIds?.length) {
-      return NextResponse.json({ error: 'propertyIds required' }, { status: 400 });
+      const all = await prisma.property.findMany({
+        where: { beds24PropId: { not: null } },
+        select: { id: true },
+      });
+      propertyIds = all.map(p => p.id);
+    }
+    if (!propertyIds.length) {
+      return NextResponse.json({ synced: 0, message: 'No Beds24-linked properties' });
     }
 
     // 1. Find all events from Beds24
