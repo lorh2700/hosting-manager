@@ -39,15 +39,21 @@ export function useCalendarData() {
           setChannelMap(data.channelMap ?? {});
 
           const allEvents: RawEvent[] = (data.events ?? []).map((e: Record<string, unknown>) => ({
-            id: e.id, propertyId: e.propertyId, channelId: e.channelId || '', source: e.source,
-            title: e.title || '', start: (e.startDate || e.start) as string, end: (e.endDate || e.end) as string,
-            type: e.type || 'reservation', description: e.description,
+            id: e.id as string, propertyId: e.propertyId as string, channelId: (e.channelId as string) || '',
+            source: e.source as string | undefined,
+            title: (e.title as string) || '',
+            start: (e.startDate || e.start) as string, end: (e.endDate || e.end) as string,
+            type: (e.type as 'reservation' | 'block') || 'reservation',
+            description: e.description as string | undefined,
+            tags: Array.isArray(e.tags) ? (e.tags as string[]) : [],
+            originalUid: (e.originalUid as string | null) ?? null,
           }));
           for (const bk of data.bookings ?? []) {
             allEvents.push({
               id: bk.id, propertyId: bk.propertyId, channelId: 'direct', source: 'direct',
               title: `${bk.name} 예약`, start: bk.checkIn, end: bk.checkOut, type: 'reservation',
               description: `게스트: ${bk.name}\n연락처: ${bk.email}\n인원: ${bk.guests}명`,
+              tags: [], originalUid: null,
             });
           }
           setEvents(allEvents);
@@ -87,6 +93,7 @@ export function useCalendarData() {
               id: bk.id, propertyId: bk.propertyId, channelId: 'direct', source: 'direct',
               title: `${bk.name} 예약`, start: bk.checkIn, end: bk.checkOut, type: 'reservation',
               description: `게스트: ${bk.name}\n연락처: ${bk.email}\n인원: ${bk.guests}명`,
+              tags: [], originalUid: null,
             });
           });
           setEvents(allEvents);
@@ -148,7 +155,8 @@ export function useCalendarData() {
 
     const filtered = events.filter(e => {
       if (!activeProps.has(e.propertyId)) return false;
-      if (e.type === 'block') return false;
+      // Show Beds24 blocks (manual or synced from Beds24 "black" status); hide OTA iCal blocks
+      if (e.type === 'block' && e.channelId !== 'beds24') return false;
       if (isStayfolioChannel(e.channelId)) {
         const diffMs = new Date(e.end.substring(0, 10)).getTime() - new Date(e.start.substring(0, 10)).getTime();
         if (diffMs <= 24 * 60 * 60 * 1000) return false;
@@ -159,7 +167,8 @@ export function useCalendarData() {
       const prop = propertiesMap.get(e.propertyId);
       const color = prop?.color ?? '#6366f1';
       const end = e.end.substring(0, 10);
-      const cleaning = cleaningsIndex.get(`${e.propertyId}_${end}`);
+      // Blocks don't get cleaning slots
+      const cleaning = e.type === 'block' ? undefined : cleaningsIndex.get(`${e.propertyId}_${end}`);
       const cleanerName = cleaning?.cleanerId ? (cleanersMap.get(cleaning.cleanerId)?.name ?? null) : null;
       return {
         id: e.id, propertyId: e.propertyId, color, propName: prop?.name ?? '',
@@ -167,6 +176,7 @@ export function useCalendarData() {
         title: e.title, channelId: e.channelId, source: e.source, description: e.description,
         cleaningId: cleaning?.id ?? null, cleanerId: cleaning?.cleanerId ?? null,
         cleanerName, supplies: cleaning?.supplies ?? null, status: cleaning?.status ?? null,
+        type: e.type, tags: e.tags ?? [], originalUid: e.originalUid ?? null,
       };
     });
   }, [events, cleanings, activeProps, propertiesMap, cleanersMap, cleaningsIndex]);
@@ -222,6 +232,7 @@ export function useCalendarData() {
 
   return {
     user, properties, channelMap, cleaners, cleanings, setCleanings,
+    events, setEvents,
     loading, activeProps, viewDate, weeks, today,
     processedEvents, activeProperties, eventsByProp,
     unassignedCleanings, sortedUnassigned,

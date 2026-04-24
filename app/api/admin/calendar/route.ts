@@ -42,6 +42,7 @@ export async function GET(req: Request) {
         select: {
           id: true, propertyId: true, channelId: true, source: true,
           title: true, startDate: true, endDate: true, type: true, description: true,
+          tags: true, originalUid: true,
         },
         orderBy: { startDate: 'asc' },
       }),

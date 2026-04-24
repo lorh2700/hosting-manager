@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useCalendarData } from './hooks/useCalendarData';
 import { useEventModal } from './hooks/useEventModal';
 import { CalendarHeader } from './components/CalendarHeader';
@@ -7,19 +8,25 @@ import { PropertyFilter } from './components/PropertyFilter';
 import { CalendarGrid } from './components/CalendarGrid';
 import { EventDetailPanel } from './components/EventDetailPanel';
 import { SupplyTodoList } from './components/SupplyTodoList';
+import { CreateReservationModal } from './components/CreateReservationModal';
+import type { RawEvent } from './types';
 
 export default function UnifiedCalendarPage() {
   const data = useCalendarData();
+  const [reservationModalOpen, setReservationModalOpen] = useState(false);
   const modal = useEventModal({
     user: data.user,
     properties: data.properties,
-    cleaners: data.cleaners,
     channelMap: data.channelMap,
-    cleanings: data.cleanings,
     setCleanings: data.setCleanings,
-    allSupplyTodos: data.allSupplyTodos,
     setAllSupplyTodos: data.setAllSupplyTodos,
+    setEvents: data.setEvents,
   });
+
+  const handleReservationCreated = (ev: RawEvent) => {
+    data.setEvents(prev => [...prev, ev]);
+    setReservationModalOpen(false);
+  };
 
   if (data.loading) {
     return (
@@ -39,6 +46,7 @@ export default function UnifiedCalendarPage() {
         unassignedCleanings={data.unassignedCleanings}
         sortedUnassigned={data.sortedUnassigned}
         openModal={modal.openModal}
+        onCreateReservation={() => setReservationModalOpen(true)}
       />
 
       <PropertyFilter
@@ -71,6 +79,8 @@ export default function UnifiedCalendarPage() {
           setSelectedCleaner={modal.setSelectedCleaner}
           cleanerSaving={modal.cleanerSaving}
           completingCleaning={modal.completingCleaning}
+          savingTags={modal.savingTags}
+          cancellingEvent={modal.cancellingEvent}
           supplyTodos={modal.supplyTodos}
           newSupply={modal.newSupply}
           setNewSupply={modal.setNewSupply}
@@ -92,7 +102,17 @@ export default function UnifiedCalendarPage() {
           onDeleteSupply={modal.handleDeleteSupply}
           onSendMessage={modal.handleSendMessage}
           onSyncMessages={modal.handleSyncMessages}
+          onUpdateTags={modal.handleUpdateTags}
+          onCancelEvent={modal.handleCancelBeds24Event}
           openModal={modal.openModal}
+        />
+      )}
+
+      {reservationModalOpen && (
+        <CreateReservationModal
+          properties={data.properties}
+          onClose={() => setReservationModalOpen(false)}
+          onCreated={handleReservationCreated}
         />
       )}
     </div>

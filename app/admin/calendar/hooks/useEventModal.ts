@@ -2,30 +2,31 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  type Property, type Cleaning, type Cleaner, type ProcessedEvent,
+  type Property, type Cleaning, type ProcessedEvent,
   type SelectedEvent, type SupplyTodo, type ModalMessage, type GlobalSupplyTodo,
+  type RawEvent,
   getChannelLabel, getRoomReadyMessage,
 } from '../types';
 
 interface UseEventModalParams {
   user: { id: string; email: string } | null;
   properties: Property[];
-  cleaners: Cleaner[];
   channelMap: Record<string, string>;
-  cleanings: Cleaning[];
   setCleanings: React.Dispatch<React.SetStateAction<Cleaning[]>>;
-  allSupplyTodos: GlobalSupplyTodo[];
   setAllSupplyTodos: React.Dispatch<React.SetStateAction<GlobalSupplyTodo[]>>;
+  setEvents: React.Dispatch<React.SetStateAction<RawEvent[]>>;
 }
 
 export function useEventModal({
-  user, properties, cleaners, channelMap,
-  cleanings, setCleanings, allSupplyTodos, setAllSupplyTodos,
+  user, properties, channelMap,
+  setCleanings, setAllSupplyTodos, setEvents,
 }: UseEventModalParams) {
   const [selectedEvent, setSelectedEvent] = useState<SelectedEvent | null>(null);
   const [selectedCleaner, setSelectedCleaner] = useState('');
   const [cleanerSaving, setCleanerSaving] = useState(false);
   const [completingCleaning, setCompletingCleaning] = useState(false);
+  const [savingTags, setSavingTags] = useState(false);
+  const [cancellingEvent, setCancellingEvent] = useState(false);
 
   // Supply state
   const [supplyTodos, setSupplyTodos] = useState<SupplyTodo[]>([]);
@@ -47,6 +48,8 @@ export function useEventModal({
       description: e.description,
       cleaningId: e.cleaningId, cleanerId: e.cleanerId, cleanerName: e.cleanerName,
       supplies: e.supplies, status: e.status,
+      type: e.type, tags: e.tags ?? [], originalUid: e.originalUid ?? null,
+      source: e.source,
     });
     setSelectedCleaner(e.cleanerId ?? '');
   }, [channelMap]);
@@ -237,9 +240,53 @@ export function useEventModal({
     finally { setSyncingMessages(false); }
   };
 
+  const handleUpdateTags = async (tags: string[]) => {
+    if (!selectedEvent) return;
+    setSavingTags(true);
+    try {
+      const res = await fetch(`/api/admin/calendar/events/${selectedEvent.eventId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags }),
+      });
+      if (!res.ok) throw new Error('태그 저장 실패');
+      const updated = await res.json();
+      const saved: string[] = Array.isArray(updated.tags) ? updated.tags : tags;
+      setSelectedEvent(prev => prev ? { ...prev, tags: saved } : null);
+      setEvents(prev => prev.map(e => e.id === selectedEvent.eventId ? { ...e, tags: saved } : e));
+    } catch (err) {
+      console.error(err);
+      alert('태그 저장에 실패했습니다.');
+    } finally {
+      setSavingTags(false);
+    }
+  };
+
+  const handleCancelBeds24Event = async () => {
+    if (!selectedEvent) return;
+    const isBlock = selectedEvent.type === 'block';
+    const label = isBlock ? '차단' : '예약';
+    if (!confirm(`이 Beds24 ${label}을(를) 취소하시겠습니까?`)) return;
+    setCancellingEvent(true);
+    try {
+      const res = await fetch(`/api/beds24/reservations?eventId=${selectedEvent.eventId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `${label} 취소 실패`);
+      }
+      setEvents(prev => prev.filter(e => e.id !== selectedEvent.eventId));
+      setSelectedEvent(null);
+    } catch (err) {
+      console.error(err);
+      alert(err instanceof Error ? err.message : `${label} 취소에 실패했습니다.`);
+    } finally {
+      setCancellingEvent(false);
+    }
+  };
+
   return {
     selectedEvent, selectedCleaner, setSelectedCleaner,
     cleanerSaving, completingCleaning,
+    savingTags, cancellingEvent,
     supplyTodos, newSupply, setNewSupply,
     modalMessages, newMessage, setNewMessage,
     sendingMessage, loadingMessages, syncingMessages,
@@ -247,5 +294,6 @@ export function useEventModal({
     handleSaveCleaner, handleDeleteCleaner, handleCompleteCleaning,
     handleAddSupply, handleToggleSupply, handleDeleteSupply,
     handleSendMessage, handleSyncMessages,
+    handleUpdateTags, handleCancelBeds24Event,
   };
 }

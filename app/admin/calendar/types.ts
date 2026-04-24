@@ -28,6 +28,8 @@ export interface RawEvent {
   end: string;
   type: 'reservation' | 'block';
   description?: string;
+  tags?: string[];
+  originalUid?: string | null;
 }
 
 export interface Cleaning {
@@ -61,6 +63,10 @@ export interface SelectedEvent {
   cleanerName: string | null;
   supplies: string | null;
   status: 'pending' | 'done' | null;
+  type: 'reservation' | 'block';
+  tags: string[];
+  originalUid: string | null;
+  source?: string;
 }
 
 export interface ProcessedEvent {
@@ -79,6 +85,9 @@ export interface ProcessedEvent {
   cleanerName: string | null;
   supplies: string | null;
   status: 'pending' | 'done' | null;
+  type: 'reservation' | 'block';
+  tags: string[];
+  originalUid: string | null;
 }
 
 export interface SupplyTodo {

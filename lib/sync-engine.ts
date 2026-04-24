@@ -316,18 +316,24 @@ export async function syncBeds24Property(
   const newEvents = allBookings
     .filter((b) => b.status !== 'cancelled' && b.arrival && b.departure)
     .map((b) => {
-      const guestName = [b.firstName, b.lastName].filter(Boolean).join(' ') || '게스트';
-      const channelSource = (b.channel as string) || (b.referer as string) || 'Beds24';
+      const isBlack = b.status === 'black';
+      const guestName = [b.firstName, b.lastName].filter(Boolean).join(' ') || (isBlack ? '차단' : '게스트');
+      const channelSource = isBlack ? 'manual-block' : ((b.channel as string) || (b.referer as string) || 'Beds24');
 
-      const descriptionParts = [
-        `게스트: ${guestName}`,
-        b.email ? `이메일: ${b.email}` : '',
-        b.phone ? `연락처: ${b.phone}` : '',
-        `인원: 성인 ${b.numAdult || 0}명${b.numChild ? `, 아동 ${b.numChild}명` : ''}`,
-        `채널: ${channelSource}`,
-        b.price ? `금액: ₩${Number(b.price).toLocaleString()}` : '',
-        b.notes ? `메모: ${b.notes}` : '',
-      ].filter(Boolean).join('\n');
+      const descriptionParts = isBlack
+        ? [
+            b.notes ? `${b.notes}` : '',
+            `채널: Beds24 차단`,
+          ].filter(Boolean).join('\n')
+        : [
+            `게스트: ${guestName}`,
+            b.email ? `이메일: ${b.email}` : '',
+            b.phone ? `연락처: ${b.phone}` : '',
+            `인원: 성인 ${b.numAdult || 0}명${b.numChild ? `, 아동 ${b.numChild}명` : ''}`,
+            `채널: ${channelSource}`,
+            b.price ? `금액: ₩${Number(b.price).toLocaleString()}` : '',
+            b.notes ? `메모: ${b.notes}` : '',
+          ].filter(Boolean).join('\n');
 
       return {
         propertyId,
@@ -336,7 +342,7 @@ export async function syncBeds24Property(
         title: guestName as string,
         startDate: (b.arrival as string).substring(0, 10),
         endDate: (b.departure as string).substring(0, 10),
-        type: 'reservation' as const,
+        type: (isBlack ? 'block' : 'reservation') as 'block' | 'reservation',
         originalUid: String(b.id),
         description: descriptionParts,
       };

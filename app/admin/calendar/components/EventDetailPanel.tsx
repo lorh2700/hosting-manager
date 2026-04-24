@@ -1,6 +1,7 @@
 'use client';
 
-import { ChevronLeft, ChevronRight, X, Save, Trash2, Send, CheckCircle, RefreshCw } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronLeft, ChevronRight, X, Save, Trash2, Send, CheckCircle, RefreshCw, Tag as TagIcon, Plus, Ban } from 'lucide-react';
 import type { SelectedEvent, ProcessedEvent, Cleaner, SupplyTodo, ModalMessage } from '../types';
 
 interface EventDetailPanelProps {
@@ -23,6 +24,8 @@ interface EventDetailPanelProps {
   unassignedCleanings: ProcessedEvent[];
   sortedUnassigned: ProcessedEvent[];
   isLoggedIn: boolean;
+  savingTags: boolean;
+  cancellingEvent: boolean;
   onClose: () => void;
   onSaveCleaner: () => void;
   onDeleteCleaner: () => void;
@@ -32,8 +35,12 @@ interface EventDetailPanelProps {
   onDeleteSupply: (id: string) => void;
   onSendMessage: () => void;
   onSyncMessages: () => void;
+  onUpdateTags: (tags: string[]) => Promise<void> | void;
+  onCancelEvent: () => void;
   openModal: (e: ProcessedEvent) => void;
 }
+
+const TAG_PRESETS = ['픽업 요청', '늦은 체크인', '일찍 체크인', '반려동물', '유아 동반', '조용한 객실'];
 
 export function EventDetailPanel({
   selectedEvent, today, cleaners, selectedCleaner, setSelectedCleaner,
@@ -42,10 +49,27 @@ export function EventDetailPanel({
   modalMessages, newMessage, setNewMessage,
   sendingMessage, loadingMessages, syncingMessages,
   unassignedCleanings, sortedUnassigned, isLoggedIn,
+  savingTags, cancellingEvent,
   onClose, onSaveCleaner, onDeleteCleaner, onCompleteCleaning,
   onAddSupply, onToggleSupply, onDeleteSupply,
-  onSendMessage, onSyncMessages, openModal,
+  onSendMessage, onSyncMessages, onUpdateTags, onCancelEvent, openModal,
 }: EventDetailPanelProps) {
+  const [newTag, setNewTag] = useState('');
+  const isBlock = selectedEvent.type === 'block';
+  const isManualReservation = selectedEvent.source === 'manual-reservation' && selectedEvent.type === 'reservation';
+  const canCancel = isBlock || isManualReservation;
+
+  const addTag = async (raw: string) => {
+    const t = raw.trim();
+    if (!t || t.length > 40) return;
+    const next = Array.from(new Set([...(selectedEvent.tags ?? []), t])).slice(0, 20);
+    await onUpdateTags(next);
+    setNewTag('');
+  };
+  const removeTag = async (t: string) => {
+    const next = (selectedEvent.tags ?? []).filter(x => x !== t);
+    await onUpdateTags(next);
+  };
   const nights = Math.round(
     (new Date(selectedEvent.end).getTime() - new Date(selectedEvent.start).getTime()) / 86400000,
   );
@@ -115,7 +139,14 @@ export function EventDetailPanel({
             <span className="w-3 h-3 rounded-full shrink-0 mt-0.5" style={{ backgroundColor: selectedEvent.propertyColor }} />
             <div>
               <p className="text-[10px] text-white/40 tracking-widest font-medium">{selectedEvent.propertyName}</p>
-              <h3 className="text-white font-light text-lg leading-snug mt-0.5">{selectedEvent.title}</h3>
+              <div className="flex items-center gap-2 mt-0.5">
+                {isBlock && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] tracking-wider font-semibold uppercase bg-rose-500/15 text-rose-300 border border-rose-500/30 rounded">
+                    <Ban size={9} /> 차단
+                  </span>
+                )}
+                <h3 className="text-white font-light text-lg leading-snug">{selectedEvent.title}</h3>
+              </div>
             </div>
           </div>
           <button onClick={onClose} className="text-white/30 hover:text-white transition-colors shrink-0 mt-1">
@@ -151,13 +182,96 @@ export function EventDetailPanel({
           </div>
           {filteredDescription && (
             <div className="pt-2.5 mt-1 border-t border-white/[0.06]">
-              <p className="text-[10px] tracking-widest text-white/30 mb-1.5">예약 메모</p>
+              <p className="text-[10px] tracking-widest text-white/30 mb-1.5">{isBlock ? '차단 메모' : '예약 메모'}</p>
               <p className="text-white/50 text-[11px] font-light whitespace-pre-line leading-relaxed">{filteredDescription}</p>
             </div>
           )}
         </div>
 
+        {/* Tags */}
+        <div className="border-t border-white/[0.08] pt-5 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] tracking-widest text-white/40 font-medium flex items-center gap-1.5">
+              <TagIcon size={11} /> 태그
+            </p>
+            {savingTags && <RefreshCw size={11} className="animate-spin text-white/30" />}
+          </div>
+
+          {(selectedEvent.tags?.length ?? 0) > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {selectedEvent.tags.map(t => (
+                <span key={t} className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 text-[11px] bg-white/10 text-white/80 border border-white/10 rounded-full">
+                  {t}
+                  <button
+                    onClick={() => removeTag(t)}
+                    disabled={savingTags}
+                    className="p-0.5 text-white/40 hover:text-white transition-colors disabled:opacity-40"
+                    aria-label={`${t} 삭제`}
+                  >
+                    <X size={10} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newTag}
+              onChange={e => setNewTag(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ',') {
+                  e.preventDefault();
+                  addTag(newTag);
+                }
+              }}
+              placeholder="예: 픽업 요청"
+              maxLength={40}
+              className="flex-1 bg-black/60 border border-white/10 rounded-lg px-3 py-2 text-[12px] text-white focus:outline-none focus:border-white/30 transition-colors placeholder:text-white/25"
+            />
+            <button
+              onClick={() => addTag(newTag)}
+              disabled={!newTag.trim() || savingTags}
+              className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white/70 rounded-lg text-[11px] font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1"
+            >
+              <Plus size={12} /> 추가
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {TAG_PRESETS.filter(p => !(selectedEvent.tags ?? []).includes(p)).map(p => (
+              <button
+                key={p}
+                onClick={() => addTag(p)}
+                disabled={savingTags}
+                className="text-[10px] px-2 py-0.5 border border-white/[0.07] text-white/40 hover:text-white/80 hover:border-white/20 rounded-full transition-colors disabled:opacity-40"
+              >
+                + {p}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Cancel (manual reservation or Beds24 block) */}
+        {canCancel && (
+          <div className="border-t border-white/[0.08] pt-5">
+            <button
+              onClick={onCancelEvent}
+              disabled={cancellingEvent}
+              className="w-full flex items-center justify-center gap-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 py-2.5 rounded-lg text-[11px] tracking-widest font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Trash2 size={13} /> {cancellingEvent ? '취소 중...' : `${isBlock ? '차단' : '예약'} 취소 (Beds24 동기화)`}
+            </button>
+            <p className="mt-2 text-[10px] text-white/30 text-center">
+              Beds24에서 이 {isBlock ? '차단' : '예약'}을 취소하고 로컬에서도 삭제합니다.
+            </p>
+          </div>
+        )}
+
         {/* Cleaner Assignment */}
+        {!isBlock && (
+        <>
         <div className="border-t border-white/[0.08] pt-5 space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-[10px] tracking-widest text-white/40 font-medium">청소 담당자</p>
@@ -358,6 +472,8 @@ export function EventDetailPanel({
             </button>
           </div>
         </div>
+        </>
+        )}
       </div>
     </div>
   );

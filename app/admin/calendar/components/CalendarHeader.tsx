@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RefreshCw, CalendarPlus } from 'lucide-react';
 import type { ProcessedEvent } from '../types';
 
 interface CalendarHeaderProps {
@@ -12,11 +12,12 @@ interface CalendarHeaderProps {
   unassignedCleanings: ProcessedEvent[];
   sortedUnassigned: ProcessedEvent[];
   openModal: (e: ProcessedEvent) => void;
+  onCreateReservation: () => void;
 }
 
 export function CalendarHeader({
   viewDate, prevMonth, nextMonth, goToday,
-  unassignedCleanings, sortedUnassigned, openModal,
+  unassignedCleanings, sortedUnassigned, openModal, onCreateReservation,
 }: CalendarHeaderProps) {
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
@@ -52,27 +53,35 @@ export function CalendarHeader({
           <h1 className="text-3xl md:text-4xl font-light tracking-tight text-white">통합 캘린더</h1>
           <p className="text-white/40 mt-2 text-sm font-light tracking-wide">모든 숙소의 투숙 및 청소 일정</p>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <button onClick={prevMonth} className="p-2.5 text-white/40 hover:text-white border border-white/10 hover:border-white/30 rounded-lg transition-colors">
             <ChevronLeft size={16} />
           </button>
-          <span className="text-white font-light text-base px-4 min-w-[140px] text-center tabular-nums">
+          <span className="text-white font-light text-base px-3 sm:px-4 min-w-[110px] sm:min-w-[140px] text-center tabular-nums">
             {viewDate.getFullYear()}년 {viewDate.getMonth() + 1}월
           </span>
           <button onClick={nextMonth} className="p-2.5 text-white/40 hover:text-white border border-white/10 hover:border-white/30 rounded-lg transition-colors">
             <ChevronRight size={16} />
           </button>
-          <button onClick={goToday} className="ml-2 px-3.5 py-2.5 text-[11px] uppercase tracking-widest font-semibold text-white/50 border border-white/10 hover:text-white hover:border-white/30 rounded-lg transition-colors">
+          <button onClick={goToday} className="ml-1 sm:ml-2 px-3 sm:px-3.5 py-2.5 text-[11px] uppercase tracking-widest font-semibold text-white/50 border border-white/10 hover:text-white hover:border-white/30 rounded-lg transition-colors">
             오늘
           </button>
           <button
             onClick={handleSyncAll}
             disabled={syncing}
             title="Beds24 전체 동기화"
-            className="ml-1 px-3.5 py-2.5 text-[11px] uppercase tracking-widest font-semibold text-white/50 border border-white/10 hover:text-white hover:border-white/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+            className="px-3 sm:px-3.5 py-2.5 text-[11px] uppercase tracking-widest font-semibold text-white/50 border border-white/10 hover:text-white hover:border-white/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
           >
             <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
-            {syncing ? '동기화 중' : '동기화'}
+            <span className="hidden sm:inline">{syncing ? '동기화 중' : '동기화'}</span>
+          </button>
+          <button
+            onClick={onCreateReservation}
+            title="직접 예약 등록 (Beds24)"
+            className="px-3 sm:px-3.5 py-2.5 text-[11px] uppercase tracking-widest font-semibold text-indigo-200 border border-indigo-400/40 hover:text-white hover:border-indigo-300/70 hover:bg-indigo-500/15 rounded-lg transition-colors flex items-center gap-1.5"
+          >
+            <CalendarPlus size={13} />
+            <span className="hidden sm:inline">예약 등록</span>
           </button>
         </div>
       </header>

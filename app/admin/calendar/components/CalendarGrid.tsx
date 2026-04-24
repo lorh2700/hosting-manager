@@ -213,27 +213,38 @@ function PropertyLaneCell({ day, di, prop, weekStartStr, today, viewDate, events
   );
 }
 
+const LABEL_COL_CLS = 'sticky left-0 z-20 w-[64px] sm:w-[92px] shrink-0 border-r border-white/15';
+
 export function CalendarGrid({ weeks, viewDate, today, activeProperties, eventsByProp, openModal }: CalendarGridProps) {
   return (
     <div className="overflow-x-auto -mx-4 md:mx-0">
-      <div className="bg-[#0f0f0f] border border-white/10 rounded-2xl overflow-hidden min-w-[520px] mx-4 md:mx-0 shadow-xl shadow-black/30">
+      <div className="bg-[#0f0f0f] border border-white/10 rounded-2xl overflow-hidden min-w-[540px] mx-4 md:mx-0 shadow-xl shadow-black/30">
         {/* Day of week header */}
-        <div className="grid grid-cols-7 border-b border-white/15 bg-white/[0.03]">
-          {DAY_LABELS.map((label, i) => (
-            <div key={i} className={`py-3 text-center text-[11px] tracking-[0.25em] font-semibold uppercase ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-white/55'} ${i < 6 ? 'border-r border-white/15' : ''}`}>
-              {label}
-            </div>
-          ))}
+        <div className="flex border-b border-white/15 bg-[#131313]">
+          <div className={`${LABEL_COL_CLS} bg-[#131313] flex items-center justify-center py-3`}>
+            <span className="text-[9px] sm:text-[10px] tracking-[0.25em] font-semibold uppercase text-white/40">숙소</span>
+          </div>
+          <div className="flex-1 grid grid-cols-7 min-w-0">
+            {DAY_LABELS.map((label, i) => (
+              <div key={i} className={`py-3 text-center text-[11px] tracking-[0.25em] font-semibold uppercase ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-white/55'} ${i < 6 ? 'border-r border-white/15' : ''}`}>
+                {label}
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Week rows */}
         {weeks.map((week, wi) => (
           <div key={wi} className={wi < weeks.length - 1 ? 'border-b border-white/25' : ''}>
-            <div className="grid grid-cols-7 border-b border-white/20">
-              {week.map((day, di) => (
-                <DayCell key={di} day={day} di={di} viewDate={viewDate} today={today}
-                  activeProperties={activeProperties} eventsByProp={eventsByProp} />
-              ))}
+            {/* Day number row */}
+            <div className="flex border-b border-white/20">
+              <div className={`${LABEL_COL_CLS} bg-[#0f0f0f]`} />
+              <div className="flex-1 grid grid-cols-7 min-w-0">
+                {week.map((day, di) => (
+                  <DayCell key={di} day={day} di={di} viewDate={viewDate} today={today}
+                    activeProperties={activeProperties} eventsByProp={eventsByProp} />
+                ))}
+              </div>
             </div>
 
             {activeProperties.length > 0 && (
@@ -242,14 +253,26 @@ export function CalendarGrid({ weeks, viewDate, today, activeProperties, eventsB
                   const weekStartStr = toDateStr(week[0]);
                   return (
                     <div key={prop.id}
-                      className={`grid grid-cols-7 ${pi < activeProperties.length - 1 ? 'border-b border-white/[0.04]' : ''}`}
+                      className={`flex ${pi < activeProperties.length - 1 ? 'border-b border-white/[0.04]' : ''}`}
                       style={{ height: '36px' }}
                     >
-                      {week.map((day, di) => (
-                        <PropertyLaneCell key={di} day={day} di={di} prop={prop}
-                          weekStartStr={weekStartStr} today={today} viewDate={viewDate}
-                          eventsByProp={eventsByProp} openModal={openModal} />
-                      ))}
+                      <div
+                        className={`${LABEL_COL_CLS} flex items-center gap-1.5 px-2`}
+                        style={{ backgroundColor: hexToRgba(prop.color, 0.12) }}
+                        title={prop.name}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: prop.color }} />
+                        <span className="text-[10px] sm:text-[11px] text-white/90 font-medium truncate tracking-tight">
+                          {prop.name}
+                        </span>
+                      </div>
+                      <div className="flex-1 grid grid-cols-7 min-w-0">
+                        {week.map((day, di) => (
+                          <PropertyLaneCell key={di} day={day} di={di} prop={prop}
+                            weekStartStr={weekStartStr} today={today} viewDate={viewDate}
+                            eventsByProp={eventsByProp} openModal={openModal} />
+                        ))}
+                      </div>
                     </div>
                   );
                 })}
