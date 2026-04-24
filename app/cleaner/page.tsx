@@ -117,8 +117,29 @@ export default function CleanerPage() {
     }
   };
 
+  const canCompleteNow = (task: CleaningTask) => {
+    const d = parseISO(task.date);
+    if (!isToday(d)) return false;
+    const hour = new Date().getHours();
+    return hour >= 11 && hour < 16;
+  };
+
+  const completeDisabledReason = (task: CleaningTask) => {
+    const d = parseISO(task.date);
+    if (!isToday(d)) {
+      return isPast(d)
+        ? '청소 당일에만 완료 처리할 수 있습니다. (지난 일정)'
+        : '청소 당일에만 완료 처리할 수 있습니다.';
+    }
+    return '완료 처리는 오전 11시부터 오후 4시 사이에만 가능합니다.';
+  };
+
   const handleComplete = async (task: CleaningTask) => {
     if (!user) return;
+    if (!canCompleteNow(task)) {
+      alert(completeDisabledReason(task));
+      return;
+    }
     setCompleting(task.cleaningId);
     try {
       const res = await fetch('/api/cleanings', {
@@ -332,7 +353,10 @@ export default function CleanerPage() {
         </div>
 
         {/* 완료 보고 패널 */}
-        {isExpanded && task.status === 'pending' && (
+        {isExpanded && task.status === 'pending' && (() => {
+          const canComplete = canCompleteNow(task);
+          const disabledReason = canComplete ? null : completeDisabledReason(task);
+          return (
           <div className="border-t border-white/5 p-5 space-y-4">
             <div>
               <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">완료 메모 (선택)</label>
@@ -344,11 +368,15 @@ export default function CleanerPage() {
                 className="w-full bg-black/50 border border-white/10 px-4 py-3 text-sm text-white focus:outline-none focus:border-white/30 transition-colors"
               />
             </div>
+            {disabledReason && (
+              <p className="text-[11px] text-amber-400/80 leading-relaxed">{disabledReason}</p>
+            )}
             <div className="flex gap-3">
               <button
                 onClick={() => handleComplete(task)}
-                disabled={completing === task.cleaningId}
-                className="flex-1 bg-white text-black py-3 text-[11px] uppercase tracking-widest font-semibold hover:bg-white/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                disabled={completing === task.cleaningId || !canComplete}
+                title={disabledReason ?? undefined}
+                className="flex-1 bg-white text-black py-3 text-[11px] uppercase tracking-widest font-semibold hover:bg-white/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {completing === task.cleaningId ? (
                   <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
@@ -428,7 +456,8 @@ export default function CleanerPage() {
               </div>
             )}
           </div>
-        )}
+          );
+        })()}
       </div>
     );
   };

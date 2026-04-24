@@ -34,7 +34,7 @@ export interface Cleaning {
   id: string;
   propertyId: string;
   date: string;
-  cleanerId: string;
+  cleanerId: string | null;
   status: 'pending' | 'done';
   supplies?: string;
 }

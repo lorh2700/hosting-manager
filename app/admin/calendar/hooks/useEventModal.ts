@@ -57,24 +57,27 @@ export function useEventModal({
     if (!selectedEvent) return;
     setCleanerSaving(true);
     const checkoutDate = selectedEvent.end.substring(0, 10);
+    const cleanerIdToSave = selectedCleaner || null;
     try {
       if (selectedEvent.cleaningId) {
-        await fetch('/api/cleanings', {
+        const res = await fetch('/api/cleanings', {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: selectedEvent.cleaningId, cleanerId: selectedCleaner }),
+          body: JSON.stringify({ id: selectedEvent.cleaningId, cleanerId: cleanerIdToSave }),
         });
+        if (!res.ok) throw new Error('업데이트 실패');
         setCleanings(prev => prev.map(c =>
-          c.id === selectedEvent.cleaningId ? { ...c, cleanerId: selectedCleaner } : c
+          c.id === selectedEvent.cleaningId ? { ...c, cleanerId: cleanerIdToSave } : c
         ));
       } else {
         const res = await fetch('/api/cleanings', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ propertyId: selectedEvent.propertyId, date: checkoutDate, cleanerId: selectedCleaner, status: 'pending' }),
+          body: JSON.stringify({ propertyId: selectedEvent.propertyId, date: checkoutDate, cleanerId: cleanerIdToSave, status: 'pending' }),
         });
+        if (!res.ok) throw new Error('생성 실패');
         const newCleaning = await res.json();
         setCleanings(prev => [...prev, {
           id: newCleaning.id, propertyId: selectedEvent.propertyId,
-          date: checkoutDate, cleanerId: selectedCleaner, status: 'pending' as const,
+          date: checkoutDate, cleanerId: cleanerIdToSave, status: 'pending' as const,
         }]);
       }
       setSelectedEvent(null);

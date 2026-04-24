@@ -126,6 +126,8 @@ export async function PUT(req: Request) {
     const { id, ...data } = body;
     if (!id) return NextResponse.json({ error: 'id는 필수입니다.' }, { status: 400 });
 
+    if ('cleanerId' in data && data.cleanerId === '') data.cleanerId = null;
+
     const before = await prisma.cleaning.findUnique({
       where: { id },
       select: { cleanerId: true, propertyId: true },
