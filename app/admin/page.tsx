@@ -2,9 +2,29 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowRight, ArrowDownRight, ArrowUpRight, Sparkles, Check, MessageSquare, Brush, Package, AlertTriangle, Loader2, X } from 'lucide-react';
+import {
+  ArrowRight,
+  ArrowDownRight,
+  ArrowUpRight,
+  Check,
+  MessageSquare,
+  Brush,
+  Package,
+  AlertTriangle,
+  Loader2,
+  X,
+} from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
-import { addDays, format, isToday, isTomorrow, startOfToday, startOfMonth, endOfMonth, parseISO } from 'date-fns';
+import {
+  addDays,
+  format,
+  isToday,
+  isTomorrow,
+  startOfToday,
+  startOfMonth,
+  endOfMonth,
+  parseISO,
+} from 'date-fns';
 import { ko } from 'date-fns/locale';
 
 interface Reservation {
@@ -63,6 +83,12 @@ interface DayGroup {
   checkins: { reservation: Reservation; nights: number }[];
   checkouts: { reservation: Reservation; cleanerName: string; cleaningStatus: 'done' | 'pending' | 'unassigned' }[];
 }
+
+const STATUS_BADGE: Record<'done' | 'pending' | 'unassigned', { text: string; cls: string }> = {
+  done: { text: '정비완료', cls: 'bg-emerald-500/15 text-emerald-300' },
+  pending: { text: '정비대기', cls: 'bg-amber-500/15 text-amber-300' },
+  unassigned: { text: '미배정', cls: 'bg-rose-500/15 text-rose-300' },
+};
 
 export default function Dashboard() {
   const [dayGroups, setDayGroups] = useState<DayGroup[]>([]);
@@ -137,7 +163,6 @@ export default function Dashboard() {
           setMonthUnassigned(unassigned);
         }
 
-        // Build day groups
         const groups: DayGroup[] = [];
         for (let offset = 0; offset < 7; offset++) {
           const d = addDays(startOfToday(), offset);
@@ -250,7 +275,6 @@ export default function Dashboard() {
     setGuestMessages([]);
   };
 
-
   const todayGroup = dayGroups.find(g => g.isToday);
   const todayIn = todayGroup?.checkins.length ?? 0;
   const todayOut = todayGroup?.checkouts.length ?? 0;
@@ -262,20 +286,21 @@ export default function Dashboard() {
   );
 
   const actionItems = [
-    { count: unreadMessages, label: '미읽은 메시지', href: '/admin/messages', icon: MessageSquare, color: 'indigo' },
-    { count: unassignedCleanings, label: '미배정 청소', href: '/admin/calendar', icon: Brush, color: 'rose' },
-    { count: pendingSupplies, label: '비품 요청', href: '/admin/supplies', icon: Package, color: 'amber' },
-    { count: openIssues, label: '미해결 이슈', href: '/admin/issues', icon: AlertTriangle, color: 'orange' },
+    { count: unreadMessages, label: '미읽은 메시지', href: '/admin/messages', icon: MessageSquare },
+    { count: unassignedCleanings, label: '미배정 청소', href: '/admin/calendar', icon: Brush },
+    { count: pendingSupplies, label: '비품 요청', href: '/admin/supplies', icon: Package },
+    { count: openIssues, label: '미해결 이슈', href: '/admin/issues', icon: AlertTriangle },
   ];
   const hasActions = actionItems.some(a => a.count > 0);
 
   return (
     <div className="max-w-3xl mx-auto space-y-8 sm:space-y-10">
       <header>
-        <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white mb-1">
+        <p className="text-xs text-violet-300/80 mb-2 font-medium">대시보드</p>
+        <h1 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
           {format(new Date(), 'M월 d일 EEEE', { locale: ko })}
         </h1>
-        <p className="text-white/40 text-sm font-light">
+        <p className="text-white/50 text-sm mt-2">
           {loading ? '불러오는 중...' : `${totalProperties}개 숙소 운영 중`}
         </p>
       </header>
@@ -284,15 +309,15 @@ export default function Dashboard() {
         <div className="space-y-6 animate-pulse">
           <div className="grid grid-cols-2 gap-3">
             {[0, 1, 2, 3].map(i => (
-              <div key={i} className="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-4 sm:p-5 h-[72px]" />
+              <div key={i} className="bg-white/[0.04] rounded-2xl h-[78px]" />
             ))}
           </div>
           <div className="grid grid-cols-3 gap-3">
             {[0, 1, 2].map(i => (
-              <div key={i} className="bg-white/[0.03] border border-white/[0.06] rounded-2xl h-[88px]" />
+              <div key={i} className="bg-white/[0.04] rounded-2xl h-[88px]" />
             ))}
           </div>
-          <div className="bg-white/[0.02] border border-white/[0.06] rounded-3xl h-48" />
+          <div className="bg-white/[0.04] rounded-2xl h-48" />
         </div>
       )}
 
@@ -302,27 +327,31 @@ export default function Dashboard() {
           {actionItems.map(item => {
             const Icon = item.icon;
             const active = item.count > 0;
-            const colorMap: Record<string, { bg: string; border: string; text: string }> = {
-              indigo: { bg: 'bg-indigo-500/[0.08]', border: 'border-indigo-500/20', text: 'text-indigo-400' },
-              rose: { bg: 'bg-rose-500/[0.08]', border: 'border-rose-500/20', text: 'text-rose-400' },
-              amber: { bg: 'bg-amber-500/[0.08]', border: 'border-amber-500/20', text: 'text-amber-400' },
-              orange: { bg: 'bg-orange-500/[0.08]', border: 'border-orange-500/20', text: 'text-orange-400' },
-            };
-            const c = colorMap[item.color];
             return active ? (
-              <Link key={item.label} href={item.href} className={`${c.bg} border ${c.border} rounded-2xl p-4 sm:p-5 flex items-center gap-3 hover:brightness-125 active:scale-[0.98] transition-all`}>
-                <Icon size={20} className={c.text} />
-                <div>
-                  <p className={`text-2xl font-light ${c.text}`}>{item.count}</p>
-                  <p className="text-[11px] sm:text-xs text-white/40 tracking-wide">{item.label}</p>
+              <Link
+                key={item.label}
+                href={item.href}
+                className="bg-violet-500/10 border border-violet-500/25 rounded-2xl p-4 sm:p-5 flex items-center gap-3 hover:bg-violet-500/15 active:scale-[0.98] transition-all"
+              >
+                <div className="w-9 h-9 rounded-xl bg-violet-500/20 flex items-center justify-center shrink-0">
+                  <Icon size={17} className="text-violet-200" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-2xl font-semibold text-white tabular-nums leading-none">{item.count}</p>
+                  <p className="text-xs text-white/55 mt-1.5">{item.label}</p>
                 </div>
               </Link>
             ) : (
-              <div key={item.label} className="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-4 sm:p-5 flex items-center gap-3">
-                <Icon size={20} className="text-white/15" />
-                <div>
-                  <p className="text-2xl font-light text-white/15">0</p>
-                  <p className="text-[11px] sm:text-xs text-white/25 tracking-wide">{item.label}</p>
+              <div
+                key={item.label}
+                className="bg-white/[0.03] border border-white/[0.05] rounded-2xl p-4 sm:p-5 flex items-center gap-3"
+              >
+                <div className="w-9 h-9 rounded-xl bg-white/[0.04] flex items-center justify-center shrink-0">
+                  <Icon size={17} className="text-white/25" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-2xl font-semibold text-white/20 tabular-nums leading-none">0</p>
+                  <p className="text-xs text-white/30 mt-1.5">{item.label}</p>
                 </div>
               </div>
             );
@@ -331,42 +360,44 @@ export default function Dashboard() {
       )}
 
       <div className="grid grid-cols-3 gap-3">
-        <div className={`rounded-2xl p-4 sm:p-5 text-center ${todayIn > 0 ? 'bg-emerald-500/[0.08] border border-emerald-500/20' : 'bg-white/[0.03] border border-white/[0.06]'}`}>
-          <p className={`text-2xl sm:text-3xl font-light mb-1 ${todayIn > 0 ? 'text-emerald-400' : 'text-white/20'}`}>{todayIn}</p>
-          <p className="text-[11px] sm:text-xs text-white/40 tracking-wide">체크인</p>
+        <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-4 sm:p-5 text-center">
+          <p className={`text-2xl sm:text-3xl font-semibold mb-1 tabular-nums ${todayIn > 0 ? 'text-white' : 'text-white/20'}`}>
+            {todayIn}
+          </p>
+          <p className="text-xs text-white/50">체크인</p>
         </div>
-        <div className={`rounded-2xl p-4 sm:p-5 text-center ${todayOut > 0 ? 'bg-amber-500/[0.08] border border-amber-500/20' : 'bg-white/[0.03] border border-white/[0.06]'}`}>
-          <p className={`text-2xl sm:text-3xl font-light mb-1 ${todayOut > 0 ? 'text-amber-400' : 'text-white/20'}`}>{todayOut}</p>
-          <p className="text-[11px] sm:text-xs text-white/40 tracking-wide">체크아웃</p>
+        <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-4 sm:p-5 text-center">
+          <p className={`text-2xl sm:text-3xl font-semibold mb-1 tabular-nums ${todayOut > 0 ? 'text-white' : 'text-white/20'}`}>
+            {todayOut}
+          </p>
+          <p className="text-xs text-white/50">체크아웃</p>
         </div>
-        <div className={`rounded-2xl p-4 sm:p-5 text-center ${pendingCleanings > 0 ? 'bg-rose-500/[0.08] border border-rose-500/20' : 'bg-white/[0.03] border border-white/[0.06]'}`}>
-          <p className={`text-2xl sm:text-3xl font-light mb-1 ${pendingCleanings > 0 ? 'text-rose-400' : 'text-white/20'}`}>{pendingCleanings}</p>
-          <p className="text-[11px] sm:text-xs text-white/40 tracking-wide">청소 대기</p>
+        <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-4 sm:p-5 text-center">
+          <p className={`text-2xl sm:text-3xl font-semibold mb-1 tabular-nums ${pendingCleanings > 0 ? 'text-amber-300' : 'text-white/20'}`}>
+            {pendingCleanings}
+          </p>
+          <p className="text-xs text-white/50">청소 대기</p>
         </div>
       </div>
 
       {todayGroup && (todayGroup.checkins.length > 0 || todayGroup.checkouts.length > 0) && (
-        <div className="bg-white/[0.04] border border-white/15 rounded-3xl overflow-hidden shadow-2xl shadow-black/20">
-          <div className="px-6 sm:px-8 py-6 border-b border-white/10 flex items-center gap-4">
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white/10 flex items-center justify-center shrink-0">
-              <Sparkles size={22} className="text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-lg sm:text-xl text-white font-medium tracking-tight">오늘의 운영</p>
-              <p className="text-sm text-white/55 mt-1">
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl overflow-hidden">
+          <div className="px-5 sm:px-6 py-4 border-b border-white/[0.06] flex items-center gap-3">
+            <div>
+              <p className="text-base sm:text-lg text-white font-semibold tracking-tight">오늘의 운영</p>
+              <p className="text-xs text-white/45 mt-0.5">
                 {format(new Date(), 'M월 d일 (EEE)', { locale: ko })}
               </p>
             </div>
-            <span className="text-[11px] bg-white/15 text-white px-3 py-1.5 rounded-lg tracking-widest font-bold">TODAY</span>
+            <span className="ml-auto text-[11px] text-violet-200 bg-violet-500/15 px-2.5 py-1 rounded-md font-medium">오늘</span>
           </div>
 
           {todayGroup.checkins.length > 0 && (
-            <div className="px-6 sm:px-8 py-5 border-b border-white/[0.08]">
-              <div className="flex items-center gap-2.5 mb-4">
-                <ArrowDownRight size={18} className="text-emerald-400" />
-                <p className="text-xs uppercase tracking-widest text-white/70 font-semibold">체크인</p>
-                <span className="text-xs text-emerald-300 bg-emerald-500/15 px-2 py-0.5 rounded-md font-semibold">{todayGroup.checkins.length}</span>
-                <span className="text-[10px] text-white/30 ml-auto hidden sm:inline">행 클릭 시 대화 내역 확인</span>
+            <div className="px-5 sm:px-6 py-4 border-b border-white/[0.06]">
+              <div className="flex items-center gap-2 mb-3">
+                <ArrowDownRight size={16} className="text-emerald-400" />
+                <p className="text-sm text-white/85 font-medium">체크인</p>
+                <span className="text-xs text-white/45">{todayGroup.checkins.length}건</span>
               </div>
               <div className="space-y-2">
                 {todayGroup.checkins.map(({ reservation: r, nights }) => {
@@ -376,27 +407,24 @@ export default function Dashboard() {
                       type="button"
                       key={r.id + '-today-in'}
                       onClick={() => openGuest(r, nights)}
-                      className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] hover:border-white/15 transition-all text-left active:scale-[0.995]"
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] transition-colors text-left"
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="text-base text-white truncate flex items-center gap-2">
+                        <p className="text-sm text-white truncate flex items-center gap-2">
                           <span className="truncate">{r.propertyName}</span>
                           {channel && (
-                            <span className="text-[10px] tracking-wide text-white/50 bg-white/[0.06] border border-white/10 px-1.5 py-0.5 rounded-md shrink-0">
+                            <span className="text-[10px] text-white/55 bg-white/[0.06] px-1.5 py-0.5 rounded shrink-0">
                               {channel}
                             </span>
                           )}
                         </p>
-                        <p className="text-sm text-white/55 mt-0.5 truncate flex items-center gap-1.5">
-                          <MessageSquare size={12} className="text-white/35" />
-                          {r.title || '게스트'}
-                        </p>
+                        <p className="text-xs text-white/50 mt-0.5 truncate">{r.title || '게스트'}</p>
                       </div>
-                      <div className="flex items-center gap-2 text-sm shrink-0">
+                      <div className="flex items-center gap-1.5 text-xs shrink-0">
                         {r.guests ? (
-                          <span className="text-emerald-200 bg-emerald-500/15 px-2.5 py-1 rounded-lg tabular-nums font-semibold">{r.guests}명</span>
+                          <span className="text-white/85 bg-white/[0.06] px-2 py-1 rounded-md tabular-nums">{r.guests}명</span>
                         ) : null}
-                        <span className="text-white/80 bg-white/[0.08] px-2.5 py-1 rounded-lg tabular-nums font-semibold">{nights}박</span>
+                        <span className="text-white bg-white/10 px-2 py-1 rounded-md tabular-nums font-medium">{nights}박</span>
                       </div>
                     </button>
                   );
@@ -406,35 +434,33 @@ export default function Dashboard() {
           )}
 
           {todayGroup.checkouts.length > 0 && (
-            <div className="px-6 sm:px-8 py-5">
-              <div className="flex items-center gap-2.5 mb-4">
-                <Brush size={18} className="text-rose-400" />
-                <p className="text-xs uppercase tracking-widest text-white/70 font-semibold">청소 필요</p>
-                <span className="text-xs text-rose-300 bg-rose-500/15 px-2 py-0.5 rounded-md font-semibold">{todayGroup.checkouts.length}</span>
+            <div className="px-5 sm:px-6 py-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Brush size={15} className="text-amber-300" />
+                <p className="text-sm text-white/85 font-medium">청소 필요</p>
+                <span className="text-xs text-white/45">{todayGroup.checkouts.length}건</span>
               </div>
               <div className="space-y-2">
                 {todayGroup.checkouts.map(({ reservation: r, cleanerName, cleaningStatus }) => {
-                  const statusBadge = cleaningStatus === 'done'
-                    ? { text: '정비완료', cls: 'text-emerald-200 bg-emerald-500/15' }
-                    : cleaningStatus === 'unassigned'
-                      ? { text: '미배정', cls: 'text-rose-200 bg-rose-500/15' }
-                      : { text: '정비대기', cls: 'text-amber-200 bg-amber-500/15' };
+                  const badge = STATUS_BADGE[cleaningStatus];
                   return (
-                    <div key={r.id + '-today-out'} className="flex items-center gap-3 px-4 py-3.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                    <div key={r.id + '-today-out'} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.03]">
                       <div className="flex-1 min-w-0">
-                        <p className="text-base text-white truncate">
+                        <p className="text-sm text-white truncate">
                           {r.propertyName}
-                          {r.title && <span className="text-white/50 font-light"> · {r.title}</span>}
+                          {r.title && <span className="text-white/50"> · {r.title}</span>}
                         </p>
                         {cleanerName && (
-                          <p className="text-sm text-white/55 mt-0.5 flex items-center gap-1.5">
-                            {cleaningStatus === 'done' ? <Check size={12} className="text-emerald-400" /> : <Sparkles size={12} />}
+                          <p className="text-xs text-white/50 mt-0.5 flex items-center gap-1.5">
+                            {cleaningStatus === 'done' ? (
+                              <Check size={11} className="text-emerald-400" />
+                            ) : null}
                             {cleanerName}
                           </p>
                         )}
                       </div>
-                      <span className={`text-xs px-2.5 py-1 rounded-lg shrink-0 tracking-wide font-semibold ${statusBadge.cls}`}>
-                        {statusBadge.text}
+                      <span className={`text-[11px] px-2 py-1 rounded-md shrink-0 font-medium ${badge.cls}`}>
+                        {badge.text}
                       </span>
                     </div>
                   );
@@ -451,21 +477,23 @@ export default function Dashboard() {
           onClick={closeGuest}
         >
           <div
-            className="bg-[#0f0f0f] border border-white/15 w-full sm:max-w-xl max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-3xl overflow-hidden"
+            className="bg-[#141416] border border-white/[0.08] w-full sm:max-w-xl max-h-[90vh] flex flex-col rounded-t-2xl sm:rounded-2xl overflow-hidden"
             onClick={e => e.stopPropagation()}
           >
-            <div className="px-6 py-5 border-b border-white/10 flex items-start gap-3">
+            <div className="px-5 sm:px-6 py-5 border-b border-white/[0.06] flex items-start gap-3">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <p className="text-[10px] uppercase tracking-widest text-white/40">{selectedGuest.reservation.propertyName}</p>
+                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                  <p className="text-xs text-white/55">{selectedGuest.reservation.propertyName}</p>
                   {formatChannel(selectedGuest.reservation.source) && (
-                    <span className="text-[10px] tracking-wide text-white/60 bg-white/[0.06] border border-white/10 px-1.5 py-0.5 rounded-md">
+                    <span className="text-[10px] text-white/65 bg-white/[0.06] px-1.5 py-0.5 rounded">
                       {formatChannel(selectedGuest.reservation.source)}
                     </span>
                   )}
                 </div>
-                <p className="text-lg text-white font-medium truncate">{selectedGuest.reservation.title || '게스트'}</p>
-                <div className="flex items-center gap-3 mt-2 text-xs text-white/50 flex-wrap">
+                <p className="text-lg text-white font-semibold truncate">
+                  {selectedGuest.reservation.title || '게스트'}
+                </p>
+                <div className="flex items-center gap-2.5 mt-2 text-xs text-white/55 flex-wrap">
                   <span>{format(parseISO(selectedGuest.reservation.start), 'M월 d일 (EEE)', { locale: ko })} 체크인</span>
                   <span className="text-white/25">·</span>
                   <span>{selectedGuest.nights}박</span>
@@ -474,7 +502,7 @@ export default function Dashboard() {
                   ) : null}
                 </div>
                 {(selectedGuest.reservation.phone || selectedGuest.reservation.email) && (
-                  <div className="flex items-center gap-3 mt-1.5 text-[11px] text-white/40 flex-wrap">
+                  <div className="flex items-center gap-2.5 mt-1.5 text-xs text-white/45 flex-wrap">
                     {selectedGuest.reservation.phone && <span>{selectedGuest.reservation.phone}</span>}
                     {selectedGuest.reservation.email && <span className="truncate">{selectedGuest.reservation.email}</span>}
                   </div>
@@ -482,23 +510,25 @@ export default function Dashboard() {
               </div>
               <button
                 onClick={closeGuest}
-                className="text-white/40 hover:text-white transition-colors shrink-0 p-1"
+                className="text-white/45 hover:text-white transition-colors shrink-0 p-1"
                 aria-label="닫기"
               >
-                <X size={22} />
+                <X size={20} />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-6 py-5 bg-[#0a0a0a]">
+            <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 bg-[#0b0b0c]">
               {loadingMessages ? (
                 <div className="flex items-center justify-center py-10">
-                  <Loader2 size={20} className="animate-spin text-white/40" />
+                  <Loader2 size={20} className="animate-spin text-violet-400" />
                 </div>
               ) : guestMessages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center gap-2">
-                  <MessageSquare size={24} className="text-white/20" />
-                  <p className="text-sm text-white/40">
-                    {selectedGuest.reservation.dataSource === 'event' ? '주고받은 메시지가 없습니다.' : '직접 예약은 대화 내역이 없습니다.'}
+                  <MessageSquare size={22} className="text-white/20" />
+                  <p className="text-sm text-white/45">
+                    {selectedGuest.reservation.dataSource === 'event'
+                      ? '주고받은 메시지가 없습니다.'
+                      : '직접 예약은 대화 내역이 없습니다.'}
                   </p>
                 </div>
               ) : (
@@ -507,13 +537,15 @@ export default function Dashboard() {
                     const isGuest = m.sender === 'guest';
                     return (
                       <div key={m.id} className={`flex ${isGuest ? 'justify-start' : 'justify-end'}`}>
-                        <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl ${
-                          isGuest
-                            ? 'bg-white/[0.06] border border-white/10 text-white/90 rounded-tl-sm'
-                            : 'bg-emerald-500/15 border border-emerald-500/25 text-emerald-50 rounded-tr-sm'
-                        }`}>
+                        <div
+                          className={`max-w-[80%] px-4 py-2.5 rounded-2xl ${
+                            isGuest
+                              ? 'bg-white/[0.06] text-white/90 rounded-tl-sm'
+                              : 'bg-violet-500/20 text-violet-50 rounded-tr-sm'
+                          }`}
+                        >
                           <p className="text-sm whitespace-pre-wrap break-words">{m.text}</p>
-                          <p className={`text-[10px] mt-1 ${isGuest ? 'text-white/35' : 'text-emerald-200/60'}`}>
+                          <p className={`text-[10px] mt-1 ${isGuest ? 'text-white/35' : 'text-violet-200/65'}`}>
                             {m.createdAt ? format(parseISO(m.createdAt), 'M월 d일 HH:mm', { locale: ko }) : ''}
                           </p>
                         </div>
@@ -524,10 +556,10 @@ export default function Dashboard() {
               )}
             </div>
 
-            <div className="px-6 py-3 border-t border-white/10 bg-[#0f0f0f]">
+            <div className="px-5 sm:px-6 py-3 border-t border-white/[0.06]">
               <Link
                 href="/admin/calendar"
-                className="text-[11px] text-white/50 hover:text-white tracking-wide inline-flex items-center gap-1.5 transition-colors"
+                className="text-xs text-white/55 hover:text-white inline-flex items-center gap-1 transition-colors"
               >
                 캘린더에서 상세 관리 <ArrowRight size={12} />
               </Link>
@@ -537,29 +569,32 @@ export default function Dashboard() {
       )}
 
       {isAdmin && monthUnassigned.length > 0 && (
-        <div className="bg-rose-500/[0.05] border border-rose-500/20 rounded-2xl overflow-hidden">
+        <div className="bg-rose-500/[0.06] border border-rose-500/25 rounded-2xl overflow-hidden">
           <button
             onClick={() => setShowUnassigned(s => !s)}
-            className="w-full px-4 sm:px-5 py-4 flex items-center gap-3 hover:bg-rose-500/[0.03] transition-colors"
+            className="w-full px-4 sm:px-5 py-4 flex items-center gap-3 hover:bg-rose-500/[0.04] transition-colors"
           >
-            <Brush size={18} className="text-rose-400 shrink-0" />
+            <Brush size={17} className="text-rose-300 shrink-0" />
             <div className="flex-1 text-left min-w-0">
-              <p className="text-sm text-white/90">이번 달 미배정 청소</p>
-              <p className="text-[11px] text-white/40 mt-0.5">
+              <p className="text-sm text-white font-medium">이번 달 미배정 청소</p>
+              <p className="text-xs text-white/45 mt-0.5">
                 {format(new Date(), 'M월', { locale: ko })} · {monthUnassigned.length}건 배정 필요
               </p>
             </div>
             <ArrowRight
               size={16}
-              className={`text-white/30 transition-transform ${showUnassigned ? 'rotate-90' : ''}`}
+              className={`text-white/35 transition-transform ${showUnassigned ? 'rotate-90' : ''}`}
             />
           </button>
           {showUnassigned && (
             <div className="divide-y divide-white/[0.05] border-t border-rose-500/15">
               {cleaners.length === 0 ? (
                 <div className="px-4 sm:px-5 py-6 text-center">
-                  <p className="text-white/40 text-xs mb-2">등록된 청소 담당자가 없습니다.</p>
-                  <Link href="/admin/cleaners" className="text-rose-400 hover:text-rose-300 text-xs tracking-wide inline-flex items-center gap-1 transition-colors">
+                  <p className="text-white/45 text-xs mb-2">등록된 청소 담당자가 없습니다.</p>
+                  <Link
+                    href="/admin/cleaners"
+                    className="text-rose-300 hover:text-rose-200 text-xs inline-flex items-center gap-1 transition-colors"
+                  >
                     담당자 등록하기 <ArrowRight size={12} />
                   </Link>
                 </div>
@@ -571,10 +606,10 @@ export default function Dashboard() {
                   return (
                     <div key={item.key} className="px-4 sm:px-5 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-white/85 truncate">{item.propertyName}</p>
-                        <p className="text-[11px] text-white/40 mt-0.5">
+                        <p className="text-sm text-white truncate">{item.propertyName}</p>
+                        <p className="text-xs text-white/45 mt-0.5">
                           {dateLabel}
-                          {item.guestName && <span className="text-white/25"> · {item.guestName}</span>}
+                          {item.guestName && <span className="text-white/30"> · {item.guestName}</span>}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
@@ -582,7 +617,7 @@ export default function Dashboard() {
                           value={selected}
                           onChange={e => setAssignSelection(prev => ({ ...prev, [item.key]: e.target.value }))}
                           disabled={saving}
-                          className="bg-black/40 border border-white/10 text-white/80 text-xs px-3 py-2 rounded-lg focus:outline-none focus:border-white/30 transition-colors disabled:opacity-50 min-w-[140px]"
+                          className="bg-black/30 border border-white/[0.08] text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:border-violet-400/60 transition-colors disabled:opacity-50 min-w-[140px]"
                         >
                           <option value="">담당자 선택</option>
                           {cleaners.map(c => (
@@ -592,7 +627,7 @@ export default function Dashboard() {
                         <button
                           onClick={() => handleAssign(item)}
                           disabled={!selected || saving}
-                          className="bg-white text-black text-[11px] tracking-widest font-semibold px-4 py-2 rounded-lg hover:bg-white/90 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1.5"
+                          className="bg-violet-500 hover:bg-violet-400 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1.5"
                         >
                           {saving ? <Loader2 size={12} className="animate-spin" /> : null}
                           배정
@@ -609,70 +644,74 @@ export default function Dashboard() {
 
       <div className="space-y-2.5">
         {dayGroups.filter(g => !g.isToday).length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-white/20 text-sm mb-4">이번 주 예정된 일정이 없습니다.</p>
-            <Link href="/admin/calendar" className="text-white/40 hover:text-white text-xs tracking-wide inline-flex items-center gap-1 transition-colors">
+          <div className="text-center py-16">
+            <p className="text-white/30 text-sm mb-3">이번 주 예정된 일정이 없습니다.</p>
+            <Link
+              href="/admin/calendar"
+              className="text-white/55 hover:text-white text-xs inline-flex items-center gap-1 transition-colors"
+            >
               캘린더에서 확인 <ArrowRight size={12} />
             </Link>
           </div>
         ) : (
           dayGroups.filter(g => !g.isToday).map(group => (
-            <div key={group.date} className={`rounded-2xl border overflow-hidden ${group.isToday ? 'border-white/15 bg-white/[0.03]' : 'border-white/[0.06] bg-white/[0.015]'}`}>
-              <div className={`px-4 sm:px-5 py-3.5 flex items-center gap-3 ${group.isToday ? 'border-b border-white/[0.08]' : 'border-b border-white/[0.04]'}`}>
-                <span className={`text-sm font-medium ${group.isToday ? 'text-white' : 'text-white/50'}`}>{group.label}</span>
-                {group.isToday && <span className="text-[9px] bg-white/15 text-white/70 px-2 py-0.5 rounded-full font-medium tracking-wider">TODAY</span>}
-                <span className="text-[11px] text-white/25 ml-auto tabular-nums hidden sm:inline">{group.date}</span>
+            <div key={group.date} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+              <div className="px-4 sm:px-5 py-3 border-b border-white/[0.05] flex items-center gap-3">
+                <span className="text-sm font-medium text-white/75">{group.label}</span>
+                <span className="text-xs text-white/30 ml-auto tabular-nums hidden sm:inline">{group.date}</span>
               </div>
               <div className="divide-y divide-white/[0.04]">
                 {group.checkins.map(({ reservation: r, nights }) => {
                   const channel = formatChannel(r.source);
                   return (
-                    <div key={r.id + '-in'} className="px-4 sm:px-5 py-3.5 flex items-center gap-3 sm:gap-4">
-                      <div className="w-8 flex justify-center shrink-0"><ArrowDownRight size={18} className="text-emerald-400" /></div>
+                    <div key={r.id + '-in'} className="px-4 sm:px-5 py-3 flex items-center gap-3">
+                      <ArrowDownRight size={16} className="text-emerald-400 shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-white/90 truncate">{r.title}</p>
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <span className="text-xs text-white/35">{r.propertyName} · {nights}박</span>
+                        <p className="text-sm text-white truncate">{r.title}</p>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          <span className="text-xs text-white/45">{r.propertyName} · {nights}박</span>
                           {channel && (
-                            <span className="text-[10px] tracking-wide text-white/50 bg-white/[0.05] border border-white/10 px-1.5 py-0.5 rounded-md">
+                            <span className="text-[10px] text-white/55 bg-white/[0.05] px-1.5 py-0.5 rounded">
                               {channel}
                             </span>
                           )}
-                          {r.phone && <span className="text-[11px] text-white/30">{r.phone}</span>}
-                          {!r.phone && r.email && <span className="text-[11px] text-white/30 truncate max-w-[140px]">{r.email}</span>}
+                          {r.phone && <span className="text-xs text-white/35">{r.phone}</span>}
+                          {!r.phone && r.email && (
+                            <span className="text-xs text-white/35 truncate max-w-[140px]">{r.email}</span>
+                          )}
                         </div>
                       </div>
-                      <span className="text-[10px] sm:text-[11px] bg-emerald-500/10 text-emerald-400/80 px-2.5 py-1.5 rounded-lg font-medium shrink-0">체크인</span>
+                      <span className="text-[11px] text-emerald-300 bg-emerald-500/15 px-2 py-1 rounded-md font-medium shrink-0">
+                        체크인
+                      </span>
                     </div>
                   );
                 })}
                 {group.checkouts.map(({ reservation: r, cleanerName, cleaningStatus }) => {
-                  const cleanBadge = cleaningStatus === 'done'
-                    ? { text: '정비완료', cls: 'bg-emerald-500/15 text-emerald-300' }
-                    : cleaningStatus === 'unassigned'
-                      ? { text: '미배정', cls: 'bg-rose-500/15 text-rose-300' }
-                      : { text: '정비대기', cls: 'bg-amber-500/15 text-amber-300' };
+                  const badge = STATUS_BADGE[cleaningStatus];
                   return (
-                    <div key={r.id + '-out'} className="px-4 sm:px-5 py-3.5 flex items-center gap-3 sm:gap-4">
-                      <div className="w-8 flex justify-center shrink-0"><ArrowUpRight size={18} className="text-amber-400" /></div>
+                    <div key={r.id + '-out'} className="px-4 sm:px-5 py-3 flex items-center gap-3">
+                      <ArrowUpRight size={16} className="text-amber-300 shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-white/90 truncate">{r.title}</p>
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <span className="text-xs text-white/35">{r.propertyName}</span>
+                        <p className="text-sm text-white truncate">{r.title}</p>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          <span className="text-xs text-white/45">{r.propertyName}</span>
                           {cleanerName && (
                             <>
-                              <span className="text-white/10">·</span>
+                              <span className="text-white/20">·</span>
                               {cleaningStatus === 'done' ? (
-                                <span className="text-xs text-emerald-400/70 flex items-center gap-1"><Check size={11} /> {cleanerName}</span>
+                                <span className="text-xs text-emerald-300 flex items-center gap-1">
+                                  <Check size={11} /> {cleanerName}
+                                </span>
                               ) : (
-                                <span className="text-xs text-white/40 flex items-center gap-1"><Sparkles size={11} /> {cleanerName}</span>
+                                <span className="text-xs text-white/55">{cleanerName}</span>
                               )}
                             </>
                           )}
                         </div>
                       </div>
-                      <span className={`text-[10px] sm:text-[11px] px-2.5 py-1.5 rounded-lg font-semibold shrink-0 tracking-wide ${cleanBadge.cls}`}>
-                        {cleanBadge.text}
+                      <span className={`text-[11px] px-2 py-1 rounded-md font-medium shrink-0 ${badge.cls}`}>
+                        {badge.text}
                       </span>
                     </div>
                   );
@@ -685,7 +724,10 @@ export default function Dashboard() {
 
       {dayGroups.length > 0 && (
         <div className="text-center pb-4">
-          <Link href="/admin/calendar" className="text-white/30 hover:text-white/60 text-sm tracking-wide inline-flex items-center gap-1.5 transition-colors py-2">
+          <Link
+            href="/admin/calendar"
+            className="text-white/45 hover:text-white text-sm inline-flex items-center gap-1.5 transition-colors py-2"
+          >
             전체 캘린더 보기 <ArrowRight size={14} />
           </Link>
         </div>

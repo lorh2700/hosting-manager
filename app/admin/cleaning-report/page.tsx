@@ -2,9 +2,27 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/components/AuthProvider';
-import { format, startOfMonth, endOfMonth, subMonths, addMonths } from 'date-fns';
+import {
+  format,
+  subMonths,
+  addMonths,
+  setDate,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  getDay,
+  isSameDay,
+  isWithinInterval,
+  parseISO,
+} from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, FileBarChart, Download } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  FileBarChart,
+  Download,
+  ChevronDown,
+} from 'lucide-react';
 
 interface Cleaning {
   id: string;
@@ -26,13 +44,122 @@ interface Property {
   name: string;
 }
 
+interface CleaningDetail {
+  id: string;
+  date: string;
+  propertyName: string;
+  status: string;
+}
+
 interface CleanerStat {
   cleanerId: string;
   cleanerName: string;
   total: number;
   done: number;
   pending: number;
-  properties: Record<string, number>; // propertyName -> count
+  properties: Record<string, number>;
+  details: CleaningDetail[];
+}
+
+interface SettlementPeriod {
+  start: Date;
+  end: Date;
+  startStr: string;
+  endStr: string;
+}
+
+// Settlement period: 26th of previous month through 25th of the view month.
+function getSettlementPeriod(viewDate: Date): SettlementPeriod {
+  const end = setDate(viewDate, 25);
+  const start = setDate(subMonths(viewDate, 1), 26);
+  return {
+    start,
+    end,
+    startStr: format(start, 'yyyy-MM-dd'),
+    endStr: format(end, 'yyyy-MM-dd'),
+  };
+}
+
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+
+function CalendarMonth({
+  monthDate,
+  period,
+  cleaningsByDate,
+}: {
+  monthDate: Date;
+  period: SettlementPeriod;
+  cleaningsByDate: Record<string, { done: number; pending: number }>;
+}) {
+  const monthStart = startOfMonth(monthDate);
+  const monthEnd = endOfMonth(monthDate);
+  const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  const offset = getDay(monthStart);
+
+  return (
+    <div className="bg-white border border-gray-100 rounded-2xl p-4 sm:p-5">
+      <p className="text-sm font-bold text-gray-900 mb-4 tracking-tight">
+        {format(monthDate, 'yyyy. M', { locale: ko })}
+      </p>
+      <div className="grid grid-cols-7 gap-y-1">
+        {WEEKDAYS.map((d, i) => (
+          <div
+            key={d}
+            className={`text-[10px] font-medium pb-2 text-center ${
+              i === 0 ? 'text-rose-400' : i === 6 ? 'text-violet-400' : 'text-gray-400'
+            }`}
+          >
+            {d}
+          </div>
+        ))}
+        {Array.from({ length: offset }).map((_, i) => (
+          <div key={`pad-${i}`} />
+        ))}
+        {days.map(day => {
+          const dateStr = format(day, 'yyyy-MM-dd');
+          const inPeriod = isWithinInterval(day, { start: period.start, end: period.end });
+          const dayInfo = cleaningsByDate[dateStr];
+          const hasDone = !!dayInfo && dayInfo.done > 0;
+          const hasPending = !!dayInfo && dayInfo.pending > 0;
+          const isCutoff = isSameDay(day, period.end);
+          const isStartDay = isSameDay(day, period.start);
+          const dow = getDay(day);
+
+          let cellClass = 'text-gray-300';
+          if (inPeriod) {
+            if (dow === 0) cellClass = 'text-rose-500';
+            else if (dow === 6) cellClass = 'text-violet-500';
+            else cellClass = 'text-gray-900';
+          }
+
+          return (
+            <div
+              key={dateStr}
+              className="aspect-square flex flex-col items-center justify-center relative py-1"
+            >
+              <div
+                className={`w-8 h-8 flex items-center justify-center rounded-full text-[13px] tabular-nums transition-colors ${
+                  isCutoff
+                    ? 'bg-violet-600 text-white font-bold ring-4 ring-violet-100'
+                    : isStartDay
+                    ? 'border-2 border-violet-400 text-violet-700 font-bold'
+                    : cellClass
+                }`}
+              >
+                {format(day, 'd')}
+              </div>
+              {(hasDone || hasPending) && (
+                <div className="flex gap-0.5 absolute bottom-0.5">
+                  {hasDone && <span className="w-1 h-1 rounded-full bg-violet-500" />}
+                  {hasPending && <span className="w-1 h-1 rounded-full bg-amber-400" />}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export default function CleaningReportPage() {
@@ -42,6 +169,7 @@ export default function CleaningReportPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewDate, setViewDate] = useState(new Date());
+  const [expandedCleanerId, setExpandedCleanerId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -73,17 +201,33 @@ export default function CleaningReportPage() {
     return m;
   }, [properties]);
 
-  // Filter cleanings by selected month
-  const monthStr = format(viewDate, 'yyyy-MM');
-  const monthCleanings = useMemo(() => {
-    return cleanings.filter(c => c.date.startsWith(monthStr));
-  }, [cleanings, monthStr]);
+  const period = useMemo(() => getSettlementPeriod(viewDate), [viewDate]);
 
-  // Build per-cleaner stats
+  const periodLabel = useMemo(() => {
+    const sameYear = period.start.getFullYear() === period.end.getFullYear();
+    const startFmt = sameYear ? 'M월 d일' : 'yyyy년 M월 d일';
+    return `${format(period.start, startFmt, { locale: ko })} ~ ${format(period.end, 'M월 d일', { locale: ko })}`;
+  }, [period.start, period.end]);
+
+  const periodDays = Math.round((period.end.getTime() - period.start.getTime()) / 86400000) + 1;
+
+  const periodCleanings = useMemo(() => {
+    return cleanings.filter(c => c.date >= period.startStr && c.date <= period.endStr);
+  }, [cleanings, period.startStr, period.endStr]);
+
+  const cleaningsByDate = useMemo(() => {
+    const map: Record<string, { done: number; pending: number }> = {};
+    periodCleanings.forEach(c => {
+      if (!map[c.date]) map[c.date] = { done: 0, pending: 0 };
+      if (c.status === 'done') map[c.date].done++;
+      else map[c.date].pending++;
+    });
+    return map;
+  }, [periodCleanings]);
+
   const stats = useMemo(() => {
     const map: Record<string, CleanerStat> = {};
 
-    // Initialize all known cleaners
     cleaners.forEach(c => {
       map[c.id] = {
         cleanerId: c.id,
@@ -92,10 +236,11 @@ export default function CleaningReportPage() {
         done: 0,
         pending: 0,
         properties: {},
+        details: [],
       };
     });
 
-    monthCleanings.forEach(c => {
+    periodCleanings.forEach(c => {
       if (!c.cleanerId) return;
       if (!map[c.cleanerId]) {
         map[c.cleanerId] = {
@@ -105,6 +250,7 @@ export default function CleaningReportPage() {
           done: 0,
           pending: 0,
           properties: {},
+          details: [],
         };
       }
       const stat = map[c.cleanerId];
@@ -114,48 +260,62 @@ export default function CleaningReportPage() {
 
       const propName = propMap[c.propertyId] ?? '알 수 없음';
       stat.properties[propName] = (stat.properties[propName] ?? 0) + 1;
+      stat.details.push({
+        id: c.id,
+        date: c.date,
+        propertyName: propName,
+        status: c.status,
+      });
+    });
+
+    Object.values(map).forEach(s => {
+      s.details.sort((a, b) => a.date.localeCompare(b.date));
     });
 
     return Object.values(map).sort((a, b) => b.total - a.total);
-  }, [monthCleanings, cleaners, propMap]);
+  }, [periodCleanings, cleaners, propMap]);
 
-  // Totals
-  const totalDone = monthCleanings.filter(c => c.status === 'done').length;
-  const totalAll = monthCleanings.filter(c => c.cleanerId).length;
-  const unassigned = monthCleanings.filter(c => !c.cleanerId).length;
+  const totalDone = periodCleanings.filter(c => c.status === 'done').length;
+  const totalAll = periodCleanings.filter(c => c.cleanerId).length;
+  const unassigned = periodCleanings.filter(c => !c.cleanerId).length;
 
-  // Monthly trend: last 6 months
-  const monthlyTrend = useMemo(() => {
-    const months: { label: string; month: string; count: number }[] = [];
+  const periodTrend = useMemo(() => {
+    const items: { label: string; key: string; count: number }[] = [];
     for (let i = 5; i >= 0; i--) {
-      const d = subMonths(viewDate, i);
-      const m = format(d, 'yyyy-MM');
-      const count = cleanings.filter(c => c.date.startsWith(m) && c.status === 'done').length;
-      months.push({ label: format(d, 'M월', { locale: ko }), month: m, count });
+      const ref = subMonths(viewDate, i);
+      const p = getSettlementPeriod(ref);
+      const count = cleanings.filter(
+        c => c.date >= p.startStr && c.date <= p.endStr && c.status === 'done'
+      ).length;
+      items.push({
+        label: format(p.end, 'M월', { locale: ko }),
+        key: p.endStr,
+        count,
+      });
     }
-    return months;
+    return items;
   }, [cleanings, viewDate]);
 
-  const maxTrend = Math.max(...monthlyTrend.map(m => m.count), 1);
+  const maxTrend = Math.max(...periodTrend.map(m => m.count), 1);
 
-  const prevMonth = () => setViewDate(subMonths(viewDate, 1));
-  const nextMonth = () => setViewDate(addMonths(viewDate, 1));
+  const prevPeriod = () => setViewDate(subMonths(viewDate, 1));
+  const nextPeriod = () => setViewDate(addMonths(viewDate, 1));
 
-  // CSV export
   const exportCSV = () => {
-    const header = '담당자,완료,대기,합계,숙소별 내역';
+    const header = '담당자,완료,대기,합계,숙소별 내역,수행 날짜';
     const rows = stats
       .filter(s => s.total > 0)
       .map(s => {
         const propDetail = Object.entries(s.properties).map(([name, cnt]) => `${name}(${cnt})`).join(' / ');
-        return `${s.cleanerName},${s.done},${s.pending},${s.total},"${propDetail}"`;
+        const dateList = s.details.map(d => `${d.date}(${d.propertyName})`).join(' / ');
+        return `${s.cleanerName},${s.done},${s.pending},${s.total},"${propDetail}","${dateList}"`;
       });
     const csv = [header, ...rows].join('\n');
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `청소보고서_${monthStr}.csv`;
+    a.download = `청소보고서_${format(period.end, 'yyyy-MM-dd')}정산.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -169,139 +329,244 @@ export default function CleaningReportPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 sm:space-y-10">
-      {/* Header */}
-      <header className="border-b border-white/10 pb-6 sm:pb-8 flex flex-col sm:flex-row gap-4 sm:items-end sm:justify-between">
-        <div>
-          <p className="text-[10px] tracking-[0.3em] text-white/50 mb-3">보고서</p>
-          <h1 className="text-2xl sm:text-3xl font-light tracking-tight text-white">청소 완료 보고서</h1>
-          <p className="text-white/50 mt-2 text-sm font-light">담당자별 월간 청소 현황을 확인합니다.</p>
-        </div>
-        <button
-          onClick={exportCSV}
-          className="flex items-center justify-center gap-2 px-5 py-3 border border-white/20 text-white/70 text-xs tracking-widest font-medium hover:border-white/40 hover:text-white active:scale-[0.98] transition-all rounded-lg shrink-0"
-        >
-          <Download size={14} />
-          CSV 내보내기
-        </button>
-      </header>
+    <div className="max-w-4xl mx-auto">
+      {/* Light surface — LG Pra.L inspired */}
+      <div className="bg-[#fafafa] text-gray-900 rounded-3xl overflow-hidden shadow-2xl shadow-black/40">
+        <div className="p-5 sm:p-8 lg:p-10 space-y-8 sm:space-y-10">
 
-      {/* Month selector */}
-      <div className="flex items-center justify-center gap-6">
-        <button onClick={prevMonth} className="p-2 text-white/40 hover:text-white active:scale-90 transition-all">
-          <ChevronLeft size={20} />
-        </button>
-        <h2 className="text-xl sm:text-2xl font-light text-white tracking-wide min-w-[140px] text-center">
-          {format(viewDate, 'yyyy년 M월', { locale: ko })}
-        </h2>
-        <button onClick={nextMonth} className="p-2 text-white/40 hover:text-white active:scale-90 transition-all">
-          <ChevronRight size={20} />
-        </button>
-      </div>
+          {/* Header */}
+          <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 pb-6 border-b border-gray-200/70">
+            <div>
+              <p className="text-[10px] tracking-[0.3em] text-violet-600 mb-3 font-semibold">REPORT</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">청소 완료 보고서</h1>
+              <p className="text-gray-500 mt-2 text-sm">매월 25일 마감 · 담당자별 수행 내역</p>
+            </div>
+            <button
+              onClick={exportCSV}
+              className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold rounded-full transition-colors active:scale-[0.98] shrink-0"
+            >
+              <Download size={14} />
+              CSV 내보내기
+            </button>
+          </header>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className={`rounded-2xl p-4 sm:p-5 text-center ${totalDone > 0 ? 'bg-emerald-500/[0.08] border border-emerald-500/20' : 'bg-white/[0.03] border border-white/[0.06]'}`}>
-          <p className={`text-2xl sm:text-3xl font-light mb-1 ${totalDone > 0 ? 'text-emerald-400' : 'text-white/20'}`}>{totalDone}</p>
-          <p className="text-[11px] sm:text-xs text-white/40 tracking-wide">완료</p>
-        </div>
-        <div className={`rounded-2xl p-4 sm:p-5 text-center ${(totalAll - totalDone) > 0 ? 'bg-amber-500/[0.08] border border-amber-500/20' : 'bg-white/[0.03] border border-white/[0.06]'}`}>
-          <p className={`text-2xl sm:text-3xl font-light mb-1 ${(totalAll - totalDone) > 0 ? 'text-amber-400' : 'text-white/20'}`}>{totalAll - totalDone}</p>
-          <p className="text-[11px] sm:text-xs text-white/40 tracking-wide">대기</p>
-        </div>
-        <div className={`rounded-2xl p-4 sm:p-5 text-center ${unassigned > 0 ? 'bg-rose-500/[0.08] border border-rose-500/20' : 'bg-white/[0.03] border border-white/[0.06]'}`}>
-          <p className={`text-2xl sm:text-3xl font-light mb-1 ${unassigned > 0 ? 'text-rose-400' : 'text-white/20'}`}>{unassigned}</p>
-          <p className="text-[11px] sm:text-xs text-white/40 tracking-wide">미배정</p>
-        </div>
-      </div>
-
-      {/* Monthly trend chart */}
-      <div className="bg-[#111] border border-white/10 rounded-2xl p-5 sm:p-6">
-        <h3 className="text-sm font-medium text-white/60 mb-5 tracking-wide">월별 청소 완료 추이</h3>
-        <div className="flex items-end gap-2 sm:gap-3 h-32">
-          {monthlyTrend.map(m => {
-            const height = maxTrend > 0 ? (m.count / maxTrend) * 100 : 0;
-            const isCurrent = m.month === monthStr;
-            return (
-              <div key={m.month} className="flex-1 flex flex-col items-center gap-2">
-                <span className={`text-xs tabular-nums ${isCurrent ? 'text-white' : 'text-white/30'}`}>
-                  {m.count}
-                </span>
-                <div className="w-full flex justify-center">
-                  <div
-                    className={`w-full max-w-[40px] rounded-t-lg transition-all ${
-                      isCurrent ? 'bg-emerald-500/40' : 'bg-white/10'
-                    }`}
-                    style={{ height: `${Math.max(height, 4)}%` }}
-                  />
-                </div>
-                <span className={`text-[10px] sm:text-[11px] ${isCurrent ? 'text-white font-medium' : 'text-white/30'}`}>
-                  {m.label}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Per-cleaner stats */}
-      <div className="space-y-3">
-        <h3 className="text-sm font-medium text-white/60 tracking-wide">담당자별 현황</h3>
-
-        {stats.length === 0 ? (
-          <div className="text-center py-16 bg-[#111] border border-white/10 rounded-2xl">
-            <FileBarChart size={32} className="mx-auto mb-3 text-white/15" />
-            <p className="text-white/30 text-sm">등록된 청소 담당자가 없습니다.</p>
+          {/* Period selector */}
+          <div className="flex items-center justify-center gap-3 sm:gap-5">
+            <button
+              onClick={prevPeriod}
+              className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-500 hover:text-gray-900 hover:border-gray-300 active:scale-90 transition-all"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <div className="text-center min-w-[180px]">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                {format(period.end, 'yyyy년 M월', { locale: ko })} 정산
+              </h2>
+              <p className="text-xs text-violet-600 mt-1.5 font-semibold tracking-wide">
+                {periodLabel} <span className="text-gray-400 font-normal mx-1">·</span> {periodDays}일
+              </p>
+            </div>
+            <button
+              onClick={nextPeriod}
+              className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-500 hover:text-gray-900 hover:border-gray-300 active:scale-90 transition-all"
+            >
+              <ChevronRight size={18} />
+            </button>
           </div>
-        ) : (
-          stats.map(stat => {
-            const completionRate = stat.total > 0 ? Math.round((stat.done / stat.total) * 100) : 0;
-            return (
-              <div key={stat.cleanerId} className="bg-[#111] border border-white/10 rounded-2xl p-4 sm:p-5">
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div>
-                    <p className="text-base font-medium text-white">{stat.cleanerName}</p>
-                    {stat.total > 0 ? (
-                      <p className="text-xs text-white/40 mt-0.5">
-                        완료율 {completionRate}%
-                      </p>
-                    ) : (
-                      <p className="text-xs text-white/25 mt-0.5">이번 달 배정 없음</p>
-                    )}
-                  </div>
-                  <div className="flex items-baseline gap-1 shrink-0">
-                    <span className="text-2xl font-light text-emerald-400">{stat.done}</span>
-                    <span className="text-sm text-white/25">/ {stat.total}</span>
-                  </div>
-                </div>
 
-                {stat.total > 0 && (
-                  <>
-                    {/* Progress bar */}
-                    <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden mb-3">
+          {/* Calendar — two months covering the settlement period */}
+          <div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <CalendarMonth
+                monthDate={subMonths(period.end, 1)}
+                period={period}
+                cleaningsByDate={cleaningsByDate}
+              />
+              <CalendarMonth
+                monthDate={period.end}
+                period={period}
+                cleaningsByDate={cleaningsByDate}
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4 px-1 text-[11px] text-gray-500">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-violet-500" />
+                완료
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                대기
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-full bg-violet-600 ring-2 ring-violet-100" />
+                정산일 (25일)
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-full border-2 border-violet-400" />
+                정산 시작 (26일)
+              </span>
+            </div>
+          </div>
+
+          {/* Summary cards */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-white border border-gray-100 rounded-2xl p-4 sm:p-5 text-center">
+              <p className="text-2xl sm:text-3xl font-bold text-violet-600 mb-1 tabular-nums">{totalDone}</p>
+              <p className="text-[11px] sm:text-xs text-gray-500 tracking-wide">완료</p>
+            </div>
+            <div className="bg-white border border-gray-100 rounded-2xl p-4 sm:p-5 text-center">
+              <p className={`text-2xl sm:text-3xl font-bold mb-1 tabular-nums ${(totalAll - totalDone) > 0 ? 'text-amber-500' : 'text-gray-300'}`}>
+                {totalAll - totalDone}
+              </p>
+              <p className="text-[11px] sm:text-xs text-gray-500 tracking-wide">대기</p>
+            </div>
+            <div className="bg-white border border-gray-100 rounded-2xl p-4 sm:p-5 text-center">
+              <p className={`text-2xl sm:text-3xl font-bold mb-1 tabular-nums ${unassigned > 0 ? 'text-rose-500' : 'text-gray-300'}`}>
+                {unassigned}
+              </p>
+              <p className="text-[11px] sm:text-xs text-gray-500 tracking-wide">미배정</p>
+            </div>
+          </div>
+
+          {/* Trend chart */}
+          <div className="bg-white border border-gray-100 rounded-2xl p-5 sm:p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-sm font-bold text-gray-900 tracking-tight">정산 기간별 추이</h3>
+              <span className="text-[11px] text-gray-400">최근 6개 정산</span>
+            </div>
+            <div className="flex items-end gap-2 sm:gap-3 h-28">
+              {periodTrend.map(m => {
+                const height = maxTrend > 0 ? (m.count / maxTrend) * 100 : 0;
+                const isCurrent = m.key === period.endStr;
+                return (
+                  <div key={m.key} className="flex-1 flex flex-col items-center gap-2">
+                    <span className={`text-xs tabular-nums font-semibold ${isCurrent ? 'text-violet-600' : 'text-gray-400'}`}>
+                      {m.count}
+                    </span>
+                    <div className="w-full flex justify-center">
                       <div
-                        className="h-full bg-emerald-500/60 rounded-full transition-all"
-                        style={{ width: `${completionRate}%` }}
+                        className={`w-full max-w-[34px] rounded-t-md transition-all ${
+                          isCurrent ? 'bg-violet-600' : 'bg-violet-200'
+                        }`}
+                        style={{ height: `${Math.max(height, 4)}%` }}
                       />
                     </div>
+                    <span className={`text-[10px] sm:text-[11px] ${isCurrent ? 'text-gray-900 font-semibold' : 'text-gray-400'}`}>
+                      {m.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
-                    {/* Per-property breakdown */}
-                    <div className="flex flex-wrap gap-2">
-                      {Object.entries(stat.properties).map(([propName, count]) => (
-                        <span
-                          key={propName}
-                          className="text-[11px] bg-white/[0.04] border border-white/[0.08] px-2.5 py-1 rounded-lg text-white/50"
-                        >
-                          {propName} <span className="text-white/70 font-medium">{count}건</span>
-                        </span>
-                      ))}
-                    </div>
-                  </>
-                )}
+          {/* Per-cleaner list */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-gray-900 tracking-tight">담당자별 현황</h3>
+              <span className="text-[11px] text-gray-400">담당자를 누르면 수행 날짜가 펼쳐집니다</span>
+            </div>
+
+            {stats.length === 0 ? (
+              <div className="text-center py-16 bg-white border border-gray-100 rounded-2xl">
+                <FileBarChart size={32} className="mx-auto mb-3 text-gray-300" />
+                <p className="text-gray-400 text-sm">등록된 청소 담당자가 없습니다.</p>
               </div>
-            );
-          })
-        )}
+            ) : (
+              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                {stats.map((stat, idx) => {
+                  const isExpanded = expandedCleanerId === stat.cleanerId;
+                  const isClickable = stat.total > 0;
+                  const completionRate = stat.total > 0 ? Math.round((stat.done / stat.total) * 100) : 0;
+                  const initial = stat.cleanerName.charAt(0);
+
+                  return (
+                    <div key={stat.cleanerId} className={idx > 0 ? 'border-t border-gray-100' : ''}>
+                      <button
+                        type="button"
+                        onClick={() => isClickable && setExpandedCleanerId(isExpanded ? null : stat.cleanerId)}
+                        disabled={!isClickable}
+                        className={`w-full flex items-center gap-3 px-4 sm:px-5 py-4 text-left transition-colors ${
+                          isClickable ? 'hover:bg-gray-50 active:bg-gray-100 cursor-pointer' : 'cursor-default'
+                        }`}
+                      >
+                        <div className={`w-11 h-11 rounded-full flex items-center justify-center font-semibold text-sm shrink-0 ${
+                          isClickable ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-400'
+                        }`}>
+                          {initial}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">{stat.cleanerName}</p>
+                          {stat.total > 0 ? (
+                            <div className="flex items-center gap-2 mt-1">
+                              <div className="h-1 w-20 bg-gray-100 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-violet-500 rounded-full transition-all"
+                                  style={{ width: `${completionRate}%` }}
+                                />
+                              </div>
+                              <span className="text-[11px] text-gray-500 tabular-nums">{completionRate}%</span>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-400 mt-0.5">이번 정산 기간 배정 없음</p>
+                          )}
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-base font-bold text-violet-600 tabular-nums">
+                            {stat.done}
+                            <span className="text-gray-300 font-normal">/{stat.total}</span>
+                          </p>
+                        </div>
+                        {isClickable ? (
+                          <ChevronDown
+                            size={18}
+                            className={`text-gray-300 transition-transform shrink-0 ${isExpanded ? 'rotate-180' : ''}`}
+                          />
+                        ) : (
+                          <div className="w-[18px] shrink-0" />
+                        )}
+                      </button>
+
+                      {isExpanded && stat.details.length > 0 && (
+                        <div className="bg-gray-50/70 px-4 sm:px-5 py-4 border-t border-gray-100">
+                          <p className="text-[10px] tracking-[0.2em] text-violet-600 mb-3 font-semibold">수행 날짜</p>
+                          <ul className="space-y-1.5">
+                            {stat.details.map(d => {
+                              const dateObj = parseISO(d.date);
+                              const dateLabel = format(dateObj, 'M월 d일 (EEE)', { locale: ko });
+                              const isDone = d.status === 'done';
+                              return (
+                                <li
+                                  key={d.id}
+                                  className="flex items-center justify-between gap-3 text-sm py-2.5 px-3 rounded-xl bg-white border border-gray-100"
+                                >
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <span className="text-gray-900 tabular-nums shrink-0 font-semibold">{dateLabel}</span>
+                                    <span className="text-gray-500 truncate">{d.propertyName}</span>
+                                  </div>
+                                  <span
+                                    className={`text-[10px] tracking-wider px-2.5 py-0.5 rounded-full shrink-0 font-medium ${
+                                      isDone
+                                        ? 'bg-violet-100 text-violet-700'
+                                        : 'bg-amber-100 text-amber-700'
+                                    }`}
+                                  >
+                                    {isDone ? '완료' : '대기'}
+                                  </span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+        </div>
       </div>
     </div>
   );

@@ -96,33 +96,36 @@ export function CreateReservationModal({ properties, defaultPropertyId, onClose,
     }
   };
 
+  const inputCls = 'w-full bg-black/30 border border-white/[0.08] rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-violet-400/60 transition-colors placeholder:text-white/25';
+  const labelCls = 'block text-xs text-white/55 mb-1.5';
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
       <div
-        className="bg-[#161616] border border-white/10 rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+        className="bg-[#141416] border border-white/[0.08] rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
           <div className="flex items-center gap-2">
-            <CalendarPlus size={14} className="text-indigo-300" />
-            <h3 className="text-white font-light text-base">예약 등록</h3>
+            <CalendarPlus size={15} className="text-violet-300" />
+            <h3 className="text-white font-semibold text-base">예약 등록</h3>
           </div>
-          <button onClick={onClose} className="text-white/30 hover:text-white transition-colors">
-            <X size={16} />
+          <button onClick={onClose} className="text-white/45 hover:text-white transition-colors p-1">
+            <X size={18} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <p className="text-[11px] text-white/50 leading-relaxed">
-            Beds24에 <span className="text-indigo-300">확정 예약</span>을 등록해 해당 기간을 모든 채널에서 차단합니다.
+          <p className="text-xs text-white/55 leading-relaxed">
+            Beds24에 <span className="text-violet-300 font-medium">확정 예약</span>을 등록해 해당 기간을 모든 채널에서 차단합니다.
           </p>
 
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">숙소</label>
+            <label className={labelCls}>숙소</label>
             <select
               value={propertyId}
               onChange={e => setPropertyId(e.target.value)}
-              className="w-full bg-black/60 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30"
+              className={inputCls}
             >
               {properties.map(p => (
                 <option key={p.id} value={p.id}>{p.name}</option>
@@ -132,103 +135,103 @@ export function CreateReservationModal({ properties, defaultPropertyId, onClose,
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">체크인</label>
+              <label className={labelCls}>체크인</label>
               <input
                 type="date"
                 value={startDate}
                 onChange={e => setStartDate(e.target.value)}
-                className="w-full bg-black/60 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30"
+                className={inputCls}
               />
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">체크아웃</label>
+              <label className={labelCls}>체크아웃</label>
               <input
                 type="date"
                 value={endDate}
                 onChange={e => setEndDate(e.target.value)}
-                className="w-full bg-black/60 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30"
+                className={inputCls}
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">예약자 이름</label>
+            <label className={labelCls}>예약자 이름</label>
             <input
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="홍길동"
               maxLength={80}
-              className="w-full bg-black/60 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 placeholder:text-white/25"
+              className={inputCls}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">이메일 (선택)</label>
+              <label className={labelCls}>이메일 (선택)</label>
               <input
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 placeholder="guest@example.com"
-                className="w-full bg-black/60 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 placeholder:text-white/25"
+                className={inputCls}
               />
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">연락처 (선택)</label>
+              <label className={labelCls}>연락처 (선택)</label>
               <input
                 type="tel"
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
                 placeholder="010-0000-0000"
-                className="w-full bg-black/60 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 placeholder:text-white/25"
+                className={inputCls}
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">성인</label>
+              <label className={labelCls}>성인</label>
               <input
                 type="number"
                 min="1" max="20"
                 value={numAdult}
                 onChange={e => setNumAdult(e.target.value)}
-                className="w-full bg-black/60 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30"
+                className={inputCls}
               />
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">아동</label>
+              <label className={labelCls}>아동</label>
               <input
                 type="number"
                 min="0" max="20"
                 value={numChild}
                 onChange={e => setNumChild(e.target.value)}
-                className="w-full bg-black/60 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30"
+                className={inputCls}
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">추가 정보 (선택)</label>
+            <label className={labelCls}>추가 정보 (선택)</label>
             <textarea
               value={notes}
               onChange={e => setNotes(e.target.value)}
               rows={3}
               maxLength={1000}
               placeholder="메모, 요청사항, 픽업 장소 등"
-              className="w-full bg-black/60 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 placeholder:text-white/25 resize-none"
+              className={`${inputCls} resize-none`}
             />
           </div>
 
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">태그 (선택)</label>
+            <label className={labelCls}>태그 (선택)</label>
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {tags.map(t => (
-                  <span key={t} className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 text-[11px] bg-white/10 text-white/80 border border-white/10 rounded-full">
+                  <span key={t} className="inline-flex items-center gap-1 pl-2.5 pr-1 py-0.5 text-xs bg-violet-500/15 text-violet-100 rounded-full">
                     {t}
-                    <button type="button" onClick={() => removeTag(t)} className="p-0.5 text-white/40 hover:text-white">
+                    <button type="button" onClick={() => removeTag(t)} className="p-0.5 text-violet-200/65 hover:text-white">
                       <X size={10} />
                     </button>
                   </span>
@@ -248,13 +251,13 @@ export function CreateReservationModal({ properties, defaultPropertyId, onClose,
                 }}
                 placeholder="태그 입력 후 엔터"
                 maxLength={40}
-                className="flex-1 bg-black/60 border border-white/10 rounded-lg px-3 py-2 text-[12px] text-white focus:outline-none focus:border-white/30 placeholder:text-white/25"
+                className={inputCls + ' text-[13px]'}
               />
               <button
                 type="button"
                 onClick={() => addTag(newTag)}
                 disabled={!newTag.trim()}
-                className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white/70 rounded-lg text-[11px] font-medium transition-colors disabled:opacity-30 flex items-center gap-1"
+                className="px-3 py-2 bg-white/[0.06] hover:bg-white/[0.1] text-white/75 rounded-xl text-xs font-medium transition-colors disabled:opacity-30 flex items-center gap-1 shrink-0"
               >
                 <Plus size={12} /> 추가
               </button>
@@ -265,7 +268,7 @@ export function CreateReservationModal({ properties, defaultPropertyId, onClose,
                   key={p}
                   type="button"
                   onClick={() => addTag(p)}
-                  className="text-[10px] px-2 py-0.5 border border-white/[0.07] text-white/40 hover:text-white/80 hover:border-white/20 rounded-full transition-colors"
+                  className="text-[11px] px-2.5 py-0.5 bg-white/[0.04] text-white/55 hover:text-white hover:bg-white/[0.08] rounded-full transition-colors"
                 >
                   + {p}
                 </button>
@@ -274,7 +277,7 @@ export function CreateReservationModal({ properties, defaultPropertyId, onClose,
           </div>
 
           {error && (
-            <p className="text-[11px] text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
+            <p className="text-xs text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
               {error}
             </p>
           )}
@@ -283,14 +286,14 @@ export function CreateReservationModal({ properties, defaultPropertyId, onClose,
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2.5 border border-white/10 hover:border-white/30 text-white/60 hover:text-white rounded-lg text-[11px] tracking-widest font-semibold transition-colors"
+              className="flex-1 px-4 py-2.5 text-white/65 hover:text-white text-sm font-medium transition-colors"
             >
               취소
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 px-4 py-2.5 bg-white text-black hover:bg-white/90 rounded-lg text-[11px] tracking-widest font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-2.5 bg-violet-500 text-white hover:bg-violet-400 rounded-xl text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {saving ? '등록 중...' : '예약 등록'}
             </button>

@@ -74,17 +74,17 @@ function DayCell({ day, di, viewDate, today, activeProperties, eventsByProp }: {
   const noneAvailable = avail && avail.available === 0 && avail.total > 0;
 
   const dayNumberCls = isToday
-    ? 'bg-white text-black font-bold shadow-lg shadow-white/10'
+    ? 'bg-violet-500 text-white font-bold'
     : !isThisMonth
-      ? 'text-white/25 font-light'
+      ? 'text-white/25'
       : di === 0
-        ? 'text-red-300 font-semibold'
+        ? 'text-rose-300 font-semibold'
         : di === 6
-          ? 'text-blue-300 font-semibold'
+          ? 'text-violet-300 font-semibold'
           : 'text-white/90 font-medium';
 
   return (
-    <div className={`py-2 px-2 flex items-center justify-between gap-1 ${isToday ? 'bg-white/[0.08]' : weekendBg} ${di < 6 ? 'border-r border-white/30' : ''}`}>
+    <div className={`py-2 px-2 flex items-center justify-between gap-1 ${isToday ? 'bg-violet-500/10' : weekendBg} ${di < 6 ? 'border-r border-white/[0.08]' : ''}`}>
       <div className="min-w-0 flex items-center gap-1">
         {avail && !isPast && isThisMonth && (
           <span className="inline-flex items-center gap-1 shrink-0">
@@ -124,7 +124,7 @@ function PropertyLaneCell({ day, di, prop, weekStartStr, today, viewDate, events
   const weekendBg = di === 0 ? 'rgba(239,68,68,0.035)' : di === 6 ? 'rgba(59,130,246,0.035)' : undefined;
   const emptyBg = weekendBg || bgEmpty;
   const showGridLine = di < 6;
-  const todayRing = isToday ? 'ring-1 ring-inset ring-white/20' : '';
+  const todayRing = isToday ? 'ring-1 ring-inset ring-violet-400/30' : '';
 
   // Mid-stay
   if (midEvent) {
@@ -213,20 +213,20 @@ function PropertyLaneCell({ day, di, prop, weekStartStr, today, viewDate, events
   );
 }
 
-const LABEL_COL_CLS = 'sticky left-0 z-20 w-[64px] sm:w-[92px] shrink-0 border-r border-white/15';
+const LABEL_COL_CLS = 'sticky left-0 z-20 w-[64px] sm:w-[92px] shrink-0 border-r border-white/[0.08]';
 
 export function CalendarGrid({ weeks, viewDate, today, activeProperties, eventsByProp, openModal }: CalendarGridProps) {
   return (
     <div className="overflow-x-auto -mx-4 md:mx-0">
-      <div className="bg-[#0f0f0f] border border-white/10 rounded-2xl overflow-hidden min-w-[540px] mx-4 md:mx-0 shadow-xl shadow-black/30">
+      <div className="bg-[#0f0f10] border border-white/[0.06] rounded-2xl overflow-hidden min-w-[540px] mx-4 md:mx-0">
         {/* Day of week header */}
-        <div className="flex border-b border-white/15 bg-[#131313]">
-          <div className={`${LABEL_COL_CLS} bg-[#131313] flex items-center justify-center py-3`}>
-            <span className="text-[9px] sm:text-[10px] tracking-[0.25em] font-semibold uppercase text-white/40">숙소</span>
+        <div className="flex border-b border-white/[0.08] bg-[#141416]">
+          <div className={`${LABEL_COL_CLS} bg-[#141416] flex items-center justify-center py-3`}>
+            <span className="text-xs font-semibold text-white/55">숙소</span>
           </div>
           <div className="flex-1 grid grid-cols-7 min-w-0">
             {DAY_LABELS.map((label, i) => (
-              <div key={i} className={`py-3 text-center text-[11px] tracking-[0.25em] font-semibold uppercase ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-white/55'} ${i < 6 ? 'border-r border-white/15' : ''}`}>
+              <div key={i} className={`py-3 text-center text-xs font-semibold ${i === 0 ? 'text-rose-300' : i === 6 ? 'text-violet-300' : 'text-white/70'} ${i < 6 ? 'border-r border-white/[0.08]' : ''}`}>
                 {label}
               </div>
             ))}
@@ -235,10 +235,10 @@ export function CalendarGrid({ weeks, viewDate, today, activeProperties, eventsB
 
         {/* Week rows */}
         {weeks.map((week, wi) => (
-          <div key={wi} className={wi < weeks.length - 1 ? 'border-b border-white/25' : ''}>
+          <div key={wi} className={wi < weeks.length - 1 ? 'border-b border-white/[0.08]' : ''}>
             {/* Day number row */}
-            <div className="flex border-b border-white/20">
-              <div className={`${LABEL_COL_CLS} bg-[#0f0f0f]`} />
+            <div className="flex border-b border-white/[0.06]">
+              <div className={`${LABEL_COL_CLS} bg-[#0f0f10]`} />
               <div className="flex-1 grid grid-cols-7 min-w-0">
                 {week.map((day, di) => (
                   <DayCell key={di} day={day} di={di} viewDate={viewDate} today={today}
@@ -258,11 +258,11 @@ export function CalendarGrid({ weeks, viewDate, today, activeProperties, eventsB
                     >
                       <div
                         className={`${LABEL_COL_CLS} flex items-center gap-1.5 px-2`}
-                        style={{ backgroundColor: hexToRgba(prop.color, 0.12) }}
+                        style={{ backgroundColor: hexToRgba(prop.color, 0.14) }}
                         title={prop.name}
                       >
                         <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: prop.color }} />
-                        <span className="text-[10px] sm:text-[11px] text-white/90 font-medium truncate tracking-tight">
+                        <span className="text-[11px] text-white/85 font-medium truncate">
                           {prop.name}
                         </span>
                       </div>

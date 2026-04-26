@@ -22,30 +22,30 @@ export function SupplyTodoList({ allSupplyTodos, onToggle, onDelete }: SupplyTod
   });
 
   return (
-    <div className="bg-[#111] border border-white/10 rounded-2xl overflow-hidden p-5 space-y-4">
+    <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5 space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-white/80 tracking-wide">필요 비품</h3>
-        <span className="text-[10px] text-white/30 tabular-nums">{pending.length}개 미완료</span>
+        <h3 className="text-sm font-semibold text-white">필요 비품</h3>
+        <span className="text-xs text-white/45 tabular-nums">{pending.length}개 미완료</span>
       </div>
 
       {pending.length > 0 && (
         <div className="space-y-4">
           {Array.from(grouped.entries()).map(([propName, items]) => (
             <div key={propName} className="space-y-1.5">
-              <p className="text-[10px] tracking-widest text-white/40 font-medium">{propName}</p>
+              <p className="text-xs text-white/55 font-medium">{propName}</p>
               {items.map(todo => (
                 <div key={todo.id} className="flex items-center gap-3 group py-1">
                   <button
                     onClick={() => onToggle(todo.id, true, false)}
-                    className="w-4 h-4 rounded border border-white/20 hover:border-emerald-400/60 flex items-center justify-center shrink-0 transition-colors"
+                    className="w-4 h-4 rounded border border-white/25 hover:border-violet-400 flex items-center justify-center shrink-0 transition-colors"
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="text-[12px] text-white/70">{todo.text}</p>
-                    <p className="text-[10px] text-white/25 mt-0.5">{todo.date}</p>
+                    <p className="text-[13px] text-white/85">{todo.text}</p>
+                    <p className="text-[11px] text-white/35 mt-0.5">{todo.date}</p>
                   </div>
                   <button
                     onClick={() => onDelete(todo.id, false)}
-                    className="opacity-0 group-hover:opacity-100 text-white/20 hover:text-red-400 transition-all shrink-0"
+                    className="opacity-0 group-hover:opacity-100 text-white/30 hover:text-rose-400 transition-all shrink-0"
                   >
                     <Trash2 size={12} />
                   </button>
@@ -58,7 +58,7 @@ export function SupplyTodoList({ allSupplyTodos, onToggle, onDelete }: SupplyTod
 
       {done.length > 0 && (
         <details className="group">
-          <summary className="text-[10px] text-white/25 cursor-pointer hover:text-white/40 transition-colors tracking-wide list-none flex items-center gap-1.5">
+          <summary className="text-xs text-white/35 cursor-pointer hover:text-white/55 transition-colors list-none flex items-center gap-1.5">
             <ChevronRight size={10} className="group-open:rotate-90 transition-transform" />
             완료 ({done.length})
           </summary>
@@ -67,17 +67,17 @@ export function SupplyTodoList({ allSupplyTodos, onToggle, onDelete }: SupplyTod
               <div key={todo.id} className="flex items-center gap-3 group py-1">
                 <button
                   onClick={() => onToggle(todo.id, false, false)}
-                  className="w-4 h-4 rounded bg-emerald-500/30 border border-emerald-500/50 flex items-center justify-center shrink-0 transition-colors"
+                  className="w-4 h-4 rounded bg-violet-500/25 border border-violet-500/40 flex items-center justify-center shrink-0 transition-colors"
                 >
-                  <span className="text-emerald-400 text-[10px]">✓</span>
+                  <span className="text-violet-200 text-[10px]">✓</span>
                 </button>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[12px] text-white/30 line-through">{todo.text}</p>
-                  <p className="text-[10px] text-white/15 mt-0.5">{todo.propertyName} · {todo.date}</p>
+                  <p className="text-[13px] text-white/35 line-through">{todo.text}</p>
+                  <p className="text-[11px] text-white/20 mt-0.5">{todo.propertyName} · {todo.date}</p>
                 </div>
                 <button
                   onClick={() => onDelete(todo.id, false)}
-                  className="opacity-0 group-hover:opacity-100 text-white/20 hover:text-red-400 transition-all shrink-0"
+                  className="opacity-0 group-hover:opacity-100 text-white/30 hover:text-rose-400 transition-all shrink-0"
                 >
                   <Trash2 size={12} />
                 </button>

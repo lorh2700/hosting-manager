@@ -12,26 +12,25 @@ export function PropertyFilter({ properties, activeProps, toggleProp }: Property
   return (
     <>
       <div className="flex flex-wrap gap-2 items-center">
-        <span className="text-[10px] text-white/30 tracking-widest font-medium mr-1">숙소</span>
+        <span className="text-xs text-white/45 mr-1">숙소</span>
         {properties.map(p => {
           const on = activeProps.has(p.id);
           return (
             <button key={p.id} onClick={() => toggleProp(p.id)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] font-medium tracking-wide transition-all"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
               style={{
-                borderColor: on ? p.color : 'rgba(255,255,255,0.1)',
-                backgroundColor: on ? hexToRgba(p.color, 0.13) : 'transparent',
-                color: on ? '#fff' : 'rgba(255,255,255,0.3)',
+                backgroundColor: on ? hexToRgba(p.color, 0.18) : 'rgba(255,255,255,0.04)',
+                color: on ? '#fff' : 'rgba(255,255,255,0.45)',
               }}
             >
-              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: on ? p.color : 'rgba(255,255,255,0.15)' }} />
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: on ? p.color : 'rgba(255,255,255,0.2)' }} />
               {p.name}
             </button>
           );
         })}
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[10px] text-white/50 tracking-wide">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-white/55">
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-emerald-400" />
           전체 예약 가능
@@ -46,11 +45,11 @@ export function PropertyFilter({ properties, activeProps, toggleProp }: Property
         </div>
         <span className="w-px h-3 bg-white/10 hidden sm:block" />
         <div className="flex items-center gap-1.5">
-          <span className="inline-block w-4 h-2.5 rounded-sm bg-emerald-500/85 ring-1 ring-emerald-300/40" />
+          <span className="inline-block w-4 h-2.5 rounded-sm bg-emerald-500/85" />
           정비 완료
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="inline-block w-4 h-2.5 rounded-sm ring-1 ring-white/30" style={{ background: 'rgba(0,0,0,0.5)' }} />
+          <span className="inline-block w-4 h-2.5 rounded-sm ring-1 ring-white/20" style={{ background: 'rgba(0,0,0,0.5)' }} />
           정비 대기
         </div>
         <div className="flex items-center gap-1.5">
