@@ -105,16 +105,23 @@ export async function GET(req: Request) {
       cleanings.map(c => [`${c.propertyId}_${c.date}`, { cleanerId: c.cleanerId, status: c.status }])
     );
 
-    return NextResponse.json({
-      properties: propIds.length,
-      propsMap,
-      reservations: unique,
-      cleaningsMap,
-      cleanersMap,
-      unreadMessages,
-      pendingSupplies,
-      openIssues,
-    });
+    return NextResponse.json(
+      {
+        properties: propIds.length,
+        propsMap,
+        reservations: unique,
+        cleaningsMap,
+        cleanersMap,
+        unreadMessages,
+        pendingSupplies,
+        openIssues,
+      },
+      {
+        headers: {
+          'Cache-Control': 'private, max-age=15, stale-while-revalidate=120',
+        },
+      },
+    );
   } catch (e) {
     console.error('[dashboard] GET error:', e);
     const message = e instanceof Error ? e.message : String(e);

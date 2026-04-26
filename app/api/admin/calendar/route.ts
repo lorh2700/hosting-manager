@@ -9,11 +9,18 @@ export async function GET(req: Request) {
 
     const propertyWhere = auth.isAdmin ? {} : { id: { in: auth.propertyIds! } };
 
-    // Date range: 2 months back ~ 13 months forward
+    // Optional client-driven date range; defaults to 1 month back ~ 4 months forward.
+    // Reduces payload from 15mo to 5mo for typical viewing.
+    const url = new URL(req.url);
+    const monthsBackParam = Number(url.searchParams.get('monthsBack'));
+    const monthsForwardParam = Number(url.searchParams.get('monthsForward'));
+    const monthsBack = Number.isFinite(monthsBackParam) && monthsBackParam >= 0 ? monthsBackParam : 1;
+    const monthsForward = Number.isFinite(monthsForwardParam) && monthsForwardParam > 0 ? monthsForwardParam : 4;
+
     const now = new Date();
-    const rangeFrom = new Date(now.getFullYear(), now.getMonth() - 2, 1)
+    const rangeFrom = new Date(now.getFullYear(), now.getMonth() - monthsBack, 1)
       .toISOString().split('T')[0];
-    const rangeTo = new Date(now.getFullYear(), now.getMonth() + 13, 0)
+    const rangeTo = new Date(now.getFullYear(), now.getMonth() + monthsForward + 1, 0)
       .toISOString().split('T')[0];
 
     const properties = await prisma.property.findMany({
@@ -47,7 +54,7 @@ export async function GET(req: Request) {
         orderBy: { startDate: 'asc' },
       }),
       prisma.booking.findMany({
-        where: { ...pidFilter, status: 'confirmed', checkOut: { gte: rangeFrom } },
+        where: { ...pidFilter, status: 'confirmed', checkOut: { gte: rangeFrom }, checkIn: { lte: rangeTo } },
         select: {
           id: true, propertyId: true, name: true, email: true,
           guests: true, checkIn: true, checkOut: true,
@@ -62,11 +69,14 @@ export async function GET(req: Request) {
         },
         orderBy: { date: 'desc' },
       }),
-      prisma.cleaner.findMany({
-        select: { id: true, name: true, phone: true },
-      }),
+      auth.isAdmin
+        ? prisma.cleaner.findMany({ select: { id: true, name: true, phone: true } })
+        : prisma.cleaner.findMany({
+            where: { ownerId: auth.session.userId },
+            select: { id: true, name: true, phone: true },
+          }),
       prisma.supplyTodo.findMany({
-        where: pidFilter,
+        where: { ...pidFilter, date: { gte: rangeFrom, lte: rangeTo } },
         select: { id: true, propertyId: true, date: true, text: true, done: true, createdAt: true },
       }),
     ]);
@@ -78,18 +88,26 @@ export async function GET(req: Request) {
       }
     }
 
-    return NextResponse.json({
-      properties: properties.map(p => ({
-        id: p.id, name: p.name, doorPassword: p.doorPassword,
-        addressUrl: p.addressUrl, roomReadyMessage: p.roomReadyMessage,
-      })),
-      channelMap,
-      events,
-      bookings,
-      cleanings,
-      cleaners,
-      supplyTodos,
-    });
+    return NextResponse.json(
+      {
+        properties: properties.map(p => ({
+          id: p.id, name: p.name, doorPassword: p.doorPassword,
+          addressUrl: p.addressUrl, roomReadyMessage: p.roomReadyMessage,
+        })),
+        channelMap,
+        events,
+        bookings,
+        cleanings,
+        cleaners,
+        supplyTodos,
+      },
+      {
+        headers: {
+          // Browser uses cached payload for 30s; keeps stale for 5min while revalidating.
+          'Cache-Control': 'private, max-age=30, stale-while-revalidate=300',
+        },
+      },
+    );
   } catch (e) {
     console.error('[admin/calendar] GET error:', e);
     const message = e instanceof Error ? e.message : String(e);
