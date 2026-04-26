@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { motion, useScroll, useSpring } from 'motion/react';
-import { Menu, X, ArrowRight, Calendar, Brush, Inbox, BarChart3, Layers, Sparkles, Check, RefreshCw, ChevronLeft, ChevronRight, Languages, ConciergeBell, Plane, UtensilsCrossed, Lock, QrCode, Send } from 'lucide-react';
+import { Menu, X, ArrowRight, Calendar, Brush, Inbox, BarChart3, Layers, Sparkles, Check, RefreshCw, ChevronLeft, ChevronRight, Languages, ConciergeBell, Plane, UtensilsCrossed, Lock, QrCode, Send, Zap } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 
 const NAV_LINKS = [
@@ -20,7 +20,8 @@ const PLATFORM_FEATURES = [
   { icon: Layers,    label: '멀티 채널 통합',     desc: 'Airbnb · Booking.com · 아고다 · 직접예약을 한 화면에' },
   { icon: Calendar,  label: '통합 캘린더',          desc: '숙소별 점유율과 더블부킹 실시간 방어' },
   { icon: Brush,     label: '청소 오케스트레이션', desc: '체크아웃 즉시 인력 배정 · 비품 워크플로' },
-  { icon: Inbox,     label: '게스트 메시지 인박스', desc: '채널별 대화 통합 + 자동 응답 템플릿' },
+  { icon: Inbox,     label: '게스트 메시지 인박스', desc: '채널별 대화 통합 + 응답 템플릿' },
+  { icon: Zap,       label: '메시지 자동 전송',     desc: '체크인 환영 · 룸레디 · 체크아웃 안내를 정해진 타이밍에 자동 발송' },
   { icon: BarChart3, label: '운영 리포트',          desc: '청소 단가, 채널별 매출, 점유율 한눈에' },
 ];
 
@@ -487,7 +488,8 @@ export default function AboutPage() {
             </h2>
             <p className="text-stone-400 text-sm font-light mt-4 max-w-2xl">
               Airbnb · Booking.com · 아고다 — 채널마다 다른 인박스를 오갈 필요가 없습니다.
-              예약 정보와 함께 같은 화면에서 응답합니다.
+              예약 정보와 함께 같은 화면에서 응답하고,
+              체크인 환영 · 룸레디 · 체크아웃 안내는 정해진 타이밍에 자동 발송됩니다.
             </p>
           </div>
 
