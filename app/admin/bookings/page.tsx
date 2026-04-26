@@ -66,7 +66,7 @@ function getSourceLabel(source: string): string {
 }
 
 function getSourceBadgeClass(_source: string): string {
-  return 'bg-white/[0.06] text-white/75 border-white/[0.08]';
+  return 'bg-stone-100 text-stone-700 border-stone-200';
 }
 
 export default function BookingsPage() {
@@ -353,9 +353,9 @@ export default function BookingsPage() {
   };
 
   const statusBadgeClass: Record<Booking['status'], string> = {
-    confirmed: 'bg-emerald-500/15 text-emerald-300',
-    cancelled: 'bg-white/[0.06] text-white/40',
-    pending: 'bg-amber-500/15 text-amber-300',
+    confirmed: 'bg-emerald-50 text-emerald-700',
+    cancelled: 'bg-stone-100 text-stone-500',
+    pending: 'bg-amber-50 text-amber-700',
   };
 
   const StatusIcon = ({ status }: { status: Booking['status'] }) => {
@@ -394,25 +394,25 @@ export default function BookingsPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="w-7 h-7 border-2 border-white/15 border-t-violet-400 rounded-full animate-spin"></div>
+        <div className="w-7 h-7 border-2 border-stone-200 border-t-[var(--brand)] rounded-full animate-spin"></div>
       </div>
     );
   }
 
-  const inputCls = 'w-full bg-black/30 border border-white/[0.08] rounded-xl text-white text-sm px-4 py-3 focus:outline-none focus:border-violet-400/60 transition-colors placeholder:text-white/25';
-  const labelCls = 'text-xs text-white/55';
+  const inputCls = 'w-full bg-white border border-stone-200 text-stone-900 text-sm px-4 py-3 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors placeholder:text-stone-400';
+  const labelCls = 'text-xs text-stone-500';
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 sm:space-y-10">
-      <header className="border-b border-white/[0.06] pb-6 sm:pb-7 flex flex-col sm:flex-row gap-4 sm:items-end sm:justify-between">
+      <header className="border-b border-stone-200 pb-6 sm:pb-7 flex flex-col sm:flex-row gap-4 sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs text-violet-300/80 mb-2 font-medium">예약</p>
-          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white">예약 관리</h1>
-          <p className="text-white/50 mt-2 text-sm">직접 예약과 OTA 채널 예약을 통합 관리하세요.</p>
+          <p className="text-[11px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">예약</p>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-900">예약 관리</h1>
+          <p className="text-stone-500 mt-2 text-sm">직접 예약과 OTA 채널 예약을 통합 관리하세요.</p>
         </div>
         <button
           onClick={() => setIsCreateOpen(true)}
-          className="flex items-center justify-center gap-2 px-5 py-2.5 bg-violet-500 hover:bg-violet-400 text-white text-sm font-semibold rounded-full active:scale-[0.98] transition-colors shrink-0"
+          className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white text-xs font-semibold uppercase tracking-widest active:scale-[0.98] transition-colors shrink-0"
         >
           <Plus size={15} />
           새 예약
@@ -421,15 +421,15 @@ export default function BookingsPage() {
 
       <div className="space-y-3">
         <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0">
-          <Filter size={14} className="text-white/35 mr-1 shrink-0" />
+          <Filter size={14} className="text-stone-400 mr-1 shrink-0" />
           {(['all', 'confirmed', 'cancelled'] as const).map(s => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
-              className={`px-4 py-2 text-xs transition-colors shrink-0 rounded-full ${
+              className={`px-4 py-2 text-xs transition-colors shrink-0 ${
                 statusFilter === s
-                  ? 'bg-violet-500 text-white font-semibold'
-                  : 'bg-white/[0.04] text-white/55 hover:text-white hover:bg-white/[0.08]'
+                  ? 'bg-[var(--brand)] text-white font-semibold'
+                  : 'bg-stone-100 text-stone-600 hover:text-stone-900 hover:bg-stone-200'
               }`}
             >
               {s === 'all' ? '전체' : s === 'confirmed' ? '확정' : '취소됨'}
@@ -442,10 +442,10 @@ export default function BookingsPage() {
             <button
               key={s}
               onClick={() => setSourceFilter(s)}
-              className={`px-3 py-1.5 text-xs transition-colors rounded-full ${
+              className={`px-3 py-1.5 text-xs transition-colors ${
                 sourceFilter === s
-                  ? 'bg-white/[0.08] text-white font-medium'
-                  : 'text-white/45 hover:text-white/70'
+                  ? 'bg-stone-200 text-stone-900 font-medium'
+                  : 'text-stone-500 hover:text-stone-700'
               }`}
             >
               {s === 'all' ? '전체 소스' : s === 'direct' ? '직접' : 'OTA'}
@@ -457,14 +457,14 @@ export default function BookingsPage() {
               <select
                 value={propertyFilter}
                 onChange={e => setPropertyFilter(e.target.value)}
-                className="appearance-none bg-white/[0.04] border border-white/[0.08] text-white/80 text-xs px-4 py-2 pr-8 rounded-full focus:outline-none focus:border-violet-400/60 transition-colors cursor-pointer"
+                className="appearance-none bg-stone-100 border border-stone-200 text-stone-800 text-xs px-4 py-2 pr-8 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors cursor-pointer"
               >
                 <option value="all">전체 숙소</option>
                 {Array.from(properties.entries()).map(([id, prop]) => (
                   <option key={id} value={id}>{prop.name}</option>
                 ))}
               </select>
-              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/45">
+              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-stone-500">
                 <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
                   <path d="M1 1l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
@@ -475,29 +475,29 @@ export default function BookingsPage() {
       </div>
 
       {filteredBookings.length === 0 ? (
-        <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl py-20 flex flex-col items-center justify-center text-center">
-          <BookOpen size={28} strokeWidth={1.5} className="text-white/20 mb-4" />
-          <p className="text-white/50 text-sm mb-1">예약 내역이 없습니다.</p>
-          <p className="text-white/30 text-xs">
+        <div className="bg-white border border-stone-200 py-20 flex flex-col items-center justify-center text-center">
+          <BookOpen size={28} strokeWidth={1.5} className="text-stone-300 mb-4" />
+          <p className="text-stone-500 text-sm mb-1">예약 내역이 없습니다.</p>
+          <p className="text-stone-400 text-xs">
             {statusFilter !== 'all' || sourceFilter !== 'all'
               ? '다른 필터를 선택해보세요.'
               : '예약이 접수되면 여기에 표시됩니다.'}
           </p>
         </div>
       ) : (
-        <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden">
-          <div className="hidden lg:grid grid-cols-[2fr_2fr_1.5fr_1fr_1fr_1fr_1fr_auto] gap-4 px-6 py-3.5 border-b border-white/[0.06]">
-            <span className="text-xs text-white/45">숙소 / 게스트</span>
-            <span className="text-xs text-white/45">체크인 → 체크아웃</span>
-            <span className="text-xs text-white/45">이메일</span>
-            <span className="text-xs text-white/45">인원</span>
-            <span className="text-xs text-white/45">채널</span>
-            <span className="text-xs text-white/45">상태</span>
-            <span className="text-xs text-white/45">등록일</span>
+        <div className="bg-white border border-stone-200 overflow-hidden">
+          <div className="hidden lg:grid grid-cols-[2fr_2fr_1.5fr_1fr_1fr_1fr_1fr_auto] gap-4 px-6 py-3.5 border-b border-stone-200">
+            <span className="text-xs text-stone-500">숙소 / 게스트</span>
+            <span className="text-xs text-stone-500">체크인 → 체크아웃</span>
+            <span className="text-xs text-stone-500">이메일</span>
+            <span className="text-xs text-stone-500">인원</span>
+            <span className="text-xs text-stone-500">채널</span>
+            <span className="text-xs text-stone-500">상태</span>
+            <span className="text-xs text-stone-500">등록일</span>
             <span></span>
           </div>
 
-          <div className="divide-y divide-white/[0.05]">
+          <div className="divide-y divide-stone-200">
             {visibleBookings.map(booking => {
               const nights = getNights(booking.checkIn, booking.checkOut);
               const isCancelling = cancellingId === booking.id;
@@ -505,7 +505,7 @@ export default function BookingsPage() {
               return (
                 <div
                   key={`${booking.dataSource}-${booking.id}`}
-                  className={`px-5 sm:px-6 py-4 transition-colors hover:bg-white/[0.02] ${
+                  className={`px-5 sm:px-6 py-4 transition-colors hover:bg-stone-50 ${
                     booking.status === 'cancelled' ? 'opacity-50' : ''
                   }`}
                 >
@@ -513,27 +513,27 @@ export default function BookingsPage() {
                   <div className="lg:hidden flex flex-col gap-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs text-white/55 mb-0.5">{booking.propertyName}</p>
-                        <p className="text-base text-white truncate font-medium">{booking.name}</p>
-                        {booking.email && <p className="text-xs text-white/45 mt-0.5 truncate">{booking.email}</p>}
+                        <p className="text-xs text-stone-500 mb-0.5">{booking.propertyName}</p>
+                        <p className="text-base text-stone-900 truncate font-medium">{booking.name}</p>
+                        {booking.email && <p className="text-xs text-stone-500 mt-0.5 truncate">{booking.email}</p>}
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <span className={`inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-md border ${getSourceBadgeClass(booking.source)}`}>
+                        <span className={`inline-flex items-center px-2 py-0.5 text-[11px] font-medium border ${getSourceBadgeClass(booking.source)}`}>
                           {getSourceLabel(booking.source)}
                         </span>
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-md whitespace-nowrap ${statusBadgeClass[booking.status]}`}>
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap ${statusBadgeClass[booking.status]}`}>
                           <StatusIcon status={booking.status} />
                           {statusLabel[booking.status]}
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 text-sm text-white/65">
+                    <div className="flex items-center gap-3 text-sm text-stone-700">
                       <span>
                         {formatDate(booking.checkIn)} → {formatDate(booking.checkOut)}
-                        {nights > 0 && <span className="text-white/35 ml-1.5">{nights}박</span>}
+                        {nights > 0 && <span className="text-stone-400 ml-1.5">{nights}박</span>}
                       </span>
-                      <span className="text-white/25">·</span>
+                      <span className="text-stone-300">·</span>
                       <span>{booking.guests}명</span>
                     </div>
 
@@ -542,7 +542,7 @@ export default function BookingsPage() {
                         <button
                           onClick={() => setConfirmCancelBooking(booking)}
                           disabled={isCancelling}
-                          className="flex items-center gap-1.5 text-xs text-white/55 hover:text-rose-400 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-30 active:scale-[0.98]"
+                          className="flex items-center gap-1.5 text-xs text-stone-500 hover:text-rose-600 px-3 py-1.5 transition-colors disabled:opacity-30 active:scale-[0.98]"
                         >
                           <X size={12} />
                           취소
@@ -554,42 +554,42 @@ export default function BookingsPage() {
                   {/* Desktop */}
                   <div className="hidden lg:grid grid-cols-[2fr_2fr_1.5fr_1fr_1fr_1fr_1fr_auto] gap-4 items-center">
                     <div>
-                      <p className="text-xs text-white/55 mb-0.5">{booking.propertyName}</p>
-                      <p className="text-sm text-white font-medium">{booking.name}</p>
+                      <p className="text-xs text-stone-500 mb-0.5">{booking.propertyName}</p>
+                      <p className="text-sm text-stone-900 font-medium">{booking.name}</p>
                     </div>
 
                     <div>
-                      <p className="text-sm text-white/80">
+                      <p className="text-sm text-stone-800">
                         {formatDate(booking.checkIn)}
-                        <span className="text-white/30 mx-1.5">→</span>
+                        <span className="text-stone-400 mx-1.5">→</span>
                         {formatDate(booking.checkOut)}
                       </p>
                       {nights > 0 && (
-                        <p className="text-xs text-white/35 mt-0.5">{nights}박</p>
+                        <p className="text-xs text-stone-400 mt-0.5">{nights}박</p>
                       )}
                     </div>
 
-                    <p className="text-sm text-white/55 truncate">{booking.email || '-'}</p>
+                    <p className="text-sm text-stone-500 truncate">{booking.email || '-'}</p>
 
-                    <p className="text-sm text-white/75">{booking.guests}명</p>
+                    <p className="text-sm text-stone-700">{booking.guests}명</p>
 
-                    <span className={`inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-md w-fit border ${getSourceBadgeClass(booking.source)}`}>
+                    <span className={`inline-flex items-center px-2 py-0.5 text-[11px] font-medium w-fit border ${getSourceBadgeClass(booking.source)}`}>
                       {getSourceLabel(booking.source)}
                     </span>
 
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-md w-fit ${statusBadgeClass[booking.status]}`}>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium w-fit ${statusBadgeClass[booking.status]}`}>
                       <StatusIcon status={booking.status} />
                       {statusLabel[booking.status]}
                     </span>
 
-                    <p className="text-xs text-white/40">{formatCreatedAt(booking.createdAt)}</p>
+                    <p className="text-xs text-stone-500">{formatCreatedAt(booking.createdAt)}</p>
 
                     <div className="flex justify-end w-16">
                       {booking.status === 'confirmed' && booking.dataSource === 'bookings' && (
                         <button
                           onClick={() => setConfirmCancelBooking(booking)}
                           disabled={isCancelling}
-                          className="flex items-center gap-1 text-xs text-white/55 hover:text-rose-400 px-2 py-1 rounded-md transition-colors disabled:opacity-30"
+                          className="flex items-center gap-1 text-xs text-stone-500 hover:text-rose-600 px-2 py-1 transition-colors disabled:opacity-30"
                         >
                           <X size={11} />
                           취소
@@ -603,13 +603,13 @@ export default function BookingsPage() {
           </div>
 
           {hasMore && (
-            <div ref={loadMoreRef} className="flex items-center justify-center py-5 border-t border-white/[0.05]">
-              <Loader2 size={14} className="animate-spin text-violet-400" />
+            <div ref={loadMoreRef} className="flex items-center justify-center py-5 border-t border-stone-200">
+              <Loader2 size={14} className="animate-spin text-[var(--brand)]" />
             </div>
           )}
 
-          <div className="px-6 py-3 border-t border-white/[0.05]">
-            <p className="text-xs text-white/35">
+          <div className="px-6 py-3 border-t border-stone-200">
+            <p className="text-xs text-stone-400">
               {visibleBookings.length} / {filteredBookings.length}건
               {statusFilter !== 'all' && ` · ${statusFilter === 'confirmed' ? '확정' : '취소됨'} 필터`}
               {sourceFilter !== 'all' && ` · ${sourceFilter === 'direct' ? '직접 예약' : 'OTA'} 필터`}
@@ -620,14 +620,14 @@ export default function BookingsPage() {
 
       {/* Cancel Confirmation Modal */}
       {confirmCancelBooking && (
-        <div className="fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 backdrop-blur-sm">
-          <div className="bg-[#141416] border border-white/[0.08] p-6 sm:p-8 w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl">
-            <h2 className="text-lg font-semibold text-white mb-2">예약을 취소하시겠습니까?</h2>
-            <p className="text-white/60 text-sm mb-2">
+        <div className="fixed inset-0 bg-stone-950/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 backdrop-blur-sm">
+          <div className="bg-white border border-stone-200 p-6 sm:p-8 w-full sm:max-w-md shadow-2xl">
+            <h2 className="text-lg font-semibold text-stone-900 mb-2">예약을 취소하시겠습니까?</h2>
+            <p className="text-stone-700 text-sm mb-2">
               이 작업은 되돌릴 수 없습니다. 예약 상태가 &apos;취소됨&apos;으로 변경됩니다.
             </p>
             {confirmCancelBooking.source !== 'direct' && confirmCancelBooking.channelBookingRef && (
-              <p className="text-amber-300 text-xs bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mt-4">
+              <p className="text-amber-700 text-xs bg-amber-50 border border-amber-200 px-3 py-2 mt-4">
                 Beds24를 통해 OTA 채널에도 취소가 반영됩니다.
               </p>
             )}
@@ -635,14 +635,14 @@ export default function BookingsPage() {
               <button
                 onClick={() => setConfirmCancelBooking(null)}
                 disabled={cancellingId === confirmCancelBooking.id}
-                className="px-5 py-2.5 text-white/65 hover:text-white text-sm font-medium transition-colors disabled:opacity-30"
+                className="px-5 py-2.5 text-stone-700 hover:text-stone-900 text-sm font-medium transition-colors disabled:opacity-30"
               >
                 돌아가기
               </button>
               <button
                 onClick={() => handleCancelBooking(confirmCancelBooking)}
                 disabled={cancellingId === confirmCancelBooking.id}
-                className="px-5 py-2.5 bg-rose-500 hover:bg-rose-400 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2"
+                className="px-5 py-2.5 bg-rose-500 hover:bg-rose-600 text-white text-sm font-semibold transition-colors disabled:opacity-50 flex items-center gap-2"
               >
                 {cancellingId === confirmCancelBooking.id ? (
                   <>
@@ -660,13 +660,13 @@ export default function BookingsPage() {
 
       {/* Create Booking Modal */}
       {isCreateOpen && (
-        <div className="fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 backdrop-blur-sm">
-          <div className="bg-[#141416] border border-white/[0.08] p-6 sm:p-8 w-full sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl">
+        <div className="fixed inset-0 bg-stone-950/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 backdrop-blur-sm">
+          <div className="bg-white border border-stone-200 p-6 sm:p-8 w-full sm:max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-white">새 예약</h2>
+              <h2 className="text-lg font-semibold text-stone-900">새 예약</h2>
               <button
                 onClick={() => { setIsCreateOpen(false); setCreateError(''); }}
-                className="text-white/45 hover:text-white transition-colors p-1"
+                className="text-stone-500 hover:text-stone-900 transition-colors p-1"
               >
                 <X size={20} />
               </button>
@@ -689,7 +689,7 @@ export default function BookingsPage() {
                   ))}
                 </select>
                 {createForm.propertyId && properties.get(createForm.propertyId)?.beds24PropId && (
-                  <p className="text-xs text-emerald-300">Beds24를 통해 OTA 채널에 동기화됩니다.</p>
+                  <p className="text-xs text-emerald-600">Beds24를 통해 OTA 채널에 동기화됩니다.</p>
                 )}
               </div>
 
@@ -799,7 +799,7 @@ export default function BookingsPage() {
               </div>
 
               {createError && (
-                <p className="text-rose-300 text-xs bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
+                <p className="text-rose-600 text-xs bg-rose-50 border border-rose-200 px-3 py-2">
                   {createError}
                 </p>
               )}
@@ -809,14 +809,14 @@ export default function BookingsPage() {
                   type="button"
                   onClick={() => { setIsCreateOpen(false); setCreateError(''); }}
                   disabled={isCreating}
-                  className="px-5 py-2.5 text-white/65 hover:text-white text-sm font-medium transition-colors disabled:opacity-30"
+                  className="px-5 py-2.5 text-stone-700 hover:text-stone-900 text-sm font-medium transition-colors disabled:opacity-30"
                 >
                   취소
                 </button>
                 <button
                   type="submit"
                   disabled={isCreating}
-                  className="px-5 py-2.5 bg-violet-500 hover:bg-violet-400 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2"
+                  className="px-5 py-2.5 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white text-xs font-semibold uppercase tracking-widest transition-colors disabled:opacity-50 flex items-center gap-2"
                 >
                   {isCreating ? (
                     <>

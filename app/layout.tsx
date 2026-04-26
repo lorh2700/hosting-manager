@@ -14,9 +14,53 @@ const cormorantGaramond = Cormorant_Garamond({
   variable: '--font-serif',
 });
 
+const SITE_URL = 'https://voidanchae.com';
+const SITE_TITLE = 'void anchae · 큐레이션된 한옥 스테이';
+const SITE_DESCRIPTION = '북촌의 디자인 한옥 스테이. 정성스럽게 가꾼 공간에서 시간이 머무는 머무름을 경험하세요.';
+const OG_IMAGE = `${SITE_URL}/images/main_yard.jpg`;
+
 export const metadata: Metadata = {
-  title: 'void anchae',
-  description: 'A curated collection of atmospheric stays.',
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: SITE_TITLE,
+    template: '%s · void anchae',
+  },
+  description: SITE_DESCRIPTION,
+  alternates: {
+    canonical: '/',
+    languages: {
+      'ko-KR': '/',
+    },
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'ko_KR',
+    url: SITE_URL,
+    siteName: 'void anchae',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'void anchae 한옥 스테이' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: [OG_IMAGE],
+  },
+};
+
+const LODGING_JSON_LD = {
+  '@context': 'https://schema.org',
+  '@type': 'LodgingBusiness',
+  name: 'void anchae',
+  description: SITE_DESCRIPTION,
+  url: SITE_URL,
+  image: OG_IMAGE,
+  address: {
+    '@type': 'PostalAddress',
+    addressLocality: '서울 종로구 북촌',
+    addressCountry: 'KR',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -24,9 +68,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ko" className={`${inter.variable} ${cormorantGaramond.variable}`}>
       <head>
         <script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2695326208203895"
-          crossOrigin="anonymous"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(LODGING_JSON_LD) }}
         />
       </head>
       <body suppressHydrationWarning>

@@ -225,47 +225,47 @@ export default function CleanersPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-t-2 border-white rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-t-2 border-[var(--brand)] rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 sm:space-y-12">
-      <header className="border-b border-white/10 pb-6 sm:pb-8">
-        <p className="text-[10px] tracking-[0.3em] text-white/50 mb-3 sm:mb-4">설정</p>
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-light tracking-tight text-white">청소 담당자 관리</h1>
-        <p className="text-white/50 mt-2 sm:mt-4 text-sm font-light tracking-wide">
+      <header className="border-b border-stone-200 pb-6 sm:pb-8">
+        <p className="text-[10px] tracking-[0.3em] text-stone-500 mb-3 sm:mb-4">설정</p>
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-light tracking-tight text-stone-900">청소 담당자 관리</h1>
+        <p className="text-stone-500 mt-2 sm:mt-4 text-sm font-light tracking-wide">
           청소 담당자를 등록하고 청소 일정에 배정하세요.
         </p>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
         {/* 새 담당자 추가 폼 */}
-        <div className="bg-[#111] border border-white/10 p-5 sm:p-8 rounded-2xl sm:rounded-none lg:sticky lg:top-6">
-          <h2 className="text-sm tracking-widest font-medium text-white mb-6">새 담당자 추가</h2>
+        <div className="bg-white border border-stone-200 p-5 sm:p-8 lg:sticky lg:top-6">
+          <h2 className="text-sm tracking-widest font-medium text-stone-900 mb-6">새 담당자 추가</h2>
 
           <div className="space-y-4 mb-8">
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">이름 *</label>
+              <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">이름 *</label>
               <input
                 type="text"
                 value={newName}
                 onChange={e => setNewName(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAdd()}
                 placeholder="담당자 이름"
-                className="w-full bg-black/50 border border-white/10 px-4 py-3 text-sm text-white focus:outline-none focus:border-white/30 transition-colors"
+                className="w-full bg-white border border-stone-200 px-4 py-3 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors"
               />
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">연락처</label>
+              <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">연락처</label>
               <input
                 type="tel"
                 value={newPhone}
                 onChange={e => setNewPhone(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAdd()}
                 placeholder="010-0000-0000"
-                className="w-full bg-black/50 border border-white/10 px-4 py-3 text-sm text-white focus:outline-none focus:border-white/30 transition-colors"
+                className="w-full bg-white border border-stone-200 px-4 py-3 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors"
               />
             </div>
           </div>
@@ -273,8 +273,8 @@ export default function CleanersPage() {
           <button
             onClick={handleAdd}
             disabled={adding || !newName.trim()}
-            className={`w-full py-4 text-[11px] tracking-widest font-semibold flex items-center justify-center gap-2 transition-colors ${
-              newName.trim() ? 'bg-white text-black hover:bg-white/90' : 'bg-white/5 text-white/30 cursor-not-allowed'
+            className={`w-full py-4 text-[11px] tracking-widest font-semibold uppercase flex items-center justify-center gap-2 transition-colors ${
+              newName.trim() ? 'bg-[var(--brand)] text-white hover:bg-[var(--brand-dark)]' : 'bg-stone-100 text-stone-400 cursor-not-allowed'
             }`}
           >
             <Plus size={14} />
@@ -284,61 +284,61 @@ export default function CleanersPage() {
 
         {/* 담당자 목록 */}
         <div className="space-y-4">
-          <h2 className="text-sm tracking-widest font-medium text-white mb-4">
+          <h2 className="text-sm tracking-widest font-medium text-stone-900 mb-4">
             등록된 담당자
-            <span className="ml-3 text-white/30 font-light">{cleaners.length}명</span>
+            <span className="ml-3 text-stone-400 font-light">{cleaners.length}명</span>
           </h2>
 
           {cleaners.length === 0 ? (
-            <div className="bg-[#111] border border-white/10 p-12 text-center flex flex-col items-center text-white/40">
+            <div className="bg-white border border-stone-200 p-12 text-center flex flex-col items-center text-stone-400">
               <Users size={32} className="mb-4 opacity-50" />
               <p className="text-sm">등록된 담당자가 없습니다.</p>
-              <p className="text-xs mt-2 text-white/30">왼쪽 양식으로 담당자를 추가하세요.</p>
+              <p className="text-xs mt-2 text-stone-400">왼쪽 양식으로 담당자를 추가하세요.</p>
             </div>
           ) : (
             cleaners.map(cleaner => (
-              <div key={cleaner.id} className="bg-[#111] border border-white/10 p-5 sm:p-6 rounded-2xl sm:rounded-none group hover:border-white/30 transition-colors">
+              <div key={cleaner.id} className="bg-white border border-stone-200 p-5 sm:p-6 group hover:border-stone-300 transition-colors">
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">이름</label>
+                    <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">이름</label>
                     <input
                       type="text"
                       value={cleaner.name}
                       onChange={e => updateLocal(cleaner.id, 'name', e.target.value)}
-                      className="w-full bg-black/50 border border-white/10 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 transition-colors"
+                      className="w-full bg-white border border-stone-200 px-4 py-2.5 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">연락처</label>
+                    <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">연락처</label>
                     <div className="flex items-center gap-2">
-                      <Phone size={14} className="text-white/30 shrink-0" />
+                      <Phone size={14} className="text-stone-400 shrink-0" />
                       <input
                         type="tel"
                         value={cleaner.phone}
                         onChange={e => updateLocal(cleaner.id, 'phone', e.target.value)}
                         placeholder="연락처 없음"
-                        className="flex-1 bg-black/50 border border-white/10 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 transition-colors"
+                        className="flex-1 bg-white border border-stone-200 px-4 py-2.5 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">로그인 계정</label>
+                    <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">로그인 계정</label>
                     {!cleaner.phone ? (
-                      <p className="text-xs text-white/40">전화번호를 등록하면 로그인 계정이 자동 생성됩니다.</p>
+                      <p className="text-xs text-stone-400">전화번호를 등록하면 로그인 계정이 자동 생성됩니다.</p>
                     ) : cleaner.linkedUser ? (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 text-xs">
-                          <ShieldCheck size={14} className="text-emerald-400 shrink-0" />
-                          <span className="text-emerald-400">활성</span>
-                          <span className="text-white/50">
+                          <ShieldCheck size={14} className="text-emerald-600 shrink-0" />
+                          <span className="text-emerald-600">활성</span>
+                          <span className="text-stone-500">
                             전화번호 로그인 · 비번 {last4(cleaner.phone)}
                           </span>
                         </div>
                         <button
                           onClick={() => handleResetPassword(cleaner)}
                           disabled={resettingId === cleaner.id}
-                          className="text-xs text-white/60 hover:text-white flex items-center gap-2 border border-white/10 hover:border-white/30 px-3 py-1.5 transition-colors disabled:opacity-50"
+                          className="text-xs text-stone-700 hover:text-stone-900 flex items-center gap-2 border border-stone-200 hover:border-stone-300 px-3 py-1.5 transition-colors disabled:opacity-50"
                         >
                           <KeyRound size={12} />
                           {resettingId === cleaner.id ? '처리 중...' : '비밀번호 초기화'}
@@ -348,7 +348,7 @@ export default function CleanersPage() {
                       <button
                         onClick={() => handleResetPassword(cleaner)}
                         disabled={resettingId === cleaner.id}
-                        className="text-xs text-white/60 hover:text-white flex items-center gap-2 border border-white/10 hover:border-white/30 px-3 py-2 transition-colors disabled:opacity-50"
+                        className="text-xs text-stone-700 hover:text-stone-900 flex items-center gap-2 border border-stone-200 hover:border-stone-300 px-3 py-2 transition-colors disabled:opacity-50"
                       >
                         <KeyRound size={12} />
                         {resettingId === cleaner.id ? '생성 중...' : '로그인 계정 생성'}
@@ -357,16 +357,16 @@ export default function CleanersPage() {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2 flex items-center gap-2">
+                    <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2 flex items-center gap-2">
                       <Building2 size={12} /> 관리 가능한 지점
                       {savingScopeId === cleaner.id && (
-                        <span className="text-white/30 normal-case tracking-normal">저장 중…</span>
+                        <span className="text-stone-400 normal-case tracking-normal">저장 중…</span>
                       )}
                     </label>
                     {!cleaner.userId ? (
-                      <p className="text-xs text-white/40">로그인 계정을 먼저 만들어 주세요.</p>
+                      <p className="text-xs text-stone-400">로그인 계정을 먼저 만들어 주세요.</p>
                     ) : properties.length === 0 ? (
-                      <p className="text-xs text-white/40">등록된 지점이 없습니다.</p>
+                      <p className="text-xs text-stone-400">등록된 지점이 없습니다.</p>
                     ) : (
                       <>
                         <div className="flex flex-wrap gap-2">
@@ -380,8 +380,8 @@ export default function CleanersPage() {
                                 disabled={savingScopeId === cleaner.id}
                                 className={`text-xs px-3 py-1.5 border tracking-wide transition-colors disabled:opacity-50 ${
                                   active
-                                    ? 'bg-white text-black border-white'
-                                    : 'bg-transparent text-white/60 border-white/15 hover:border-white/40 hover:text-white'
+                                    ? 'bg-[var(--brand)] text-white border-[var(--brand)]'
+                                    : 'bg-transparent text-stone-700 border-stone-300 hover:border-stone-400 hover:text-stone-900'
                                 }`}
                               >
                                 {p.name}
@@ -389,7 +389,7 @@ export default function CleanersPage() {
                             );
                           })}
                         </div>
-                        <p className="text-[10px] text-white/30 mt-2 tracking-wide">
+                        <p className="text-[10px] text-stone-400 mt-2 tracking-wide">
                           {cleaner.assignedPropertyIds?.length
                             ? `${cleaner.assignedPropertyIds.length}개 지점만 보입니다.`
                             : '지정 없음 — 모든 지점 표시'}
@@ -399,28 +399,28 @@ export default function CleanersPage() {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">공개 캘린더 링크</label>
+                    <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">공개 캘린더 링크</label>
                     {cleaner.publicToken ? (
                       <div className="flex items-center gap-2">
-                        <LinkIcon size={14} className="text-white/30 shrink-0" />
+                        <LinkIcon size={14} className="text-stone-400 shrink-0" />
                         <input
                           type="text"
                           readOnly
                           value={publicUrl(cleaner.publicToken)}
                           onFocus={e => e.currentTarget.select()}
-                          className="flex-1 bg-black/50 border border-white/10 px-4 py-2.5 text-xs text-white/70 focus:outline-none focus:border-white/30 transition-colors font-mono truncate"
+                          className="flex-1 bg-white border border-stone-200 px-4 py-2.5 text-xs text-stone-700 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors font-mono truncate"
                         />
                         <button
                           onClick={() => handleCopyLink(cleaner)}
-                          className="p-2.5 border border-white/10 text-white/50 hover:text-white hover:border-white/30 transition-colors"
+                          className="p-2.5 border border-stone-200 text-stone-500 hover:text-stone-900 hover:border-stone-300 transition-colors"
                           title="링크 복사"
                         >
-                          {copiedId === cleaner.id ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                          {copiedId === cleaner.id ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
                         </button>
                         <button
                           onClick={() => handleRegenerateToken(cleaner)}
                           disabled={regeneratingId === cleaner.id}
-                          className="p-2.5 border border-white/10 text-white/50 hover:text-white hover:border-white/30 transition-colors disabled:opacity-50"
+                          className="p-2.5 border border-stone-200 text-stone-500 hover:text-stone-900 hover:border-stone-300 transition-colors disabled:opacity-50"
                           title="링크 재발급"
                         >
                           <RefreshCw size={14} className={regeneratingId === cleaner.id ? 'animate-spin' : ''} />
@@ -430,7 +430,7 @@ export default function CleanersPage() {
                       <button
                         onClick={() => handleRegenerateToken(cleaner)}
                         disabled={regeneratingId === cleaner.id}
-                        className="text-xs text-white/50 hover:text-white flex items-center gap-2 border border-white/10 px-3 py-2 transition-colors disabled:opacity-50"
+                        className="text-xs text-stone-500 hover:text-stone-900 flex items-center gap-2 border border-stone-200 px-3 py-2 transition-colors disabled:opacity-50"
                       >
                         <RefreshCw size={12} />
                         링크 발급
@@ -442,7 +442,7 @@ export default function CleanersPage() {
                 <div className="flex justify-end gap-3 mt-5">
                   <button
                     onClick={() => handleDelete(cleaner.id)}
-                    className="p-2 text-white/30 hover:text-red-400 transition-colors"
+                    className="p-2 text-stone-400 hover:text-red-600 transition-colors"
                     title="삭제"
                   >
                     <Trash2 size={16} strokeWidth={1.5} />
@@ -450,7 +450,7 @@ export default function CleanersPage() {
                   <button
                     onClick={() => handleUpdate(cleaner)}
                     disabled={saving === cleaner.id}
-                    className="flex items-center gap-2 bg-white/10 hover:bg-white hover:text-black text-white px-4 py-2 text-[10px] tracking-widest font-semibold transition-colors disabled:opacity-50"
+                    className="flex items-center gap-2 bg-stone-100 hover:bg-[var(--brand)] hover:text-white text-stone-900 px-4 py-2 text-[10px] tracking-widest font-semibold uppercase transition-colors disabled:opacity-50"
                   >
                     <Save size={13} />
                     {saving === cleaner.id ? '저장 중...' : '저장'}

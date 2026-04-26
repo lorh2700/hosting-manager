@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { useCalendarData } from './hooks/useCalendarData';
 import { useEventModal } from './hooks/useEventModal';
 import { CalendarHeader } from './components/CalendarHeader';
@@ -8,12 +7,9 @@ import { PropertyFilter } from './components/PropertyFilter';
 import { CalendarGrid } from './components/CalendarGrid';
 import { EventDetailPanel } from './components/EventDetailPanel';
 import { SupplyTodoList } from './components/SupplyTodoList';
-import { CreateReservationModal } from './components/CreateReservationModal';
-import type { RawEvent } from './types';
 
 export default function UnifiedCalendarPage() {
   const data = useCalendarData();
-  const [reservationModalOpen, setReservationModalOpen] = useState(false);
   const modal = useEventModal({
     user: data.user,
     properties: data.properties,
@@ -23,15 +19,10 @@ export default function UnifiedCalendarPage() {
     setEvents: data.setEvents,
   });
 
-  const handleReservationCreated = (ev: RawEvent) => {
-    data.setEvents(prev => [...prev, ev]);
-    setReservationModalOpen(false);
-  };
-
   if (data.loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-6 h-6 border-t-2 border-white rounded-full animate-spin" />
+        <div className="w-6 h-6 border-t-2 border-[var(--brand)] rounded-full animate-spin" />
       </div>
     );
   }
@@ -46,7 +37,6 @@ export default function UnifiedCalendarPage() {
         unassignedCleanings={data.unassignedCleanings}
         sortedUnassigned={data.sortedUnassigned}
         openModal={modal.openModal}
-        onCreateReservation={() => setReservationModalOpen(true)}
       />
 
       <PropertyFilter
@@ -105,14 +95,6 @@ export default function UnifiedCalendarPage() {
           onUpdateTags={modal.handleUpdateTags}
           onCancelEvent={modal.handleCancelBeds24Event}
           openModal={modal.openModal}
-        />
-      )}
-
-      {reservationModalOpen && (
-        <CreateReservationModal
-          properties={data.properties}
-          onClose={() => setReservationModalOpen(false)}
-          onCreated={handleReservationCreated}
         />
       )}
     </div>

@@ -135,7 +135,7 @@ export default function SeedPage() {
 
   if (!user) {
     return (
-      <div className="p-8 text-center text-zinc-400">
+      <div className="p-8 text-center text-stone-500">
         로그인이 필요합니다.
       </div>
     );
@@ -143,17 +143,17 @@ export default function SeedPage() {
 
   return (
     <div className="max-w-2xl mx-auto p-8">
-      <h1 className="text-2xl font-bold mb-2">숙소 데이터 시딩</h1>
-      <p className="text-zinc-400 mb-8 text-sm">
+      <h1 className="text-2xl font-bold mb-2 text-stone-900">숙소 데이터 시딩</h1>
+      <p className="text-stone-500 mb-8 text-sm">
         기존 3개 숙소(화연재, 운와당, 안온재)에 이미지/지역 데이터를 추가하고, 도원재를 새로 생성합니다.
       </p>
 
       <div className="mb-6 space-y-2 text-sm">
         {PROPERTIES.map(p => (
-          <div key={p.name} className="flex items-center gap-3 p-3 rounded-lg bg-zinc-900 border border-zinc-800">
-            <span className="font-medium">{p.name}</span>
-            <span className="text-zinc-500">{p.region}</span>
-            <span className="text-zinc-500">{p.images.length}장</span>
+          <div key={p.name} className="flex items-center gap-3 p-3 bg-white border border-stone-200">
+            <span className="font-medium text-stone-900">{p.name}</span>
+            <span className="text-stone-500">{p.region}</span>
+            <span className="text-stone-500">{p.images.length}장</span>
           </div>
         ))}
       </div>
@@ -161,19 +161,19 @@ export default function SeedPage() {
       <button
         onClick={runSeed}
         disabled={running || done}
-        className={`px-6 py-3 rounded-lg font-medium text-sm transition-colors ${
+        className={`px-6 py-3 font-semibold text-xs uppercase tracking-widest transition-colors ${
           done
-            ? 'bg-green-900 text-green-300 cursor-default'
+            ? 'bg-green-100 text-green-700 cursor-default'
             : running
-              ? 'bg-zinc-700 text-zinc-400 cursor-wait'
-              : 'bg-white text-black hover:bg-zinc-200'
+              ? 'bg-stone-200 text-stone-500 cursor-wait'
+              : 'bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white'
         }`}
       >
         {done ? '완료!' : running ? '처리 중...' : '시딩 실행'}
       </button>
 
       {logs.length > 0 && (
-        <pre className="mt-6 p-4 rounded-lg bg-zinc-900 border border-zinc-800 text-sm text-zinc-300 whitespace-pre-wrap">
+        <pre className="mt-6 p-4 bg-stone-100 border border-stone-200 text-sm text-stone-700 whitespace-pre-wrap">
           {logs.join('\n')}
         </pre>
       )}

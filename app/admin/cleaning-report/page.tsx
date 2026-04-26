@@ -97,8 +97,8 @@ function CalendarMonth({
   const offset = getDay(monthStart);
 
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-4 sm:p-5">
-      <p className="text-sm font-bold text-gray-900 mb-4 tracking-tight">
+    <div className="bg-white border border-stone-100 p-4 sm:p-5">
+      <p className="text-sm font-bold text-stone-900 mb-4 tracking-tight">
         {format(monthDate, 'yyyy. M', { locale: ko })}
       </p>
       <div className="grid grid-cols-7 gap-y-1">
@@ -106,7 +106,7 @@ function CalendarMonth({
           <div
             key={d}
             className={`text-[10px] font-medium pb-2 text-center ${
-              i === 0 ? 'text-rose-400' : i === 6 ? 'text-violet-400' : 'text-gray-400'
+              i === 0 ? 'text-rose-400' : i === 6 ? 'text-[var(--brand)]' : 'text-stone-400'
             }`}
           >
             {d}
@@ -125,11 +125,11 @@ function CalendarMonth({
           const isStartDay = isSameDay(day, period.start);
           const dow = getDay(day);
 
-          let cellClass = 'text-gray-300';
+          let cellClass = 'text-stone-300';
           if (inPeriod) {
             if (dow === 0) cellClass = 'text-rose-500';
-            else if (dow === 6) cellClass = 'text-violet-500';
-            else cellClass = 'text-gray-900';
+            else if (dow === 6) cellClass = 'text-[var(--brand)]';
+            else cellClass = 'text-stone-900';
           }
 
           return (
@@ -138,11 +138,11 @@ function CalendarMonth({
               className="aspect-square flex flex-col items-center justify-center relative py-1"
             >
               <div
-                className={`w-8 h-8 flex items-center justify-center rounded-full text-[13px] tabular-nums transition-colors ${
+                className={`w-8 h-8 flex items-center justify-center text-[13px] tabular-nums transition-colors ${
                   isCutoff
-                    ? 'bg-violet-600 text-white font-bold ring-4 ring-violet-100'
+                    ? 'bg-[var(--brand-dark)] text-white font-bold ring-4 ring-[var(--brand)]/15'
                     : isStartDay
-                    ? 'border-2 border-violet-400 text-violet-700 font-bold'
+                    ? 'border-2 border-[var(--brand)] text-[var(--brand-dark)] font-bold'
                     : cellClass
                 }`}
               >
@@ -150,7 +150,7 @@ function CalendarMonth({
               </div>
               {(hasDone || hasPending) && (
                 <div className="flex gap-0.5 absolute bottom-0.5">
-                  {hasDone && <span className="w-1 h-1 rounded-full bg-violet-500" />}
+                  {hasDone && <span className="w-1 h-1 rounded-full bg-[var(--brand)]" />}
                   {hasPending && <span className="w-1 h-1 rounded-full bg-amber-400" />}
                 </div>
               )}
@@ -323,7 +323,7 @@ export default function CleaningReportPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-6 h-6 border-t-2 border-white rounded-full animate-spin" />
+        <div className="w-6 h-6 border-t-2 border-[var(--brand)] rounded-full animate-spin" />
       </div>
     );
   }
@@ -331,19 +331,19 @@ export default function CleaningReportPage() {
   return (
     <div className="max-w-4xl mx-auto">
       {/* Light surface — LG Pra.L inspired */}
-      <div className="bg-[#fafafa] text-gray-900 rounded-3xl overflow-hidden shadow-2xl shadow-black/40">
+      <div className="bg-[#fafafa] text-stone-900 overflow-hidden shadow-2xl shadow-stone-200">
         <div className="p-5 sm:p-8 lg:p-10 space-y-8 sm:space-y-10">
 
           {/* Header */}
-          <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 pb-6 border-b border-gray-200/70">
+          <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 pb-6 border-b border-stone-200/70">
             <div>
-              <p className="text-[10px] tracking-[0.3em] text-violet-600 mb-3 font-semibold">REPORT</p>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">청소 완료 보고서</h1>
-              <p className="text-gray-500 mt-2 text-sm">매월 25일 마감 · 담당자별 수행 내역</p>
+              <p className="text-[11px] uppercase tracking-[0.25em] text-[var(--brand)] mb-3 font-semibold">REPORT</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-stone-900 tracking-tight">청소 완료 보고서</h1>
+              <p className="text-stone-500 mt-2 text-sm">매월 25일 마감 · 담당자별 수행 내역</p>
             </div>
             <button
               onClick={exportCSV}
-              className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold rounded-full transition-colors active:scale-[0.98] shrink-0"
+              className="flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold uppercase tracking-widest transition-colors active:scale-[0.98] shrink-0"
             >
               <Download size={14} />
               CSV 내보내기
@@ -354,21 +354,21 @@ export default function CleaningReportPage() {
           <div className="flex items-center justify-center gap-3 sm:gap-5">
             <button
               onClick={prevPeriod}
-              className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-500 hover:text-gray-900 hover:border-gray-300 active:scale-90 transition-all"
+              className="w-10 h-10 bg-white border border-stone-200 flex items-center justify-center text-stone-500 hover:text-stone-900 hover:border-stone-300 active:scale-90 transition-all"
             >
               <ChevronLeft size={18} />
             </button>
             <div className="text-center min-w-[180px]">
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+              <h2 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">
                 {format(period.end, 'yyyy년 M월', { locale: ko })} 정산
               </h2>
-              <p className="text-xs text-violet-600 mt-1.5 font-semibold tracking-wide">
-                {periodLabel} <span className="text-gray-400 font-normal mx-1">·</span> {periodDays}일
+              <p className="text-xs text-[var(--brand)] mt-1.5 font-semibold tracking-wide">
+                {periodLabel} <span className="text-stone-400 font-normal mx-1">·</span> {periodDays}일
               </p>
             </div>
             <button
               onClick={nextPeriod}
-              className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-500 hover:text-gray-900 hover:border-gray-300 active:scale-90 transition-all"
+              className="w-10 h-10 bg-white border border-stone-200 flex items-center justify-center text-stone-500 hover:text-stone-900 hover:border-stone-300 active:scale-90 transition-all"
             >
               <ChevronRight size={18} />
             </button>
@@ -388,9 +388,9 @@ export default function CleaningReportPage() {
                 cleaningsByDate={cleaningsByDate}
               />
             </div>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4 px-1 text-[11px] text-gray-500">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4 px-1 text-[11px] text-stone-500">
               <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-violet-500" />
+                <span className="w-2 h-2 rounded-full bg-[var(--brand)]" />
                 완료
               </span>
               <span className="flex items-center gap-1.5">
@@ -398,11 +398,11 @@ export default function CleaningReportPage() {
                 대기
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-full bg-violet-600 ring-2 ring-violet-100" />
+                <span className="w-3 h-3 rounded-full bg-[var(--brand-dark)] ring-2 ring-[var(--brand)]/15" />
                 정산일 (25일)
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-full border-2 border-violet-400" />
+                <span className="w-3 h-3 rounded-full border-2 border-[var(--brand)]" />
                 정산 시작 (26일)
               </span>
             </div>
@@ -410,29 +410,29 @@ export default function CleaningReportPage() {
 
           {/* Summary cards */}
           <div className="grid grid-cols-3 gap-3">
-            <div className="bg-white border border-gray-100 rounded-2xl p-4 sm:p-5 text-center">
-              <p className="text-2xl sm:text-3xl font-bold text-violet-600 mb-1 tabular-nums">{totalDone}</p>
-              <p className="text-[11px] sm:text-xs text-gray-500 tracking-wide">완료</p>
+            <div className="bg-white border border-stone-100 p-4 sm:p-5 text-center">
+              <p className="text-2xl sm:text-3xl font-bold text-[var(--brand)] mb-1 tabular-nums">{totalDone}</p>
+              <p className="text-[11px] sm:text-xs text-stone-500 tracking-wide">완료</p>
             </div>
-            <div className="bg-white border border-gray-100 rounded-2xl p-4 sm:p-5 text-center">
-              <p className={`text-2xl sm:text-3xl font-bold mb-1 tabular-nums ${(totalAll - totalDone) > 0 ? 'text-amber-500' : 'text-gray-300'}`}>
+            <div className="bg-white border border-stone-100 p-4 sm:p-5 text-center">
+              <p className={`text-2xl sm:text-3xl font-bold mb-1 tabular-nums ${(totalAll - totalDone) > 0 ? 'text-amber-500' : 'text-stone-300'}`}>
                 {totalAll - totalDone}
               </p>
-              <p className="text-[11px] sm:text-xs text-gray-500 tracking-wide">대기</p>
+              <p className="text-[11px] sm:text-xs text-stone-500 tracking-wide">대기</p>
             </div>
-            <div className="bg-white border border-gray-100 rounded-2xl p-4 sm:p-5 text-center">
-              <p className={`text-2xl sm:text-3xl font-bold mb-1 tabular-nums ${unassigned > 0 ? 'text-rose-500' : 'text-gray-300'}`}>
+            <div className="bg-white border border-stone-100 p-4 sm:p-5 text-center">
+              <p className={`text-2xl sm:text-3xl font-bold mb-1 tabular-nums ${unassigned > 0 ? 'text-rose-500' : 'text-stone-300'}`}>
                 {unassigned}
               </p>
-              <p className="text-[11px] sm:text-xs text-gray-500 tracking-wide">미배정</p>
+              <p className="text-[11px] sm:text-xs text-stone-500 tracking-wide">미배정</p>
             </div>
           </div>
 
           {/* Trend chart */}
-          <div className="bg-white border border-gray-100 rounded-2xl p-5 sm:p-6">
+          <div className="bg-white border border-stone-100 p-5 sm:p-6">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-sm font-bold text-gray-900 tracking-tight">정산 기간별 추이</h3>
-              <span className="text-[11px] text-gray-400">최근 6개 정산</span>
+              <h3 className="text-sm font-bold text-stone-900 tracking-tight">정산 기간별 추이</h3>
+              <span className="text-[11px] text-stone-400">최근 6개 정산</span>
             </div>
             <div className="flex items-end gap-2 sm:gap-3 h-28">
               {periodTrend.map(m => {
@@ -440,18 +440,18 @@ export default function CleaningReportPage() {
                 const isCurrent = m.key === period.endStr;
                 return (
                   <div key={m.key} className="flex-1 flex flex-col items-center gap-2">
-                    <span className={`text-xs tabular-nums font-semibold ${isCurrent ? 'text-violet-600' : 'text-gray-400'}`}>
+                    <span className={`text-xs tabular-nums font-semibold ${isCurrent ? 'text-[var(--brand)]' : 'text-stone-400'}`}>
                       {m.count}
                     </span>
                     <div className="w-full flex justify-center">
                       <div
-                        className={`w-full max-w-[34px] rounded-t-md transition-all ${
-                          isCurrent ? 'bg-violet-600' : 'bg-violet-200'
+                        className={`w-full max-w-[34px] transition-all ${
+                          isCurrent ? 'bg-[var(--brand-dark)]' : 'bg-[var(--brand-tint-strong)]'
                         }`}
                         style={{ height: `${Math.max(height, 4)}%` }}
                       />
                     </div>
-                    <span className={`text-[10px] sm:text-[11px] ${isCurrent ? 'text-gray-900 font-semibold' : 'text-gray-400'}`}>
+                    <span className={`text-[10px] sm:text-[11px] ${isCurrent ? 'text-stone-900 font-semibold' : 'text-stone-400'}`}>
                       {m.label}
                     </span>
                   </div>
@@ -463,17 +463,17 @@ export default function CleaningReportPage() {
           {/* Per-cleaner list */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-bold text-gray-900 tracking-tight">담당자별 현황</h3>
-              <span className="text-[11px] text-gray-400">담당자를 누르면 수행 날짜가 펼쳐집니다</span>
+              <h3 className="text-sm font-bold text-stone-900 tracking-tight">담당자별 현황</h3>
+              <span className="text-[11px] text-stone-400">담당자를 누르면 수행 날짜가 펼쳐집니다</span>
             </div>
 
             {stats.length === 0 ? (
-              <div className="text-center py-16 bg-white border border-gray-100 rounded-2xl">
-                <FileBarChart size={32} className="mx-auto mb-3 text-gray-300" />
-                <p className="text-gray-400 text-sm">등록된 청소 담당자가 없습니다.</p>
+              <div className="text-center py-16 bg-white border border-stone-100">
+                <FileBarChart size={32} className="mx-auto mb-3 text-stone-300" />
+                <p className="text-stone-400 text-sm">등록된 청소 담당자가 없습니다.</p>
               </div>
             ) : (
-              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+              <div className="bg-white border border-stone-100 overflow-hidden">
                 {stats.map((stat, idx) => {
                   const isExpanded = expandedCleanerId === stat.cleanerId;
                   const isClickable = stat.total > 0;
@@ -481,46 +481,46 @@ export default function CleaningReportPage() {
                   const initial = stat.cleanerName.charAt(0);
 
                   return (
-                    <div key={stat.cleanerId} className={idx > 0 ? 'border-t border-gray-100' : ''}>
+                    <div key={stat.cleanerId} className={idx > 0 ? 'border-t border-stone-100' : ''}>
                       <button
                         type="button"
                         onClick={() => isClickable && setExpandedCleanerId(isExpanded ? null : stat.cleanerId)}
                         disabled={!isClickable}
                         className={`w-full flex items-center gap-3 px-4 sm:px-5 py-4 text-left transition-colors ${
-                          isClickable ? 'hover:bg-gray-50 active:bg-gray-100 cursor-pointer' : 'cursor-default'
+                          isClickable ? 'hover:bg-stone-50 active:bg-stone-100 cursor-pointer' : 'cursor-default'
                         }`}
                       >
-                        <div className={`w-11 h-11 rounded-full flex items-center justify-center font-semibold text-sm shrink-0 ${
-                          isClickable ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-400'
+                        <div className={`w-11 h-11 flex items-center justify-center font-semibold text-sm shrink-0 ${
+                          isClickable ? 'bg-[var(--brand-tint-strong)] text-[var(--brand-dark)]' : 'bg-stone-100 text-stone-400'
                         }`}>
                           {initial}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-gray-900 truncate">{stat.cleanerName}</p>
+                          <p className="text-sm font-semibold text-stone-900 truncate">{stat.cleanerName}</p>
                           {stat.total > 0 ? (
                             <div className="flex items-center gap-2 mt-1">
-                              <div className="h-1 w-20 bg-gray-100 rounded-full overflow-hidden">
+                              <div className="h-1 w-20 bg-stone-100 overflow-hidden">
                                 <div
-                                  className="h-full bg-violet-500 rounded-full transition-all"
+                                  className="h-full bg-[var(--brand)] transition-all"
                                   style={{ width: `${completionRate}%` }}
                                 />
                               </div>
-                              <span className="text-[11px] text-gray-500 tabular-nums">{completionRate}%</span>
+                              <span className="text-[11px] text-stone-500 tabular-nums">{completionRate}%</span>
                             </div>
                           ) : (
-                            <p className="text-xs text-gray-400 mt-0.5">이번 정산 기간 배정 없음</p>
+                            <p className="text-xs text-stone-400 mt-0.5">이번 정산 기간 배정 없음</p>
                           )}
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-base font-bold text-violet-600 tabular-nums">
+                          <p className="text-base font-bold text-[var(--brand)] tabular-nums">
                             {stat.done}
-                            <span className="text-gray-300 font-normal">/{stat.total}</span>
+                            <span className="text-stone-300 font-normal">/{stat.total}</span>
                           </p>
                         </div>
                         {isClickable ? (
                           <ChevronDown
                             size={18}
-                            className={`text-gray-300 transition-transform shrink-0 ${isExpanded ? 'rotate-180' : ''}`}
+                            className={`text-stone-300 transition-transform shrink-0 ${isExpanded ? 'rotate-180' : ''}`}
                           />
                         ) : (
                           <div className="w-[18px] shrink-0" />
@@ -528,8 +528,8 @@ export default function CleaningReportPage() {
                       </button>
 
                       {isExpanded && stat.details.length > 0 && (
-                        <div className="bg-gray-50/70 px-4 sm:px-5 py-4 border-t border-gray-100">
-                          <p className="text-[10px] tracking-[0.2em] text-violet-600 mb-3 font-semibold">수행 날짜</p>
+                        <div className="bg-stone-50/70 px-4 sm:px-5 py-4 border-t border-stone-100">
+                          <p className="text-[10px] tracking-[0.2em] text-[var(--brand)] mb-3 font-semibold">수행 날짜</p>
                           <ul className="space-y-1.5">
                             {stat.details.map(d => {
                               const dateObj = parseISO(d.date);
@@ -538,17 +538,17 @@ export default function CleaningReportPage() {
                               return (
                                 <li
                                   key={d.id}
-                                  className="flex items-center justify-between gap-3 text-sm py-2.5 px-3 rounded-xl bg-white border border-gray-100"
+                                  className="flex items-center justify-between gap-3 text-sm py-2.5 px-3 bg-white border border-stone-100"
                                 >
                                   <div className="flex items-center gap-3 min-w-0">
-                                    <span className="text-gray-900 tabular-nums shrink-0 font-semibold">{dateLabel}</span>
-                                    <span className="text-gray-500 truncate">{d.propertyName}</span>
+                                    <span className="text-stone-900 tabular-nums shrink-0 font-semibold">{dateLabel}</span>
+                                    <span className="text-stone-500 truncate">{d.propertyName}</span>
                                   </div>
                                   <span
-                                    className={`text-[10px] tracking-wider px-2.5 py-0.5 rounded-full shrink-0 font-medium ${
+                                    className={`inline-flex items-center px-2 py-1 ring-1 shrink-0 text-[10px] leading-none uppercase tracking-widest ${
                                       isDone
-                                        ? 'bg-violet-100 text-violet-700'
-                                        : 'bg-amber-100 text-amber-700'
+                                        ? 'bg-emerald-50 text-emerald-800 ring-emerald-200'
+                                        : 'bg-amber-50 text-amber-800 ring-amber-200'
                                     }`}
                                   >
                                     {isDone ? '완료' : '대기'}

@@ -37,10 +37,10 @@ function CleanBadge({ evt }: { evt: ProcessedEvent }) {
     const isDone = evt.status === 'done';
     return (
       <span
-        className={`mx-1 text-[9px] leading-none px-1.5 py-1 rounded-md font-semibold shrink-0 whitespace-nowrap inline-flex items-center gap-1 ${
+        className={`mx-1 text-[9px] leading-none px-1.5 py-1 font-semibold shrink-0 whitespace-nowrap inline-flex items-center gap-1 ${
           isDone
-            ? 'bg-emerald-500/85 text-white ring-1 ring-emerald-300/40'
-            : 'bg-black/55 text-white ring-1 ring-white/20'
+            ? 'bg-emerald-500 text-white ring-1 ring-emerald-600/30'
+            : 'bg-white text-stone-800 ring-1 ring-stone-300'
         }`}
       >
         {isDone ? <Check size={9} strokeWidth={3} /> : <Sparkles size={9} strokeWidth={2.5} />}
@@ -49,7 +49,7 @@ function CleanBadge({ evt }: { evt: ProcessedEvent }) {
     );
   }
   return (
-    <span className="mx-1 text-[9px] leading-none px-1.5 py-1 rounded-md font-bold shrink-0 whitespace-nowrap bg-amber-500 text-black ring-1 ring-amber-300">
+    <span className="mx-1 text-[9px] leading-none px-1.5 py-1 font-semibold shrink-0 whitespace-nowrap bg-white text-amber-700 ring-1 ring-amber-400">
       미배정
     </span>
   );
@@ -57,7 +57,7 @@ function CleanBadge({ evt }: { evt: ProcessedEvent }) {
 
 function GridLine({ show }: { show: boolean }) {
   if (!show) return null;
-  return <span className="absolute right-0 top-0 w-px h-full bg-white/30 z-10 pointer-events-none" />;
+  return <span className="absolute right-0 top-0 w-px h-full bg-black/15 z-10 pointer-events-none" />;
 }
 
 function DayCell({ day, di, viewDate, today, activeProperties, eventsByProp }: {
@@ -68,44 +68,44 @@ function DayCell({ day, di, viewDate, today, activeProperties, eventsByProp }: {
   const isThisMonth = day.getMonth() === viewDate.getMonth();
   const isToday = dateStr === today;
   const isPast = dateStr < today;
-  const weekendBg = di === 0 ? 'bg-red-500/[0.06]' : di === 6 ? 'bg-blue-500/[0.06]' : '';
+  const weekendBg = di === 0 ? 'bg-rose-50/40' : di === 6 ? 'bg-sky-50/40' : '';
   const avail = isThisMonth && activeProperties.length > 0 ? getDayAvailability(dateStr, activeProperties, eventsByProp) : null;
   const allAvailable = avail && avail.available === avail.total && avail.total > 0;
   const noneAvailable = avail && avail.available === 0 && avail.total > 0;
 
   const dayNumberCls = isToday
-    ? 'bg-violet-500 text-white font-bold'
+    ? 'bg-[var(--brand)] text-white font-bold'
     : !isThisMonth
-      ? 'text-white/25'
+      ? 'text-stone-300'
       : di === 0
-        ? 'text-rose-300 font-semibold'
+        ? 'text-rose-500 font-semibold'
         : di === 6
-          ? 'text-violet-300 font-semibold'
-          : 'text-white/90 font-medium';
+          ? 'text-sky-600 font-semibold'
+          : 'text-stone-900 font-medium';
 
   return (
-    <div className={`py-2 px-2 flex items-center justify-between gap-1 ${isToday ? 'bg-violet-500/10' : weekendBg} ${di < 6 ? 'border-r border-white/[0.08]' : ''}`}>
+    <div className={`py-2 px-2 flex items-center justify-between gap-1 ${isToday ? 'bg-[var(--brand-tint)]' : weekendBg} ${di < 6 ? 'border-r border-stone-200' : ''}`}>
       <div className="min-w-0 flex items-center gap-1">
         {avail && !isPast && isThisMonth && (
           <span className="inline-flex items-center gap-1 shrink-0">
             <span
               className={`w-1.5 h-1.5 rounded-full ${
-                allAvailable ? 'bg-emerald-400' :
-                noneAvailable ? 'bg-rose-400' :
-                'bg-amber-400'
+                allAvailable ? 'bg-emerald-500' :
+                noneAvailable ? 'bg-rose-500' :
+                'bg-amber-500'
               }`}
             />
             <span className={`text-[9px] tabular-nums font-medium tracking-tight hidden sm:inline ${
-              allAvailable ? 'text-emerald-300/80' :
-              noneAvailable ? 'text-rose-300/70' :
-              'text-amber-300/80'
+              allAvailable ? 'text-emerald-700' :
+              noneAvailable ? 'text-rose-600' :
+              'text-amber-700'
             }`}>
               {avail.available}/{avail.total}
             </span>
           </span>
         )}
       </div>
-      <span className={`text-sm inline-flex items-center justify-center w-7 h-7 rounded-full transition-colors tabular-nums ${dayNumberCls}`}>
+      <span className={`text-sm inline-flex items-center justify-center w-7 h-7 transition-colors tabular-nums ${dayNumberCls}`}>
         {day.getDate()}
       </span>
     </div>
@@ -120,11 +120,11 @@ function PropertyLaneCell({ day, di, prop, weekStartStr, today, viewDate, events
   const dayStr = toDateStr(day);
   const { checkoutEvent, checkinEvent, midEvent } = getDayInfo(dayStr, prop.id, eventsByProp);
   const isToday = dayStr === today;
-  const bgEmpty = hexToRgba(prop.color, 0.05);
-  const weekendBg = di === 0 ? 'rgba(239,68,68,0.035)' : di === 6 ? 'rgba(59,130,246,0.035)' : undefined;
+  const bgEmpty = hexToRgba(prop.color, 0.025);
+  const weekendBg = di === 0 ? 'rgba(244,63,94,0.025)' : di === 6 ? 'rgba(14,165,233,0.025)' : undefined;
   const emptyBg = weekendBg || bgEmpty;
   const showGridLine = di < 6;
-  const todayRing = isToday ? 'ring-1 ring-inset ring-violet-400/30' : '';
+  const todayRing = isToday ? 'ring-1 ring-inset ring-[var(--brand)]/40' : '';
 
   // Mid-stay
   if (midEvent) {
@@ -150,14 +150,14 @@ function PropertyLaneCell({ day, di, prop, weekStartStr, today, viewDate, events
       <div className={`relative h-full flex ${todayRing}`} style={{ gap: '2px' }}>
         <div className="h-full cursor-pointer hover:brightness-110 transition-all flex items-center overflow-hidden"
           onClick={() => openModal(checkoutEvent)}
-          style={{ width: '50%', backgroundColor: checkoutEvent.color, borderRadius: '0 6px 6px 0', opacity: 0.85,
+          style={{ width: '50%', backgroundColor: checkoutEvent.color, borderRadius: 0, opacity: 0.85,
             outline: !checkoutEvent.cleanerId ? '2px dashed rgba(245,158,11,0.85)' : 'none', outlineOffset: '-2px' }}
         >
           <CleanBadge evt={checkoutEvent} />
         </div>
         <div className="h-full cursor-pointer hover:brightness-110 transition-all flex items-center overflow-hidden"
           onClick={() => openModal(checkinEvent)}
-          style={{ width: '50%', backgroundColor: checkinEvent.color, borderRadius: '6px 0 0 6px' }}
+          style={{ width: '50%', backgroundColor: checkinEvent.color, borderRadius: 0 }}
         >
           <span className="px-1.5 text-[11px] font-semibold text-white truncate leading-none drop-shadow-sm">
             {checkinEvent.title}
@@ -174,7 +174,7 @@ function PropertyLaneCell({ day, di, prop, weekStartStr, today, viewDate, events
       <div className={`relative h-full flex items-center ${todayRing}`} style={{ backgroundColor: emptyBg }}>
         <div className="h-full cursor-pointer hover:brightness-110 transition-all flex items-center overflow-hidden"
           onClick={() => openModal(checkoutEvent)}
-          style={{ width: '50%', backgroundColor: checkoutEvent.color, borderRadius: '0 6px 6px 0', opacity: 0.85,
+          style={{ width: '50%', backgroundColor: checkoutEvent.color, borderRadius: 0, opacity: 0.85,
             outline: !checkoutEvent.cleanerId ? '2px dashed rgba(245,158,11,0.85)' : 'none', outlineOffset: '-2px' }}
         >
           <CleanBadge evt={checkoutEvent} />
@@ -190,7 +190,7 @@ function PropertyLaneCell({ day, di, prop, weekStartStr, today, viewDate, events
       <div className={`relative h-full flex items-center justify-end ${todayRing}`} style={{ backgroundColor: emptyBg }}>
         <div className="h-full cursor-pointer hover:brightness-110 transition-all flex items-center overflow-hidden"
           onClick={() => openModal(checkinEvent)}
-          style={{ width: '50%', backgroundColor: checkinEvent.color, borderRadius: '6px 0 0 6px' }}
+          style={{ width: '50%', backgroundColor: checkinEvent.color, borderRadius: 0 }}
         >
           <span className="px-2 text-[11px] font-semibold text-white truncate leading-none drop-shadow-sm">
             {checkinEvent.title}
@@ -213,20 +213,20 @@ function PropertyLaneCell({ day, di, prop, weekStartStr, today, viewDate, events
   );
 }
 
-const LABEL_COL_CLS = 'sticky left-0 z-20 w-[64px] sm:w-[92px] shrink-0 border-r border-white/[0.08]';
+const LABEL_COL_CLS = 'sticky left-0 z-20 w-[64px] sm:w-[92px] shrink-0 border-r-2 border-stone-300';
 
 export function CalendarGrid({ weeks, viewDate, today, activeProperties, eventsByProp, openModal }: CalendarGridProps) {
   return (
     <div className="overflow-x-auto -mx-4 md:mx-0">
-      <div className="bg-[#0f0f10] border border-white/[0.06] rounded-2xl overflow-hidden min-w-[540px] mx-4 md:mx-0">
+      <div className="bg-white border border-stone-200 overflow-hidden min-w-[540px] mx-4 md:mx-0">
         {/* Day of week header */}
-        <div className="flex border-b border-white/[0.08] bg-[#141416]">
-          <div className={`${LABEL_COL_CLS} bg-[#141416] flex items-center justify-center py-3`}>
-            <span className="text-xs font-semibold text-white/55">숙소</span>
+        <div className="flex border-b border-stone-200 bg-stone-50">
+          <div className={`${LABEL_COL_CLS} bg-stone-50 flex items-center justify-center py-3`}>
+            <span className="text-xs font-semibold text-stone-500">숙소</span>
           </div>
           <div className="flex-1 grid grid-cols-7 min-w-0">
             {DAY_LABELS.map((label, i) => (
-              <div key={i} className={`py-3 text-center text-xs font-semibold ${i === 0 ? 'text-rose-300' : i === 6 ? 'text-violet-300' : 'text-white/70'} ${i < 6 ? 'border-r border-white/[0.08]' : ''}`}>
+              <div key={i} className={`py-3 text-center text-xs font-semibold ${i === 0 ? 'text-rose-500' : i === 6 ? 'text-sky-600' : 'text-stone-700'} ${i < 6 ? 'border-r border-stone-200' : ''}`}>
                 {label}
               </div>
             ))}
@@ -235,10 +235,10 @@ export function CalendarGrid({ weeks, viewDate, today, activeProperties, eventsB
 
         {/* Week rows */}
         {weeks.map((week, wi) => (
-          <div key={wi} className={wi < weeks.length - 1 ? 'border-b border-white/[0.08]' : ''}>
+          <div key={wi} className={wi < weeks.length - 1 ? 'border-b border-stone-200' : ''}>
             {/* Day number row */}
-            <div className="flex border-b border-white/[0.06]">
-              <div className={`${LABEL_COL_CLS} bg-[#0f0f10]`} />
+            <div className="flex border-b border-stone-200">
+              <div className={`${LABEL_COL_CLS} bg-white`} />
               <div className="flex-1 grid grid-cols-7 min-w-0">
                 {week.map((day, di) => (
                   <DayCell key={di} day={day} di={di} viewDate={viewDate} today={today}
@@ -253,16 +253,15 @@ export function CalendarGrid({ weeks, viewDate, today, activeProperties, eventsB
                   const weekStartStr = toDateStr(week[0]);
                   return (
                     <div key={prop.id}
-                      className={`flex ${pi < activeProperties.length - 1 ? 'border-b border-white/[0.04]' : ''}`}
+                      className={`flex ${pi < activeProperties.length - 1 ? 'border-b border-stone-200' : ''}`}
                       style={{ height: '36px' }}
                     >
                       <div
-                        className={`${LABEL_COL_CLS} flex items-center gap-1.5 px-2`}
-                        style={{ backgroundColor: hexToRgba(prop.color, 0.14) }}
+                        className={`${LABEL_COL_CLS} flex items-center gap-1.5 px-2 bg-white`}
                         title={prop.name}
                       >
-                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: prop.color }} />
-                        <span className="text-[11px] text-white/85 font-medium truncate">
+                        <span className="w-2 h-2 rounded-full shrink-0 ring-2" style={{ backgroundColor: prop.color, '--tw-ring-color': hexToRgba(prop.color, 0.2) } as React.CSSProperties} />
+                        <span className="text-[11px] text-stone-700 font-medium truncate">
                           {prop.name}
                         </span>
                       </div>

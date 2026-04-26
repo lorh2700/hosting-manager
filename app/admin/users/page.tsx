@@ -211,13 +211,13 @@ export default function UsersPage() {
   };
 
   if (profile?.role !== 'super_admin' && profile?.role !== 'admin') {
-    return <div className="text-white/50 p-8">접근 권한이 없습니다.</div>;
+    return <div className="text-stone-500 p-8">접근 권한이 없습니다.</div>;
   }
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-t-2 border-white rounded-full animate-spin" />
+        <div className="w-8 h-8 border-t-2 border-[var(--brand)] rounded-full animate-spin" />
       </div>
     );
   }
@@ -226,17 +226,17 @@ export default function UsersPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 sm:space-y-12">
-      <header className="border-b border-white/10 pb-6 sm:pb-8 flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-end">
+      <header className="border-b border-stone-200 pb-6 sm:pb-8 flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-end">
         <div>
-          <p className="text-[10px] tracking-[0.3em] text-white/50 mb-3 sm:mb-4">설정</p>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-light tracking-tight text-white">유저 관리</h1>
-          <p className="text-white/50 mt-2 sm:mt-4 text-sm font-light tracking-wide">
+          <p className="text-[10px] tracking-[0.3em] text-stone-500 mb-3 sm:mb-4">설정</p>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-light tracking-tight text-stone-900">유저 관리</h1>
+          <p className="text-stone-500 mt-2 sm:mt-4 text-sm font-light tracking-wide">
             유저의 역할, 상태 및 숙소 접근 권한을 관리합니다.
           </p>
         </div>
         <button
           onClick={() => setShowInviteForm(!showInviteForm)}
-          className="flex items-center justify-center gap-2 bg-white text-black px-6 py-3 text-[11px] uppercase tracking-widest font-semibold hover:bg-white/90 active:scale-[0.98] transition-all shrink-0"
+          className="flex items-center justify-center gap-2 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white px-6 py-3 text-[11px] uppercase tracking-widest font-semibold active:scale-[0.98] transition-all shrink-0"
         >
           <UserPlus size={14} />
           사용자 초대
@@ -245,40 +245,40 @@ export default function UsersPage() {
 
       {/* Invite Form */}
       {showInviteForm && (
-        <div className="bg-[#111] border border-white/20 p-6">
-          <h2 className="text-sm font-medium text-white mb-4">새 사용자 초대</h2>
+        <div className="bg-white border border-stone-300 p-6">
+          <h2 className="text-sm font-medium text-stone-900 mb-4">새 사용자 초대</h2>
           <form onSubmit={handleInvite} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">이메일</label>
+                <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">이메일</label>
                 <input
                   type="email"
                   value={inviteEmail}
                   onChange={e => setInviteEmail(e.target.value)}
                   required
-                  className="w-full bg-black/50 border border-white/10 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 transition-colors"
+                  className="w-full bg-white border border-stone-200 px-4 py-2.5 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors"
                   placeholder="user@example.com"
                 />
               </div>
               <div>
-                <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">역할</label>
+                <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">역할</label>
                 <select
                   value={inviteRole}
                   onChange={e => setInviteRole(e.target.value as UserRole)}
-                  className="w-full bg-black/50 border border-white/10 text-white text-sm px-4 py-2.5 focus:outline-none focus:border-white/30 transition-colors"
+                  className="w-full bg-white border border-stone-200 text-stone-900 text-sm px-4 py-2.5 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors"
                 >
                   <option value="admin">관리자</option>
                   <option value="host">호스트</option>
                   <option value="viewer">뷰어</option>
                 </select>
-                <p className="text-[10px] text-white/30 mt-1.5">
+                <p className="text-[10px] text-stone-400 mt-1.5">
                   청소 담당자는 청소 담당자 관리 페이지에서 먼저 등록한 뒤 포털 초대하세요.
                 </p>
               </div>
             </div>
 
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">접근 가능 숙소</label>
+              <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">접근 가능 숙소</label>
               <div className="flex flex-wrap gap-2">
                 {properties.map(prop => {
                   const active = invitePropertyIds.includes(prop.id);
@@ -289,8 +289,8 @@ export default function UsersPage() {
                       onClick={() => toggleInviteProperty(prop.id)}
                       className={`px-3 py-1.5 text-[10px] tracking-widest border transition-colors ${
                         active
-                          ? 'border-white/40 bg-white/10 text-white'
-                          : 'border-white/10 text-white/40 hover:border-white/20'
+                          ? 'border-[var(--brand)]/40 bg-[var(--brand-tint)] text-[var(--brand-dark)]'
+                          : 'border-stone-200 text-stone-500 hover:border-stone-300'
                       }`}
                     >
                       {prop.name}
@@ -304,14 +304,14 @@ export default function UsersPage() {
               <button
                 type="button"
                 onClick={() => setShowInviteForm(false)}
-                className="px-4 py-2 text-[10px] tracking-widest text-white/50 hover:text-white transition-colors"
+                className="px-4 py-2 text-[10px] tracking-widest text-stone-500 hover:text-stone-900 transition-colors"
               >
                 취소
               </button>
               <button
                 type="submit"
                 disabled={inviting}
-                className="flex items-center gap-2 bg-white text-black px-6 py-2 text-[10px] tracking-widest font-semibold hover:bg-white/90 transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white px-6 py-2 text-[10px] tracking-widest font-semibold uppercase transition-colors disabled:opacity-50"
               >
                 {inviting ? '초대 중...' : '초대 보내기'}
               </button>
@@ -323,19 +323,19 @@ export default function UsersPage() {
       {/* Pending Invitations */}
       {pendingInvitations.length > 0 && (
         <div>
-          <h2 className="text-[10px] uppercase tracking-widest text-white/50 mb-4">대기중인 초대 ({pendingInvitations.length})</h2>
+          <h2 className="text-[10px] uppercase tracking-widest text-stone-500 mb-4">대기중인 초대 ({pendingInvitations.length})</h2>
           <div className="space-y-2">
             {pendingInvitations.map(inv => (
-              <div key={inv.id} className="bg-[#111] border border-amber-500/20 p-4 flex items-center justify-between gap-4">
+              <div key={inv.id} className="bg-white border border-amber-200 p-4 flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-white text-sm">{inv.email}</p>
-                  <p className="text-white/40 text-xs mt-1">
+                  <p className="text-stone-900 text-sm">{inv.email}</p>
+                  <p className="text-stone-500 text-xs mt-1">
                     {ROLE_LABELS[inv.role]} &middot; 만료: {new Date(inv.expiresAt).toLocaleDateString('ko-KR')}
                   </p>
                 </div>
                 <button
                   onClick={() => copyInviteLink(inv.token)}
-                  className="flex items-center gap-2 text-[10px] tracking-widest text-white/50 hover:text-white transition-colors px-3 py-1.5 border border-white/10 hover:border-white/30"
+                  className="flex items-center gap-2 text-[10px] tracking-widest text-stone-500 hover:text-stone-900 transition-colors px-3 py-1.5 border border-stone-200 hover:border-stone-300"
                 >
                   {copiedToken === inv.token ? <Check size={12} /> : <Copy size={12} />}
                   {copiedToken === inv.token ? '복사됨' : '링크 복사'}
@@ -348,28 +348,28 @@ export default function UsersPage() {
 
       {/* User List */}
       {users.length === 0 ? (
-        <div className="bg-[#111] border border-white/10 p-12 text-center flex flex-col items-center text-white/40">
+        <div className="bg-white border border-stone-200 p-12 text-center flex flex-col items-center text-stone-400">
           <UserCog size={32} className="mb-4 opacity-50" />
           <p className="text-sm">등록된 유저가 없습니다.</p>
         </div>
       ) : (
         <div className="space-y-6">
           {users.map(userRecord => (
-            <div key={userRecord.id} className="bg-[#111] border border-white/10 p-6 hover:border-white/30 transition-colors">
+            <div key={userRecord.id} className="bg-white border border-stone-200 p-6 hover:border-stone-300 transition-colors">
               <div className="flex items-start justify-between gap-4 mb-6">
                 <div className="flex items-center gap-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <p className="text-white font-medium text-sm">{userRecord.displayName || userRecord.email}</p>
-                      <span className={`text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wider font-medium ${
-                        userRecord.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' :
-                        userRecord.status === 'suspended' ? 'bg-red-500/20 text-red-400' :
-                        'bg-amber-500/20 text-amber-400'
+                      <p className="text-stone-900 font-medium text-sm">{userRecord.displayName || userRecord.email}</p>
+                      <span className={`text-[9px] px-2 py-0.5 uppercase tracking-wider font-medium ${
+                        userRecord.status === 'active' ? 'bg-emerald-50 text-emerald-700' :
+                        userRecord.status === 'suspended' ? 'bg-red-50 text-red-600' :
+                        'bg-amber-50 text-amber-700'
                       }`}>
                         {STATUS_LABELS[userRecord.status]}
                       </span>
                     </div>
-                    <p className="text-white/40 text-xs mt-1">
+                    <p className="text-stone-500 text-xs mt-1">
                       {userRecord.email}
                       {userRecord.lastLoginAt && (
                         <span className="ml-2">
@@ -385,7 +385,7 @@ export default function UsersPage() {
                   {userRecord.status === 'pending_invite' ? (
                     <button
                       onClick={() => updateUser(userRecord.id, { status: 'active' })}
-                      className="flex items-center gap-1 text-[10px] tracking-widest text-emerald-400 border border-emerald-500/30 px-3 py-1.5 hover:bg-emerald-500/10 transition-colors"
+                      className="flex items-center gap-1 text-[10px] tracking-widest text-emerald-600 border border-emerald-300 px-3 py-1.5 hover:bg-emerald-50 transition-colors"
                       title="승인"
                     >
                       <ShieldCheck size={12} />
@@ -394,7 +394,7 @@ export default function UsersPage() {
                   ) : userRecord.status === 'active' ? (
                     <button
                       onClick={() => updateUser(userRecord.id, { status: 'suspended' })}
-                      className="flex items-center gap-1 text-[10px] tracking-widest text-red-400/60 border border-red-500/20 px-3 py-1.5 hover:bg-red-500/10 transition-colors"
+                      className="flex items-center gap-1 text-[10px] tracking-widest text-red-600/80 border border-red-200 px-3 py-1.5 hover:bg-red-50 transition-colors"
                       title="비활성화"
                     >
                       <Ban size={12} />
@@ -402,7 +402,7 @@ export default function UsersPage() {
                   ) : (
                     <button
                       onClick={() => updateUser(userRecord.id, { status: 'active' })}
-                      className="flex items-center gap-1 text-[10px] tracking-widest text-emerald-400/60 border border-emerald-500/20 px-3 py-1.5 hover:bg-emerald-500/10 transition-colors"
+                      className="flex items-center gap-1 text-[10px] tracking-widest text-emerald-600/80 border border-emerald-200 px-3 py-1.5 hover:bg-emerald-50 transition-colors"
                       title="활성화"
                     >
                       <ShieldCheck size={12} />
@@ -412,7 +412,7 @@ export default function UsersPage() {
                   <select
                     value={userRecord.role}
                     onChange={e => updateUser(userRecord.id, { role: e.target.value as UserRole })}
-                    className="bg-black/50 border border-white/10 text-white text-[11px] uppercase tracking-widest px-3 py-2 focus:outline-none focus:border-white/30 transition-colors"
+                    className="bg-white border border-stone-200 text-stone-900 text-[11px] uppercase tracking-widest px-3 py-2 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors"
                   >
                     <option value="super_admin">{ROLE_LABELS.super_admin}</option>
                     <option value="admin">{ROLE_LABELS.admin}</option>
@@ -425,7 +425,7 @@ export default function UsersPage() {
 
               {userRecord.role !== 'super_admin' && (
                 <div className="mb-6">
-                  <p className="text-[10px] uppercase tracking-widest text-white/40 mb-3">접근 가능 숙소</p>
+                  <p className="text-[10px] uppercase tracking-widest text-stone-500 mb-3">접근 가능 숙소</p>
                   <div className="flex flex-wrap gap-2">
                     {properties.map(prop => {
                       const active = userRecord.propertyIds.includes(prop.id);
@@ -435,8 +435,8 @@ export default function UsersPage() {
                           onClick={() => toggleProperty(userRecord.id, prop.id)}
                           className={`px-3 py-1.5 text-[10px] tracking-widest border transition-colors ${
                             active
-                              ? 'border-white/40 bg-white/10 text-white'
-                              : 'border-white/10 text-white/40 hover:border-white/20 hover:text-white/60'
+                              ? 'border-[var(--brand)]/40 bg-[var(--brand-tint)] text-[var(--brand-dark)]'
+                              : 'border-stone-200 text-stone-500 hover:border-stone-300 hover:text-stone-700'
                           }`}
                         >
                           {prop.name}
@@ -452,7 +452,7 @@ export default function UsersPage() {
                   <button
                     onClick={() => handleDelete(userRecord)}
                     disabled={deleting === userRecord.id}
-                    className="flex items-center gap-2 text-red-400/70 hover:text-red-400 border border-red-500/20 hover:border-red-500/40 px-4 py-2 text-[10px] tracking-widest font-semibold transition-colors disabled:opacity-50"
+                    className="flex items-center gap-2 text-red-600/80 hover:text-red-600 border border-red-200 hover:border-red-300 px-4 py-2 text-[10px] tracking-widest font-semibold uppercase transition-colors disabled:opacity-50"
                   >
                     <Trash2 size={13} />
                     {deleting === userRecord.id ? '삭제 중...' : '삭제'}
@@ -461,7 +461,7 @@ export default function UsersPage() {
                 <button
                   onClick={() => handleSave(userRecord)}
                   disabled={saving === userRecord.id}
-                  className="flex items-center gap-2 bg-white/10 hover:bg-white hover:text-black text-white px-4 py-2 text-[10px] tracking-widest font-semibold transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 bg-stone-100 hover:bg-[var(--brand)] hover:text-white text-stone-900 px-4 py-2 text-[10px] tracking-widest font-semibold uppercase transition-colors disabled:opacity-50"
                 >
                   <Save size={13} />
                   {saving === userRecord.id ? '저장 중...' : '저장'}

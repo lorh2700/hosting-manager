@@ -73,7 +73,7 @@ export default function AdminIssuesPage() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-[60vh]"><div className="w-6 h-6 border-t-2 border-white rounded-full animate-spin" /></div>;
+    return <div className="flex items-center justify-center min-h-[60vh]"><div className="w-6 h-6 border-t-2 border-[var(--brand)] rounded-full animate-spin" /></div>;
   }
 
   const filtered = issues.filter(i => {
@@ -86,11 +86,11 @@ export default function AdminIssuesPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 sm:space-y-8">
-      <header className="border-b border-white/10 pb-5 sm:pb-6">
-        <p className="text-[10px] tracking-[0.3em] text-white/50 mb-3">관리</p>
-        <h1 className="text-2xl sm:text-3xl font-light tracking-tight text-white">이슈 관리</h1>
+      <header className="border-b border-stone-200 pb-5 sm:pb-6">
+        <p className="text-[10px] tracking-[0.3em] text-stone-500 mb-3">관리</p>
+        <h1 className="text-2xl sm:text-3xl font-light tracking-tight text-stone-900">이슈 관리</h1>
         {openCount > 0 && (
-          <p className="text-amber-400 text-sm mt-2">{openCount}건의 미해결 이슈</p>
+          <p className="text-amber-600 text-sm mt-2">{openCount}건의 미해결 이슈</p>
         )}
       </header>
 
@@ -104,8 +104,8 @@ export default function AdminIssuesPage() {
           <button
             key={f.key}
             onClick={() => setFilter(f.key as typeof filter)}
-            className={`px-4 py-2.5 text-[11px] uppercase tracking-widest font-semibold rounded-lg transition-colors ${
-              filter === f.key ? 'bg-white text-black' : 'border border-white/10 text-white/50 hover:text-white'
+            className={`px-4 py-2.5 text-[11px] uppercase tracking-widest font-semibold transition-colors ${
+              filter === f.key ? 'bg-[var(--brand)] text-white' : 'border border-stone-200 text-stone-500 hover:text-stone-900'
             }`}
           >
             {f.label}
@@ -116,7 +116,7 @@ export default function AdminIssuesPage() {
       {/* Issues */}
       <div className="space-y-4">
         {filtered.length === 0 ? (
-          <div className="text-center text-white/40 py-12">
+          <div className="text-center text-stone-400 py-12">
             <AlertTriangle size={28} className="mx-auto mb-3 opacity-50" />
             <p className="text-sm">이슈가 없습니다.</p>
           </div>
@@ -128,49 +128,49 @@ export default function AdminIssuesPage() {
             const nextLabel = next ? ISSUE_STATUS_CONFIG[next]?.label : null;
 
             return (
-              <div key={issue.id} className="bg-[#111] border border-white/10 p-4 sm:p-5 rounded-2xl sm:rounded-none space-y-3">
+              <div key={issue.id} className="bg-white border border-stone-200 p-4 sm:p-5 space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <span className={`text-[10px] px-1.5 py-0.5 tracking-wider ${st.bg} ${st.color}`}>{st.label}</span>
-                      <span className="text-[10px] text-white/30 tracking-wider">{ISSUE_CATEGORY_LABELS[issue.category]}</span>
+                      <span className="text-[10px] text-stone-400 tracking-wider">{ISSUE_CATEGORY_LABELS[issue.category]}</span>
                       <span className={`text-[10px] tracking-wider ${urg.color}`}>{urg.label}</span>
                     </div>
-                    <p className="text-white font-medium">{issue.title}</p>
-                    <p className="text-white/40 text-xs mt-1">{issue.propertyName} — {issue.reportedByName}</p>
-                    {issue.description && <p className="text-white/30 text-xs mt-2 leading-relaxed">{issue.description}</p>}
+                    <p className="text-stone-900 font-medium">{issue.title}</p>
+                    <p className="text-stone-500 text-xs mt-1">{issue.propertyName} — {issue.reportedByName}</p>
+                    {issue.description && <p className="text-stone-400 text-xs mt-2 leading-relaxed">{issue.description}</p>}
                     {issue.resolvedNote && (
-                      <p className="text-green-400/60 text-xs mt-2">처리 내용: {issue.resolvedNote}</p>
+                      <p className="text-green-600/80 text-xs mt-2">처리 내용: {issue.resolvedNote}</p>
                     )}
                   </div>
-                  <p className="text-white/20 text-[10px] shrink-0">
+                  <p className="text-stone-300 text-[10px] shrink-0">
                     {format(parseISO(issue.createdAt), 'M/d HH:mm', { locale: ko })}
                   </p>
                 </div>
 
                 {/* Action area */}
                 {next && (
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 pt-2 border-t border-white/5">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 pt-2 border-t border-stone-100">
                     {(next === 'resolved') && (
                       <input
                         type="text"
                         value={resolveNote[issue.id] ?? ''}
                         onChange={e => setResolveNote(prev => ({ ...prev, [issue.id]: e.target.value }))}
                         placeholder="처리 내용 메모"
-                        className="flex-1 bg-black/50 border border-white/10 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 rounded-lg"
+                        className="flex-1 bg-white border border-stone-200 px-3 py-2.5 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15"
                       />
                     )}
                     <button
                       onClick={() => handleStatusChange(issue)}
                       disabled={updating === issue.id}
-                      className={`px-4 py-2.5 text-[11px] uppercase tracking-widest font-semibold transition-colors flex items-center justify-center gap-1.5 rounded-lg active:scale-[0.98] shrink-0 ${
+                      className={`px-4 py-2.5 text-[11px] uppercase tracking-widest font-semibold transition-colors flex items-center justify-center gap-1.5 active:scale-[0.98] shrink-0 ${
                         next === 'resolved'
-                          ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                          : 'border border-white/20 text-white/60 hover:text-white'
+                          ? 'bg-green-50 text-green-700 hover:bg-green-100'
+                          : 'border border-stone-300 text-stone-700 hover:text-stone-900'
                       }`}
                     >
                       {updating === issue.id ? (
-                        <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
+                        <div className="w-3 h-3 border border-stone-300 border-t-stone-700 rounded-full animate-spin" />
                       ) : (
                         <><ArrowRight size={12} /> {nextLabel}</>
                       )}

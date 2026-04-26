@@ -80,57 +80,57 @@ export default function GuestsPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-t-2 border-white rounded-full animate-spin" />
+        <div className="w-8 h-8 border-t-2 border-[var(--brand)] rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
     <div className="max-w-5xl mx-auto space-y-12">
-      <header className="border-b border-white/10 pb-8">
-        <p className="text-[10px] tracking-[0.3em] text-white/50 mb-4">관리</p>
-        <h1 className="text-3xl md:text-4xl font-light tracking-tight text-white">게스트 관리</h1>
-        <p className="text-white/50 mt-4 text-sm font-light tracking-wide">
+      <header className="border-b border-stone-200 pb-8">
+        <p className="text-[10px] tracking-[0.3em] text-stone-500 mb-4">관리</p>
+        <h1 className="text-3xl md:text-4xl font-light tracking-tight text-stone-900">게스트 관리</h1>
+        <p className="text-stone-500 mt-4 text-sm font-light tracking-wide">
           총 {guests.length}명의 게스트 &middot; 재방문 추적 및 메모를 관리합니다.
         </p>
       </header>
 
       {/* Search */}
       <div className="relative">
-        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" />
+        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" />
         <input
           type="text"
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           placeholder="이름, 이메일, 연락처로 검색..."
-          className="w-full bg-[#111] border border-white/10 pl-12 pr-4 py-3 text-sm text-white focus:outline-none focus:border-white/30 transition-colors"
+          className="w-full bg-white border border-stone-200 pl-12 pr-4 py-3 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors"
         />
       </div>
 
       {/* Guest List */}
       {filteredGuests.length === 0 ? (
-        <div className="bg-[#111] border border-white/10 p-12 text-center flex flex-col items-center text-white/40">
+        <div className="bg-white border border-stone-200 p-12 text-center flex flex-col items-center text-stone-400">
           <Users size={32} className="mb-4 opacity-50" />
           <p className="text-sm">{searchQuery ? '검색 결과가 없습니다.' : '등록된 게스트가 없습니다.'}</p>
         </div>
       ) : (
         <div className="space-y-4">
           {filteredGuests.map(guest => (
-            <div key={guest.id} className="bg-[#111] border border-white/10 p-5 hover:border-white/30 transition-colors">
+            <div key={guest.id} className="bg-white border border-stone-200 p-5 hover:border-stone-300 transition-colors">
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-1">
-                    <span className="text-white font-medium text-sm">{guest.name}</span>
-                    <span className={`text-[9px] px-2 py-0.5 rounded-full tracking-wider ${
-                      guest.bookingCount >= 3 ? 'bg-amber-500/20 text-amber-400' :
-                      guest.bookingCount >= 2 ? 'bg-blue-500/20 text-blue-400' :
-                      'bg-white/5 text-white/40'
+                    <span className="text-stone-900 font-medium text-sm">{guest.name}</span>
+                    <span className={`text-[9px] px-2 py-0.5 tracking-wider ${
+                      guest.bookingCount >= 3 ? 'bg-amber-50 text-amber-600' :
+                      guest.bookingCount >= 2 ? 'bg-blue-50 text-blue-600' :
+                      'bg-stone-100 text-stone-500'
                     }`}>
                       {guest.bookingCount}회 방문
                     </span>
-                    <span className="text-[9px] text-white/30">{SOURCE_LABELS[guest.source] ?? guest.source}</span>
+                    <span className="text-[9px] text-stone-400">{SOURCE_LABELS[guest.source] ?? guest.source}</span>
                   </div>
-                  <div className="flex items-center gap-4 text-xs text-white/40">
+                  <div className="flex items-center gap-4 text-xs text-stone-500">
                     <span>{guest.email}</span>
                     {guest.phone && <span>{guest.phone}</span>}
                     {guest.lastStayAt && <span>마지막 투숙: {guest.lastStayAt}</span>}
@@ -139,7 +139,7 @@ export default function GuestsPage() {
 
                 <div className="flex items-end gap-2 w-full sm:w-auto">
                   <div className="flex-1 sm:w-64">
-                    <label className="block text-[9px] uppercase tracking-widest text-white/30 mb-1">메모</label>
+                    <label className="block text-[9px] uppercase tracking-widest text-stone-400 mb-1">메모</label>
                     <input
                       type="text"
                       defaultValue={guest.notes ?? ''}
@@ -149,12 +149,12 @@ export default function GuestsPage() {
                         }
                       }}
                       placeholder="VIP, 알레르기, 선호사항..."
-                      className="w-full bg-black/50 border border-white/10 px-3 py-2 text-xs text-white focus:outline-none focus:border-white/30 transition-colors"
+                      className="w-full bg-white border border-stone-200 px-3 py-2 text-xs text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors"
                     />
                   </div>
                   {savingId === guest.id && (
                     <div className="p-2">
-                      <Save size={12} className="text-emerald-400 animate-pulse" />
+                      <Save size={12} className="text-emerald-600 animate-pulse" />
                     </div>
                   )}
                 </div>

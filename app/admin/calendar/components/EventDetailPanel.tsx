@@ -42,8 +42,8 @@ interface EventDetailPanelProps {
 
 const TAG_PRESETS = ['픽업 요청', '늦은 체크인', '일찍 체크인', '반려동물', '유아 동반', '조용한 객실'];
 
-const labelCls = 'text-xs text-white/55 font-medium';
-const inputCls = 'w-full bg-black/30 border border-white/[0.08] rounded-xl px-3 py-2 text-[13px] text-white focus:outline-none focus:border-violet-400/60 transition-colors placeholder:text-white/25';
+const labelCls = 'text-xs text-stone-500 font-medium';
+const inputCls = 'w-full bg-white border border-stone-200 px-3 py-2 text-[13px] text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors placeholder:text-stone-400';
 
 export function EventDetailPanel({
   selectedEvent, today, cleaners, selectedCleaner, setSelectedCleaner,
@@ -96,15 +96,15 @@ export function EventDetailPanel({
   const isCheckinDay = selectedEvent.start.substring(0, 10) === today;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex justify-end bg-stone-950/40 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="bg-[#141416] border-l border-white/[0.06] w-full max-w-md p-6 space-y-5 h-full overflow-y-auto animate-slide-in-right"
+        className="bg-white border-l border-stone-200 w-full max-w-md p-6 space-y-5 h-full overflow-y-auto animate-slide-in-right shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
         {/* Unassigned navigation */}
         {unassignedCleanings.length > 0 && !selectedEvent.cleanerId && (
-          <div className="flex items-center justify-between bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2">
-            <span className="text-xs text-amber-200">
+          <div className="flex items-center justify-between bg-amber-50 border border-amber-200 px-3 py-2">
+            <span className="text-xs text-amber-800">
               미지정 {(() => {
                 const idx = sortedUnassigned.findIndex(e => e.id === selectedEvent.eventId);
                 return `${idx + 1}/${sortedUnassigned.length}`;
@@ -117,7 +117,7 @@ export function EventDetailPanel({
                   const prev = sortedUnassigned[(idx - 1 + sortedUnassigned.length) % sortedUnassigned.length];
                   if (prev) openModal(prev);
                 }}
-                className="px-2 py-1 text-amber-200/70 bg-amber-500/15 hover:bg-amber-500/25 rounded-md transition-colors"
+                className="px-2 py-1 text-amber-700 bg-amber-100 hover:bg-amber-200 transition-colors"
               >
                 <ChevronLeft size={12} />
               </button>
@@ -127,7 +127,7 @@ export function EventDetailPanel({
                   const next = sortedUnassigned[(idx + 1) % sortedUnassigned.length];
                   if (next) openModal(next);
                 }}
-                className="px-2 py-1 text-amber-200/70 bg-amber-500/15 hover:bg-amber-500/25 rounded-md transition-colors"
+                className="px-2 py-1 text-amber-700 bg-amber-100 hover:bg-amber-200 transition-colors"
               >
                 <ChevronRight size={12} />
               </button>
@@ -140,74 +140,74 @@ export function EventDetailPanel({
           <div className="flex items-start gap-2.5 min-w-0">
             <span className="w-3 h-3 rounded-full shrink-0 mt-1.5" style={{ backgroundColor: selectedEvent.propertyColor }} />
             <div className="min-w-0">
-              <p className="text-xs text-white/55 font-medium">{selectedEvent.propertyName}</p>
+              <p className="text-xs text-stone-500 font-medium">{selectedEvent.propertyName}</p>
               <div className="flex items-center gap-2 mt-1">
                 {isBlock && (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold bg-rose-500/15 text-rose-300 rounded">
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold bg-rose-50 text-rose-600">
                     <Ban size={10} /> 차단
                   </span>
                 )}
-                <h3 className="text-white font-semibold text-lg leading-snug truncate">{selectedEvent.title}</h3>
+                <h3 className="text-stone-900 font-semibold text-lg leading-snug truncate">{selectedEvent.title}</h3>
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="text-white/45 hover:text-white transition-colors shrink-0 p-1">
+          <button onClick={onClose} className="text-stone-500 hover:text-stone-900 transition-colors shrink-0 p-1">
             <X size={18} />
           </button>
         </div>
 
         {/* Info */}
-        <div className="space-y-2 bg-white/[0.03] rounded-2xl px-4 py-3.5">
+        <div className="space-y-2 bg-stone-50 px-4 py-3.5">
           <div className="flex justify-between items-center">
-            <span className="text-xs text-white/45">채널</span>
-            <span className="text-white/80 text-xs">{selectedEvent.channelLabel}</span>
+            <span className="text-xs text-stone-500">채널</span>
+            <span className="text-stone-800 text-xs">{selectedEvent.channelLabel}</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-xs text-white/45">체크인</span>
-            <span className="text-white/75 text-xs tabular-nums">{selectedEvent.start}</span>
+            <span className="text-xs text-stone-500">체크인</span>
+            <span className="text-stone-700 text-xs tabular-nums">{selectedEvent.start}</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-xs text-white/45">체크아웃</span>
-            <span className="text-white/75 text-xs tabular-nums">{selectedEvent.end}</span>
+            <span className="text-xs text-stone-500">체크아웃</span>
+            <span className="text-stone-700 text-xs tabular-nums">{selectedEvent.end}</span>
           </div>
           {nights > 0 && (
             <div className="flex justify-between items-center">
-              <span className="text-xs text-white/45">숙박</span>
-              <span className="text-white/75 text-xs">{nights}박 {nights + 1}일</span>
+              <span className="text-xs text-stone-500">숙박</span>
+              <span className="text-stone-700 text-xs">{nights}박 {nights + 1}일</span>
             </div>
           )}
           <div className="flex justify-between items-center">
-            <span className="text-xs text-white/45">추천 비밀번호</span>
-            <span className={`text-xs tabular-nums ${suggestedPassword === '없음' ? 'text-white/30' : 'text-white/85 font-semibold'}`}>
+            <span className="text-xs text-stone-500">추천 비밀번호</span>
+            <span className={`text-xs tabular-nums ${suggestedPassword === '없음' ? 'text-stone-400' : 'text-stone-900 font-semibold'}`}>
               {suggestedPassword}
             </span>
           </div>
           {filteredDescription && (
-            <div className="pt-2.5 mt-1 border-t border-white/[0.06]">
-              <p className="text-xs text-white/45 mb-1.5">{isBlock ? '차단 메모' : '예약 메모'}</p>
-              <p className="text-white/65 text-xs whitespace-pre-line leading-relaxed">{filteredDescription}</p>
+            <div className="pt-2.5 mt-1 border-t border-stone-200">
+              <p className="text-xs text-stone-500 mb-1.5">{isBlock ? '차단 메모' : '예약 메모'}</p>
+              <p className="text-stone-700 text-xs whitespace-pre-line leading-relaxed">{filteredDescription}</p>
             </div>
           )}
         </div>
 
         {/* Tags */}
-        <div className="border-t border-white/[0.06] pt-5 space-y-2.5">
+        <div className="border-t border-stone-200 pt-5 space-y-2.5">
           <div className="flex items-center justify-between">
             <p className={`${labelCls} flex items-center gap-1.5`}>
               <TagIcon size={11} /> 태그
             </p>
-            {savingTags && <RefreshCw size={11} className="animate-spin text-violet-400" />}
+            {savingTags && <RefreshCw size={11} className="animate-spin text-[var(--brand)]" />}
           </div>
 
           {(selectedEvent.tags?.length ?? 0) > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {selectedEvent.tags.map(t => (
-                <span key={t} className="inline-flex items-center gap-1 pl-2.5 pr-1 py-0.5 text-xs bg-violet-500/15 text-violet-100 rounded-full">
+                <span key={t} className="inline-flex items-center gap-1 pl-2.5 pr-1 py-0.5 text-xs bg-[var(--brand-tint)] text-[var(--brand-dark)]">
                   {t}
                   <button
                     onClick={() => removeTag(t)}
                     disabled={savingTags}
-                    className="p-0.5 text-violet-200/65 hover:text-white transition-colors disabled:opacity-40"
+                    className="p-0.5 text-[var(--brand)] hover:text-[var(--brand-dark)] transition-colors disabled:opacity-40"
                     aria-label={`${t} 삭제`}
                   >
                     <X size={10} />
@@ -235,7 +235,7 @@ export function EventDetailPanel({
             <button
               onClick={() => addTag(newTag)}
               disabled={!newTag.trim() || savingTags}
-              className="px-3 py-2 bg-white/[0.06] hover:bg-white/[0.1] text-white/75 rounded-xl text-xs font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 shrink-0"
+              className="px-3 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 shrink-0"
             >
               <Plus size={12} /> 추가
             </button>
@@ -247,7 +247,7 @@ export function EventDetailPanel({
                 key={p}
                 onClick={() => addTag(p)}
                 disabled={savingTags}
-                className="text-[11px] px-2.5 py-0.5 bg-white/[0.04] text-white/55 hover:text-white hover:bg-white/[0.08] rounded-full transition-colors disabled:opacity-40"
+                className="text-[11px] px-2.5 py-0.5 bg-stone-100 text-stone-500 hover:text-stone-900 hover:bg-stone-200 transition-colors disabled:opacity-40"
               >
                 + {p}
               </button>
@@ -257,15 +257,15 @@ export function EventDetailPanel({
 
         {/* Cancel */}
         {canCancel && (
-          <div className="border-t border-white/[0.06] pt-5">
+          <div className="border-t border-stone-200 pt-5">
             <button
               onClick={onCancelEvent}
               disabled={cancellingEvent}
-              className="w-full flex items-center justify-center gap-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-2 bg-rose-50 hover:bg-rose-100 text-rose-600 py-2.5 text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Trash2 size={14} /> {cancellingEvent ? '취소 중...' : `${isBlock ? '차단' : '예약'} 취소 (Beds24 동기화)`}
             </button>
-            <p className="mt-2 text-xs text-white/40 text-center">
+            <p className="mt-2 text-xs text-stone-500 text-center">
               Beds24에서 이 {isBlock ? '차단' : '예약'}을 취소하고 로컬에서도 삭제합니다.
             </p>
           </div>
@@ -274,14 +274,14 @@ export function EventDetailPanel({
         {/* Cleaner */}
         {!isBlock && (
           <>
-            <div className="border-t border-white/[0.06] pt-5 space-y-3">
+            <div className="border-t border-stone-200 pt-5 space-y-3">
               <div className="flex items-center justify-between">
                 <p className={labelCls}>청소 담당자</p>
                 {selectedEvent.cleaningId && (
                   <button
                     onClick={onDeleteCleaner}
                     disabled={cleanerSaving}
-                    className="text-xs text-white/45 hover:text-rose-400 transition-colors disabled:opacity-40 flex items-center gap-1"
+                    className="text-xs text-stone-500 hover:text-rose-600 transition-colors disabled:opacity-40 flex items-center gap-1"
                     title="배정 삭제"
                   >
                     <Trash2 size={11} /> 해제
@@ -297,21 +297,21 @@ export function EventDetailPanel({
                     return (
                       <button
                         onClick={() => setSelectedCleaner('')}
-                        className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all ${
+                        className={`flex items-center gap-2.5 px-3 py-2.5 text-left transition-all ${
                           isUnassignedSelected
-                            ? 'bg-amber-500/15 text-amber-100 ring-1 ring-amber-400/30'
-                            : 'bg-white/[0.04] text-white/55 hover:bg-white/[0.08] hover:text-white/80'
+                            ? 'bg-amber-50 text-amber-800 ring-1 ring-amber-300'
+                            : 'bg-stone-50 text-stone-500 hover:bg-stone-100 hover:text-stone-800'
                         }`}
                       >
-                        <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${
-                          isUnassignedSelected ? 'bg-amber-300 text-black' : 'bg-white/10 text-white/45'
+                        <span className={`w-7 h-7 flex items-center justify-center text-xs font-semibold shrink-0 ${
+                          isUnassignedSelected ? 'bg-amber-300 text-amber-900' : 'bg-stone-200 text-stone-500'
                         }`}>—</span>
                         <div className="min-w-0">
                           <p className="text-[12px] font-medium truncate">
                             미배정
-                            {isCurrentlyUnassigned && <span className="ml-1 text-[10px] text-violet-300">현재</span>}
+                            {isCurrentlyUnassigned && <span className="ml-1 text-[10px] text-[var(--brand)]">현재</span>}
                           </p>
-                          <p className="text-[10px] text-white/35 truncate">담당자 없음</p>
+                          <p className="text-[10px] text-stone-400 truncate">담당자 없음</p>
                         </div>
                       </button>
                     );
@@ -323,30 +323,30 @@ export function EventDetailPanel({
                       <button
                         key={c.id}
                         onClick={() => setSelectedCleaner(c.id)}
-                        className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all ${
+                        className={`flex items-center gap-2.5 px-3 py-2.5 text-left transition-all ${
                           isSelected
-                            ? 'bg-violet-500/20 text-white ring-1 ring-violet-400/40'
-                            : 'bg-white/[0.04] text-white/55 hover:bg-white/[0.08] hover:text-white/80'
+                            ? 'bg-[var(--brand-tint)] text-stone-900 ring-1 ring-[var(--brand)]/40'
+                            : 'bg-stone-50 text-stone-500 hover:bg-stone-100 hover:text-stone-800'
                         }`}
                       >
-                        <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${
-                          isSelected ? 'bg-violet-500 text-white' : 'bg-white/10 text-white/45'
+                        <span className={`w-7 h-7 flex items-center justify-center text-xs font-semibold shrink-0 ${
+                          isSelected ? 'bg-[var(--brand)] text-white' : 'bg-stone-200 text-stone-500'
                         }`}>{c.name.charAt(0)}</span>
                         <div className="min-w-0">
                           <p className="text-[12px] font-medium truncate">
                             {c.name}
-                            {isCurrent && <span className="ml-1 text-[10px] text-violet-300">현재</span>}
+                            {isCurrent && <span className="ml-1 text-[10px] text-[var(--brand)]">현재</span>}
                           </p>
-                          {c.phone && <p className="text-[10px] text-white/35 truncate">{c.phone}</p>}
+                          {c.phone && <p className="text-[10px] text-stone-400 truncate">{c.phone}</p>}
                         </div>
                       </button>
                     );
                   })}
                 </div>
               ) : (
-                <p className="text-xs text-white/40 text-center py-2">
+                <p className="text-xs text-stone-500 text-center py-2">
                   등록된 담당자가 없습니다.{' '}
-                  <a href="/admin/cleaners" className="text-violet-300 underline hover:text-violet-200 transition-colors">담당자 관리</a>
+                  <a href="/admin/cleaners" className="text-[var(--brand)] underline hover:text-[var(--brand-dark)] transition-colors">담당자 관리</a>
                   에서 먼저 추가하세요.
                 </p>
               )}
@@ -355,7 +355,7 @@ export function EventDetailPanel({
                 <button
                   onClick={onSaveCleaner}
                   disabled={cleanerSaving}
-                  className="w-full flex items-center justify-center gap-2 bg-violet-500 hover:bg-violet-400 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-center gap-2 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white py-2.5 text-xs font-semibold uppercase tracking-widest transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   <Save size={14} /> {cleanerSaving ? '저장 중...' : '저장'}
                 </button>
@@ -366,32 +366,32 @@ export function EventDetailPanel({
                   <button
                     onClick={onCompleteCleaning}
                     disabled={completingCleaning}
-                    className="w-full flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="w-full flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-2.5 text-sm font-semibold transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     <CheckCircle size={14} />
                     {completingCleaning ? '처리 중...' : '정비 완료'}
                     {selectedEvent.channelId === 'beds24' && !completingCleaning && (
-                      <span className="text-[10px] font-normal text-emerald-100/80 ml-1">· 게스트 알림</span>
+                      <span className="text-[10px] font-normal text-white/70 ml-1">· 게스트 알림</span>
                     )}
                   </button>
                 ) : (
-                  <div className="flex items-center gap-2 py-2 px-3 bg-white/[0.04] rounded-xl">
-                    <CheckCircle size={13} className="text-white/30 shrink-0" />
-                    <span className="text-xs text-white/45">체크인 당일에 정비 완료 처리할 수 있습니다</span>
+                  <div className="flex items-center gap-2 py-2 px-3 bg-stone-50">
+                    <CheckCircle size={13} className="text-stone-400 shrink-0" />
+                    <span className="text-xs text-stone-500">체크인 당일에 정비 완료 처리할 수 있습니다</span>
                   </div>
                 )
               )}
 
               {selectedEvent.status === 'done' && (
-                <div className="flex items-center gap-2 py-2 px-3 bg-emerald-500/10 rounded-xl">
-                  <CheckCircle size={13} className="text-emerald-400 shrink-0" />
-                  <span className="text-xs text-emerald-300">정비 완료</span>
+                <div className="flex items-center gap-2 py-2 px-3 bg-emerald-50">
+                  <CheckCircle size={13} className="text-emerald-600 shrink-0" />
+                  <span className="text-xs text-emerald-700">정비 완료</span>
                 </div>
               )}
             </div>
 
             {/* Supply TODO */}
-            <div className="border-t border-white/[0.06] pt-5 space-y-3">
+            <div className="border-t border-stone-200 pt-5 space-y-3">
               <p className={labelCls}>필요 비품</p>
               {supplyTodos.length > 0 && (
                 <div className="space-y-1.5">
@@ -399,16 +399,16 @@ export function EventDetailPanel({
                     <div key={todo.id} className="flex items-center gap-2.5 group">
                       <button
                         onClick={() => onToggleSupply(todo.id, !todo.done)}
-                        className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
-                          todo.done ? 'bg-violet-500/30 border-violet-500/50' : 'border-white/25 hover:border-violet-400'
+                        className={`w-4 h-4 border flex items-center justify-center shrink-0 transition-colors ${
+                          todo.done ? 'bg-[var(--brand-tint)] border-[var(--brand)]/40' : 'border-stone-300 hover:border-[var(--brand)]'
                         }`}
                       >
-                        {todo.done && <span className="text-violet-200 text-[10px]">✓</span>}
+                        {todo.done && <span className="text-[var(--brand-dark)] text-[10px]">✓</span>}
                       </button>
-                      <span className={`text-[13px] flex-1 ${todo.done ? 'text-white/30 line-through' : 'text-white/80'}`}>{todo.text}</span>
+                      <span className={`text-[13px] flex-1 ${todo.done ? 'text-stone-400 line-through' : 'text-stone-800'}`}>{todo.text}</span>
                       <button
                         onClick={() => onDeleteSupply(todo.id)}
-                        className="opacity-0 group-hover:opacity-100 text-white/30 hover:text-rose-400 transition-all shrink-0"
+                        className="opacity-0 group-hover:opacity-100 text-stone-400 hover:text-rose-600 transition-all shrink-0"
                       >
                         <Trash2 size={12} />
                       </button>
@@ -427,7 +427,7 @@ export function EventDetailPanel({
                 <button
                   onClick={onAddSupply}
                   disabled={!newSupply.trim()}
-                  className="px-3 py-2 bg-white/[0.06] hover:bg-white/[0.1] text-white/75 rounded-xl text-xs font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+                  className="px-3 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
                 >
                   추가
                 </button>
@@ -435,14 +435,14 @@ export function EventDetailPanel({
             </div>
 
             {/* Messages */}
-            <div className="border-t border-white/[0.06] pt-5 space-y-3">
+            <div className="border-t border-stone-200 pt-5 space-y-3">
               <div className="flex items-center justify-between">
                 <p className={labelCls}>메시지</p>
                 {selectedEvent.channelId === 'beds24' && isLoggedIn && (
                   <button
                     onClick={onSyncMessages}
                     disabled={syncingMessages}
-                    className="flex items-center gap-1.5 text-xs text-white/45 hover:text-white/75 transition-colors disabled:opacity-30"
+                    className="flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-700 transition-colors disabled:opacity-30"
                   >
                     <RefreshCw size={11} className={syncingMessages ? 'animate-spin' : ''} />
                     {syncingMessages ? '동기화 중' : '동기화'}
@@ -451,7 +451,7 @@ export function EventDetailPanel({
               </div>
 
               {loadingMessages ? (
-                <p className="text-xs text-white/40 text-center py-4">불러오는 중...</p>
+                <p className="text-xs text-stone-500 text-center py-4">불러오는 중...</p>
               ) : modalMessages.length > 0 ? (
                 <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
                   {modalMessages.map((msg, idx) => {
@@ -464,30 +464,30 @@ export function EventDetailPanel({
                       <div key={msg.id}>
                         {showDate && (
                           <div className="flex items-center gap-2 py-2">
-                            <div className="flex-1 h-px bg-white/[0.08]" />
-                            <span className="text-[10px] text-white/35">{msgDate}</span>
-                            <div className="flex-1 h-px bg-white/[0.08]" />
+                            <div className="flex-1 h-px bg-stone-200" />
+                            <span className="text-[10px] text-stone-400">{msgDate}</span>
+                            <div className="flex-1 h-px bg-stone-200" />
                           </div>
                         )}
                         <div className={`flex ${isHost ? 'justify-end' : 'justify-start'}`}>
                           <div
-                            className={`max-w-[85%] px-3 py-2 rounded-2xl text-xs leading-relaxed ${
+                            className={`max-w-[85%] px-3 py-2 text-xs leading-relaxed ${
                               isHost
-                                ? 'bg-violet-500 text-white rounded-tr-sm'
+                                ? 'bg-[var(--brand)] text-white'
                                 : isBeds24
-                                  ? 'bg-violet-500/12 text-white/85 rounded-tl-sm'
-                                  : 'bg-white/[0.06] text-white/85 rounded-tl-sm'
+                                  ? 'bg-[var(--brand-tint)] text-stone-800'
+                                  : 'bg-stone-100 text-stone-800'
                             }`}
                           >
                             {isBeds24 && (
                               <p className={`text-[10px] font-medium mb-0.5 ${
-                                isHost ? 'text-violet-100/65' : 'text-violet-300/80'
+                                isHost ? 'text-white/70' : 'text-[var(--brand-dark)]'
                               }`}>
                                 Beds24 · {msg.beds24MessageType || msg.sender}
                               </p>
                             )}
                             <p className="whitespace-pre-wrap break-words">{msg.text}</p>
-                            <p className={`text-[10px] mt-1 ${isHost ? 'text-violet-100/65' : 'text-white/35'}`}>
+                            <p className={`text-[10px] mt-1 ${isHost ? 'text-white/70' : 'text-stone-400'}`}>
                               {new Date(msg.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
                             </p>
                           </div>
@@ -497,7 +497,7 @@ export function EventDetailPanel({
                   })}
                 </div>
               ) : (
-                <p className="text-xs text-white/40 text-center py-2">아직 메시지가 없습니다</p>
+                <p className="text-xs text-stone-500 text-center py-2">아직 메시지가 없습니다</p>
               )}
 
               <div className="flex gap-2">
@@ -512,7 +512,7 @@ export function EventDetailPanel({
                 <button
                   onClick={onSendMessage}
                   disabled={!newMessage.trim() || sendingMessage}
-                  className="px-3 py-2 bg-violet-500 hover:bg-violet-400 rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+                  className="px-3 py-2 bg-[var(--brand)] hover:bg-[var(--brand-dark)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
                 >
                   <Send size={14} className="text-white" />
                 </button>

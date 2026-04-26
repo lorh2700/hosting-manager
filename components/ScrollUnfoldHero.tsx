@@ -13,8 +13,8 @@ const menuItems = [
 ];
 
 function MenuCard({ item, index, scrollYProgress }: { item: any, index: number, scrollYProgress: MotionValue<number> }) {
-  const start = 0.05 + (index * 0.08);
-  const end = start + 0.4;
+  const start = 0.08 + (index * 0.10);
+  const end = start + 0.30;
 
   const y = useTransform(scrollYProgress, [start, end], ["120vh", "0vh"]);
   const rotate = useTransform(scrollYProgress, [start, end], [20, (index - 1.5) * 8]);
@@ -31,11 +31,12 @@ function MenuCard({ item, index, scrollYProgress }: { item: any, index: number, 
           src={item.img}
           alt={item.title}
           fill
+          sizes="(min-width: 1024px) 320px, (min-width: 768px) 280px, 240px"
           className="object-cover opacity-60 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700"
         />
         <div className="absolute inset-0 p-8 flex flex-col justify-end bg-gradient-to-t from-stone-950/90 via-stone-950/40 to-transparent">
           <h3 className="text-2xl font-light tracking-widest mb-2">{item.title}</h3>
-          <p className="text-stone-400 text-sm font-light">{item.desc}</p>
+          <p className="text-stone-300 text-sm font-light">{item.desc}</p>
         </div>
       </Link>
     </motion.div>
@@ -54,7 +55,7 @@ export function ScrollUnfoldHero() {
   const textScale = useTransform(scrollYProgress, [0, 0.15], [1, 0.9]);
 
   return (
-    <div ref={containerRef} className="relative h-[400vh] bg-[#0C0A09] w-full">
+    <div ref={containerRef} data-scroll-hero className="relative h-[250vh] bg-[#0C0A09] w-full">
       <div className="sticky top-0 h-screen w-full overflow-hidden flex flex-col items-center justify-center">
 
         {/* Hero Text */}
@@ -65,12 +66,13 @@ export function ScrollUnfoldHero() {
           <h1 className="text-5xl md:text-7xl lg:text-[90px] font-light tracking-tight leading-[1.1] mb-8">
             당신만의 특별한<br />머무름
           </h1>
-          <p className="text-stone-300 text-sm md:text-base font-light tracking-wide max-w-2xl leading-relaxed mb-12">
-            void anchae에 오신 것을 환영합니다. 당신의 이야기가 담긴 시간이 머무는 공간을 만듭니다. 디자인과 감성이 만나, 인테리어가 당신만의 특별한 서사를 위한 캔버스가 되는 세계를 발견해 보세요.
+          <p className="text-stone-200 text-sm md:text-base font-light tracking-wide max-w-2xl leading-relaxed mb-12">
+            북촌의 디자인 한옥 스테이.<br className="hidden md:block" />
+            정성스럽게 가꾼 공간에서, 시간이 머무는 머무름을 경험해 보세요.
           </p>
           <div className="flex flex-col items-center gap-4">
-            <div className="w-[1px] h-12 bg-gradient-to-b from-stone-500 to-transparent"></div>
-            <div className="text-xs uppercase tracking-[0.3em] text-stone-500">
+            <div className="w-[1px] h-12 bg-gradient-to-b from-stone-400 to-transparent"></div>
+            <div className="text-xs uppercase tracking-[0.3em] text-stone-400">
               Scroll to explore
             </div>
           </div>

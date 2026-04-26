@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import { X, CalendarPlus, Plus } from 'lucide-react';
-import type { Property, RawEvent } from '../types';
+import type { RawEvent } from '../types';
 
 interface CreateReservationModalProps {
-  properties: Property[];
+  properties: Array<{ id: string; name: string }>;
   defaultPropertyId?: string;
   onClose: () => void;
   onCreated: (event: RawEvent) => void;
@@ -96,28 +96,28 @@ export function CreateReservationModal({ properties, defaultPropertyId, onClose,
     }
   };
 
-  const inputCls = 'w-full bg-black/30 border border-white/[0.08] rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-violet-400/60 transition-colors placeholder:text-white/25';
-  const labelCls = 'block text-xs text-white/55 mb-1.5';
+  const inputCls = 'w-full bg-white border border-stone-200 px-3.5 py-2.5 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors placeholder:text-stone-400';
+  const labelCls = 'block text-xs text-stone-500 mb-1.5';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/40 backdrop-blur-sm p-4" onClick={onClose}>
       <div
-        className="bg-[#141416] border border-white/[0.08] rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+        className="bg-white border border-stone-200 w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-stone-200">
           <div className="flex items-center gap-2">
-            <CalendarPlus size={15} className="text-violet-300" />
-            <h3 className="text-white font-semibold text-base">예약 등록</h3>
+            <CalendarPlus size={15} className="text-[var(--brand)]" />
+            <h3 className="text-stone-900 font-semibold text-base">예약 등록</h3>
           </div>
-          <button onClick={onClose} className="text-white/45 hover:text-white transition-colors p-1">
+          <button onClick={onClose} className="text-stone-500 hover:text-stone-900 transition-colors p-1">
             <X size={18} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <p className="text-xs text-white/55 leading-relaxed">
-            Beds24에 <span className="text-violet-300 font-medium">확정 예약</span>을 등록해 해당 기간을 모든 채널에서 차단합니다.
+          <p className="text-xs text-stone-500 leading-relaxed">
+            Beds24에 <span className="text-[var(--brand)] font-medium">확정 예약</span>을 등록해 해당 기간을 모든 채널에서 차단합니다.
           </p>
 
           <div>
@@ -229,9 +229,9 @@ export function CreateReservationModal({ properties, defaultPropertyId, onClose,
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {tags.map(t => (
-                  <span key={t} className="inline-flex items-center gap-1 pl-2.5 pr-1 py-0.5 text-xs bg-violet-500/15 text-violet-100 rounded-full">
+                  <span key={t} className="inline-flex items-center gap-1 pl-2.5 pr-1 py-0.5 text-xs bg-[var(--brand-tint)] text-[var(--brand-dark)]">
                     {t}
-                    <button type="button" onClick={() => removeTag(t)} className="p-0.5 text-violet-200/65 hover:text-white">
+                    <button type="button" onClick={() => removeTag(t)} className="p-0.5 text-[var(--brand)] hover:text-[var(--brand-dark)]">
                       <X size={10} />
                     </button>
                   </span>
@@ -257,7 +257,7 @@ export function CreateReservationModal({ properties, defaultPropertyId, onClose,
                 type="button"
                 onClick={() => addTag(newTag)}
                 disabled={!newTag.trim()}
-                className="px-3 py-2 bg-white/[0.06] hover:bg-white/[0.1] text-white/75 rounded-xl text-xs font-medium transition-colors disabled:opacity-30 flex items-center gap-1 shrink-0"
+                className="px-3 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-medium transition-colors disabled:opacity-30 flex items-center gap-1 shrink-0"
               >
                 <Plus size={12} /> 추가
               </button>
@@ -268,7 +268,7 @@ export function CreateReservationModal({ properties, defaultPropertyId, onClose,
                   key={p}
                   type="button"
                   onClick={() => addTag(p)}
-                  className="text-[11px] px-2.5 py-0.5 bg-white/[0.04] text-white/55 hover:text-white hover:bg-white/[0.08] rounded-full transition-colors"
+                  className="text-[11px] px-2.5 py-0.5 bg-stone-100 text-stone-500 hover:text-stone-900 hover:bg-stone-200 transition-colors"
                 >
                   + {p}
                 </button>
@@ -277,7 +277,7 @@ export function CreateReservationModal({ properties, defaultPropertyId, onClose,
           </div>
 
           {error && (
-            <p className="text-xs text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
+            <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 px-3 py-2">
               {error}
             </p>
           )}
@@ -286,14 +286,14 @@ export function CreateReservationModal({ properties, defaultPropertyId, onClose,
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2.5 text-white/65 hover:text-white text-sm font-medium transition-colors"
+              className="flex-1 px-4 py-2.5 text-stone-700 hover:text-stone-900 text-sm font-medium transition-colors"
             >
               취소
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 px-4 py-2.5 bg-violet-500 text-white hover:bg-violet-400 rounded-xl text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-2.5 bg-[var(--brand)] text-white hover:bg-[var(--brand-dark)] text-xs font-semibold uppercase tracking-widest transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {saving ? '등록 중...' : '예약 등록'}
             </button>

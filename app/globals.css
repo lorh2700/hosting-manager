@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+:root {
+  --brand: #A66B3D;
+  --brand-dark: #7C4F2D;
+  --brand-tint: #FAF6F1;
+  --brand-tint-strong: #F0E6DA;
+}
+
 @keyframes slideInRight {
   from { transform: translateX(100%); }
   to { transform: translateX(0); }

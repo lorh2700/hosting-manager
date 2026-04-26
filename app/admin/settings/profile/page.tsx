@@ -98,54 +98,54 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-8 sm:space-y-12">
-      <header className="border-b border-white/10 pb-6 sm:pb-8">
-        <p className="text-[10px] tracking-[0.3em] text-white/50 mb-3 sm:mb-4">설정</p>
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-light tracking-tight text-white">내 프로필</h1>
+      <header className="border-b border-stone-200 pb-6 sm:pb-8">
+        <p className="text-[10px] tracking-[0.3em] text-stone-500 mb-3 sm:mb-4">설정</p>
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-light tracking-tight text-stone-900">내 프로필</h1>
       </header>
 
       {/* Profile Info */}
-      <form onSubmit={handleSaveProfile} className="bg-[#111] border border-white/10 p-6 space-y-6">
-        <h2 className="text-sm font-medium text-white flex items-center gap-2">기본 정보</h2>
+      <form onSubmit={handleSaveProfile} className="bg-white border border-stone-200 p-6 space-y-6">
+        <h2 className="text-sm font-medium text-stone-900 flex items-center gap-2">기본 정보</h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">이메일</label>
+            <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">이메일</label>
             <input
               type="email"
               value={user.email ?? ''}
               disabled
-              className="w-full bg-black/30 border border-white/5 px-4 py-2.5 text-sm text-white/50 cursor-not-allowed"
+              className="w-full bg-stone-100 border border-stone-200 px-4 py-2.5 text-sm text-stone-500 cursor-not-allowed"
             />
           </div>
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">역할</label>
+            <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">역할</label>
             <input
               type="text"
               value={ROLE_LABELS[profile.role] ?? profile.role}
               disabled
-              className="w-full bg-black/30 border border-white/5 px-4 py-2.5 text-sm text-white/50 cursor-not-allowed"
+              className="w-full bg-stone-100 border border-stone-200 px-4 py-2.5 text-sm text-stone-500 cursor-not-allowed"
             />
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">이름</label>
+            <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">이름</label>
             <input
               type="text"
               value={displayName}
               onChange={e => setDisplayName(e.target.value)}
-              className="w-full bg-black/50 border border-white/10 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 transition-colors"
+              className="w-full bg-white border border-stone-200 px-4 py-2.5 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors"
               placeholder="표시 이름"
             />
           </div>
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">연락처</label>
+            <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">연락처</label>
             <input
               type="tel"
               value={phone}
               onChange={e => setPhone(e.target.value)}
-              className="w-full bg-black/50 border border-white/10 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 transition-colors"
+              className="w-full bg-white border border-stone-200 px-4 py-2.5 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors"
               placeholder="010-0000-0000"
             />
           </div>
@@ -153,7 +153,7 @@ export default function ProfilePage() {
 
         <div className="flex items-center justify-between">
           {saveMessage && (
-            <p className={`text-xs ${saveMessage.includes('실패') ? 'text-red-400' : 'text-emerald-400'}`}>
+            <p className={`text-xs ${saveMessage.includes('실패') ? 'text-red-600' : 'text-emerald-600'}`}>
               {saveMessage}
             </p>
           )}
@@ -161,7 +161,7 @@ export default function ProfilePage() {
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center gap-2 bg-white text-black px-6 py-2.5 text-[10px] tracking-widest font-semibold hover:bg-white/90 transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white px-6 py-2.5 text-[10px] tracking-widest font-semibold uppercase transition-colors disabled:opacity-50"
             >
               <Save size={13} />
               {saving ? '저장 중...' : '저장'}
@@ -171,51 +171,51 @@ export default function ProfilePage() {
       </form>
 
       {/* Password Change */}
-      <form onSubmit={handleChangePassword} className="bg-[#111] border border-white/10 p-6 space-y-6">
-        <h2 className="text-sm font-medium text-white flex items-center gap-2">
+      <form onSubmit={handleChangePassword} className="bg-white border border-stone-200 p-6 space-y-6">
+        <h2 className="text-sm font-medium text-stone-900 flex items-center gap-2">
           <Lock size={14} />
           비밀번호 변경
         </h2>
 
         <div>
-          <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">현재 비밀번호</label>
+          <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">현재 비밀번호</label>
           <input
             type="password"
             value={currentPassword}
             onChange={e => setCurrentPassword(e.target.value)}
             required
-            className="w-full bg-black/50 border border-white/10 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 transition-colors"
+            className="w-full bg-white border border-stone-200 px-4 py-2.5 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors"
           />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">새 비밀번호</label>
+            <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">새 비밀번호</label>
             <input
               type="password"
               value={newPassword}
               onChange={e => setNewPassword(e.target.value)}
               required
               minLength={6}
-              className="w-full bg-black/50 border border-white/10 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 transition-colors"
+              className="w-full bg-white border border-stone-200 px-4 py-2.5 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors"
               placeholder="6자 이상"
             />
           </div>
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">새 비밀번호 확인</label>
+            <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">새 비밀번호 확인</label>
             <input
               type="password"
               value={confirmPassword}
               onChange={e => setConfirmPassword(e.target.value)}
               required
-              className="w-full bg-black/50 border border-white/10 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 transition-colors"
+              className="w-full bg-white border border-stone-200 px-4 py-2.5 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors"
             />
           </div>
         </div>
 
         <div className="flex items-center justify-between">
           {passwordMessage && (
-            <p className={`text-xs ${passwordMessage.includes('실패') || passwordMessage.includes('올바르지') || passwordMessage.includes('이상') || passwordMessage.includes('일치') ? 'text-red-400' : 'text-emerald-400'}`}>
+            <p className={`text-xs ${passwordMessage.includes('실패') || passwordMessage.includes('올바르지') || passwordMessage.includes('이상') || passwordMessage.includes('일치') ? 'text-red-600' : 'text-emerald-600'}`}>
               {passwordMessage}
             </p>
           )}
@@ -223,7 +223,7 @@ export default function ProfilePage() {
             <button
               type="submit"
               disabled={changingPassword}
-              className="flex items-center gap-2 bg-white/10 hover:bg-white hover:text-black text-white px-6 py-2.5 text-[10px] tracking-widest font-semibold transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 bg-stone-100 hover:bg-[var(--brand)] hover:text-white text-stone-900 px-6 py-2.5 text-[10px] tracking-widest font-semibold uppercase transition-colors disabled:opacity-50"
             >
               <Lock size={13} />
               {changingPassword ? '변경 중...' : '비밀번호 변경'}

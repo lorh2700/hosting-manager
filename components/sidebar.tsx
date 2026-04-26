@@ -92,17 +92,17 @@ export function Sidebar() {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex w-60 bg-[#0b0b0c] text-white min-h-screen flex-col border-r border-white/[0.06]">
+      <aside className="hidden md:flex w-60 bg-white text-stone-900 min-h-screen flex-col border-r border-stone-200">
         <div className="px-7 pt-8 pb-7 flex flex-col gap-3">
           <Link href="/admin" aria-label="void anchae 관리자 홈" className="inline-flex">
-            <Logo width={148} priority />
+            <Logo width={148} variant="black" priority />
           </Link>
-          <Link href="/" className="text-[12px] text-white/45 hover:text-white transition-colors">
+          <Link href="/" className="text-[11px] uppercase tracking-[0.2em] text-stone-500 hover:text-stone-900 transition-colors">
             예약 포털 →
           </Link>
         </div>
 
-        <nav className="flex-1 px-4 pb-6 space-y-0.5">
+        <nav className="flex-1 px-3 pb-6 space-y-px">
           {visibleLinks.map((link) => {
             const isActive = pathname === link.href || (link.href !== '/admin' && pathname.startsWith(link.href));
             const Icon = link.icon;
@@ -110,20 +110,20 @@ export function Sidebar() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`group flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[13px] transition-colors ${
+                className={`group relative flex items-center gap-3 pl-4 pr-3 py-2.5 text-[13px] transition-colors ${
                   isActive
-                    ? 'bg-violet-500/15 text-white'
-                    : 'text-white/55 hover:text-white hover:bg-white/[0.04]'
+                    ? 'text-stone-900 font-medium bg-stone-50 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-[var(--brand)]'
+                    : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
                 }`}
               >
                 <Icon
-                  size={17}
-                  strokeWidth={isActive ? 2 : 1.7}
-                  className={isActive ? 'text-violet-300' : 'text-white/50 group-hover:text-white/80'}
+                  size={16}
+                  strokeWidth={isActive ? 2 : 1.6}
+                  className={isActive ? 'text-[var(--brand)]' : 'text-stone-400 group-hover:text-stone-700'}
                 />
-                <span className={isActive ? 'font-medium' : ''}>{link.label}</span>
+                <span>{link.label}</span>
                 {link.href === '/admin/messages' && unreadCount > 0 && (
-                  <span className="ml-auto min-w-[20px] h-5 px-1.5 bg-violet-500 rounded-full flex items-center justify-center text-[10px] font-semibold text-white">
+                  <span className="ml-auto min-w-[20px] h-[18px] px-1.5 bg-[var(--brand)] flex items-center justify-center text-[10px] font-semibold text-white tabular-nums">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
@@ -132,20 +132,20 @@ export function Sidebar() {
           })}
         </nav>
 
-        <div className="px-5 py-5 border-t border-white/[0.06]">
-          <p className="text-[12px] text-white/45 truncate mb-2">{user?.email}</p>
+        <div className="px-5 py-5 border-t border-stone-200">
+          <p className="text-[11px] text-stone-500 truncate mb-2">{user?.email}</p>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 text-white/50 hover:text-white transition-colors text-[12px]"
+            className="flex items-center gap-2 text-stone-500 hover:text-stone-900 transition-colors text-[11px] uppercase tracking-widest"
           >
-            <LogOut size={14} />
+            <LogOut size={13} />
             로그아웃
           </button>
         </div>
       </aside>
 
       {/* Mobile bottom navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0b0b0c]/95 backdrop-blur-lg border-t border-white/[0.06] safe-bottom">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-lg border-t border-stone-200 safe-bottom">
         <div className="flex items-stretch justify-around">
           {mobileMainLinks.map((link) => {
             const isActive = pathname === link.href || (link.href !== '/admin' && pathname.startsWith(link.href));
@@ -155,13 +155,14 @@ export function Sidebar() {
                 key={link.href}
                 href={link.href}
                 className={`relative flex flex-col items-center justify-center gap-1 py-3 flex-1 min-h-[56px] transition-colors active:scale-95 ${
-                  isActive ? 'text-white' : 'text-white/45'
+                  isActive ? 'text-stone-900' : 'text-stone-500'
                 }`}
               >
-                <Icon size={21} strokeWidth={isActive ? 2 : 1.7} className={isActive ? 'text-violet-300' : ''} />
+                {isActive && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[2px] bg-[var(--brand)]" />}
+                <Icon size={21} strokeWidth={isActive ? 2 : 1.7} className={isActive ? 'text-[var(--brand)]' : ''} />
                 <span className="text-[10.5px] leading-none">{link.label}</span>
                 {link.href === '/admin/messages' && unreadCount > 0 && (
-                  <span className="absolute top-1.5 left-1/2 ml-2 min-w-[18px] h-[18px] px-1 bg-violet-500 rounded-full flex items-center justify-center text-[9px] font-semibold text-white">
+                  <span className="absolute top-1.5 left-1/2 ml-2 min-w-[18px] h-[18px] px-1 bg-[var(--brand)] flex items-center justify-center text-[9px] font-semibold text-white tabular-nums">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
@@ -173,16 +174,17 @@ export function Sidebar() {
             <div ref={moreRef} className="relative flex-1">
               <button
                 onClick={() => setMoreOpen(!moreOpen)}
-                className={`flex flex-col items-center justify-center gap-1 w-full py-3 min-h-[56px] transition-colors active:scale-95 ${
-                  moreOpen || isMoreActive ? 'text-white' : 'text-white/45'
+                className={`relative flex flex-col items-center justify-center gap-1 w-full py-3 min-h-[56px] transition-colors active:scale-95 ${
+                  moreOpen || isMoreActive ? 'text-stone-900' : 'text-stone-500'
                 }`}
               >
+                {(moreOpen || isMoreActive) && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[2px] bg-[var(--brand)]" />}
                 {moreOpen ? <X size={21} strokeWidth={1.7} /> : <MoreHorizontal size={21} strokeWidth={1.7} />}
                 <span className="text-[10.5px] leading-none">더보기</span>
               </button>
 
               {moreOpen && (
-                <div className="absolute bottom-full right-2 mb-2 w-52 bg-[#141416] border border-white/[0.08] rounded-2xl overflow-hidden shadow-2xl shadow-black/60">
+                <div className="absolute bottom-full right-2 mb-2 w-52 bg-white border border-stone-200 overflow-hidden shadow-2xl shadow-black/10">
                   {mobileMoreLinks.map((link) => {
                     const isActive = pathname === link.href || (link.href !== '/admin' && pathname.startsWith(link.href));
                     const Icon = link.icon;
@@ -190,19 +192,19 @@ export function Sidebar() {
                       <Link
                         key={link.href}
                         href={link.href}
-                        className={`flex items-center gap-3 px-4 py-3 transition-colors active:bg-white/10 ${
-                          isActive ? 'text-white bg-violet-500/15' : 'text-white/65'
+                        className={`relative flex items-center gap-3 px-4 py-3 transition-colors active:bg-stone-100 ${
+                          isActive ? 'text-stone-900 bg-stone-50 font-medium before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-[var(--brand)]' : 'text-stone-700'
                         }`}
                       >
-                        <Icon size={17} strokeWidth={1.7} className={isActive ? 'text-violet-300' : ''} />
+                        <Icon size={17} strokeWidth={1.7} className={isActive ? 'text-[var(--brand)]' : ''} />
                         <span className="text-[13px]">{link.label}</span>
                       </Link>
                     );
                   })}
-                  <div className="border-t border-white/[0.06]">
+                  <div className="border-t border-stone-200">
                     <button
                       onClick={handleLogout}
-                      className="flex items-center gap-3 px-4 py-3 w-full text-white/55 transition-colors active:bg-white/10"
+                      className="flex items-center gap-3 px-4 py-3 w-full text-stone-600 transition-colors active:bg-stone-100"
                     >
                       <LogOut size={17} strokeWidth={1.7} />
                       <span className="text-[13px]">로그아웃</span>
