@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionWithUser } from '@/lib/auth';
-import { notifyCleaningAssigned } from '@/lib/notify';
+import { notifyCleaningAssigned, notifyCleaningCancelled } from '@/lib/notify';
 
 async function notifyAssignmentByCleaningId(cleaningId: string) {
   try {
@@ -30,6 +30,40 @@ async function notifyAssignmentByCleaningId(cleaningId: string) {
     }
   } catch (e) {
     console.error('[cleanings] notify error:', e);
+  }
+}
+
+async function notifyCancellationToCleaner(opts: {
+  cleanerId: string;
+  propertyId: string;
+  date: string;
+  reason: 'deleted' | 'reassigned';
+}) {
+  try {
+    const [cleaner, property] = await Promise.all([
+      prisma.cleaner.findUnique({
+        where: { id: opts.cleanerId },
+        select: { name: true, phone: true },
+      }),
+      prisma.property.findUnique({
+        where: { id: opts.propertyId },
+        select: { name: true },
+      }),
+    ]);
+    if (!cleaner?.phone) return;
+
+    const result = await notifyCleaningCancelled({
+      cleanerPhone: cleaner.phone,
+      cleanerName: cleaner.name,
+      propertyName: property?.name ?? '숙소',
+      date: opts.date,
+      reason: opts.reason,
+    });
+    if (result && !result.ok) {
+      console.error('[cleanings] cancel notify failed:', result.error);
+    }
+  } catch (e) {
+    console.error('[cleanings] cancel notify error:', e);
   }
 }
 
@@ -130,7 +164,7 @@ export async function PUT(req: Request) {
 
     const before = await prisma.cleaning.findUnique({
       where: { id },
-      select: { cleanerId: true, propertyId: true },
+      select: { cleanerId: true, propertyId: true, date: true },
     });
     if (!before) return NextResponse.json({ error: 'not found' }, { status: 404 });
 
@@ -140,9 +174,17 @@ export async function PUT(req: Request) {
 
     const cleaning = await prisma.cleaning.update({ where: { id }, data });
 
-    const assignedNow =
-      cleaning.cleanerId && cleaning.cleanerId !== before.cleanerId;
-    if (assignedNow) {
+    const cleanerChanged = 'cleanerId' in data && cleaning.cleanerId !== before.cleanerId;
+    if (cleanerChanged && before.cleanerId) {
+      // Previous cleaner is no longer on the hook — tell them.
+      await notifyCancellationToCleaner({
+        cleanerId: before.cleanerId,
+        propertyId: before.propertyId,
+        date: before.date,
+        reason: 'reassigned',
+      });
+    }
+    if (cleanerChanged && cleaning.cleanerId) {
       await notifyAssignmentByCleaningId(cleaning.id);
     }
 
@@ -164,7 +206,7 @@ export async function DELETE(req: Request) {
 
     const target = await prisma.cleaning.findUnique({
       where: { id },
-      select: { propertyId: true },
+      select: { propertyId: true, cleanerId: true, date: true },
     });
     if (!target) return NextResponse.json({ error: 'not found' }, { status: 404 });
 
@@ -173,6 +215,16 @@ export async function DELETE(req: Request) {
     }
 
     await prisma.cleaning.delete({ where: { id } });
+
+    if (target.cleanerId) {
+      await notifyCancellationToCleaner({
+        cleanerId: target.cleanerId,
+        propertyId: target.propertyId,
+        date: target.date,
+        reason: 'deleted',
+      });
+    }
+
     return NextResponse.json({ success: true });
   } catch (e) {
     console.error('[cleanings] DELETE error:', e);

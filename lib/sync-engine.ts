@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { getBeds24Token, BEDS24_BASE_URL, BEDS24_REFRESH_TOKEN } from '@/lib/beds24';
+import { notifyNewOpenCleanings } from '@/lib/notify';
 import { v4 as uuidv4 } from 'uuid';
 
 // ─── iCal Parsing ───────────────────────────────────────────────────────────
@@ -204,7 +205,12 @@ export async function syncICalChannel(
     }
   }
 
-  await ensureCleaningsForProperty(propertyId);
+  const newCleaningDates = await ensureCleaningsForProperty(propertyId);
+  if (newCleaningDates.length > 0) {
+    await notifyNewOpenCleanings({ propertyId, dates: newCleaningDates }).catch(err => {
+      console.error('[sync] notifyNewOpenCleanings failed:', err);
+    });
+  }
 
   return result;
 }
@@ -214,8 +220,11 @@ export async function syncICalChannel(
  * property. New cleanings are created as open (isOpen=true, no cleaner) so
  * they surface on the cleaner schedule for application. Existing cleanings
  * are untouched — assignment state, status, and notes are preserved.
+ *
+ * Returns the dates of cleanings actually created, so callers can notify
+ * cleaners about freshly-opened slots.
  */
-export async function ensureCleaningsForProperty(propertyId: string): Promise<number> {
+export async function ensureCleaningsForProperty(propertyId: string): Promise<string[]> {
   const events = await prisma.event.findMany({
     where: { propertyId, type: 'reservation' },
     select: { endDate: true },
@@ -225,7 +234,7 @@ export async function ensureCleaningsForProperty(propertyId: string): Promise<nu
   for (const e of events) {
     if (e.endDate) checkoutDates.add(e.endDate);
   }
-  if (checkoutDates.size === 0) return 0;
+  if (checkoutDates.size === 0) return [];
 
   const existing = await prisma.cleaning.findMany({
     where: { propertyId, date: { in: Array.from(checkoutDates) } },
@@ -234,7 +243,7 @@ export async function ensureCleaningsForProperty(propertyId: string): Promise<nu
   const existingDates = new Set(existing.map(c => c.date));
 
   const toCreate = Array.from(checkoutDates).filter(d => !existingDates.has(d));
-  if (toCreate.length === 0) return 0;
+  if (toCreate.length === 0) return [];
 
   await prisma.cleaning.createMany({
     data: toCreate.map(date => ({
@@ -245,7 +254,7 @@ export async function ensureCleaningsForProperty(propertyId: string): Promise<nu
     })),
   });
 
-  return toCreate.length;
+  return toCreate;
 }
 
 // ─── Beds24 API Sync ───────────────────────────────────────────────────────
@@ -382,7 +391,12 @@ export async function syncBeds24Property(
     }
   }
 
-  await ensureCleaningsForProperty(propertyId);
+  const newCleaningDates = await ensureCleaningsForProperty(propertyId);
+  if (newCleaningDates.length > 0) {
+    await notifyNewOpenCleanings({ propertyId, dates: newCleaningDates }).catch(err => {
+      console.error('[sync] notifyNewOpenCleanings failed:', err);
+    });
+  }
 
   return { total: newEvents.length, eventsCreated, eventsUpdated, eventsRemoved };
 }

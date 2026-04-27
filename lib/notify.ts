@@ -1,4 +1,5 @@
 import { createHmac, randomBytes } from 'crypto';
+import { prisma } from '@/lib/prisma';
 
 // ────────────────────────────────────────────────────────────────
 // Types
@@ -30,6 +31,8 @@ export interface NotifyProvider {
 export const TEMPLATES = {
   CLEANING_ASSIGNED: process.env.SOLAPI_TPL_CLEANING_ASSIGNED ?? '',
   CLEANING_ASSIGNED_BULK: process.env.SOLAPI_TPL_CLEANING_ASSIGNED_BULK ?? '',
+  CLEANING_OPEN_NEW: process.env.SOLAPI_TPL_CLEANING_OPEN_NEW ?? '',
+  CLEANING_CANCELLED: process.env.SOLAPI_TPL_CLEANING_CANCELLED ?? '',
 } as const;
 
 // ────────────────────────────────────────────────────────────────
@@ -198,9 +201,121 @@ export async function notifyCleaningAssigned(opts: {
   });
 }
 
+/**
+ * Notify a cleaner that a previously-assigned cleaning has been cancelled
+ * (deleted, or reassigned to someone else).
+ */
+export async function notifyCleaningCancelled(opts: {
+  cleanerPhone: string | null;
+  cleanerName: string;
+  propertyName: string;
+  date: string;
+  reason?: 'deleted' | 'reassigned';
+}): Promise<NotifyResult | null> {
+  if (!opts.cleanerPhone) return null;
+  if (!TEMPLATES.CLEANING_CANCELLED) {
+    console.warn('[notify] SOLAPI_TPL_CLEANING_CANCELLED not set; skipping cancel notify');
+    return null;
+  }
+
+  const notifier = getNotifier();
+  return notifier.sendAlimtalk({
+    to: opts.cleanerPhone,
+    templateId: TEMPLATES.CLEANING_CANCELLED,
+    variables: {
+      청소업자명: opts.cleanerName,
+      숙소명: opts.propertyName,
+      청소일: formatDateKo(opts.date),
+    },
+  });
+}
+
 function formatDateKo(yyyyMmDd: string): string {
   const [y, m, d] = yyyyMmDd.split('-').map(Number);
   const dt = new Date(y, m - 1, d);
   const weekday = ['일', '월', '화', '수', '목', '금', '토'][dt.getDay()];
   return `${yyyyMmDd} (${weekday})`;
+}
+
+/**
+ * Notify cleaners that fresh open cleanings are available on a property.
+ *
+ * Recipients: cleaners owned by the property owner who either have a User
+ * account scoped to this property, or have no scoping at all (they can
+ * apply broadly — same rule as /api/cleanings GET for cleaners).
+ *
+ * One alimtalk per cleaner, regardless of how many dates were created on
+ * the same property in the same sync.
+ */
+export async function notifyNewOpenCleanings(opts: {
+  propertyId: string;
+  dates: string[];
+}): Promise<void> {
+  if (opts.dates.length === 0) return;
+  if (!TEMPLATES.CLEANING_OPEN_NEW) {
+    console.warn('[notify] SOLAPI_TPL_CLEANING_OPEN_NEW not set; skipping new-open notify');
+    return;
+  }
+
+  const property = await prisma.property.findUnique({
+    where: { id: opts.propertyId },
+    select: { ownerId: true, name: true },
+  });
+  if (!property) return;
+
+  const cleaners = await prisma.cleaner.findMany({
+    where: {
+      ownerId: property.ownerId,
+      phone: { not: null },
+      publicToken: { not: null },
+    },
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      publicToken: true,
+      user: {
+        select: {
+          id: true,
+          properties: { select: { propertyId: true } },
+        },
+      },
+    },
+  });
+
+  const eligible = cleaners.filter(c => {
+    // No linked user → unscoped, can apply broadly
+    if (!c.user) return true;
+    const scoped = c.user.properties.map(p => p.propertyId);
+    // No scoping rows → unscoped
+    if (scoped.length === 0) return true;
+    return scoped.includes(opts.propertyId);
+  });
+
+  if (eligible.length === 0) return;
+
+  const sortedDates = [...opts.dates].sort();
+  const earliest = sortedDates[0];
+  const latest = sortedDates[sortedDates.length - 1];
+  const dateRange = earliest === latest
+    ? formatDateKo(earliest)
+    : `${formatDateKo(earliest)} ~ ${formatDateKo(latest)}`;
+
+  const notifier = getNotifier();
+  await Promise.all(eligible.map(c =>
+    notifier.sendAlimtalk({
+      to: c.phone!,
+      templateId: TEMPLATES.CLEANING_OPEN_NEW,
+      variables: {
+        청소업자명: c.name,
+        숙소명: property.name,
+        청소일정: dateRange,
+        건수: String(sortedDates.length),
+        청소업자토큰: c.publicToken!,
+      },
+    }).catch(err => {
+      console.error(`[notify] new-open send failed for cleaner ${c.id}:`, err);
+      return null;
+    })
+  ));
 }
