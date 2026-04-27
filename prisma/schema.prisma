@@ -268,6 +268,7 @@ model Message {
   read             Boolean  @default(false)
   source           String?  // beds24, null
   beds24BookingId  String?  @map("beds24_booking_id")
+  beds24MessageId  String?  @unique @map("beds24_message_id")
   beds24MessageType String? @map("beds24_message_type")
   type             String   @default("message") // message, memo
   deliveryStatus   String?  @map("delivery_status") // sent, failed, local_only
