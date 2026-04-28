@@ -350,3 +350,15 @@ model SyncLog {
 
   @@map("sync_logs")
 }
+
+// ── Beds24 access token 캐시 (싱글톤) ──
+// 서버리스 콜드스타트마다 /authentication/token 을 호출하면 Beds24가
+// 429를 반환하므로 DB에 토큰과 만료시각을 저장해 재사용한다.
+model Beds24TokenCache {
+  id        String   @id
+  token     String
+  expiresAt DateTime @map("expires_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("beds24_token_cache")
+}

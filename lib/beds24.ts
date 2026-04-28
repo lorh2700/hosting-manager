@@ -1,24 +1,89 @@
+import { prisma } from '@/lib/prisma';
+
 const BEDS24_REFRESH_TOKEN = process.env.BEDS24_REFRESH_TOKEN;
 const BEDS24_BASE_URL = 'https://beds24.com/api/v2';
 
-// Token cache (in-memory, valid for ~60 mins per Beds24 docs)
-let cachedToken: string | null = null;
-let tokenExpiresAt = 0;
+const TOKEN_CACHE_ID = 'singleton';
+const SAFETY_BUFFER_MS = 5 * 60 * 1000; // refresh 5 min before expiry
 
-export async function getBeds24Token(): Promise<string> {
-  if (cachedToken && Date.now() < tokenExpiresAt - 300_000) {
-    return cachedToken;
+let memoryToken: string | null = null;
+let memoryExpiresAt = 0;
+
+async function readDbToken(): Promise<{ token: string; expiresAt: number } | null> {
+  try {
+    const row = await prisma.beds24TokenCache.findUnique({ where: { id: TOKEN_CACHE_ID } });
+    if (!row) return null;
+    return { token: row.token, expiresAt: row.expiresAt.getTime() };
+  } catch (e) {
+    console.warn('[beds24] readDbToken failed:', e);
+    return null;
   }
+}
+
+async function writeDbToken(token: string, expiresAt: number): Promise<void> {
+  try {
+    await prisma.beds24TokenCache.upsert({
+      where: { id: TOKEN_CACHE_ID },
+      create: { id: TOKEN_CACHE_ID, token, expiresAt: new Date(expiresAt) },
+      update: { token, expiresAt: new Date(expiresAt) },
+    });
+  } catch (e) {
+    console.warn('[beds24] writeDbToken failed:', e);
+  }
+}
+
+async function refreshToken(): Promise<{ token: string; expiresAt: number }> {
   if (!BEDS24_REFRESH_TOKEN) throw new Error('BEDS24_REFRESH_TOKEN is not configured');
+
   const res = await fetch(`${BEDS24_BASE_URL}/authentication/token`, {
     headers: { refreshToken: BEDS24_REFRESH_TOKEN },
   });
-  if (!res.ok) throw new Error(`Beds24 token refresh failed: ${res.status}`);
+
+  if (!res.ok) {
+    // On 429 or other transient failure, fall back to whatever cached token
+    // we have — even a soon-to-expire one is better than failing the request.
+    if (res.status === 429) {
+      const cached = await readDbToken();
+      if (cached && cached.expiresAt > Date.now()) {
+        console.warn('[beds24] token refresh got 429; using DB-cached token');
+        return cached;
+      }
+    }
+    throw new Error(`Beds24 token refresh failed: ${res.status}`);
+  }
+
   const data = await res.json();
   if (!data.token) throw new Error('No token in Beds24 response');
-  cachedToken = data.token;
-  tokenExpiresAt = Date.now() + 3_600_000;
-  return cachedToken!;
+
+  // Beds24 returns expiresIn in seconds (token typically valid 24h).
+  const expiresInSec = typeof data.expiresIn === 'number' ? data.expiresIn : 3600;
+  const expiresAt = Date.now() + expiresInSec * 1000;
+
+  await writeDbToken(data.token, expiresAt);
+  return { token: data.token, expiresAt };
+}
+
+export async function getBeds24Token(): Promise<string> {
+  const now = Date.now();
+
+  // 1) Warm path — in-memory cache
+  if (memoryToken && now < memoryExpiresAt - SAFETY_BUFFER_MS) {
+    return memoryToken;
+  }
+
+  // 2) DB-backed cache (survives cold starts)
+  const dbCached = await readDbToken();
+  if (dbCached && now < dbCached.expiresAt - SAFETY_BUFFER_MS) {
+    memoryToken = dbCached.token;
+    memoryExpiresAt = dbCached.expiresAt;
+    return dbCached.token;
+  }
+
+  // 3) Refresh from Beds24
+  const fresh = await refreshToken();
+  memoryToken = fresh.token;
+  memoryExpiresAt = fresh.expiresAt;
+  return fresh.token;
 }
 
 export async function beds24Get(path: string, params?: Record<string, string>) {
