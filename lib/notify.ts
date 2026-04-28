@@ -295,27 +295,28 @@ export async function notifyNewOpenCleanings(opts: {
   if (eligible.length === 0) return;
 
   const sortedDates = [...opts.dates].sort();
-  const earliest = sortedDates[0];
-  const latest = sortedDates[sortedDates.length - 1];
-  const dateRange = earliest === latest
-    ? formatDateKo(earliest)
-    : `${formatDateKo(earliest)} ~ ${formatDateKo(latest)}`;
-
   const notifier = getNotifier();
-  await Promise.all(eligible.map(c =>
-    notifier.sendAlimtalk({
-      to: c.phone!,
-      templateId: TEMPLATES.CLEANING_OPEN_NEW,
-      variables: {
-        청소업자명: c.name,
-        숙소명: property.name,
-        청소일정: dateRange,
-        건수: String(sortedDates.length),
-        청소업자토큰: c.publicToken!,
-      },
-    }).catch(err => {
-      console.error(`[notify] new-open send failed for cleaner ${c.id}:`, err);
-      return null;
-    })
-  ));
+
+  // Solapi 템플릿은 #{청소일}, #{체크아웃시간} 단수 변수를 사용하므로
+  // 청소인력 × 날짜 단위로 한 건씩 발송한다.
+  await Promise.all(
+    eligible.flatMap(c =>
+      sortedDates.map(date =>
+        notifier.sendAlimtalk({
+          to: c.phone!,
+          templateId: TEMPLATES.CLEANING_OPEN_NEW,
+          variables: {
+            청소업자명: c.name,
+            숙소명: property.name,
+            청소일: formatDateKo(date),
+            체크아웃시간: '11:00',
+            청소업자토큰: c.publicToken!,
+          },
+        }).catch(err => {
+          console.error(`[notify] new-open send failed for cleaner ${c.id} date ${date}:`, err);
+          return null;
+        })
+      )
+    )
+  );
 }

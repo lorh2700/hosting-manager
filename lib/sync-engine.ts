@@ -370,9 +370,12 @@ export async function syncBeds24Property(
       await prisma.event.create({ data: event });
       eventsCreated++;
     } else if (existing.startDate !== event.startDate || existing.endDate !== event.endDate || existing.title !== event.title) {
+      // Preserve source='manual-reservation' so the calendar UI keeps showing
+      // the cancel button after a sync round.
+      const preservedSource = existing.source === 'manual-reservation' ? existing.source : event.source;
       await prisma.event.update({
         where: { id: existing.id },
-        data: { startDate: event.startDate, endDate: event.endDate, title: event.title, description: event.description, source: event.source },
+        data: { startDate: event.startDate, endDate: event.endDate, title: event.title, description: event.description, source: preservedSource },
       });
       eventsUpdated++;
     }
