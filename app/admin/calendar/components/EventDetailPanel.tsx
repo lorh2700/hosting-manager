@@ -25,7 +25,6 @@ interface EventDetailPanelProps {
   sortedUnassigned: ProcessedEvent[];
   isLoggedIn: boolean;
   savingTags: boolean;
-  cancellingEvent: boolean;
   onClose: () => void;
   onSaveCleaner: () => void;
   onDeleteCleaner: () => void;
@@ -36,7 +35,6 @@ interface EventDetailPanelProps {
   onSendMessage: () => void;
   onSyncMessages: () => void;
   onUpdateTags: (tags: string[]) => Promise<void> | void;
-  onCancelEvent: () => void;
   openModal: (e: ProcessedEvent) => void;
 }
 
@@ -52,15 +50,13 @@ export function EventDetailPanel({
   modalMessages, newMessage, setNewMessage,
   sendingMessage, loadingMessages, syncingMessages,
   unassignedCleanings, sortedUnassigned, isLoggedIn,
-  savingTags, cancellingEvent,
+  savingTags,
   onClose, onSaveCleaner, onDeleteCleaner, onCompleteCleaning,
   onAddSupply, onToggleSupply, onDeleteSupply,
-  onSendMessage, onSyncMessages, onUpdateTags, onCancelEvent, openModal,
+  onSendMessage, onSyncMessages, onUpdateTags, openModal,
 }: EventDetailPanelProps) {
   const [newTag, setNewTag] = useState('');
   const isBlock = selectedEvent.type === 'block';
-  const isManualReservation = selectedEvent.source === 'manual-reservation' && selectedEvent.type === 'reservation';
-  const canCancel = isBlock || isManualReservation;
 
   const addTag = async (raw: string) => {
     const t = raw.trim();
@@ -254,22 +250,6 @@ export function EventDetailPanel({
             ))}
           </div>
         </div>
-
-        {/* Cancel */}
-        {canCancel && (
-          <div className="border-t border-stone-200 pt-5">
-            <button
-              onClick={onCancelEvent}
-              disabled={cancellingEvent}
-              className="w-full flex items-center justify-center gap-2 bg-rose-50 hover:bg-rose-100 text-rose-600 py-2.5 text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <Trash2 size={14} /> {cancellingEvent ? '취소 중...' : `${isBlock ? '차단' : '예약'} 취소 (Beds24 동기화)`}
-            </button>
-            <p className="mt-2 text-xs text-stone-500 text-center">
-              Beds24에서 이 {isBlock ? '차단' : '예약'}을 취소하고 로컬에서도 삭제합니다.
-            </p>
-          </div>
-        )}
 
         {/* Cleaner */}
         {!isBlock && (

@@ -70,7 +70,6 @@ export default function UnifiedCalendarPage() {
           cleanerSaving={modal.cleanerSaving}
           completingCleaning={modal.completingCleaning}
           savingTags={modal.savingTags}
-          cancellingEvent={modal.cancellingEvent}
           supplyTodos={modal.supplyTodos}
           newSupply={modal.newSupply}
           setNewSupply={modal.setNewSupply}
@@ -93,7 +92,6 @@ export default function UnifiedCalendarPage() {
           onSendMessage={modal.handleSendMessage}
           onSyncMessages={modal.handleSyncMessages}
           onUpdateTags={modal.handleUpdateTags}
-          onCancelEvent={modal.handleCancelBeds24Event}
           openModal={modal.openModal}
         />
       )}

@@ -117,21 +117,6 @@ export async function POST(req: Request) {
       },
     });
 
-    await prisma.booking.create({
-      data: {
-        propertyId,
-        name: trimmedName,
-        email: trimmedEmail,
-        phone: trimmedPhone,
-        guests: adults + children,
-        checkIn: startDate,
-        checkOut: endDate,
-        status: 'confirmed',
-        message: trimmedNotes,
-        source: 'manual-reservation',
-      },
-    });
-
     return NextResponse.json({
       success: true,
       eventId: event.id,

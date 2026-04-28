@@ -26,7 +26,6 @@ export function useEventModal({
   const [cleanerSaving, setCleanerSaving] = useState(false);
   const [completingCleaning, setCompletingCleaning] = useState(false);
   const [savingTags, setSavingTags] = useState(false);
-  const [cancellingEvent, setCancellingEvent] = useState(false);
 
   // Supply state
   const [supplyTodos, setSupplyTodos] = useState<SupplyTodo[]>([]);
@@ -261,32 +260,10 @@ export function useEventModal({
     }
   };
 
-  const handleCancelBeds24Event = async () => {
-    if (!selectedEvent) return;
-    const isBlock = selectedEvent.type === 'block';
-    const label = isBlock ? '차단' : '예약';
-    if (!confirm(`이 Beds24 ${label}을(를) 취소하시겠습니까?`)) return;
-    setCancellingEvent(true);
-    try {
-      const res = await fetch(`/api/beds24/reservations?eventId=${selectedEvent.eventId}`, { method: 'DELETE' });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `${label} 취소 실패`);
-      }
-      setEvents(prev => prev.filter(e => e.id !== selectedEvent.eventId));
-      setSelectedEvent(null);
-    } catch (err) {
-      console.error(err);
-      alert(err instanceof Error ? err.message : `${label} 취소에 실패했습니다.`);
-    } finally {
-      setCancellingEvent(false);
-    }
-  };
-
   return {
     selectedEvent, selectedCleaner, setSelectedCleaner,
     cleanerSaving, completingCleaning,
-    savingTags, cancellingEvent,
+    savingTags,
     supplyTodos, newSupply, setNewSupply,
     modalMessages, newMessage, setNewMessage,
     sendingMessage, loadingMessages, syncingMessages,
@@ -294,6 +271,6 @@ export function useEventModal({
     handleSaveCleaner, handleDeleteCleaner, handleCompleteCleaning,
     handleAddSupply, handleToggleSupply, handleDeleteSupply,
     handleSendMessage, handleSyncMessages,
-    handleUpdateTags, handleCancelBeds24Event,
+    handleUpdateTags,
   };
 }
