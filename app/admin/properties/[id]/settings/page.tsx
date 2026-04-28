@@ -15,6 +15,7 @@ interface Property {
   basePrice?: number;
   maxGuests?: number;
   beds24PropId?: string;
+  beds24RoomId?: string;
   doorPassword?: string;
   addressUrl?: string;
   roomReadyMessage?: string;
@@ -37,6 +38,7 @@ export default function PropertySettingsPage() {
   const [basePrice, setBasePrice] = useState<number | ''>('');
   const [maxGuests, setMaxGuests] = useState<number | ''>('');
   const [beds24PropId, setBeds24PropId] = useState('');
+  const [beds24RoomId, setBeds24RoomId] = useState('');
   const [doorPassword, setDoorPassword] = useState('');
   const [addressUrl, setAddressUrl] = useState('');
   const [roomReadyMessage, setRoomReadyMessage] = useState('');
@@ -56,6 +58,7 @@ export default function PropertySettingsPage() {
           setBasePrice(data.basePrice || '');
           setMaxGuests(data.maxGuests || '');
           setBeds24PropId(data.beds24PropId || '');
+          setBeds24RoomId(data.beds24RoomId || '');
           setDoorPassword(data.doorPassword || '');
           setAddressUrl(data.addressUrl || '');
           setRoomReadyMessage(data.roomReadyMessage || '');
@@ -84,6 +87,7 @@ export default function PropertySettingsPage() {
           basePrice: basePrice === '' ? null : Number(basePrice),
           maxGuests: maxGuests === '' ? null : Number(maxGuests),
           beds24PropId: beds24PropId.trim() || null,
+          beds24RoomId: beds24RoomId.trim() || null,
           doorPassword: doorPassword.trim() || null,
           addressUrl: addressUrl.trim() || null,
           roomReadyMessage: roomReadyMessage.trim() || null,
@@ -205,16 +209,29 @@ export default function PropertySettingsPage() {
             />
           </div>
 
-          <div>
-            <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">Beds24 Property ID</label>
-            <input
-              type="text"
-              value={beds24PropId}
-              onChange={(e) => setBeds24PropId(e.target.value)}
-              placeholder="예: 12345 (Beds24 숙소 ID)"
-              className="w-full bg-white border border-stone-200 rounded-none px-4 py-3 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors font-mono"
-            />
-            <p className="text-[11px] text-stone-400 mt-2">Beds24 → Properties → 숙소 선택 → Property ID에서 확인</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">Beds24 Property ID</label>
+              <input
+                type="text"
+                value={beds24PropId}
+                onChange={(e) => setBeds24PropId(e.target.value)}
+                placeholder="예: 319544"
+                className="w-full bg-white border border-stone-200 rounded-none px-4 py-3 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors font-mono"
+              />
+              <p className="text-[11px] text-stone-400 mt-2">동기화(GET /bookings)에 사용됩니다.</p>
+            </div>
+            <div>
+              <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">Beds24 Room ID</label>
+              <input
+                type="text"
+                value={beds24RoomId}
+                onChange={(e) => setBeds24RoomId(e.target.value)}
+                placeholder="예: 664844"
+                className="w-full bg-white border border-stone-200 rounded-none px-4 py-3 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors font-mono"
+              />
+              <p className="text-[11px] text-stone-400 mt-2">예약 생성(POST /bookings)에 사용됩니다.</p>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

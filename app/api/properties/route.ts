@@ -43,6 +43,7 @@ export async function POST(req: Request) {
         timezone: body.timezone || 'Asia/Seoul',
         ownerId: session.userId,
         beds24PropId: body.beds24PropId,
+        beds24RoomId: body.beds24RoomId,
         doorPassword: body.doorPassword,
         addressUrl: body.addressUrl,
         roomReadyMessage: body.roomReadyMessage,

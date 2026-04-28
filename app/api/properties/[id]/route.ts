@@ -28,7 +28,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const { id } = await params;
     const body = await req.json();
 
-    const allowedFields = ['name', 'timezone', 'beds24PropId', 'doorPassword', 'addressUrl', 'roomReadyMessage', 'basePrice', 'maxGuests', 'description'];
+    const allowedFields = ['name', 'timezone', 'beds24PropId', 'beds24RoomId', 'doorPassword', 'addressUrl', 'roomReadyMessage', 'basePrice', 'maxGuests', 'description'];
     const data: Record<string, unknown> = {};
     for (const key of allowedFields) {
       if (key in body) data[key] = body[key];

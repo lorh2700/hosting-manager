@@ -42,11 +42,11 @@ export async function POST(req: Request) {
 
     const property = await prisma.property.findUnique({
       where: { id: propertyId },
-      select: { id: true, beds24PropId: true },
+      select: { id: true, beds24PropId: true, beds24RoomId: true },
     });
     if (!property) return NextResponse.json({ error: '숙소를 찾을 수 없습니다.' }, { status: 404 });
-    if (!property.beds24PropId) {
-      return NextResponse.json({ error: '해당 숙소에 Beds24 연동이 설정되어 있지 않습니다.' }, { status: 400 });
+    if (!property.beds24RoomId) {
+      return NextResponse.json({ error: '해당 숙소에 Beds24 roomId가 설정되어 있지 않습니다.' }, { status: 400 });
     }
 
     const trimmedName = String(name).slice(0, 80).trim();
@@ -65,7 +65,7 @@ export async function POST(req: Request) {
       : [];
 
     const beds24Response = await beds24Post('/bookings', [{
-      roomId: Number(property.beds24PropId),
+      roomId: Number(property.beds24RoomId),
       arrival: startDate,
       departure: endDate,
       firstName: firstName || trimmedName,

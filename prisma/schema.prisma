@@ -48,6 +48,7 @@ model Property {
   timezone         String   @default("Asia/Seoul")
   ownerId          String   @map("owner_id")
   beds24PropId     String?  @map("beds24_prop_id")
+  beds24RoomId     String?  @map("beds24_room_id")
   doorPassword     String?  @map("door_password")
   addressUrl       String?  @map("address_url")
   roomReadyMessage String?  @map("room_ready_message")
