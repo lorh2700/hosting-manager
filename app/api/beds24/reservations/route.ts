@@ -65,7 +65,7 @@ export async function POST(req: Request) {
       : [];
 
     const beds24Response = await beds24Post('/bookings', [{
-      propertyId: Number(property.beds24PropId),
+      roomId: Number(property.beds24PropId),
       arrival: startDate,
       departure: endDate,
       firstName: firstName || trimmedName,
