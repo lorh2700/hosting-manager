@@ -106,6 +106,88 @@ export async function verifySession(req: Request): Promise<{ userId: string; ema
   return verifyToken(token);
 }
 
+/**
+ * Authorize a request to act on a tour. Returns the tour's ownerId on
+ * success, or null if unauthorized / not found. Admins always pass.
+ *
+ * Usage:
+ *   const ok = await authorizeTour(tourId, session.userId);
+ *   if (!ok) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+ */
+export async function authorizeTour(
+  tourId: string,
+  userId: string,
+  opts: { isAdmin?: boolean } = {},
+): Promise<{ ownerId: string } | null> {
+  const tour = await prisma.tour.findUnique({
+    where: { id: tourId },
+    select: { ownerId: true },
+  });
+  if (!tour) return null;
+  if (opts.isAdmin) return tour;
+  return tour.ownerId === userId ? tour : null;
+}
+
+export async function authorizeTourOperator(
+  operatorId: string,
+  userId: string,
+  opts: { isAdmin?: boolean } = {},
+): Promise<{ ownerId: string } | null> {
+  const op = await prisma.tourOperator.findUnique({
+    where: { id: operatorId },
+    select: { ownerId: true },
+  });
+  if (!op) return null;
+  if (opts.isAdmin) return op;
+  return op.ownerId === userId ? op : null;
+}
+
+export async function authorizeTourSchedule(
+  scheduleId: string,
+  userId: string,
+  opts: { isAdmin?: boolean } = {},
+): Promise<{ tourId: string; ownerId: string } | null> {
+  const s = await prisma.tourSchedule.findUnique({
+    where: { id: scheduleId },
+    select: { tourId: true, tour: { select: { ownerId: true } } },
+  });
+  if (!s) return null;
+  if (opts.isAdmin) return { tourId: s.tourId, ownerId: s.tour.ownerId };
+  return s.tour.ownerId === userId ? { tourId: s.tourId, ownerId: s.tour.ownerId } : null;
+}
+
+export async function authorizeTourDurationOption(
+  optionId: string,
+  userId: string,
+  opts: { isAdmin?: boolean } = {},
+): Promise<{ tourId: string; ownerId: string } | null> {
+  const o = await prisma.tourDurationOption.findUnique({
+    where: { id: optionId },
+    select: { tourId: true, tour: { select: { ownerId: true } } },
+  });
+  if (!o) return null;
+  if (opts.isAdmin) return { tourId: o.tourId, ownerId: o.tour.ownerId };
+  return o.tour.ownerId === userId ? { tourId: o.tourId, ownerId: o.tour.ownerId } : null;
+}
+
+export async function authorizeTourBooking(
+  bookingId: string,
+  userId: string,
+  opts: { isAdmin?: boolean } = {},
+): Promise<{ tourId: string; ownerId: string; scheduleId: string; guests: number; status: string } | null> {
+  const b = await prisma.tourBooking.findUnique({
+    where: { id: bookingId },
+    select: {
+      tourId: true, scheduleId: true, guests: true, status: true,
+      tour: { select: { ownerId: true } },
+    },
+  });
+  if (!b) return null;
+  const data = { tourId: b.tourId, ownerId: b.tour.ownerId, scheduleId: b.scheduleId, guests: b.guests, status: b.status };
+  if (opts.isAdmin) return data;
+  return b.tour.ownerId === userId ? data : null;
+}
+
 /** Verify session AND load user + propertyIds in one step (eliminates duplicate DB queries) */
 export async function getSessionWithUser(req: Request) {
   const session = await verifySession(req);

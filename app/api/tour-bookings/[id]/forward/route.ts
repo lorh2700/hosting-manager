@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifySession } from '@/lib/auth';
+import { getSessionWithUser, authorizeTourBooking } from '@/lib/auth';
 import { notifyTourOperatorOfBooking, notifyTourHostOfBooking } from '@/lib/notify';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await verifySession(req);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await getSessionWithUser(req);
+    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { id } = await params;
+    const owned = await authorizeTourBooking(id, auth.session.userId, { isAdmin: auth.isAdmin });
+    if (!owned) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     const booking = await prisma.tourBooking.findUnique({
       where: { id },
       include: {

@@ -1,7 +1,26 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifySession, getSessionWithUser } from '@/lib/auth';
+import { getSessionWithUser, authorizeTour } from '@/lib/auth';
 import { uniqueSlug } from '@/lib/slug';
+
+// Allowed fields for client-supplied input — guards against mass assignment.
+const TOUR_WRITABLE_FIELDS = [
+  'title', 'slug', 'category', 'description', 'meetingPoint',
+  'durationMin', 'basePrice', 'maxGroupSize', 'operatorId',
+  'images', 'isActive',
+] as const;
+
+type TourWritable = Partial<Record<typeof TOUR_WRITABLE_FIELDS[number], unknown>>;
+
+function pickWritable(body: Record<string, unknown>): TourWritable {
+  const out: TourWritable = {};
+  for (const key of TOUR_WRITABLE_FIELDS) {
+    if (key in body) out[key] = body[key];
+  }
+  // Defensive: images must be a string array, not arbitrary
+  if ('images' in out && !Array.isArray(out.images)) delete out.images;
+  return out;
+}
 
 export async function GET(req: Request) {
   try {
@@ -45,19 +64,28 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const session = await verifySession(req);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await getSessionWithUser(req);
+    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json();
-    if (!body.title) {
+    if (!body.title || typeof body.title !== 'string') {
       return NextResponse.json({ error: 'title은 필수입니다.' }, { status: 400 });
+    }
+
+    // If linking to an operator, ensure the user owns it.
+    if (body.operatorId) {
+      const ok = await prisma.tourOperator.findFirst({
+        where: { id: body.operatorId, ...(auth.isAdmin ? {} : { ownerId: auth.session.userId }) },
+        select: { id: true },
+      });
+      if (!ok) return NextResponse.json({ error: '운영업체에 대한 권한이 없습니다.' }, { status: 403 });
     }
 
     const tour = await prisma.tour.create({
       data: {
-        ownerId: session.userId,
+        ownerId: auth.session.userId,
         title: body.title,
-        slug: body.slug?.trim() || uniqueSlug(body.title),
+        slug: typeof body.slug === 'string' && body.slug.trim() ? body.slug.trim() : uniqueSlug(body.title),
         category: body.category ?? null,
         description: body.description ?? null,
         meetingPoint: body.meetingPoint ?? null,
@@ -78,14 +106,31 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
   try {
-    const session = await verifySession(req);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await getSessionWithUser(req);
+    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const body = await req.json();
-    const { id, ...data } = body;
+    const body = await req.json() as Record<string, unknown>;
+    const id = typeof body.id === 'string' ? body.id : null;
     if (!id) return NextResponse.json({ error: 'id는 필수입니다.' }, { status: 400 });
 
-    const tour = await prisma.tour.update({ where: { id }, data });
+    const owned = await authorizeTour(id, auth.session.userId, { isAdmin: auth.isAdmin });
+    if (!owned) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+    const data = pickWritable(body);
+
+    // operatorId change → must own the new operator (unless setting to null)
+    if (data.operatorId) {
+      const ok = await prisma.tourOperator.findFirst({
+        where: { id: data.operatorId as string, ...(auth.isAdmin ? {} : { ownerId: auth.session.userId }) },
+        select: { id: true },
+      });
+      if (!ok) return NextResponse.json({ error: '운영업체에 대한 권한이 없습니다.' }, { status: 403 });
+    }
+
+    const tour = await prisma.tour.update({
+      where: { id },
+      data: data as Parameters<typeof prisma.tour.update>[0]['data'],
+    });
     return NextResponse.json(tour);
   } catch (e) {
     console.error('[tours] PUT error:', e);
@@ -95,12 +140,15 @@ export async function PUT(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
-    const session = await verifySession(req);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await getSessionWithUser(req);
+    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'id는 필수입니다.' }, { status: 400 });
+
+    const owned = await authorizeTour(id, auth.session.userId, { isAdmin: auth.isAdmin });
+    if (!owned) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const bookingCount = await prisma.tourBooking.count({ where: { tourId: id } });
     if (bookingCount > 0) {

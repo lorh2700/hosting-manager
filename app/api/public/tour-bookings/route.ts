@@ -1,9 +1,20 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { notifyTourHostOfBooking, notifyTourGuestOfBooking } from '@/lib/notify';
+import { rateLimit, clientIp } from '@/lib/rateLimit';
 
 export async function POST(req: Request) {
   try {
+    // Best-effort rate limit: 10 bookings / IP / 10 min
+    const ip = clientIp(req);
+    const rl = rateLimit(`tour-booking:${ip}`, 10, 10 * 60 * 1000);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: '요청이 너무 잦습니다. 잠시 후 다시 시도해주세요.' },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfterSec) } },
+      );
+    }
+
     const body = await req.json();
     const { scheduleId, durationOptionId, name, phone, email, guests, message } = body;
 
@@ -11,7 +22,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: '이름, 슬롯, 인원은 필수입니다.' }, { status: 400 });
     }
     const trimmedPhone = typeof phone === 'string' ? phone.trim() : '';
-    const guestCount = Math.max(1, Number(guests) || 1);
+    const guestCount = Math.max(1, Math.min(50, Number(guests) || 1));
 
     const result = await prisma.$transaction(async (tx) => {
       const schedule = await tx.tourSchedule.findUnique({

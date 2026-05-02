@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifySession, getSessionWithUser } from '@/lib/auth';
+import { getSessionWithUser, authorizeTour, authorizeTourBooking, authorizeTourSchedule } from '@/lib/auth';
 import { notifyTourHostOfBooking, notifyTourGuestOfBooking } from '@/lib/notify';
 
 export async function GET(req: Request) {
@@ -72,14 +72,19 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const session = await verifySession(req);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await getSessionWithUser(req);
+    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json();
     const { scheduleId, durationOptionId, name, phone, email, guests, message, bookingId } = body;
     if (!scheduleId || !name || !guests) {
       return NextResponse.json({ error: '이름, 슬롯, 인원은 필수입니다.' }, { status: 400 });
     }
+
+    // Verify the admin owns the tour behind this schedule.
+    const sched = await authorizeTourSchedule(scheduleId, auth.session.userId, { isAdmin: auth.isAdmin });
+    if (!sched) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
     const trimmedPhone = typeof phone === 'string' ? phone.trim() : '';
     const guestCount = Math.max(1, Number(guests) || 1);
 
@@ -176,23 +181,28 @@ export async function POST(req: Request) {
   }
 }
 
+const BOOKING_STATUSES = ['pending', 'forwarded', 'confirmed', 'cancelled', 'completed'] as const;
+const BOOKING_WRITABLE_FIELDS = ['name', 'phone', 'email', 'message'] as const;
+
 export async function PUT(req: Request) {
   try {
-    const session = await verifySession(req);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await getSessionWithUser(req);
+    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const body = await req.json();
-    const { id, status, ...rest } = body;
+    const body = await req.json() as Record<string, unknown>;
+    const id = typeof body.id === 'string' ? body.id : null;
     if (!id) return NextResponse.json({ error: 'id는 필수입니다.' }, { status: 400 });
+
+    const before = await authorizeTourBooking(id, auth.session.userId, { isAdmin: auth.isAdmin });
+    if (!before) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+    const status = typeof body.status === 'string' ? body.status : undefined;
+    if (status !== undefined && !(BOOKING_STATUSES as readonly string[]).includes(status)) {
+      return NextResponse.json({ error: '잘못된 status 값입니다.' }, { status: 400 });
+    }
 
     // Cancellation: free up the inventory.
     if (status === 'cancelled') {
-      const before = await prisma.tourBooking.findUnique({
-        where: { id },
-        select: { status: true, scheduleId: true, guests: true },
-      });
-      if (!before) return NextResponse.json({ error: 'not found' }, { status: 404 });
-
       if (before.status !== 'cancelled') {
         await prisma.$transaction([
           prisma.tourBooking.update({ where: { id }, data: { status: 'cancelled' } }),
@@ -205,9 +215,16 @@ export async function PUT(req: Request) {
       return NextResponse.json({ success: true });
     }
 
+    // Allow only specific fields — never tourId/scheduleId/guests/totalPrice/etc.
+    const data: Record<string, unknown> = {};
+    for (const key of BOOKING_WRITABLE_FIELDS) {
+      if (key in body) data[key] = body[key];
+    }
+    if (status) data.status = status;
+
     const updated = await prisma.tourBooking.update({
       where: { id },
-      data: { ...rest, ...(status ? { status } : {}) },
+      data: data as Parameters<typeof prisma.tourBooking.update>[0]['data'],
     });
     return NextResponse.json(updated);
   } catch (e) {
