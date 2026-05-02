@@ -1,0 +1,109 @@
+import { NextResponse } from 'next/server';
+import { randomBytes } from 'crypto';
+import { prisma } from '@/lib/prisma';
+import { verifySession, getSessionWithUser } from '@/lib/auth';
+
+function generatePublicToken(): string {
+  return randomBytes(24).toString('base64url');
+}
+
+export async function GET(req: Request) {
+  try {
+    const auth = await getSessionWithUser(req);
+    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const operators = await prisma.tourOperator.findMany({
+      where: auth.isAdmin ? undefined : { ownerId: auth.session.userId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        _count: { select: { tours: true } },
+      },
+    });
+
+    return NextResponse.json(
+      operators.map(op => ({
+        id: op.id,
+        name: op.name,
+        contactName: op.contactName,
+        contactPhone: op.contactPhone,
+        email: op.email,
+        notifyChannel: op.notifyChannel,
+        publicToken: op.publicToken,
+        notes: op.notes,
+        ownerId: op.ownerId,
+        tourCount: op._count.tours,
+        createdAt: op.createdAt,
+      })),
+    );
+  } catch (e) {
+    console.error('[tour-operators] GET error:', e);
+    return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const session = await verifySession(req);
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const body = await req.json();
+    if (!body.name) {
+      return NextResponse.json({ error: 'name은 필수입니다.' }, { status: 400 });
+    }
+
+    const operator = await prisma.tourOperator.create({
+      data: {
+        ownerId: session.userId,
+        name: body.name,
+        contactName: body.contactName ?? null,
+        contactPhone: body.contactPhone ?? null,
+        email: body.email ?? null,
+        notifyChannel: body.notifyChannel ?? 'kakao',
+        notes: body.notes ?? null,
+        publicToken: generatePublicToken(),
+      },
+    });
+    return NextResponse.json(operator, { status: 201 });
+  } catch (e) {
+    console.error('[tour-operators] POST error:', e);
+    return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
+  }
+}
+
+export async function PUT(req: Request) {
+  try {
+    const session = await verifySession(req);
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const body = await req.json();
+    const { id, regenerateToken, ...data } = body;
+    if (!id) return NextResponse.json({ error: 'id는 필수입니다.' }, { status: 400 });
+
+    if (regenerateToken) {
+      data.publicToken = generatePublicToken();
+    }
+
+    const operator = await prisma.tourOperator.update({ where: { id }, data });
+    return NextResponse.json(operator);
+  } catch (e) {
+    console.error('[tour-operators] PUT error:', e);
+    return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const session = await verifySession(req);
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    if (!id) return NextResponse.json({ error: 'id는 필수입니다.' }, { status: 400 });
+
+    await prisma.tourOperator.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (e) {
+    console.error('[tour-operators] DELETE error:', e);
+    return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
+  }
+}

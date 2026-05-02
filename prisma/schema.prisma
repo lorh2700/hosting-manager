@@ -25,6 +25,8 @@ model User {
   cleaners       Cleaner[] @relation("OwnedCleaners")
   cleanerAccount Cleaner?  @relation("CleanerAccount")
   invitationsSent Invitation[] @relation("InvitedBy")
+  tourOperators  TourOperator[] @relation("OwnedTourOperators")
+  tours          Tour[]         @relation("OwnedTours")
 
   @@map("users")
 }
@@ -350,6 +352,122 @@ model SyncLog {
   integration Integration? @relation(fields: [integrationId], references: [id])
 
   @@map("sync_logs")
+}
+
+// ── 투어 운영업체 ──
+model TourOperator {
+  id            String   @id @default(uuid())
+  ownerId       String   @map("owner_id")
+  name          String
+  contactName   String?  @map("contact_name")
+  contactPhone  String?  @map("contact_phone")
+  email         String?
+  notifyChannel String   @default("kakao") @map("notify_channel") // kakao, email, both, none
+  publicToken   String?  @unique @map("public_token")
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  owner User   @relation("OwnedTourOperators", fields: [ownerId], references: [id])
+  tours Tour[]
+
+  @@index([ownerId])
+  @@map("tour_operators")
+}
+
+// ── 투어 상품 ──
+model Tour {
+  id           String   @id @default(uuid())
+  ownerId      String   @map("owner_id")
+  operatorId   String?  @map("operator_id")
+  title        String
+  slug         String   @unique
+  category     String?  // hanbok, guide, tea, craft, etc
+  description  String?
+  meetingPoint String?  @map("meeting_point")
+  durationMin  Int?     @map("duration_min")  // legacy fallback when no options exist
+  basePrice    Decimal? @map("base_price")    // legacy fallback when no options exist
+  maxGroupSize Int?     @map("max_group_size")
+  images       String[] @default([])
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  owner           User                 @relation("OwnedTours", fields: [ownerId], references: [id])
+  operator        TourOperator?        @relation(fields: [operatorId], references: [id], onDelete: SetNull)
+  schedules       TourSchedule[]
+  bookings        TourBooking[]
+  durationOptions TourDurationOption[]
+
+  @@index([ownerId])
+  @@index([operatorId])
+  @@map("tours")
+}
+
+// ── 투어 코스 옵션 (시간별 가격) ──
+model TourDurationOption {
+  id          String   @id @default(uuid())
+  tourId      String   @map("tour_id")
+  label       String?  // optional display name e.g. "북촌 짧은 코스"
+  durationMin Int      @map("duration_min")
+  price       Decimal
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  tour     Tour          @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  bookings TourBooking[]
+
+  @@index([tourId])
+  @@map("tour_duration_options")
+}
+
+// ── 투어 스케줄 (날짜 + 시간 슬롯) ──
+model TourSchedule {
+  id          String   @id @default(uuid())
+  tourId      String   @map("tour_id")
+  date        String   // YYYY-MM-DD
+  startTime   String   @map("start_time")  // HH:mm
+  capacity    Int      @default(1)
+  bookedCount Int      @default(0) @map("booked_count")
+  status      String   @default("open")    // open, closed, cancelled
+  note        String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  tour     Tour          @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  bookings TourBooking[]
+
+  @@unique([tourId, date, startTime])
+  @@index([date, status])
+  @@map("tour_schedules")
+}
+
+// ── 투어 예약 ──
+model TourBooking {
+  id               String   @id @default(uuid())
+  tourId           String   @map("tour_id")
+  scheduleId       String   @map("schedule_id")
+  durationOptionId String?  @map("duration_option_id")
+  bookingId        String?  @map("booking_id") // 숙박 Booking과 느슨한 연결
+  name             String
+  phone            String
+  email            String?
+  guests           Int      @default(1)
+  durationMin      Int?     @map("duration_min")  // snapshot at booking time
+  unitPrice        Decimal? @map("unit_price")    // snapshot at booking time
+  totalPrice       Decimal? @map("total_price")
+  status           String   @default("pending") // pending, forwarded, confirmed, cancelled, completed
+  forwardedAt      DateTime? @map("forwarded_at")
+  message          String?
+  source           String   @default("direct")  // direct, admin, hanok-guest
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  tour           Tour                @relation(fields: [tourId], references: [id])
+  schedule       TourSchedule        @relation(fields: [scheduleId], references: [id])
+  durationOption TourDurationOption? @relation(fields: [durationOptionId], references: [id], onDelete: SetNull)
+
+  @@index([tourId, status])
+  @@index([scheduleId])
+  @@map("tour_bookings")
 }
 
 // ── Beds24 access token 캐시 (싱글톤) ──

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -16,18 +16,41 @@ import {
   MoreHorizontal,
   X,
   FileBarChart,
+  Compass,
+  Briefcase,
+  CalendarCheck,
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { Logo } from '@/components/Logo';
+import { useAdminMode, clearAdminMode } from '@/lib/adminMode';
 
-const SIDEBAR_LINKS = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: typeof Home;
+  roles: string[];
+}
+
+const COMMON_TOP: NavItem[] = [
   { href: '/admin', label: '대시보드', icon: Home, roles: ['super_admin', 'admin', 'host'] },
+];
+
+const HOST_LINKS: NavItem[] = [
   { href: '/admin/properties', label: '숙소 관리', icon: HomeIcon, roles: ['super_admin', 'admin', 'host'] },
   { href: '/admin/calendar', label: '캘린더', icon: Calendar, roles: ['super_admin', 'admin', 'host'] },
   { href: '/admin/bookings', label: '예약', icon: BookOpen, roles: ['super_admin', 'admin', 'host'] },
   { href: '/admin/messages', label: '메시지', icon: MessageSquare, roles: ['super_admin', 'admin', 'host'] },
   { href: '/admin/cleaners', label: '청소 담당자', icon: Users, roles: ['super_admin', 'admin', 'host'] },
   { href: '/admin/cleaning-report', label: '청소 보고서', icon: FileBarChart, roles: ['super_admin', 'admin', 'host'] },
+];
+
+const TOUR_LINKS: NavItem[] = [
+  { href: '/admin/tours', label: '투어 상품', icon: Compass, roles: ['super_admin', 'admin', 'host'] },
+  { href: '/admin/tour-bookings', label: '투어 예약', icon: CalendarCheck, roles: ['super_admin', 'admin', 'host'] },
+  { href: '/admin/tour-operators', label: '운영업체', icon: Briefcase, roles: ['super_admin', 'admin', 'host'] },
+];
+
+const SYSTEM_LINKS: NavItem[] = [
   { href: '/admin/users', label: '유저 관리', icon: UserCog, roles: ['super_admin', 'admin'] },
   { href: '/admin/settings/profile', label: '프로필', icon: Settings, roles: ['super_admin', 'admin', 'host', 'cleaner', 'viewer'] },
 ];
@@ -42,6 +65,8 @@ export function Sidebar() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
+  const { mode } = useAdminMode();
+  const modeLabel = mode === 'tour' ? '투어 관리' : '숙박 관리';
 
   useEffect(() => {
     if (!user) return;
@@ -79,14 +104,53 @@ export function Sidebar() {
 
   useEffect(() => { setMoreOpen(false); }, [pathname]);
 
-  const visibleLinks = SIDEBAR_LINKS.filter(link => link.roles.includes(role));
-  const mobileMainLinks = visibleLinks.slice(0, MOBILE_PRIMARY_COUNT);
-  const mobileMoreLinks = visibleLinks.slice(MOBILE_PRIMARY_COUNT);
+  const filterByRole = (items: NavItem[]) => items.filter(l => l.roles.includes(role));
+
+  const visible = useMemo(() => {
+    const top = filterByRole(COMMON_TOP);
+    const middle = filterByRole(mode === 'host' ? HOST_LINKS : TOUR_LINKS);
+    const bottom = filterByRole(SYSTEM_LINKS);
+    return { top, middle, bottom };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role, mode]);
+
+  const flatLinks = [...visible.top, ...visible.middle, ...visible.bottom];
+  const mobileMainLinks = flatLinks.slice(0, MOBILE_PRIMARY_COUNT);
+  const mobileMoreLinks = flatLinks.slice(MOBILE_PRIMARY_COUNT);
   const isMoreActive = mobileMoreLinks.some(link => pathname === link.href || (link.href !== '/admin' && pathname.startsWith(link.href)));
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
+    clearAdminMode();
     router.replace('/login');
+  };
+
+  const renderLink = (link: NavItem) => {
+    const isActive = pathname === link.href || (link.href !== '/admin' && pathname.startsWith(link.href));
+    const Icon = link.icon;
+    return (
+      <Link
+        key={link.href}
+        href={link.href}
+        className={`group relative flex items-center gap-3 pl-4 pr-3 py-2.5 text-[13px] transition-colors ${
+          isActive
+            ? 'text-stone-900 font-medium bg-stone-50 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-[var(--brand)]'
+            : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
+        }`}
+      >
+        <Icon
+          size={16}
+          strokeWidth={isActive ? 2 : 1.6}
+          className={isActive ? 'text-[var(--brand)]' : 'text-stone-400 group-hover:text-stone-700'}
+        />
+        <span>{link.label}</span>
+        {link.href === '/admin/messages' && unreadCount > 0 && (
+          <span className="ml-auto min-w-[20px] h-[18px] px-1.5 bg-[var(--brand)] flex items-center justify-center text-[10px] font-semibold text-white tabular-nums">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
+      </Link>
+    );
   };
 
   return (
@@ -102,34 +166,33 @@ export function Sidebar() {
           </Link>
         </div>
 
-        <nav className="flex-1 px-3 pb-6 space-y-px">
-          {visibleLinks.map((link) => {
-            const isActive = pathname === link.href || (link.href !== '/admin' && pathname.startsWith(link.href));
-            const Icon = link.icon;
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`group relative flex items-center gap-3 pl-4 pr-3 py-2.5 text-[13px] transition-colors ${
-                  isActive
-                    ? 'text-stone-900 font-medium bg-stone-50 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-[var(--brand)]'
-                    : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
-                }`}
-              >
-                <Icon
-                  size={16}
-                  strokeWidth={isActive ? 2 : 1.6}
-                  className={isActive ? 'text-[var(--brand)]' : 'text-stone-400 group-hover:text-stone-700'}
-                />
-                <span>{link.label}</span>
-                {link.href === '/admin/messages' && unreadCount > 0 && (
-                  <span className="ml-auto min-w-[20px] h-[18px] px-1.5 bg-[var(--brand)] flex items-center justify-center text-[10px] font-semibold text-white tabular-nums">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 px-3 pb-6 overflow-y-auto">
+          {/* Mode badge — locked at login, switch by re-logging in */}
+          <div className="mb-4 px-3">
+            <div className="flex items-center gap-2 bg-[var(--brand-tint)] border border-[var(--brand)]/20 px-3 py-2.5">
+              {mode === 'tour' ? <Compass size={14} className="text-[var(--brand)]" /> : <HomeIcon size={14} className="text-[var(--brand)]" />}
+              <span className="text-[11px] uppercase tracking-widest font-semibold text-[var(--brand-dark)]">
+                {modeLabel}
+              </span>
+            </div>
+          </div>
+
+          {visible.top.length > 0 && (
+            <div className="space-y-px">{visible.top.map(renderLink)}</div>
+          )}
+
+          {visible.middle.length > 0 && (
+            <div className="mt-3 space-y-px">{visible.middle.map(renderLink)}</div>
+          )}
+
+          {visible.bottom.length > 0 && (
+            <div className="mt-5">
+              <p className="px-4 mb-1.5 text-[10px] uppercase tracking-[0.22em] text-stone-400">
+                시스템
+              </p>
+              <div className="space-y-px">{visible.bottom.map(renderLink)}</div>
+            </div>
+          )}
         </nav>
 
         <div className="px-5 py-5 border-t border-stone-200">

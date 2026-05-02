@@ -9,12 +9,13 @@ import { Logo } from '@/components/Logo';
 
 const NAV_LINKS = [
   { href: '#spaces', label: '공간' },
+  { href: '/tours', label: '투어' },
   { href: '/about', label: '호스팅 지원 플랫폼' },
 ];
 
 const SECONDARY_LINKS = [
   { href: 'https://lab.voidanchae.com', label: 'Lab', external: true },
-  { href: '/admin', label: '호스트', external: false },
+  { href: '/admin', label: '관리자', external: false },
 ];
 
 export default function PublicPortal() {

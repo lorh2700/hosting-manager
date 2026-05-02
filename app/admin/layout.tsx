@@ -5,6 +5,8 @@ import { useRouter, usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/sidebar';
 import { useAuth } from '@/components/AuthProvider';
 import { Logo } from '@/components/Logo';
+import { writeAdminMode, type AdminMode } from '@/lib/adminMode';
+import { Home, Compass } from 'lucide-react';
 
 const PUBLIC_PATHS = ['/admin/calendar'];
 
@@ -12,6 +14,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const { user, profile, loading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loginMode, setLoginMode] = useState<AdminMode>('host');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
@@ -40,7 +43,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       if (!res.ok) {
         setError(data.error || '로그인에 실패했습니다.');
       } else {
-        // Refresh auth context after successful login
+        // Persist the chosen admin area before refreshing — sidebar/dashboard
+        // pick this up on the next render.
+        writeAdminMode(loginMode);
         window.location.reload();
       }
     } catch (err) {
@@ -77,9 +82,42 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <Logo width={200} variant="black" priority />
         </div>
         <div className="bg-white p-8 sm:p-10 border border-stone-200 max-w-md w-full">
-          <p className="text-[10px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">Host</p>
-          <h1 className="text-xl font-semibold text-stone-900 mb-1.5">호스트 로그인</h1>
-          <p className="text-stone-500 mb-7 text-sm">숙소를 관리하려면 로그인하세요.</p>
+          <p className="text-[10px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">Admin</p>
+          <h1 className="text-xl font-semibold text-stone-900 mb-1.5">관리자 로그인</h1>
+          <p className="text-stone-500 mb-6 text-sm">관리할 영역을 선택하고 로그인하세요.</p>
+
+          {/* Admin area picker */}
+          <div className="mb-5">
+            <label className="block text-[10px] uppercase tracking-widest text-stone-600 mb-2">관리 영역</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setLoginMode('host')}
+                aria-pressed={loginMode === 'host'}
+                className={`flex flex-col items-center justify-center gap-1.5 py-4 border transition-all ${
+                  loginMode === 'host'
+                    ? 'bg-[var(--brand-tint)] border-[var(--brand)] text-[var(--brand-dark)]'
+                    : 'bg-white border-stone-300 text-stone-600 hover:border-stone-400'
+                }`}
+              >
+                <Home size={18} strokeWidth={1.8} className={loginMode === 'host' ? 'text-[var(--brand)]' : 'text-stone-400'} />
+                <span className="text-xs font-semibold tracking-widest uppercase">숙박</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setLoginMode('tour')}
+                aria-pressed={loginMode === 'tour'}
+                className={`flex flex-col items-center justify-center gap-1.5 py-4 border transition-all ${
+                  loginMode === 'tour'
+                    ? 'bg-[var(--brand-tint)] border-[var(--brand)] text-[var(--brand-dark)]'
+                    : 'bg-white border-stone-300 text-stone-600 hover:border-stone-400'
+                }`}
+              >
+                <Compass size={18} strokeWidth={1.8} className={loginMode === 'tour' ? 'text-[var(--brand)]' : 'text-stone-400'} />
+                <span className="text-xs font-semibold tracking-widest uppercase">투어</span>
+              </button>
+            </div>
+          </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
