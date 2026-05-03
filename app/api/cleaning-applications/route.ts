@@ -101,8 +101,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: '이미 신청한 청소입니다.' }, { status: 409 });
     }
 
+    // Explicit whitelist — never spread `...body` (drops unknown fields like
+     // `note` that aren't on the schema, and prevents callers from forging
+     // applicantId / status to bypass the moderation flow).
     const app = await prisma.cleaningApplication.create({
-      data: { ...body, propertyId: cleaning.propertyId },
+      data: {
+        cleaningId: body.cleaningId,
+        propertyId: cleaning.propertyId,
+        applicantId: auth.session.userId,
+        applicantName: typeof body.applicantName === 'string' && body.applicantName.trim()
+          ? body.applicantName.trim()
+          : null,
+        status: 'pending',
+      },
     });
 
     // Best-effort notify the property owner — never fail the request because
