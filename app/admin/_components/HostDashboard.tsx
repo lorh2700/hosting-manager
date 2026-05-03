@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   Loader2,
   X,
+  Hand,
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import {
@@ -112,6 +113,7 @@ export default function HostDashboard() {
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [pendingSupplies, setPendingSupplies] = useState(0);
   const [openIssues, setOpenIssues] = useState(0);
+  const [pendingApplications, setPendingApplications] = useState(0);
   const [monthUnassigned, setMonthUnassigned] = useState<UnassignedCheckout[]>([]);
   const [cleaners, setCleaners] = useState<Cleaner[]>([]);
   const [assignSelection, setAssignSelection] = useState<Record<string, string>>({});
@@ -147,6 +149,7 @@ export default function HostDashboard() {
         setUnreadMessages(data.unreadMessages);
         setPendingSupplies(data.pendingSupplies);
         setOpenIssues(data.openIssues);
+        setPendingApplications(data.pendingApplications ?? 0);
 
         if (!data.reservations?.length) { setLoading(false); return; }
 
@@ -155,9 +158,9 @@ export default function HostDashboard() {
         const cleanersMap: Record<string, string> = data.cleanersMap;
 
         if (isAdmin) {
-          // Only show upcoming (today onwards, until end of month) checkouts
-          // that have neither a directly-assigned cleaner nor an open
-          // application call — those need fresh action from the admin.
+          // Show every upcoming checkout (today → end of month) that lacks
+          // an assigned cleaner. The `isOpen` flag doesn't count as an
+          // assignment — those slots are still waiting for admin action.
           const todayStr = format(startOfToday(), 'yyyy-MM-dd');
           const monthEnd = format(endOfMonth(new Date()), 'yyyy-MM-dd');
           const seen = new Set<string>();
@@ -167,10 +170,7 @@ export default function HostDashboard() {
             const key = `${r.propertyId}_${r.end}`;
             if (seen.has(key)) continue;
             const cleaning = cleaningsMap[key];
-            // Skip when:
-            //  - assigned to a cleaner directly, or
-            //  - opened for application (admin already took action)
-            if (cleaning?.cleanerId || cleaning?.isOpen) continue;
+            if (cleaning?.cleanerId) continue;
             seen.add(key);
             unassigned.push({
               key,
@@ -201,9 +201,15 @@ export default function HostDashboard() {
             .map(r => {
               const cleaning = cleaningsMap[`${r.propertyId}_${dateStr}`];
               const cleanerName = cleaning?.cleanerId ? (cleanersMap[cleaning.cleanerId] || '') : '';
-              const cleaningStatus: 'done' | 'pending' | 'unassigned' = cleaning
-                ? (cleaning.status === 'done' ? 'done' : 'pending')
-                : 'unassigned';
+              // "미배정" = no cleaner assigned, regardless of whether an
+              // empty cleaning row exists. "대기" only when someone is
+              // assigned but the cleaning hasn't been marked done yet.
+              const cleaningStatus: 'done' | 'pending' | 'unassigned' =
+                cleaning?.status === 'done'
+                  ? 'done'
+                  : cleaning?.cleanerId
+                    ? 'pending'
+                    : 'unassigned';
               return { reservation: { ...r, propertyName: r.propertyName || propsMap[r.propertyId] || '' }, cleanerName, cleaningStatus };
             });
 
@@ -337,6 +343,7 @@ export default function HostDashboard() {
 
   const actionItems = [
     { count: unreadMessages, label: '미읽은 메시지', href: '/admin/messages', icon: MessageSquare },
+    { count: pendingApplications, label: '청소 신청 대기', href: '/admin/cleaning-requests', icon: Hand },
     { count: unassignedCleanings, label: '미배정 청소', href: '/admin/calendar', icon: Brush },
     { count: pendingSupplies, label: '비품 요청', href: '/admin/supplies', icon: Package },
     { count: openIssues, label: '미해결 이슈', href: '/admin/issues', icon: AlertTriangle },

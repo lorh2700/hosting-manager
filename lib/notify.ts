@@ -45,6 +45,7 @@ export const TEMPLATES = {
   CLEANING_ASSIGNED_BULK: process.env.SOLAPI_TPL_CLEANING_ASSIGNED_BULK ?? '',
   CLEANING_OPEN_NEW: process.env.SOLAPI_TPL_CLEANING_OPEN_NEW ?? '',
   CLEANING_CANCELLED: process.env.SOLAPI_TPL_CLEANING_CANCELLED ?? '',
+  CLEANING_APPLICATION_NEW: process.env.SOLAPI_TPL_CLEANING_APPLICATION_NEW ?? '',
   TOUR_BOOKING_NEW: process.env.SOLAPI_TPL_TOUR_BOOKING_NEW ?? '',
   // Host notification — falls back to TOUR_BOOKING_NEW if a dedicated
   // template isn't registered.
@@ -376,6 +377,59 @@ export async function notifyTourOperatorOfBooking(opts: {
       }
     }
   }
+}
+
+/**
+ * Notify the property HOST when a cleaner applies for one of their open
+ * cleanings. Sends alimtalk if the template is registered, otherwise
+ * falls back to SMS so the host always hears about it.
+ */
+export async function notifyHostOfCleaningApplication(opts: {
+  hostPhone: string | null;
+  hostName: string;
+  cleanerName: string;
+  propertyName: string;
+  date: string; // YYYY-MM-DD
+  applicationId: string;
+}): Promise<NotifyResult | null> {
+  if (!opts.hostPhone) {
+    console.log('[notify] host has no phone; skipping application notify', { applicationId: opts.applicationId });
+    return null;
+  }
+
+  const variables = {
+    호스트명: opts.hostName,
+    청소담당자명: opts.cleanerName,
+    숙소명: opts.propertyName,
+    청소일: formatDateKo(opts.date),
+  };
+
+  const smsText =
+    `[void anchae] 청소 신청 접수\n` +
+    `${opts.cleanerName}님이 ${opts.propertyName} ` +
+    `${variables.청소일} 청소를 신청했습니다.\n` +
+    `대시보드에서 승인/거절을 처리해주세요.`;
+
+  const notifier = getNotifier();
+  const templateId = TEMPLATES.CLEANING_APPLICATION_NEW;
+
+  if (!templateId) {
+    console.warn('[notify] SOLAPI_TPL_CLEANING_APPLICATION_NEW not set; sending plain SMS instead');
+    return notifier.sendSms({ to: opts.hostPhone, text: smsText }).catch(err => {
+      console.error('[notify] application SMS failed', err);
+      return null;
+    });
+  }
+
+  return notifier.sendAlimtalk({
+    to: opts.hostPhone,
+    templateId,
+    variables,
+    smsText,
+  }).catch(err => {
+    console.error('[notify] application alimtalk failed', err);
+    return null;
+  });
 }
 
 /**

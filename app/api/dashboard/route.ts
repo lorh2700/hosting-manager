@@ -29,7 +29,7 @@ export async function GET(req: Request) {
     const rangeEnd = weekEndStr > monthEndStr ? weekEndStr : monthEndStr;
 
     // All data queries in parallel (was 2 sequential rounds before)
-    const [events, bookings, cleanings, cleaners, unreadMessages, pendingSupplies, openIssues] = await Promise.all([
+    const [events, bookings, cleanings, cleaners, unreadMessages, pendingSupplies, openIssues, pendingApplications] = await Promise.all([
       prisma.event.findMany({
         where: {
           propertyId: { in: propIds },
@@ -61,6 +61,12 @@ export async function GET(req: Request) {
       prisma.message.count({ where: { sender: 'guest', read: false } }),
       prisma.supplyTodo.count({ where: { done: false } }),
       prisma.cleaningIssue.count({ where: { status: { in: ['open', 'in_progress'] } } }),
+      prisma.cleaningApplication.count({
+        where: {
+          status: 'pending',
+          propertyId: { in: propIds },
+        },
+      }),
     ]);
 
     const cleanersMap = Object.fromEntries(cleaners.map(c => [c.id, c.name]));
@@ -128,6 +134,7 @@ export async function GET(req: Request) {
         unreadMessages,
         pendingSupplies,
         openIssues,
+        pendingApplications,
       },
       {
         headers: {

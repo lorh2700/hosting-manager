@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionWithUser } from '@/lib/auth';
+import { notifyHostOfCleaningApplication } from '@/lib/notify';
 
 function forbidden() {
   return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
@@ -56,7 +57,17 @@ export async function POST(req: Request) {
 
     const cleaning = await prisma.cleaning.findUnique({
       where: { id: body.cleaningId },
-      select: { propertyId: true, isOpen: true },
+      select: {
+        propertyId: true,
+        cleanerId: true,
+        date: true,
+        property: {
+          select: {
+            name: true,
+            owner: { select: { displayName: true, email: true, phone: true } },
+          },
+        },
+      },
     });
     if (!cleaning) return NextResponse.json({ error: 'not found' }, { status: 404 });
 
@@ -65,20 +76,48 @@ export async function POST(req: Request) {
     if (!auth.isAdmin && !isCleaner && !scopedIds.includes(cleaning.propertyId)) {
       return forbidden();
     }
-    // Cleaners can only apply to cleanings that are still open,
-    // and only within their admin-assigned property scope (if any).
+    // Cleaners can apply as long as nobody is assigned yet, and only within
+    // their admin-assigned property scope (if any).
     if (isCleaner) {
-      if (!cleaning.isOpen) {
-        return NextResponse.json({ error: '이미 마감된 청소입니다.' }, { status: 400 });
+      if (cleaning.cleanerId) {
+        return NextResponse.json({ error: '이미 다른 담당자에게 배정된 청소입니다.' }, { status: 400 });
       }
       if (scopedIds.length > 0 && !scopedIds.includes(cleaning.propertyId)) {
         return NextResponse.json({ error: '이 지점의 청소는 신청할 수 없습니다.' }, { status: 403 });
       }
     }
 
+    // Prevent duplicate active applications from the same cleaner for the
+    // same cleaning (UI already disables the button, but defend the API).
+    const existing = await prisma.cleaningApplication.findFirst({
+      where: {
+        cleaningId: body.cleaningId,
+        applicantId: auth.session.userId,
+        status: { in: ['pending', 'approved'] },
+      },
+      select: { id: true },
+    });
+    if (existing) {
+      return NextResponse.json({ error: '이미 신청한 청소입니다.' }, { status: 409 });
+    }
+
     const app = await prisma.cleaningApplication.create({
       data: { ...body, propertyId: cleaning.propertyId },
     });
+
+    // Best-effort notify the property owner — never fail the request because
+    // notification couldn't be sent.
+    notifyHostOfCleaningApplication({
+      hostPhone: cleaning.property?.owner?.phone ?? null,
+      hostName: cleaning.property?.owner?.displayName
+        ?? cleaning.property?.owner?.email
+        ?? '호스트',
+      cleanerName: body.applicantName ?? '청소담당자',
+      propertyName: cleaning.property?.name ?? '숙소',
+      date: cleaning.date,
+      applicationId: app.id,
+    }).catch(err => console.error('[cleaning-applications] notify failed:', err));
+
     return NextResponse.json(app, { status: 201 });
   } catch (e) {
     console.error('[cleaning-applications] POST error:', e);
