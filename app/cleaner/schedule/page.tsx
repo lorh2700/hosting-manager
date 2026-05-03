@@ -93,6 +93,9 @@ export default function CleanerSchedulePage() {
         cleanerId: c.cleanerId as string | undefined,
         status: c.status as 'pending' | 'done',
       }))
+        // Defensive: hide rows that are already assigned to someone else
+        // even if the API mistakenly returned them.
+        .filter((c: OpenCleaning) => !c.cleanerId)
         .filter((c: OpenCleaning) => c.date >= today && c.date <= cutoff)
         .sort((a: OpenCleaning, b: OpenCleaning) => a.date.localeCompare(b.date));
 

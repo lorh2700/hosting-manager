@@ -21,7 +21,6 @@ import {
   isToday,
   isTomorrow,
   startOfToday,
-  startOfMonth,
   endOfMonth,
   parseISO,
 } from 'date-fns';
@@ -73,6 +72,12 @@ interface UnassignedCheckout {
   propertyName: string;
   date: string;
   guestName: string;
+}
+
+interface CleaningInfo {
+  cleanerId: string | null;
+  status: string;
+  isOpen?: boolean;
 }
 
 interface DayGroup {
@@ -146,20 +151,26 @@ export default function HostDashboard() {
         if (!data.reservations?.length) { setLoading(false); return; }
 
         const propsMap: Record<string, string> = data.propsMap;
-        const cleaningsMap: Record<string, { cleanerId: string; status: string }> = data.cleaningsMap;
+        const cleaningsMap: Record<string, CleaningInfo> = data.cleaningsMap;
         const cleanersMap: Record<string, string> = data.cleanersMap;
 
         if (isAdmin) {
-          const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
+          // Only show upcoming (today onwards, until end of month) checkouts
+          // that have neither a directly-assigned cleaner nor an open
+          // application call — those need fresh action from the admin.
+          const todayStr = format(startOfToday(), 'yyyy-MM-dd');
           const monthEnd = format(endOfMonth(new Date()), 'yyyy-MM-dd');
           const seen = new Set<string>();
           const unassigned: UnassignedCheckout[] = [];
           for (const r of data.reservations as Reservation[]) {
-            if (!r.end || r.end < monthStart || r.end > monthEnd) continue;
+            if (!r.end || r.end < todayStr || r.end > monthEnd) continue;
             const key = `${r.propertyId}_${r.end}`;
             if (seen.has(key)) continue;
             const cleaning = cleaningsMap[key];
-            if (cleaning?.cleanerId) continue;
+            // Skip when:
+            //  - assigned to a cleaner directly, or
+            //  - opened for application (admin already took action)
+            if (cleaning?.cleanerId || cleaning?.isOpen) continue;
             seen.add(key);
             unassigned.push({
               key,
@@ -221,16 +232,45 @@ export default function HostDashboard() {
     if (!cleanerId) return;
     setAssigningKey(item.key);
     try {
-      const res = await fetch('/api/cleanings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          propertyId: item.propertyId,
-          date: item.date,
-          cleanerId,
-          status: 'pending',
-        }),
-      });
+      // Look up an existing cleaning row for this slot first — when iCal
+      // sync auto-created an "open" cleaning, we want to assign INTO that
+      // row rather than create a duplicate (which would leave a stale
+      // unassigned row and confuse the dashboard).
+      const lookupRes = await fetch(
+        `/api/cleanings?propertyIds=${encodeURIComponent(item.propertyId)}`,
+      );
+      let existingId: string | null = null;
+      if (lookupRes.ok) {
+        const list = await lookupRes.json();
+        const match = (Array.isArray(list) ? list : []).find(
+          (c: { date: string; propertyId: string; id: string }) =>
+            c.propertyId === item.propertyId && c.date === item.date,
+        );
+        if (match) existingId = match.id;
+      }
+
+      const res = existingId
+        ? await fetch('/api/cleanings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: existingId,
+              cleanerId,
+              status: 'pending',
+              isOpen: false,
+            }),
+          })
+        : await fetch('/api/cleanings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              propertyId: item.propertyId,
+              date: item.date,
+              cleanerId,
+              status: 'pending',
+              isOpen: false,
+            }),
+          });
       if (!res.ok) throw new Error('assign failed');
       const cleanerName = cleaners.find(c => c.id === cleanerId)?.name || '';
       setMonthUnassigned(prev => prev.filter(u => u.key !== item.key));

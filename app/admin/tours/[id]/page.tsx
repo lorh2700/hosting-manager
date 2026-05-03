@@ -265,9 +265,10 @@ export default function TourDetailPage() {
         <ChevronLeft size={14} /> 투어 목록
       </Link>
 
-      <header className="border-b border-stone-200 pb-6">
+      <header className="border-b border-stone-200 pb-6 sm:pb-7">
+        <p className="text-[11px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">투어 호스팅</p>
         <div className="flex items-center justify-between gap-4 mb-3">
-          <h1 className="text-2xl sm:text-3xl font-light tracking-tight text-stone-900">{tour.title}</h1>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-900">{tour.title}</h1>
           <button
             type="button"
             onClick={() => update('isActive', !tour.isActive)}

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { format, parseISO, isToday, isTomorrow, isPast, differenceInCalendarDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { CheckCircle2, Clock, CalendarDays, AlertTriangle, ChevronDown, ChevronUp, Send } from 'lucide-react';
+import { CheckCircle2, Clock, CalendarDays, AlertTriangle, ChevronDown, ChevronUp, Send, Copy, Check, Link as LinkIcon } from 'lucide-react';
 import type { IssueCategory, IssueUrgency } from '@/lib/types';
 
 interface CleaningTask {
@@ -39,6 +39,8 @@ export default function CleanerPage() {
   const [tasks, setTasks] = useState<CleaningTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
+  const [icalToken, setIcalToken] = useState<string | null>(null);
+  const [copiedIcal, setCopiedIcal] = useState(false);
 
   // completion form
   const [completionNote, setCompletionNote] = useState('');
@@ -76,6 +78,7 @@ export default function CleanerPage() {
       const meRes = await fetch('/api/cleaners/me');
       const meData = meRes.ok ? await meRes.json() : { cleaner: null };
       const myCleanerId: string | null = meData?.cleaner?.id ?? null;
+      setIcalToken((meData?.cleaner?.publicToken as string | undefined) ?? null);
 
       // Fetch cleanings
       const cleaningsRes = await fetch(`/api/cleanings?propertyIds=${propertyIds.join(',')}`);
@@ -462,12 +465,77 @@ export default function CleanerPage() {
     );
   };
 
+  const icalHttpUrl = icalToken && typeof window !== 'undefined'
+    ? `${window.location.origin}/c/${icalToken}/ical.ics`
+    : '';
+  // webcal:// triggers most calendar apps' "subscribe" flow on click.
+  const icalSubscribeUrl = icalHttpUrl
+    ? icalHttpUrl.replace(/^https?:/, 'webcal:')
+    : '';
+
+  const handleCopyIcal = async () => {
+    if (!icalHttpUrl) return;
+    try {
+      await navigator.clipboard.writeText(icalHttpUrl);
+      setCopiedIcal(true);
+      setTimeout(() => setCopiedIcal(false), 2000);
+    } catch {
+      // ignore
+    }
+  };
+
   return (
     <div className="space-y-10">
       <header className="border-b border-white/10 pb-6 mt-4">
         <p className="text-[10px] tracking-[0.3em] text-white/50 mb-2">청소 담당자</p>
         <h1 className="text-2xl font-light tracking-tight text-white">내 청소 일정</h1>
       </header>
+
+      {icalToken && (
+        <section className="border border-white/10 bg-[#111] p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <CalendarDays size={14} className="text-white/60" />
+            <h2 className="text-[11px] uppercase tracking-widest text-white/70 font-medium">캘린더 연동</h2>
+          </div>
+          <p className="text-xs text-white/50 leading-relaxed">
+            아래 링크를 본인의 캘린더 앱(구글, 애플, 네이버)에 추가하면 배정된 청소 일정이 자동으로 동기화됩니다.
+          </p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              href={icalSubscribeUrl}
+              className="inline-flex items-center gap-1.5 bg-white text-black px-4 py-2.5 text-[11px] uppercase tracking-widest font-semibold hover:bg-white/90 transition-colors"
+            >
+              <LinkIcon size={12} /> 캘린더에 추가
+            </a>
+            <button
+              type="button"
+              onClick={handleCopyIcal}
+              className="inline-flex items-center gap-1.5 border border-white/20 text-white/80 hover:text-white hover:border-white/40 px-4 py-2.5 text-[11px] uppercase tracking-widest font-semibold transition-colors"
+            >
+              {copiedIcal ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+              {copiedIcal ? '복사됨' : '주소 복사'}
+            </button>
+          </div>
+
+          <input
+            type="text"
+            readOnly
+            value={icalHttpUrl}
+            onFocus={e => e.currentTarget.select()}
+            className="w-full bg-black/50 border border-white/10 px-3 py-2 text-[11px] text-white/70 font-mono focus:outline-none focus:border-white/30 truncate"
+          />
+
+          <details className="text-[11px] text-white/40">
+            <summary className="cursor-pointer hover:text-white/70 transition-colors">앱별 추가 방법</summary>
+            <div className="mt-2 space-y-1.5 pl-3 leading-relaxed">
+              <p><span className="text-white/60">구글 캘린더</span> — 다른 캘린더 + → URL로 추가 → 위 주소 붙여넣기</p>
+              <p><span className="text-white/60">애플(iPhone) 캘린더</span> — "캘린더에 추가" 버튼 누르고 안내대로 진행</p>
+              <p><span className="text-white/60">네이버 캘린더</span> — 설정 → 외부 캘린더 → URL 추가</p>
+            </div>
+          </details>
+        </section>
+      )}
 
       {tasks.length === 0 ? (
         <div className="flex flex-col items-center text-white/40 py-16">

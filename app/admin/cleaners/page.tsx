@@ -231,11 +231,11 @@ export default function CleanersPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 sm:space-y-12">
-      <header className="border-b border-stone-200 pb-6 sm:pb-8">
-        <p className="text-[10px] tracking-[0.3em] text-stone-500 mb-3 sm:mb-4">설정</p>
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-light tracking-tight text-stone-900">청소 담당자 관리</h1>
-        <p className="text-stone-500 mt-2 sm:mt-4 text-sm font-light tracking-wide">
+    <div className="max-w-4xl mx-auto space-y-8 sm:space-y-10">
+      <header className="border-b border-stone-200 pb-6 sm:pb-7">
+        <p className="text-[11px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">숙박 호스팅</p>
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-900">청소 담당자 관리</h1>
+        <p className="text-stone-500 mt-2 text-sm">
           청소 담당자를 등록하고 청소 일정에 배정하세요.
         </p>
       </header>

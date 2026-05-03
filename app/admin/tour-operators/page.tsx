@@ -126,10 +126,10 @@ export default function TourOperatorsPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 sm:space-y-12">
-      <header className="border-b border-stone-200 pb-6 sm:pb-8">
-        <p className="text-[10px] tracking-[0.3em] text-stone-500 mb-3 sm:mb-4">투어 호스팅</p>
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-light tracking-tight text-stone-900">투어 운영업체</h1>
-        <p className="text-stone-500 mt-2 sm:mt-4 text-sm font-light tracking-wide">
+      <header className="border-b border-stone-200 pb-6 sm:pb-7">
+        <p className="text-[11px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">투어 호스팅</p>
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-900">투어 운영업체</h1>
+        <p className="text-stone-500 mt-2 text-sm">
           예약이 들어왔을 때 알림을 보낼 운영업체를 등록합니다.
         </p>
       </header>

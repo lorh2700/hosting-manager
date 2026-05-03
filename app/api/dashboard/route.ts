@@ -53,7 +53,7 @@ export async function GET(req: Request) {
           propertyId: { in: propIds },
           date: { gte: rangeStart, lte: rangeEnd },
         },
-        select: { propertyId: true, date: true, cleanerId: true, status: true },
+        select: { propertyId: true, date: true, cleanerId: true, status: true, isOpen: true },
       }),
       auth.isAdmin
         ? prisma.cleaner.findMany({ select: { id: true, name: true } })
@@ -101,9 +101,22 @@ export async function GET(req: Request) {
       seen.add(key); return true;
     });
 
-    const cleaningsMap = Object.fromEntries(
-      cleanings.map(c => [`${c.propertyId}_${c.date}`, { cleanerId: c.cleanerId, status: c.status }])
-    );
+    // Multiple cleaning rows can exist for the same property+date (e.g., one
+    // auto-created by iCal sync + one admin-assigned). Aggregate so the slot
+    // is treated as assigned if ANY row carries a cleanerId.
+    const cleaningsMap: Record<string, { cleanerId: string | null; status: string; isOpen: boolean }> = {};
+    for (const c of cleanings) {
+      const key = `${c.propertyId}_${c.date}`;
+      const existing = cleaningsMap[key];
+      if (!existing) {
+        cleaningsMap[key] = { cleanerId: c.cleanerId, status: c.status, isOpen: c.isOpen };
+      } else if (c.cleanerId && !existing.cleanerId) {
+        // Prefer the assigned row over an unassigned one for the same slot.
+        cleaningsMap[key] = { cleanerId: c.cleanerId, status: c.status, isOpen: c.isOpen };
+      } else if (c.isOpen && !existing.cleanerId) {
+        existing.isOpen = true;
+      }
+    }
 
     return NextResponse.json(
       {

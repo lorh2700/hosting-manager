@@ -110,7 +110,13 @@ export async function GET(req: Request) {
     }
 
     if (status) where.status = status;
-    if (isOpen === 'true') where.isOpen = true;
+    if (isOpen === 'true') {
+      // "신청가능" = whoever has no cleaner assigned. We deliberately do
+      // NOT also gate on the `isOpen` flag — admins frequently leave it
+      // unset on manually-created cleanings, but those should still be
+      // applicable. The flag remains in the DB for legacy data only.
+      where.cleanerId = null;
+    }
 
     const cleanings = await prisma.cleaning.findMany({
       where,
@@ -138,6 +144,11 @@ export async function POST(req: Request) {
       return forbidden();
     }
 
+    // Assigning a cleaner directly closes the open-application slot.
+    if (body.cleanerId && body.isOpen !== false) {
+      body.isOpen = false;
+    }
+
     const cleaning = await prisma.cleaning.create({ data: body });
 
     if (cleaning.cleanerId) {
@@ -161,6 +172,13 @@ export async function PUT(req: Request) {
     if (!id) return NextResponse.json({ error: 'id는 필수입니다.' }, { status: 400 });
 
     if ('cleanerId' in data && data.cleanerId === '') data.cleanerId = null;
+
+    // Whenever a cleaner is being assigned, the slot is no longer "open
+    // for application". Conversely, clearing the cleaner doesn't auto-open
+    // — that's an explicit admin action via the cleaning-requests page.
+    if ('cleanerId' in data && data.cleanerId && !('isOpen' in data)) {
+      data.isOpen = false;
+    }
 
     const before = await prisma.cleaning.findUnique({
       where: { id },

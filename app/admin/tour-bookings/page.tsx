@@ -125,14 +125,15 @@ function TourBookingsContent() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 border-b border-stone-200 pb-6">
+      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 border-b border-stone-200 pb-6 sm:pb-7">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.3em] text-stone-500 mb-2">투어 호스팅</p>
-          <h1 className="text-2xl sm:text-3xl font-light tracking-tight text-stone-900">투어 예약 관리</h1>
+          <p className="text-[11px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">투어 호스팅</p>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-900">투어 예약 관리</h1>
+          <p className="text-stone-500 mt-2 text-sm">예약 상태를 변경하고 운영업체에 전달하세요.</p>
         </div>
         <Link
           href="/admin/tours"
-          className="text-xs uppercase tracking-widest text-stone-700 hover:text-stone-900 border border-stone-200 hover:border-stone-300 px-4 py-2 inline-flex items-center gap-2 transition-colors self-start sm:self-auto"
+          className="text-xs font-semibold uppercase tracking-widest text-stone-700 hover:text-stone-900 border border-stone-200 hover:border-stone-300 px-5 py-2.5 inline-flex items-center gap-2 transition-colors self-start sm:self-auto"
         >
           투어 상품
         </Link>

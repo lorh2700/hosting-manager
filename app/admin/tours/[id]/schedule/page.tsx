@@ -223,17 +223,17 @@ export default function TourSchedulePage() {
         <ChevronLeft size={14} /> 투어 상세
       </Link>
 
-      <header className="border-b border-stone-200 pb-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+      <header className="border-b border-stone-200 pb-6 sm:pb-7 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.3em] text-stone-500 mb-2">일정 · 재고 관리</p>
-          <h1 className="text-2xl sm:text-3xl font-light tracking-tight text-stone-900">{tour?.title}</h1>
+          <p className="text-[11px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">일정 · 재고 관리</p>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-900">{tour?.title}</h1>
           <p className="text-stone-500 mt-2 text-sm">
             빈 시간을 드래그/클릭해서 슬롯을 만들고, 슬롯을 클릭하면 예약 명단을 확인할 수 있습니다.
           </p>
         </div>
         <button
           onClick={() => setBulkOpen(true)}
-          className="text-xs uppercase tracking-widest font-medium text-stone-700 hover:text-stone-900 border border-stone-200 hover:border-stone-300 px-4 py-2 inline-flex items-center gap-2 transition-colors self-start sm:self-auto"
+          className="text-xs uppercase tracking-widest font-semibold text-stone-700 hover:text-stone-900 border border-stone-200 hover:border-stone-300 px-5 py-2.5 inline-flex items-center gap-2 transition-colors self-start sm:self-auto"
         >
           <CalendarDays size={13} /> 일괄 등록
         </button>
