@@ -37,8 +37,21 @@ export async function GET(req: Request) {
 
     if (status) where.status = status;
 
-    const apps = await prisma.cleaningApplication.findMany({ where, orderBy: { createdAt: 'desc' } });
-    return NextResponse.json(apps);
+    const apps = await prisma.cleaningApplication.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        cleaning: { select: { date: true } },
+      },
+    });
+    // Flatten cleaning.date onto the row as `cleaningDate` so the admin
+    // page (and any other consumer) can show the schedule date directly.
+    return NextResponse.json(
+      apps.map(a => ({
+        ...a,
+        cleaningDate: a.cleaning?.date ?? null,
+      })),
+    );
   } catch (e) {
     console.error('[cleaning-applications] GET error:', e);
     return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
