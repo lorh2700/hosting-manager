@@ -88,37 +88,18 @@ export default function AdminCleaningRequestsPage() {
     if (!user) return;
     setUpdating(app.id);
     try {
-      await apiPut('/api/cleaning-applications', {
-        id: app.id,
-        status: 'approved',
-        processedBy: user.id,
-        processedAt: new Date().toISOString(),
-      });
-
-      await apiPut('/api/cleanings', {
-        id: app.cleaningId,
-        cleanerId: app.applicantId,
-        isOpen: false,
-        assignmentType: 'applied',
-      });
-
-      const otherApps = applications.filter(
-        a => a.cleaningId === app.cleaningId && a.id !== app.id && a.status === 'pending'
-      );
-      for (const other of otherApps) {
-        await apiPut('/api/cleaning-applications', {
-          id: other.id,
-          status: 'rejected',
-          rejectedReason: '다른 담당자가 배정되었습니다',
-          processedBy: user.id,
-          processedAt: new Date().toISOString(),
-        });
+      // Server-side approve handles: User.id → Cleaner.id resolution,
+      // cleaning assignment, isOpen flip, and auto-rejecting other
+      // pending applications for the same cleaning — atomically.
+      const res = await fetch(`/api/cleaning-applications/${app.id}/approve`, { method: 'POST' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || '승인 처리에 실패했습니다.');
       }
-
       await loadData();
     } catch (err) {
       console.error(err);
-      alert('승인 처리에 실패했습니다.');
+      alert(err instanceof Error ? err.message : '승인 처리에 실패했습니다.');
     } finally {
       setUpdating(null);
     }

@@ -144,8 +144,21 @@ export function useCalendarData() {
   );
 
   const cleaningsIndex = useMemo(() => {
+    // Multiple cleaning rows can exist for the same (propertyId, date) —
+    // typically one auto-created by iCal sync (cleanerId=null) and one
+    // assigned (cleanerId=set). We must prefer the assigned row;
+    // otherwise the calendar mistakenly shows the slot as unassigned.
     const map = new Map<string, Cleaning>();
-    cleanings.forEach(c => map.set(`${c.propertyId}_${c.date}`, c));
+    for (const c of cleanings) {
+      const key = `${c.propertyId}_${c.date}`;
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, c);
+      } else if (c.cleanerId && !existing.cleanerId) {
+        map.set(key, c);
+      }
+      // otherwise keep the existing (assigned-or-equal) row
+    }
     return map;
   }, [cleanings]);
 

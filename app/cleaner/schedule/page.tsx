@@ -142,15 +142,18 @@ export default function CleanerSchedulePage() {
           status: 'pending',
         }),
       });
-      if (!res.ok) throw new Error('Failed to apply');
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to apply');
+      }
 
       setShowApplyForm(null);
       setApplyNote('');
-      alert('신청이 완료되었습니다. 매니저 승인을 기다려주세요.');
+      alert('배정이 완료되었습니다.');
       await loadData();
     } catch (err) {
       console.error(err);
-      alert('신청에 실패했습니다.');
+      alert(err instanceof Error ? err.message : '신청에 실패했습니다.');
     } finally {
       setApplying(null);
     }
@@ -350,44 +353,24 @@ export default function CleanerSchedulePage() {
                   <div>
                     {hasApplied(c.id) ? (
                       <span className="text-[10px] text-green-400 tracking-wider flex items-center gap-1">
-                        <CheckCircle2 size={12} /> 신청완료
+                        <CheckCircle2 size={12} /> 배정됨
                       </span>
                     ) : (
                       <button
-                        onClick={() => setShowApplyForm(showApplyForm === c.id ? null : c.id)}
-                        className="border border-white/20 text-white px-3 py-2 text-[10px] uppercase tracking-widest font-semibold hover:bg-white/5 transition-colors flex items-center gap-1.5"
+                        onClick={() => handleApply(c)}
+                        disabled={applying === c.id}
+                        className="border border-white/20 text-white px-3 py-2 text-[10px] uppercase tracking-widest font-semibold hover:bg-white/5 transition-colors flex items-center gap-1.5 disabled:opacity-50"
                       >
-                        <Hand size={12} /> 신청
+                        {applying === c.id ? (
+                          <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                          <Hand size={12} />
+                        )}
+                        {applying === c.id ? '배정 중...' : '맡기'}
                       </button>
                     )}
                   </div>
                 </div>
-
-                {showApplyForm === c.id && (
-                  <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
-                    <div>
-                      <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">메모 (선택)</label>
-                      <input
-                        type="text"
-                        value={applyNote}
-                        onChange={e => setApplyNote(e.target.value)}
-                        placeholder="예: 오전에 가능합니다"
-                        className="w-full bg-black/50 border border-white/10 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30"
-                      />
-                    </div>
-                    <button
-                      onClick={() => handleApply(c)}
-                      disabled={applying === c.id}
-                      className="w-full bg-white text-black py-3 text-[11px] uppercase tracking-widest font-semibold hover:bg-white/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                      {applying === c.id ? (
-                        <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                      ) : (
-                        '신청하기'
-                      )}
-                    </button>
-                  </div>
-                )}
               </div>
             ))
           )}
@@ -420,44 +403,24 @@ export default function CleanerSchedulePage() {
                   <div>
                     {hasApplied(c.id) ? (
                       <span className="text-[10px] text-green-400 tracking-wider flex items-center gap-1">
-                        <CheckCircle2 size={12} /> 신청완료
+                        <CheckCircle2 size={12} /> 배정됨
                       </span>
                     ) : (
                       <button
-                        onClick={() => setShowApplyForm(showApplyForm === c.id ? null : c.id)}
-                        className="border border-white/20 text-white px-3 py-2 text-[10px] uppercase tracking-widest font-semibold hover:bg-white/5 transition-colors flex items-center gap-1.5"
+                        onClick={() => handleApply(c)}
+                        disabled={applying === c.id}
+                        className="border border-white/20 text-white px-3 py-2 text-[10px] uppercase tracking-widest font-semibold hover:bg-white/5 transition-colors flex items-center gap-1.5 disabled:opacity-50"
                       >
-                        <Hand size={12} /> 신청
+                        {applying === c.id ? (
+                          <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                          <Hand size={12} />
+                        )}
+                        {applying === c.id ? '배정 중...' : '맡기'}
                       </button>
                     )}
                   </div>
                 </div>
-
-                {showApplyForm === c.id && (
-                  <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
-                    <div>
-                      <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">메모 (선택)</label>
-                      <input
-                        type="text"
-                        value={applyNote}
-                        onChange={e => setApplyNote(e.target.value)}
-                        placeholder="예: 오전에 가능합니다"
-                        className="w-full bg-black/50 border border-white/10 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30"
-                      />
-                    </div>
-                    <button
-                      onClick={() => handleApply(c)}
-                      disabled={applying === c.id}
-                      className="w-full bg-white text-black py-3 text-[11px] uppercase tracking-widest font-semibold hover:bg-white/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                      {applying === c.id ? (
-                        <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                      ) : (
-                        '신청하기'
-                      )}
-                    </button>
-                  </div>
-                )}
               </div>
             ))
           )}

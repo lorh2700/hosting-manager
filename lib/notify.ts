@@ -405,10 +405,10 @@ export async function notifyHostOfCleaningApplication(opts: {
   };
 
   const smsText =
-    `[void anchae] 청소 신청 접수\n` +
+    `[void anchae] 청소 자동 배정\n` +
     `${opts.cleanerName}님이 ${opts.propertyName} ` +
-    `${variables.청소일} 청소를 신청했습니다.\n` +
-    `대시보드에서 승인/거절을 처리해주세요.`;
+    `${variables.청소일} 청소를 맡았습니다.\n` +
+    `캘린더에서 확인하실 수 있습니다.`;
 
   const notifier = getNotifier();
   const templateId = TEMPLATES.CLEANING_APPLICATION_NEW;

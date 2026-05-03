@@ -103,8 +103,9 @@ export async function GET(req: Request) {
       },
       {
         headers: {
-          // Browser uses cached payload for 30s; keeps stale for 5min while revalidating.
-          'Cache-Control': 'private, max-age=30, stale-while-revalidate=300',
+          // Always revalidate — calendar reflects assignment / approval
+          // changes that need to show up immediately for the admin.
+          'Cache-Control': 'private, no-cache, must-revalidate',
         },
       },
     );

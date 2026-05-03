@@ -71,6 +71,7 @@ export async function POST(req: Request) {
     const cleaning = await prisma.cleaning.findUnique({
       where: { id: body.cleaningId },
       select: {
+        id: true,
         propertyId: true,
         cleanerId: true,
         date: true,
@@ -89,8 +90,7 @@ export async function POST(req: Request) {
     if (!auth.isAdmin && !isCleaner && !scopedIds.includes(cleaning.propertyId)) {
       return forbidden();
     }
-    // Cleaners can apply as long as nobody is assigned yet, and only within
-    // their admin-assigned property scope (if any).
+
     if (isCleaner) {
       if (cleaning.cleanerId) {
         return NextResponse.json({ error: '이미 다른 담당자에게 배정된 청소입니다.' }, { status: 400 });
@@ -100,8 +100,19 @@ export async function POST(req: Request) {
       }
     }
 
-    // Prevent duplicate active applications from the same cleaner for the
-    // same cleaning (UI already disables the button, but defend the API).
+    // Resolve User.id → Cleaner.id (required for FK on cleanings.cleaner_id)
+    const cleaner = await prisma.cleaner.findUnique({
+      where: { userId: auth.session.userId },
+      select: { id: true, name: true },
+    });
+    if (!cleaner) {
+      return NextResponse.json(
+        { error: '청소 담당자 프로필이 없습니다. 관리자에게 등록을 요청하세요.' },
+        { status: 422 },
+      );
+    }
+
+    // Prevent duplicate active applications from the same cleaner.
     const existing = await prisma.cleaningApplication.findFirst({
       where: {
         cleaningId: body.cleaningId,
@@ -114,35 +125,62 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: '이미 신청한 청소입니다.' }, { status: 409 });
     }
 
-    // Explicit whitelist — never spread `...body` (drops unknown fields like
-     // `note` that aren't on the schema, and prevents callers from forging
-     // applicantId / status to bypass the moderation flow).
-    const app = await prisma.cleaningApplication.create({
-      data: {
-        cleaningId: body.cleaningId,
-        propertyId: cleaning.propertyId,
-        applicantId: auth.session.userId,
-        applicantName: typeof body.applicantName === 'string' && body.applicantName.trim()
-          ? body.applicantName.trim()
-          : null,
-        status: 'pending',
-      },
+    // Atomic: claim the cleaning if still unassigned + record the application
+    // as pre-approved. updateMany returns count=0 when another cleaner won
+    // the race (or row was reassigned in the meantime).
+    const now = new Date();
+
+    const txResult = await prisma.$transaction(async (tx) => {
+      const claim = await tx.cleaning.updateMany({
+        where: { id: cleaning.id, cleanerId: null },
+        data: {
+          cleanerId: cleaner.id,
+          isOpen: false,
+          assignmentType: 'applied',
+        },
+      });
+      if (claim.count === 0) return null;
+
+      const created = await tx.cleaningApplication.create({
+        data: {
+          cleaningId: cleaning.id,
+          propertyId: cleaning.propertyId,
+          applicantId: auth.session.userId,
+          applicantName: typeof body.applicantName === 'string' && body.applicantName.trim()
+            ? body.applicantName.trim()
+            : (cleaner.name ?? null),
+          status: 'approved',
+          processedAt: now,
+          processedBy: auth.session.userId,
+        },
+        select: { id: true },
+      });
+      return created;
     });
 
-    // Best-effort notify the property owner — never fail the request because
-    // notification couldn't be sent.
+    if (!txResult) {
+      return NextResponse.json(
+        { error: '동시 신청이 발생했습니다. 다른 담당자가 먼저 배정되었습니다.' },
+        { status: 409 },
+      );
+    }
+    const createdApp = txResult;
+
+    // Notify host — the message is "X가 청소를 맡았습니다", not pending review.
     notifyHostOfCleaningApplication({
       hostPhone: cleaning.property?.owner?.phone ?? null,
       hostName: cleaning.property?.owner?.displayName
         ?? cleaning.property?.owner?.email
         ?? '호스트',
-      cleanerName: body.applicantName ?? '청소담당자',
+      cleanerName: (typeof body.applicantName === 'string' && body.applicantName.trim())
+        || cleaner.name
+        || '청소담당자',
       propertyName: cleaning.property?.name ?? '숙소',
       date: cleaning.date,
-      applicationId: app.id,
+      applicationId: createdApp.id,
     }).catch(err => console.error('[cleaning-applications] notify failed:', err));
 
-    return NextResponse.json(app, { status: 201 });
+    return NextResponse.json({ ok: true, applicationId: createdApp.id }, { status: 201 });
   } catch (e) {
     console.error('[cleaning-applications] POST error:', e);
     return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
