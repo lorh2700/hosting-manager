@@ -19,6 +19,7 @@ import {
   Compass,
   Briefcase,
   CalendarCheck,
+  Hand,
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { Logo } from '@/components/Logo';
@@ -41,6 +42,7 @@ const HOST_LINKS: NavItem[] = [
   { href: '/admin/bookings', label: '예약', icon: BookOpen, roles: ['super_admin', 'admin', 'host'] },
   { href: '/admin/messages', label: '메시지', icon: MessageSquare, roles: ['super_admin', 'admin', 'host'] },
   { href: '/admin/cleaners', label: '청소 담당자', icon: Users, roles: ['super_admin', 'admin', 'host'] },
+  { href: '/admin/cleaning-requests', label: '청소 신청 관리', icon: Hand, roles: ['super_admin', 'admin', 'host'] },
   { href: '/admin/cleaning-report', label: '청소 보고서', icon: FileBarChart, roles: ['super_admin', 'admin', 'host'] },
 ];
 
