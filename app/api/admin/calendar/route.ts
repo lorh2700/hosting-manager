@@ -45,6 +45,9 @@ export async function GET(req: Request) {
 
     const [events, bookings, cleanings, cleaners, supplyTodos] = await Promise.all([
       prisma.event.findMany({
+        // Calendar wants ALL events (including blocks/inquiries) so the
+        // dates appear marked. We don't filter type here — display logic
+        // separates them by type/tags downstream.
         where: { ...pidFilter, endDate: { gte: rangeFrom }, startDate: { lte: rangeTo } },
         select: {
           id: true, propertyId: true, channelId: true, source: true,

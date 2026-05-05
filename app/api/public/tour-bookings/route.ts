@@ -16,13 +16,18 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { scheduleId, durationOptionId, name, phone, email, guests, message } = body;
+    const {
+      scheduleId, durationOptionId, name, phone, email, guests, message,
+      tickets,        // [{ tierId, count }] — for tier-based tours
+      language,       // ko | en | zh | ja
+      meetingChoice,  // 'anguk_station' | 'accommodation' | 'custom'
+      meetingDetail,  // free text (e.g. 숙소명)
+    } = body;
 
-    if (!scheduleId || !name || !guests) {
-      return NextResponse.json({ error: '이름, 슬롯, 인원은 필수입니다.' }, { status: 400 });
+    if (!scheduleId || !name) {
+      return NextResponse.json({ error: '이름, 슬롯은 필수입니다.' }, { status: 400 });
     }
     const trimmedPhone = typeof phone === 'string' ? phone.trim() : '';
-    const guestCount = Math.max(1, Math.min(50, Number(guests) || 1));
 
     const result = await prisma.$transaction(async (tx) => {
       const schedule = await tx.tourSchedule.findUnique({
@@ -32,6 +37,7 @@ export async function POST(req: Request) {
             include: {
               operator: true,
               durationOptions: true,
+              ticketTiers: true,
               owner: { select: { id: true, displayName: true, email: true, phone: true } },
             },
           },
@@ -52,6 +58,41 @@ export async function POST(req: Request) {
         return { error: '코스를 선택해주세요.' as const, status: 400 };
       }
 
+      // Tier-based ticketing: when the tour has ticket tiers, use them.
+      // Falls back to legacy `guests` field for tours without tiers.
+      let ticketSnapshot: Array<{ tierId: string; label: string; count: number; unitPrice: number }> = [];
+      let guestCount: number;
+      let totalPrice: number | null;
+
+      if (schedule.tour.ticketTiers.length > 0) {
+        if (!Array.isArray(tickets) || tickets.length === 0) {
+          return { error: '티켓 종류를 선택해주세요.' as const, status: 400 };
+        }
+        const tierMap = new Map(schedule.tour.ticketTiers.map(t => [t.id, t]));
+        let sumCount = 0;
+        let sumPrice = 0;
+        for (const t of tickets as Array<{ tierId?: string; count?: number }>) {
+          const tier = t.tierId ? tierMap.get(t.tierId) : null;
+          const count = Math.max(0, Math.min(50, Number(t.count) || 0));
+          if (!tier || count === 0) continue;
+          const unit = Number(tier.price);
+          ticketSnapshot.push({ tierId: tier.id, label: tier.label, count, unitPrice: unit });
+          sumCount += count;
+          sumPrice += unit * count;
+        }
+        if (sumCount === 0) {
+          return { error: '인원을 1명 이상 선택해주세요.' as const, status: 400 };
+        }
+        guestCount = Math.min(50, sumCount);
+        totalPrice = sumPrice;
+      } else {
+        guestCount = Math.max(1, Math.min(50, Number(guests) || 1));
+        const unitPrice = durationOption
+          ? Number(durationOption.price)
+          : schedule.tour.basePrice ? Number(schedule.tour.basePrice) : null;
+        totalPrice = unitPrice !== null ? unitPrice * guestCount : null;
+      }
+
       const remaining = schedule.capacity - schedule.bookedCount;
       if (remaining < guestCount) {
         return { error: `남은 자리는 ${remaining}명입니다.` as const, status: 409 };
@@ -69,11 +110,10 @@ export async function POST(req: Request) {
         return { error: '동시 예약이 발생했습니다. 다시 시도해주세요.' as const, status: 409 };
       }
 
-      const unitPrice = durationOption
+      const unitPriceForLegacy = durationOption
         ? Number(durationOption.price)
         : schedule.tour.basePrice ? Number(schedule.tour.basePrice) : null;
       const durationMin = durationOption?.durationMin ?? schedule.tour.durationMin ?? null;
-      const totalPrice = unitPrice !== null ? unitPrice * guestCount : null;
 
       const booking = await tx.tourBooking.create({
         data: {
@@ -81,9 +121,15 @@ export async function POST(req: Request) {
           scheduleId: schedule.id,
           durationOptionId: durationOption?.id ?? null,
           durationMin,
-          unitPrice,
+          unitPrice: ticketSnapshot.length > 0 ? null : unitPriceForLegacy,
+          tickets: ticketSnapshot.length > 0 ? ticketSnapshot : undefined,
+          language: typeof language === 'string' && language ? language : null,
+          meetingChoice: typeof meetingChoice === 'string' && meetingChoice ? meetingChoice : null,
+          meetingDetail: typeof meetingDetail === 'string' && meetingDetail.trim()
+            ? meetingDetail.trim()
+            : null,
           name,
-          phone: trimmedPhone, // empty string when guest didn't provide
+          phone: trimmedPhone,
           email: email || null,
           guests: guestCount,
           totalPrice,
@@ -111,7 +157,7 @@ export async function POST(req: Request) {
     const commonNotifyOpts = {
       tourTitle: result.tour.title,
       guestName: name,
-      guests: guestCount,
+      guests: result.booking.guests,
       date: result.schedule.date,
       startTime: result.schedule.startTime,
       durationMin: result.booking.durationMin,

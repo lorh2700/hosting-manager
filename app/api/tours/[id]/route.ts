@@ -17,6 +17,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         operator: true,
         schedules: { orderBy: [{ date: 'asc' }, { startTime: 'asc' }] },
         durationOptions: { orderBy: [{ sortOrder: 'asc' }, { durationMin: 'asc' }] },
+        ticketTiers: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] },
         _count: { select: { bookings: true } },
       },
     });
@@ -31,6 +32,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         durationMin: o.durationMin,
         price: Number(o.price),
         sortOrder: o.sortOrder,
+      })),
+      ticketTiers: tour.ticketTiers.map(t => ({
+        id: t.id,
+        label: t.label,
+        price: Number(t.price),
+        notes: t.notes,
+        sortOrder: t.sortOrder,
       })),
     });
   } catch (e) {

@@ -114,14 +114,14 @@ export default function CleanerSuppliesPage() {
 
   return (
     <div className="space-y-8">
-      <header className="border-b border-white/10 pb-6 mt-4 flex items-end justify-between">
+      <header className="border-b border-stone-200 pb-6 mt-4 flex items-end justify-between">
         <div>
-          <p className="text-[10px] tracking-[0.3em] text-white/50 mb-2">비품 관리</p>
-          <h1 className="text-2xl font-light tracking-tight text-white">비품 요청</h1>
+          <p className="text-[10px] tracking-[0.3em] text-stone-500 mb-2">비품 관리</p>
+          <h1 className="text-2xl font-light tracking-tight text-stone-900">비품 요청</h1>
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="border border-white/20 text-white px-4 py-2.5 text-[10px] uppercase tracking-widest font-semibold hover:bg-white/5 transition-colors flex items-center gap-1.5"
+          className="border border-stone-300 text-stone-900 px-4 py-2.5 text-[10px] uppercase tracking-widest font-semibold hover:bg-stone-50 transition-colors flex items-center gap-1.5"
         >
           <Plus size={14} /> 새 요청
         </button>
@@ -129,25 +129,25 @@ export default function CleanerSuppliesPage() {
 
       {/* New Request Form */}
       {showForm && (
-        <div className="border border-white/10 bg-[#111] p-5 space-y-4">
-          <p className="text-[10px] uppercase tracking-widest text-white/50 font-semibold">비품 요청 등록</p>
+        <div className="border border-stone-200 bg-white p-5 space-y-4">
+          <p className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold">비품 요청 등록</p>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">숙소</label>
+              <label className="block text-[10px] uppercase tracking-widest text-stone-400 mb-1.5">숙소</label>
               <select
                 value={selectedProperty}
                 onChange={e => setSelectedProperty(e.target.value)}
-                className="w-full bg-black/50 border border-white/10 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30"
+                className="w-full bg-white border border-stone-200 px-3 py-2.5 text-sm text-stone-900 focus:outline-none focus:border-stone-400"
               >
                 {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">긴급도</label>
+              <label className="block text-[10px] uppercase tracking-widest text-stone-400 mb-1.5">긴급도</label>
               <select
                 value={urgency}
                 onChange={e => setUrgency(e.target.value as IssueUrgency)}
-                className="w-full bg-black/50 border border-white/10 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30"
+                className="w-full bg-white border border-stone-200 px-3 py-2.5 text-sm text-stone-900 focus:outline-none focus:border-stone-400"
               >
                 {URGENCY.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
               </select>
@@ -155,7 +155,7 @@ export default function CleanerSuppliesPage() {
           </div>
 
           <div className="space-y-2">
-            <label className="block text-[10px] uppercase tracking-widest text-white/40">품목</label>
+            <label className="block text-[10px] uppercase tracking-widest text-stone-400">품목</label>
             {items.map((item, i) => (
               <div key={i} className="flex gap-2">
                 <input
@@ -163,23 +163,23 @@ export default function CleanerSuppliesPage() {
                   value={item.name}
                   onChange={e => updateItem(i, 'name', e.target.value)}
                   placeholder="품목명 (예: 수건)"
-                  className="flex-1 bg-black/50 border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:border-white/30"
+                  className="flex-1 bg-white border border-stone-200 px-3 py-2 text-sm text-stone-900 focus:outline-none focus:border-stone-400"
                 />
                 <input
                   type="number"
                   value={item.quantity}
                   onChange={e => updateItem(i, 'quantity', parseInt(e.target.value) || 1)}
                   min={1}
-                  className="w-16 bg-black/50 border border-white/10 px-2 py-2 text-sm text-white text-center focus:outline-none focus:border-white/30"
+                  className="w-16 bg-white border border-stone-200 px-2 py-2 text-sm text-stone-900 text-center focus:outline-none focus:border-stone-400"
                 />
                 {items.length > 1 && (
-                  <button onClick={() => removeItem(i)} className="text-white/30 hover:text-red-400 p-2">
+                  <button onClick={() => removeItem(i)} className="text-stone-300 hover:text-red-400 p-2">
                     <Trash2 size={14} />
                   </button>
                 )}
               </div>
             ))}
-            <button onClick={addItem} className="text-white/30 hover:text-white text-[10px] uppercase tracking-widest mt-1">
+            <button onClick={addItem} className="text-stone-300 hover:text-stone-900 text-[10px] uppercase tracking-widest mt-1">
               + 품목 추가
             </button>
           </div>
@@ -187,7 +187,7 @@ export default function CleanerSuppliesPage() {
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="w-full bg-white text-black py-3 text-[11px] uppercase tracking-widest font-semibold hover:bg-white/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white py-3 text-[11px] uppercase tracking-widest font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {submitting ? (
               <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
@@ -201,7 +201,7 @@ export default function CleanerSuppliesPage() {
       {/* Requests List */}
       <section className="space-y-3">
         {requests.length === 0 ? (
-          <div className="flex flex-col items-center text-white/40 py-12">
+          <div className="flex flex-col items-center text-stone-400 py-12">
             <Package size={28} className="mb-3 opacity-50" />
             <p className="text-sm">비품 요청 내역이 없습니다.</p>
           </div>
@@ -209,11 +209,11 @@ export default function CleanerSuppliesPage() {
           requests.map(req => {
             const st = SUPPLY_STATUS_CONFIG[req.status] ?? SUPPLY_STATUS_CONFIG.pending;
             return (
-              <div key={req.id} className="border border-white/10 bg-[#111] p-5">
+              <div key={req.id} className="border border-stone-200 bg-white p-5">
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div>
-                    <p className="text-white font-medium text-sm">{req.propertyName}</p>
-                    <p className="text-white/30 text-[10px] mt-0.5">
+                    <p className="text-stone-900 font-medium text-sm">{req.propertyName}</p>
+                    <p className="text-stone-300 text-[10px] mt-0.5">
                       {format(parseISO(req.createdAt), 'M월 d일', { locale: ko })}
                     </p>
                   </div>
@@ -222,13 +222,13 @@ export default function CleanerSuppliesPage() {
                 <div className="space-y-1">
                   {req.items.map((item, i) => (
                     <div key={i} className="flex items-center justify-between text-xs">
-                      <span className="text-white/60">{item.name}</span>
-                      <span className="text-white/30">{item.quantity}개</span>
+                      <span className="text-stone-500">{item.name}</span>
+                      <span className="text-stone-300">{item.quantity}개</span>
                     </div>
                   ))}
                 </div>
                 {req.statusNote && (
-                  <p className="text-white/40 text-xs mt-3 pt-3 border-t border-white/5">메모: {req.statusNote}</p>
+                  <p className="text-stone-400 text-xs mt-3 pt-3 border-t border-stone-100">메모: {req.statusNote}</p>
                 )}
               </div>
             );

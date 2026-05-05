@@ -24,6 +24,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
           orderBy: [{ sortOrder: 'asc' }, { durationMin: 'asc' }],
           select: { id: true, label: true, durationMin: true, price: true },
         },
+        ticketTiers: {
+          orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+          select: { id: true, label: true, price: true, notes: true },
+        },
       },
     });
     if (!tour || !tour.isActive) {
@@ -66,6 +70,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
         label: o.label,
         durationMin: o.durationMin,
         price: Number(o.price),
+      })),
+      ticketTiers: tour.ticketTiers.map(t => ({
+        id: t.id,
+        label: t.label,
+        price: Number(t.price),
+        notes: t.notes,
       })),
       slots: availableSlots,
     });

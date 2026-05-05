@@ -205,6 +205,12 @@ export async function syncICalChannel(
     }
   }
 
+  // Drop any inquiry rows that overlap a confirmed reservation imported
+  // here or earlier — best effort, never block the sync.
+  await cleanupSupersededInquiries(propertyId).catch(err => {
+    console.error('[sync] cleanupSupersededInquiries failed:', err);
+  });
+
   const newCleaningDates = await ensureCleaningsForProperty(propertyId);
   if (newCleaningDates.length > 0) {
     await notifyNewOpenCleanings({ propertyId, dates: newCleaningDates }).catch(err => {
@@ -224,16 +230,84 @@ export async function syncICalChannel(
  * Returns the dates of cleanings actually created, so callers can notify
  * cleaners about freshly-opened slots.
  */
+/**
+ * Drop any inquiry-type events that overlap a confirmed reservation on
+ * the same property. When a guest's request-to-book turns into an actual
+ * booking (or someone else snags the slot), the lingering inquiry row
+ * should not keep showing up in the calendar/dashboard.
+ *
+ * Returns the number of inquiries removed.
+ */
+export async function cleanupSupersededInquiries(propertyId: string): Promise<number> {
+  const reservations = await prisma.event.findMany({
+    where: { propertyId, type: 'reservation' },
+    select: { startDate: true, endDate: true },
+  });
+  if (reservations.length === 0) return 0;
+
+  const inquiries = await prisma.event.findMany({
+    where: {
+      propertyId,
+      type: 'block',
+      tags: { has: 'inquiry' },
+    },
+    select: { id: true, startDate: true, endDate: true, title: true },
+  });
+  if (inquiries.length === 0) return 0;
+
+  // Two ranges [s1, e1) and [s2, e2) overlap iff s1 < e2 AND e1 > s2.
+  // String YYYY-MM-DD compares lexicographically the same as date order.
+  const supersededIds: string[] = [];
+  for (const inq of inquiries) {
+    for (const res of reservations) {
+      if (inq.startDate < res.endDate && inq.endDate > res.startDate) {
+        supersededIds.push(inq.id);
+        break;
+      }
+    }
+  }
+
+  if (supersededIds.length === 0) return 0;
+
+  const removed = await prisma.event.deleteMany({
+    where: { id: { in: supersededIds } },
+  });
+  return removed.count;
+}
+
 export async function ensureCleaningsForProperty(propertyId: string): Promise<string[]> {
-  const events = await prisma.event.findMany({
+  // Only confirmed reservations should drive cleanings. Inquiry-type events
+  // (Beds24 status='request'/'inquiry') are stored as type='block' and do
+  // NOT mean a guest will actually check out — so we exclude them here.
+  const reservations = await prisma.event.findMany({
     where: { propertyId, type: 'reservation' },
     select: { endDate: true },
   });
 
   const checkoutDates = new Set<string>();
-  for (const e of events) {
+  for (const e of reservations) {
     if (e.endDate) checkoutDates.add(e.endDate);
   }
+
+  // Cleanup: any unassigned cleaning whose date NO LONGER has a confirmed
+  // reservation behind it should be removed. This handles the case where
+  // an event was previously imported as a reservation and later downgraded
+  // (e.g., the underlying booking became an inquiry, was cancelled, or the
+  // dates shifted). Assigned cleanings are preserved — admin work matters.
+  const orphans = await prisma.cleaning.findMany({
+    where: {
+      propertyId,
+      cleanerId: null,
+      date: { notIn: Array.from(checkoutDates) },
+    },
+    select: { id: true, date: true },
+  });
+  if (orphans.length > 0) {
+    await prisma.cleaning.deleteMany({
+      where: { id: { in: orphans.map(o => o.id) } },
+    });
+  }
+
   if (checkoutDates.size === 0) return [];
 
   const existing = await prisma.cleaning.findMany({
@@ -321,12 +395,26 @@ export async function syncBeds24Property(
     }
   }
 
+  // Beds24 booking statuses to treat as "not a confirmed reservation":
+  //   - request: 예약 요청 (호스트 승인 대기)
+  //   - inquiry: 단순 문의
+  //   - new + statusCode logic: some channels send 'new' for inquiries
+  // These still block the calendar (dates are taken in the OTA) but should
+  // NOT appear as 예약 접수 in dashboards/check-in lists.
+  const isRequestStatus = (status: unknown): boolean => {
+    if (typeof status !== 'string') return false;
+    const s = status.toLowerCase().trim();
+    return s === 'request' || s === 'inquiry' || s === 'requested' || s === 'pending';
+  };
+
   // Convert Beds24 bookings to events
   const newEvents = allBookings
     .filter((b) => b.status !== 'cancelled' && b.arrival && b.departure)
     .map((b) => {
       const isBlack = b.status === 'black';
-      const guestName = [b.firstName, b.lastName].filter(Boolean).join(' ') || (isBlack ? '차단' : '게스트');
+      const isInquiry = isRequestStatus(b.status);
+      const guestName = [b.firstName, b.lastName].filter(Boolean).join(' ')
+        || (isBlack ? '차단' : isInquiry ? '문의 대기' : '게스트');
       const channelSource = isBlack ? 'manual-block' : ((b.channel as string) || (b.referer as string) || 'Beds24');
 
       const descriptionParts = isBlack
@@ -335,6 +423,7 @@ export async function syncBeds24Property(
             `채널: Beds24 차단`,
           ].filter(Boolean).join('\n')
         : [
+            isInquiry ? `※ 호스트 승인 대기 (Beds24 status: ${b.status})` : '',
             `게스트: ${guestName}`,
             b.email ? `이메일: ${b.email}` : '',
             b.phone ? `연락처: ${b.phone}` : '',
@@ -344,14 +433,21 @@ export async function syncBeds24Property(
             b.notes ? `메모: ${b.notes}` : '',
           ].filter(Boolean).join('\n');
 
+      const title = isInquiry
+        ? `[문의] ${guestName}`
+        : (guestName as string);
+
       return {
         propertyId,
         channelId: 'beds24',
-        source: channelSource,
-        title: guestName as string,
+        source: isInquiry ? `${channelSource} (문의)` : channelSource,
+        title,
         startDate: (b.arrival as string).substring(0, 10),
         endDate: (b.departure as string).substring(0, 10),
-        type: (isBlack ? 'block' : 'reservation') as 'block' | 'reservation',
+        // Inquiries block the dates but aren't "예약" — using 'block' type
+        // hides them from check-in/dashboard reservation lists.
+        type: ((isBlack || isInquiry) ? 'block' : 'reservation') as 'block' | 'reservation',
+        tags: isInquiry ? ['inquiry'] : [],
         originalUid: String(b.id),
         description: descriptionParts,
       };
@@ -369,15 +465,32 @@ export async function syncBeds24Property(
     if (!existing) {
       await prisma.event.create({ data: event });
       eventsCreated++;
-    } else if (existing.startDate !== event.startDate || existing.endDate !== event.endDate || existing.title !== event.title) {
-      // Preserve source='manual-reservation' so the calendar UI keeps showing
-      // the cancel button after a sync round.
-      const preservedSource = existing.source === 'manual-reservation' ? existing.source : event.source;
-      await prisma.event.update({
-        where: { id: existing.id },
-        data: { startDate: event.startDate, endDate: event.endDate, title: event.title, description: event.description, source: preservedSource },
-      });
-      eventsUpdated++;
+    } else {
+      // Detect any meaningful change including type transitions (e.g.
+      // an inquiry that gets accepted moves from block → reservation).
+      const titleChanged = existing.title !== event.title;
+      const datesChanged = existing.startDate !== event.startDate || existing.endDate !== event.endDate;
+      const typeChanged = existing.type !== event.type;
+      const sourceChanged = existing.source !== event.source && existing.source !== 'manual-reservation';
+
+      if (titleChanged || datesChanged || typeChanged || sourceChanged) {
+        // Preserve source='manual-reservation' so the calendar UI keeps
+        // showing the cancel button after a sync round.
+        const preservedSource = existing.source === 'manual-reservation' ? existing.source : event.source;
+        await prisma.event.update({
+          where: { id: existing.id },
+          data: {
+            startDate: event.startDate,
+            endDate: event.endDate,
+            title: event.title,
+            description: event.description,
+            source: preservedSource,
+            type: event.type,
+            tags: event.tags ?? [],
+          },
+        });
+        eventsUpdated++;
+      }
     }
   }
 
@@ -393,6 +506,12 @@ export async function syncBeds24Property(
       eventsRemoved++;
     }
   }
+
+  // Drop any inquiry rows that overlap a confirmed reservation imported
+  // here or earlier — best effort, never block the sync.
+  await cleanupSupersededInquiries(propertyId).catch(err => {
+    console.error('[sync] cleanupSupersededInquiries failed:', err);
+  });
 
   const newCleaningDates = await ensureCleaningsForProperty(propertyId);
   if (newCleaningDates.length > 0) {

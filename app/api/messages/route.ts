@@ -20,6 +20,25 @@ export async function GET(req: Request) {
 
     if (auth.isAdmin) {
       if (requestedPropertyIds?.length) where.propertyId = { in: requestedPropertyIds };
+    } else if (auth.user.role === 'cleaner') {
+      // Cleaners see messages for properties they have a cleaning assignment on.
+      const myCleaner = await prisma.cleaner.findUnique({
+        where: { userId: auth.session.userId },
+        select: { id: true },
+      });
+      if (!myCleaner) return NextResponse.json([]);
+      const myCleanings = await prisma.cleaning.findMany({
+        where: { cleanerId: myCleaner.id },
+        select: { propertyId: true },
+        distinct: ['propertyId'],
+      });
+      const allowedIds = myCleanings.map(c => c.propertyId);
+      if (allowedIds.length === 0) return NextResponse.json([]);
+      const ids = requestedPropertyIds?.length
+        ? requestedPropertyIds.filter(id => allowedIds.includes(id))
+        : allowedIds;
+      if (ids.length === 0) return NextResponse.json([]);
+      where.propertyId = { in: ids };
     } else {
       const allowed = auth.propertyIds ?? [];
       if (allowed.length === 0) return NextResponse.json([]);

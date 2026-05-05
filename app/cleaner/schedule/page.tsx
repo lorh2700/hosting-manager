@@ -223,11 +223,11 @@ export default function CleanerSchedulePage() {
 
   return (
     <div className="space-y-10">
-      <header className="border-b border-white/10 pb-6 mt-4">
-        <p className="text-[10px] tracking-[0.3em] text-white/50 mb-2">일정 관리</p>
-        <h1 className="text-2xl font-light tracking-tight text-white">청소 일정 신청</h1>
-        <p className="text-white/40 text-xs mt-2 tracking-wide">
-          앞으로 4주 이내의 미배정 청소를 신청할 수 있습니다.
+      <header className="border-b border-stone-200 pb-6 sm:pb-7 mt-4">
+        <p className="text-[11px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">청소 담당자</p>
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-900">청소 신청</h1>
+        <p className="text-stone-500 mt-2 text-sm">
+          앞으로 4주 이내의 미배정 청소를 클릭 한 번으로 신청할 수 있습니다.
         </p>
       </header>
 
@@ -237,27 +237,27 @@ export default function CleanerSchedulePage() {
           <button
             onClick={() => canGoPrev && setMonthCursor(addMonths(monthCursor, -1))}
             disabled={!canGoPrev}
-            className="text-white/40 hover:text-white p-2 disabled:opacity-20 disabled:cursor-not-allowed"
+            className="text-stone-400 hover:text-stone-900 p-2 disabled:opacity-20 disabled:cursor-not-allowed"
             aria-label="이전 달"
           >
             <ChevronLeft size={20} />
           </button>
-          <h2 className="text-white text-lg font-light tracking-widest">
+          <h2 className="text-stone-900 text-lg font-light tracking-widest">
             {format(monthCursor, 'yyyy년 M월', { locale: ko })}
           </h2>
           <button
             onClick={() => canGoNext && setMonthCursor(addMonths(monthCursor, 1))}
             disabled={!canGoNext}
-            className="text-white/40 hover:text-white p-2 disabled:opacity-20 disabled:cursor-not-allowed"
+            className="text-stone-400 hover:text-stone-900 p-2 disabled:opacity-20 disabled:cursor-not-allowed"
             aria-label="다음 달"
           >
             <ChevronRight size={20} />
           </button>
         </div>
 
-        <div className="grid grid-cols-7 gap-px bg-white/5 border border-white/10">
+        <div className="grid grid-cols-7 gap-px bg-stone-50 border border-stone-200">
           {['월', '화', '수', '목', '금', '토', '일'].map(d => (
-            <div key={d} className="bg-[#0a0a0a] text-center py-2 text-[10px] uppercase tracking-widest text-white/40">
+            <div key={d} className="bg-stone-50 text-center py-2 text-[10px] uppercase tracking-widest text-stone-400">
               {d}
             </div>
           ))}
@@ -284,8 +284,8 @@ export default function CleanerSchedulePage() {
                   !inCurrentMonth ? 'opacity-30' : ''
                 } ${!inWindow && inCurrentMonth ? 'opacity-50' : ''}`}
               >
-                <div className={`text-xs ${todayCell ? 'text-white font-semibold' : 'text-white/60'} ${
-                  isSameDay(d, today) ? 'bg-white/10 px-1.5 rounded-sm' : ''
+                <div className={`text-xs ${todayCell ? 'text-stone-900 font-semibold' : 'text-stone-500'} ${
+                  isSameDay(d, today) ? 'bg-stone-100 px-1.5 rounded-sm' : ''
                 }`}>
                   {format(d, 'd')}
                 </div>
@@ -297,14 +297,14 @@ export default function CleanerSchedulePage() {
                         className={`text-[9px] truncate px-1 py-0.5 tracking-wide ${
                           hasApplied(c.id)
                             ? 'bg-green-500/20 text-green-400'
-                            : 'bg-white/10 text-white/70'
+                            : 'bg-stone-100 text-stone-600'
                         }`}
                       >
                         {c.propertyName}
                       </div>
                     ))}
                     {dayCleanings.length > 2 && (
-                      <div className="text-[9px] text-white/40 px-1">+{dayCleanings.length - 2}</div>
+                      <div className="text-[9px] text-stone-400 px-1">+{dayCleanings.length - 2}</div>
                     )}
                     {myAppOnDay && dayCleanings.length <= 2 && (
                       <div className="text-[9px] text-green-400/60 px-1 flex items-center gap-0.5">
@@ -318,9 +318,9 @@ export default function CleanerSchedulePage() {
           })}
         </div>
 
-        <div className="flex items-center gap-4 text-[10px] text-white/40 tracking-wider">
+        <div className="flex items-center gap-4 text-[10px] text-stone-400 tracking-wider">
           <div className="flex items-center gap-1.5">
-            <span className="w-3 h-3 bg-white/10 inline-block" /> 신청 가능
+            <span className="w-3 h-3 bg-stone-100 inline-block" /> 신청 가능
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 bg-green-500/20 inline-block" /> 신청함
@@ -331,24 +331,24 @@ export default function CleanerSchedulePage() {
       {/* Selected day detail */}
       {selectedDate && (
         <section className="space-y-3">
-          <h2 className="text-[10px] uppercase tracking-widest text-white/40">
+          <h2 className="text-[10px] uppercase tracking-widest text-stone-400">
             {format(parseISO(selectedDate), 'M월 d일 (EEE)', { locale: ko })} 신청 가능한 일정 ({selectedCleanings.length})
           </h2>
           {selectedCleanings.length === 0 ? (
-            <div className="flex flex-col items-center text-white/40 py-8">
+            <div className="flex flex-col items-center text-stone-400 py-8">
               <CalendarDays size={24} className="mb-2 opacity-50" />
               <p className="text-xs">이 날짜에 신청 가능한 일정이 없습니다.</p>
             </div>
           ) : (
             selectedCleanings.map(c => (
-              <div key={c.id} className="border border-white/10 bg-[#111] p-5">
+              <div key={c.id} className="border border-stone-200 bg-white p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
-                    <p className="text-white font-medium text-sm">{c.propertyName}</p>
-                    <p className="text-white/40 text-xs mt-1">
+                    <p className="text-stone-900 font-medium text-sm">{c.propertyName}</p>
+                    <p className="text-stone-400 text-xs mt-1">
                       {format(parseISO(c.date), 'M월 d일 (EEE)', { locale: ko })}
                     </p>
-                    {c.notes && <p className="text-white/30 text-xs mt-1">{c.notes}</p>}
+                    {c.notes && <p className="text-stone-300 text-xs mt-1">{c.notes}</p>}
                   </div>
                   <div>
                     {hasApplied(c.id) ? (
@@ -359,14 +359,14 @@ export default function CleanerSchedulePage() {
                       <button
                         onClick={() => handleApply(c)}
                         disabled={applying === c.id}
-                        className="border border-white/20 text-white px-3 py-2 text-[10px] uppercase tracking-widest font-semibold hover:bg-white/5 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                        className="border border-stone-300 text-stone-900 px-3 py-2 text-[10px] uppercase tracking-widest font-semibold hover:bg-stone-50 transition-colors flex items-center gap-1.5 disabled:opacity-50"
                       >
                         {applying === c.id ? (
-                          <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          <div className="w-3 h-3 border-2 border-stone-400 border-t-white rounded-full animate-spin" />
                         ) : (
                           <Hand size={12} />
                         )}
-                        {applying === c.id ? '배정 중...' : '맡기'}
+                        {applying === c.id ? '신청 중...' : '신청'}
                       </button>
                     )}
                   </div>
@@ -381,24 +381,24 @@ export default function CleanerSchedulePage() {
       {!selectedDate && (
         <section className="space-y-3">
           <div className="flex items-baseline justify-between">
-            <h2 className="text-[10px] uppercase tracking-widest text-white/40">신청 가능한 일정 ({openCleanings.length})</h2>
-            <p className="text-[10px] text-white/30 tracking-wider">앞으로 4주</p>
+            <h2 className="text-[10px] uppercase tracking-widest text-stone-400">신청 가능한 일정 ({openCleanings.length})</h2>
+            <p className="text-[10px] text-stone-300 tracking-wider">앞으로 4주</p>
           </div>
           {openCleanings.length === 0 ? (
-            <div className="flex flex-col items-center text-white/40 py-12">
+            <div className="flex flex-col items-center text-stone-400 py-12">
               <CalendarDays size={28} className="mb-3 opacity-50" />
               <p className="text-sm">앞으로 4주간 신청 가능한 일정이 없습니다.</p>
             </div>
           ) : (
             openCleanings.map(c => (
-              <div key={c.id} className="border border-white/10 bg-[#111] p-5">
+              <div key={c.id} className="border border-stone-200 bg-white p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
-                    <p className="text-white font-medium text-sm">{c.propertyName}</p>
-                    <p className="text-white/40 text-xs mt-1">
+                    <p className="text-stone-900 font-medium text-sm">{c.propertyName}</p>
+                    <p className="text-stone-400 text-xs mt-1">
                       {format(parseISO(c.date), 'M월 d일 (EEE)', { locale: ko })}
                     </p>
-                    {c.notes && <p className="text-white/30 text-xs mt-1">{c.notes}</p>}
+                    {c.notes && <p className="text-stone-300 text-xs mt-1">{c.notes}</p>}
                   </div>
                   <div>
                     {hasApplied(c.id) ? (
@@ -409,14 +409,14 @@ export default function CleanerSchedulePage() {
                       <button
                         onClick={() => handleApply(c)}
                         disabled={applying === c.id}
-                        className="border border-white/20 text-white px-3 py-2 text-[10px] uppercase tracking-widest font-semibold hover:bg-white/5 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                        className="border border-stone-300 text-stone-900 px-3 py-2 text-[10px] uppercase tracking-widest font-semibold hover:bg-stone-50 transition-colors flex items-center gap-1.5 disabled:opacity-50"
                       >
                         {applying === c.id ? (
-                          <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          <div className="w-3 h-3 border-2 border-stone-400 border-t-white rounded-full animate-spin" />
                         ) : (
                           <Hand size={12} />
                         )}
-                        {applying === c.id ? '배정 중...' : '맡기'}
+                        {applying === c.id ? '신청 중...' : '신청'}
                       </button>
                     )}
                   </div>
@@ -430,20 +430,20 @@ export default function CleanerSchedulePage() {
       {/* My applications */}
       {myApplications.length > 0 && (
         <section className="space-y-3">
-          <h2 className="text-[10px] uppercase tracking-widest text-white/40">내 신청 내역 ({myApplications.length})</h2>
+          <h2 className="text-[10px] uppercase tracking-widest text-stone-400">내 신청 내역 ({myApplications.length})</h2>
           {myApplications.map(app => (
             <div key={app.id} className={`border p-4 ${
               app.status === 'approved' ? 'border-green-500/20 bg-green-500/5' :
               app.status === 'rejected' ? 'border-red-500/20 bg-red-500/5' :
-              'border-white/10 bg-[#111]'
+              'border-stone-200 bg-white'
             }`}>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-white text-sm font-medium">{app.propertyName}</p>
-                  <p className="text-white/40 text-xs mt-0.5">
+                  <p className="text-stone-900 text-sm font-medium">{app.propertyName}</p>
+                  <p className="text-stone-400 text-xs mt-0.5">
                     {app.date && format(parseISO(app.date), 'M월 d일 (EEE)', { locale: ko })}
                   </p>
-                  {app.note && <p className="text-white/30 text-xs mt-1">메모: {app.note}</p>}
+                  {app.note && <p className="text-stone-300 text-xs mt-1">메모: {app.note}</p>}
                   {app.rejectedReason && <p className="text-red-400/60 text-xs mt-1">사유: {app.rejectedReason}</p>}
                 </div>
                 {getStatusBadge(app.status)}

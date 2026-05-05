@@ -98,23 +98,23 @@ export default function CleanerHistoryPage() {
 
   return (
     <div className="space-y-8">
-      <header className="border-b border-white/10 pb-6 mt-4">
-        <p className="text-[10px] tracking-[0.3em] text-white/50 mb-2">청소 기록</p>
-        <h1 className="text-2xl font-light tracking-tight text-white">지난 기록</h1>
+      <header className="border-b border-stone-200 pb-6 mt-4">
+        <p className="text-[10px] tracking-[0.3em] text-stone-500 mb-2">청소 기록</p>
+        <h1 className="text-2xl font-light tracking-tight text-stone-900">지난 기록</h1>
       </header>
 
       {history.length === 0 ? (
-        <div className="flex flex-col items-center text-white/40 py-16">
+        <div className="flex flex-col items-center text-stone-400 py-16">
           <History size={32} className="mb-4 opacity-50" />
           <p className="text-sm">지난 청소 기록이 없습니다.</p>
         </div>
       ) : (
         Object.entries(grouped).map(([month, items]) => (
           <section key={month} className="space-y-3">
-            <h2 className="text-[10px] uppercase tracking-widest text-white/40">{month} ({items.length}건)</h2>
+            <h2 className="text-[10px] uppercase tracking-widest text-stone-400">{month} ({items.length}건)</h2>
             {items.map(c => (
               <div key={c.id} className={`border p-4 ${
-                c.status === 'done' ? 'border-white/5 bg-[#0a0a0a]' : 'border-amber-500/20 bg-amber-500/5'
+                c.status === 'done' ? 'border-stone-100 bg-stone-50' : 'border-amber-500/20 bg-amber-500/5'
               }`}>
                 <div className="flex items-center justify-between">
                   <div>
@@ -132,10 +132,10 @@ export default function CleanerHistoryPage() {
                         <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5">이슈</span>
                       )}
                     </div>
-                    <p className="text-white text-sm">{c.propertyName}</p>
-                    {c.completionNote && <p className="text-white/30 text-xs mt-1">{c.completionNote}</p>}
+                    <p className="text-stone-900 text-sm">{c.propertyName}</p>
+                    {c.completionNote && <p className="text-stone-300 text-xs mt-1">{c.completionNote}</p>}
                   </div>
-                  <p className="text-white/30 text-xs">{format(parseISO(c.date), 'M/d (EEE)', { locale: ko })}</p>
+                  <p className="text-stone-300 text-xs">{format(parseISO(c.date), 'M/d (EEE)', { locale: ko })}</p>
                 </div>
               </div>
             ))}

@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Sidebar } from '@/components/sidebar';
 import { useAuth } from '@/components/AuthProvider';
 import { Logo } from '@/components/Logo';
@@ -14,13 +15,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const { user, profile, loading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loginMode, setLoginMode] = useState<AdminMode>('host');
+  const [loginMode, setLoginMode] = useState<AdminMode | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const isPublicPath = PUBLIC_PATHS.includes(pathname);
+
+  // Pre-select login mode from ?mode=tour|host query param. Lets us share
+  // a "tour-admin" deep link with operators so they skip step 1 entirely.
+  // No localStorage fallback here — first-time visitors should always see
+  // the area picker, not be silently routed by a previous browser visit.
+  useEffect(() => {
+    const param = searchParams.get('mode');
+    if (param === 'tour' || param === 'host') setLoginMode(param);
+  }, [searchParams]);
 
   useEffect(() => {
     if (!loading && profile?.role === 'cleaner') {
@@ -45,7 +56,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       } else {
         // Persist the chosen admin area before refreshing — sidebar/dashboard
         // pick this up on the next render.
-        writeAdminMode(loginMode);
+        if (loginMode) writeAdminMode(loginMode);
         window.location.reload();
       }
     } catch (err) {
@@ -78,93 +89,119 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (!user) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 p-5 font-sans">
-        <div className="mb-9">
+        <Link
+          href="/"
+          aria-label="void anchae 홈으로"
+          className="mb-9 inline-flex hover:opacity-80 transition-opacity"
+        >
           <Logo width={200} variant="black" priority />
-        </div>
-        <div className="bg-white p-8 sm:p-10 border border-stone-200 max-w-md w-full">
-          <p className="text-[10px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">Admin</p>
-          <h1 className="text-xl font-semibold text-stone-900 mb-1.5">관리자 로그인</h1>
-          <p className="text-stone-500 mb-6 text-sm">관리할 영역을 선택하고 로그인하세요.</p>
+        </Link>
+        {loginMode === null ? (
+          // Step 1: choose area
+          <div className="bg-white p-8 sm:p-10 border border-stone-200 max-w-md w-full">
+            <p className="text-[10px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">Admin</p>
+            <h1 className="text-xl font-semibold text-stone-900 mb-1.5">관리자 로그인</h1>
+            <p className="text-stone-500 mb-7 text-sm">먼저 관리하실 영역을 선택해주세요.</p>
 
-          {/* Admin area picker */}
-          <div className="mb-5">
-            <label className="block text-[10px] uppercase tracking-widest text-stone-600 mb-2">관리 영역</label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-3">
               <button
                 type="button"
                 onClick={() => setLoginMode('host')}
-                aria-pressed={loginMode === 'host'}
-                className={`flex flex-col items-center justify-center gap-1.5 py-4 border transition-all ${
-                  loginMode === 'host'
-                    ? 'bg-[var(--brand-tint)] border-[var(--brand)] text-[var(--brand-dark)]'
-                    : 'bg-white border-stone-300 text-stone-600 hover:border-stone-400'
-                }`}
+                className="w-full flex items-center gap-4 p-5 border border-stone-200 hover:border-[var(--brand)] hover:bg-[var(--brand-tint)] transition-colors group text-left"
               >
-                <Home size={18} strokeWidth={1.8} className={loginMode === 'host' ? 'text-[var(--brand)]' : 'text-stone-400'} />
-                <span className="text-xs font-semibold tracking-widest uppercase">숙박</span>
+                <div className="w-12 h-12 bg-[var(--brand-tint)] group-hover:bg-white border border-[var(--brand)]/20 flex items-center justify-center shrink-0 transition-colors">
+                  <Home size={22} strokeWidth={1.8} className="text-[var(--brand)]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-stone-900 mb-0.5">숙박 호스트</p>
+                  <p className="text-xs text-stone-500 leading-relaxed">한옥 객실 · 예약 · 청소 관리</p>
+                </div>
               </button>
+
               <button
                 type="button"
                 onClick={() => setLoginMode('tour')}
-                aria-pressed={loginMode === 'tour'}
-                className={`flex flex-col items-center justify-center gap-1.5 py-4 border transition-all ${
-                  loginMode === 'tour'
-                    ? 'bg-[var(--brand-tint)] border-[var(--brand)] text-[var(--brand-dark)]'
-                    : 'bg-white border-stone-300 text-stone-600 hover:border-stone-400'
-                }`}
+                className="w-full flex items-center gap-4 p-5 border border-stone-200 hover:border-[var(--brand)] hover:bg-[var(--brand-tint)] transition-colors group text-left"
               >
-                <Compass size={18} strokeWidth={1.8} className={loginMode === 'tour' ? 'text-[var(--brand)]' : 'text-stone-400'} />
-                <span className="text-xs font-semibold tracking-widest uppercase">투어</span>
+                <div className="w-12 h-12 bg-[var(--brand-tint)] group-hover:bg-white border border-[var(--brand)]/20 flex items-center justify-center shrink-0 transition-colors">
+                  <Compass size={22} strokeWidth={1.8} className="text-[var(--brand)]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-stone-900 mb-0.5">투어 운영자</p>
+                  <p className="text-xs text-stone-500 leading-relaxed">투어 상품 · 일정 · 예약 관리</p>
+                </div>
               </button>
             </div>
           </div>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-[10px] uppercase tracking-widest text-stone-600 mb-2">이메일</label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-                className="w-full bg-white border border-stone-300 px-4 py-3 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors"
-                placeholder="example@email.com"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] uppercase tracking-widest text-stone-600 mb-2">비밀번호</label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-                className="w-full bg-white border border-stone-300 px-4 py-3 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors"
-                placeholder="••••••••"
-              />
-            </div>
-
-            {error && (
-              <p className="text-rose-600 text-xs">{error}</p>
-            )}
-
+        ) : (
+          // Step 2: credentials
+          <div className="bg-white p-8 sm:p-10 border border-stone-200 max-w-md w-full">
             <button
-              type="submit"
-              disabled={isLoggingIn}
-              className="w-full bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white py-3.5 text-sm font-semibold uppercase tracking-widest transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
+              type="button"
+              onClick={() => { setLoginMode(null); setError(''); }}
+              className="text-[11px] uppercase tracking-widest text-stone-500 hover:text-stone-900 mb-4 inline-flex items-center gap-1 transition-colors"
             >
-              {isLoggingIn ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                  로그인 중...
-                </>
-              ) : (
-                '로그인'
-              )}
+              ← 영역 다시 선택
             </button>
-          </form>
-        </div>
+
+            <p className="text-[10px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">
+              {loginMode === 'tour' ? '투어 운영자' : '숙박 호스트'}
+            </p>
+            <h1 className="text-xl font-semibold text-stone-900 mb-1.5">관리자 로그인</h1>
+            <p className="text-stone-500 mb-6 text-sm">
+              {loginMode === 'tour'
+                ? '투어 상품과 예약을 관리합니다.'
+                : '숙소와 청소 일정을 관리합니다.'}
+            </p>
+
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest text-stone-600 mb-2">이메일</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                  autoFocus
+                  autoComplete="email"
+                  className="w-full bg-white border border-stone-300 px-4 py-3 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors"
+                  placeholder="example@email.com"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest text-stone-600 mb-2">비밀번호</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  className="w-full bg-white border border-stone-300 px-4 py-3 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors"
+                  placeholder="••••••••"
+                />
+              </div>
+
+              {error && (
+                <p className="text-rose-600 text-xs">{error}</p>
+              )}
+
+              <button
+                type="submit"
+                disabled={isLoggingIn}
+                className="w-full bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white py-3.5 text-sm font-semibold uppercase tracking-widest transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
+              >
+                {isLoggingIn ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                    로그인 중...
+                  </>
+                ) : (
+                  '로그인'
+                )}
+              </button>
+            </form>
+          </div>
+        )}
       </div>
     );
   }

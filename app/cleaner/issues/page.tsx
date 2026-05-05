@@ -117,14 +117,14 @@ export default function CleanerIssuesPage() {
 
   return (
     <div className="space-y-8">
-      <header className="border-b border-white/10 pb-6 mt-4 flex items-end justify-between">
+      <header className="border-b border-stone-200 pb-6 mt-4 flex items-end justify-between">
         <div>
-          <p className="text-[10px] tracking-[0.3em] text-white/50 mb-2">이슈 관리</p>
-          <h1 className="text-2xl font-light tracking-tight text-white">이슈 등록</h1>
+          <p className="text-[10px] tracking-[0.3em] text-stone-500 mb-2">이슈 관리</p>
+          <h1 className="text-2xl font-light tracking-tight text-stone-900">이슈 등록</h1>
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="border border-white/20 text-white px-4 py-2.5 text-[10px] uppercase tracking-widest font-semibold hover:bg-white/5 transition-colors flex items-center gap-1.5"
+          className="border border-stone-300 text-stone-900 px-4 py-2.5 text-[10px] uppercase tracking-widest font-semibold hover:bg-stone-50 transition-colors flex items-center gap-1.5"
         >
           <Plus size={14} /> 새 이슈
         </button>
@@ -132,64 +132,64 @@ export default function CleanerIssuesPage() {
 
       {/* New Issue Form */}
       {showForm && (
-        <div className="border border-white/10 bg-[#111] p-5 space-y-4">
-          <p className="text-[10px] uppercase tracking-widest text-white/50 font-semibold">새 이슈 등록</p>
+        <div className="border border-stone-200 bg-white p-5 space-y-4">
+          <p className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold">새 이슈 등록</p>
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">숙소</label>
+            <label className="block text-[10px] uppercase tracking-widest text-stone-400 mb-1.5">숙소</label>
             <select
               value={selectedProperty}
               onChange={e => setSelectedProperty(e.target.value)}
-              className="w-full bg-black/50 border border-white/10 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30"
+              className="w-full bg-white border border-stone-200 px-3 py-2.5 text-sm text-stone-900 focus:outline-none focus:border-stone-400"
             >
               {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">카테고리</label>
+              <label className="block text-[10px] uppercase tracking-widest text-stone-400 mb-1.5">카테고리</label>
               <select
                 value={category}
                 onChange={e => setCategory(e.target.value as IssueCategory)}
-                className="w-full bg-black/50 border border-white/10 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30"
+                className="w-full bg-white border border-stone-200 px-3 py-2.5 text-sm text-stone-900 focus:outline-none focus:border-stone-400"
               >
                 {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">긴급도</label>
+              <label className="block text-[10px] uppercase tracking-widest text-stone-400 mb-1.5">긴급도</label>
               <select
                 value={urgency}
                 onChange={e => setUrgency(e.target.value as IssueUrgency)}
-                className="w-full bg-black/50 border border-white/10 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30"
+                className="w-full bg-white border border-stone-200 px-3 py-2.5 text-sm text-stone-900 focus:outline-none focus:border-stone-400"
               >
                 {URGENCY.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
               </select>
             </div>
           </div>
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">제목</label>
+            <label className="block text-[10px] uppercase tracking-widest text-stone-400 mb-1.5">제목</label>
             <input
               type="text"
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="예: 거실 창문 균열"
-              className="w-full bg-black/50 border border-white/10 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30"
+              className="w-full bg-white border border-stone-200 px-3 py-2.5 text-sm text-stone-900 focus:outline-none focus:border-stone-400"
             />
           </div>
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">상세 설명</label>
+            <label className="block text-[10px] uppercase tracking-widest text-stone-400 mb-1.5">상세 설명</label>
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
               rows={3}
               placeholder="상세 내용을 입력하세요"
-              className="w-full bg-black/50 border border-white/10 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 resize-none"
+              className="w-full bg-white border border-stone-200 px-3 py-2.5 text-sm text-stone-900 focus:outline-none focus:border-stone-400 resize-none"
             />
           </div>
           <button
             onClick={handleSubmit}
             disabled={submitting || !title.trim()}
-            className="w-full bg-white text-black py-3 text-[11px] uppercase tracking-widest font-semibold hover:bg-white/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white py-3 text-[11px] uppercase tracking-widest font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {submitting ? (
               <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
@@ -203,7 +203,7 @@ export default function CleanerIssuesPage() {
       {/* Issues List */}
       <section className="space-y-3">
         {issues.length === 0 ? (
-          <div className="flex flex-col items-center text-white/40 py-12">
+          <div className="flex flex-col items-center text-stone-400 py-12">
             <AlertTriangle size={28} className="mb-3 opacity-50" />
             <p className="text-sm">등록된 이슈가 없습니다.</p>
           </div>
@@ -211,28 +211,28 @@ export default function CleanerIssuesPage() {
           issues.map(issue => {
             const st = ISSUE_STATUS_CONFIG[issue.status] ?? ISSUE_STATUS_CONFIG.open;
             return (
-              <div key={issue.id} className="border border-white/10 bg-[#111] p-5">
+              <div key={issue.id} className="border border-stone-200 bg-white p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`text-[10px] px-1.5 py-0.5 tracking-wider ${st.bg} ${st.color}`}>{st.label}</span>
-                      <span className="text-[10px] text-white/30 tracking-wider">
+                      <span className="text-[10px] text-stone-300 tracking-wider">
                         {CATEGORIES.find(c => c.value === issue.category)?.label}
                       </span>
                       {issue.urgency === 'urgent' && (
                         <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 tracking-wider">긴급</span>
                       )}
                     </div>
-                    <p className="text-white font-medium text-sm">{issue.title}</p>
-                    <p className="text-white/40 text-xs mt-1">{issue.propertyName}</p>
+                    <p className="text-stone-900 font-medium text-sm">{issue.title}</p>
+                    <p className="text-stone-400 text-xs mt-1">{issue.propertyName}</p>
                     {issue.description && (
-                      <p className="text-white/30 text-xs mt-2 leading-relaxed">{issue.description}</p>
+                      <p className="text-stone-300 text-xs mt-2 leading-relaxed">{issue.description}</p>
                     )}
                     {issue.resolvedNote && (
                       <p className="text-green-400/60 text-xs mt-2">처리 내용: {issue.resolvedNote}</p>
                     )}
                   </div>
-                  <p className="text-white/20 text-[10px] shrink-0">
+                  <p className="text-stone-900/20 text-[10px] shrink-0">
                     {format(parseISO(issue.createdAt), 'M/d', { locale: ko })}
                   </p>
                 </div>

@@ -15,6 +15,14 @@ interface DurationOption {
   sortOrder: number;
 }
 
+interface TicketTier {
+  id: string;
+  label: string;
+  price: number;
+  notes: string | null;
+  sortOrder: number;
+}
+
 interface TourDetail {
   id: string;
   title: string;
@@ -27,6 +35,7 @@ interface TourDetail {
   operatorId: string | null;
   images: string[];
   durationOptions: DurationOption[];
+  ticketTiers: TicketTier[];
   _count?: { bookings: number };
 }
 
@@ -52,6 +61,10 @@ export default function TourDetailPage() {
   const [newOption, setNewOption] = useState({ label: '', durationMin: '60', price: '' });
   const [savingOptionId, setSavingOptionId] = useState<string | null>(null);
 
+  // ticket tier draft (for adding)
+  const [newTier, setNewTier] = useState({ label: '', price: '', notes: '' });
+  const [savingTierId, setSavingTierId] = useState<string | null>(null);
+
   // image upload
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -74,6 +87,7 @@ export default function TourDetailPage() {
           operatorId: data.operatorId,
           images: data.images ?? [],
           durationOptions: data.durationOptions ?? [],
+          ticketTiers: data.ticketTiers ?? [],
           _count: data._count,
         });
       }
@@ -203,13 +217,85 @@ export default function TourDetailPage() {
     } : prev);
   };
 
+  // ── Ticket tier handlers ────────────────────────────────────────────
+  const handleAddTier = async () => {
+    if (!newTier.label.trim() || newTier.price === '') return;
+    setSavingTierId('new');
+    try {
+      const res = await fetch(`/api/tours/${id}/ticket-tiers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          label: newTier.label.trim(),
+          price: Number(newTier.price),
+          notes: newTier.notes.trim() || null,
+          sortOrder: tour?.ticketTiers.length ?? 0,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || '티켓 추가에 실패했습니다.');
+        return;
+      }
+      setNewTier({ label: '', price: '', notes: '' });
+      await loadTour();
+    } finally {
+      setSavingTierId(null);
+    }
+  };
+
+  const handleUpdateTier = async (tier: TicketTier) => {
+    setSavingTierId(tier.id);
+    try {
+      await fetch(`/api/tours/${id}/ticket-tiers`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tierId: tier.id,
+          label: tier.label,
+          price: tier.price,
+          notes: tier.notes,
+          sortOrder: tier.sortOrder,
+        }),
+      });
+    } finally {
+      setSavingTierId(null);
+    }
+  };
+
+  const handleDeleteTier = async (tierId: string) => {
+    if (!confirm('이 티켓 종류를 삭제하시겠습니까?')) return;
+    const res = await fetch(`/api/tours/${id}/ticket-tiers?tierId=${tierId}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || '삭제에 실패했습니다.');
+      return;
+    }
+    await loadTour();
+  };
+
+  const updateTierLocal = (tierId: string, field: keyof TicketTier, value: string | number | null) => {
+    setTour(prev => prev ? {
+      ...prev,
+      ticketTiers: prev.ticketTiers.map(t => t.id === tierId ? { ...t, [field]: value } : t),
+    } : prev);
+  };
+
   const handleUpload = async (file: File) => {
     setUploading(true);
     setUploadError(null);
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const res = await fetch('/api/uploads/tour-image', { method: 'POST', body: fd });
+      // Send the file as raw body — sidesteps Next 15 + Turbopack's
+      // multipart parsing bug. Filename is URL-encoded so non-ASCII
+      // characters round-trip safely through the header.
+      const res = await fetch('/api/uploads/tour-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': file.type || 'application/octet-stream',
+          'x-filename': encodeURIComponent(file.name),
+        },
+        body: file,
+      });
       const data = await res.json();
       if (!res.ok) {
         setUploadError(data.error ?? '업로드 실패');
@@ -460,6 +546,102 @@ export default function TourDetailPage() {
             type="button"
             onClick={handleAddOption}
             disabled={!newOption.durationMin || !newOption.price || savingOptionId === 'new'}
+            className="ml-auto text-[10px] uppercase tracking-widest px-4 py-2 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white transition-colors disabled:opacity-50 inline-flex items-center gap-1"
+          >
+            <Plus size={12} /> 추가
+          </button>
+        </div>
+      </div>
+
+      {/* Ticket tiers — 성인/어린이/영유아 같은 가격 종류 */}
+      <div className="bg-white border border-stone-200 p-6 sm:p-8">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-sm tracking-widest font-medium text-stone-900">티켓 종류</h2>
+            <p className="text-[11px] text-stone-500 mt-1">한 예약에 여러 명이 섞일 수 있을 때 사용 (예: 성인 + 어린이 + 영유아)</p>
+          </div>
+          <span className="text-[10px] text-stone-400">{tour.ticketTiers.length}개</span>
+        </div>
+
+        <div className="space-y-2 mb-5">
+          {tour.ticketTiers.length === 0 && (
+            <p className="text-xs text-stone-400 py-3 text-center">등록된 티켓 종류가 없습니다.</p>
+          )}
+          {tour.ticketTiers.map(tier => (
+            <div key={tier.id} className="flex flex-wrap items-center gap-2 p-3 border border-stone-200 bg-stone-50">
+              <input
+                type="text"
+                placeholder="이름 (예: 성인)"
+                value={tier.label}
+                onChange={e => updateTierLocal(tier.id, 'label', e.target.value)}
+                className="flex-1 min-w-[120px] bg-white border border-stone-200 px-3 py-2 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)]"
+              />
+              <input
+                type="number"
+                min="0"
+                value={tier.price}
+                onChange={e => updateTierLocal(tier.id, 'price', Number(e.target.value) || 0)}
+                className="w-28 bg-white border border-stone-200 px-3 py-2 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)]"
+              />
+              <span className="text-xs text-stone-500">원/인</span>
+              <input
+                type="text"
+                placeholder="비고 (예: 4-7세)"
+                value={tier.notes ?? ''}
+                onChange={e => updateTierLocal(tier.id, 'notes', e.target.value || null)}
+                className="flex-1 min-w-[120px] bg-white border border-stone-200 px-3 py-2 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)]"
+              />
+              <div className="flex items-center gap-1 ml-auto">
+                <button
+                  type="button"
+                  onClick={() => handleUpdateTier(tier)}
+                  disabled={savingTierId === tier.id}
+                  className="text-[10px] uppercase tracking-widest px-3 py-1.5 bg-stone-100 hover:bg-[var(--brand)] hover:text-white text-stone-700 transition-colors disabled:opacity-50"
+                >
+                  저장
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteTier(tier.id)}
+                  className="p-1.5 text-stone-400 hover:text-red-600 transition-colors"
+                  title="삭제"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Add new tier */}
+        <div className="flex flex-wrap items-center gap-2 p-3 border-2 border-dashed border-stone-300">
+          <input
+            type="text"
+            placeholder="이름 (예: 성인)"
+            value={newTier.label}
+            onChange={e => setNewTier({ ...newTier, label: e.target.value })}
+            className="flex-1 min-w-[120px] bg-white border border-stone-200 px-3 py-2 text-sm focus:outline-none focus:border-[var(--brand)]"
+          />
+          <input
+            type="number"
+            min="0"
+            placeholder="가격"
+            value={newTier.price}
+            onChange={e => setNewTier({ ...newTier, price: e.target.value })}
+            className="w-28 bg-white border border-stone-200 px-3 py-2 text-sm focus:outline-none focus:border-[var(--brand)]"
+          />
+          <span className="text-xs text-stone-500">원/인</span>
+          <input
+            type="text"
+            placeholder="비고 (선택, 예: 4-7세)"
+            value={newTier.notes}
+            onChange={e => setNewTier({ ...newTier, notes: e.target.value })}
+            className="flex-1 min-w-[120px] bg-white border border-stone-200 px-3 py-2 text-sm focus:outline-none focus:border-[var(--brand)]"
+          />
+          <button
+            type="button"
+            onClick={handleAddTier}
+            disabled={!newTier.label.trim() || newTier.price === '' || savingTierId === 'new'}
             className="ml-auto text-[10px] uppercase tracking-widest px-4 py-2 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white transition-colors disabled:opacity-50 inline-flex items-center gap-1"
           >
             <Plus size={12} /> 추가

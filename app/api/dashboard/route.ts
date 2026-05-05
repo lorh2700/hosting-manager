@@ -34,6 +34,19 @@ export async function GET(req: Request) {
         where: {
           propertyId: { in: propIds },
           type: 'reservation',
+          // Defensive: exclude any reservation that's been tagged as an
+          // inquiry. The Beds24 sync now sets this tag for status='request'
+          // / 'inquiry' bookings, but if a row was imported before that
+          // logic existed it might still have type='reservation' until the
+          // next sync runs — the title/source still get the [문의] prefix
+          // so we belt-and-suspenders by also excluding those.
+          NOT: {
+            OR: [
+              { tags: { has: 'inquiry' } },
+              { title: { startsWith: '[문의]' } },
+              { source: { contains: '문의' } },
+            ],
+          },
           startDate: { lte: rangeEnd },
           endDate: { gte: rangeStart },
         },

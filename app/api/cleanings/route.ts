@@ -82,15 +82,43 @@ export async function GET(req: Request) {
     const isOpen = searchParams.get('isOpen');
 
     const where: Record<string, unknown> = {};
-    const isCleaner = auth.user.role === 'cleaner';
+
+    // Detect cleaner by role OR Cleaner-row existence (handles legacy
+    // accounts where role wasn't set to 'cleaner').
+    let myCleaner = await prisma.cleaner.findUnique({
+      where: { userId: auth.session.userId },
+      select: { ownerId: true },
+    });
+    if (!myCleaner && auth.user.phone) {
+      myCleaner = await prisma.cleaner.findFirst({
+        where: { phone: auth.user.phone },
+        select: { ownerId: true },
+      });
+    }
+    const isCleaner = auth.user.role === 'cleaner' || !!myCleaner;
     const scopedIds = auth.propertyIds ?? [];
+
+    // Compute the visibility scope for cleaners — they should be able to
+    // SEE every cleaning across their host's properties.
+    let cleanerVisibleIds: string[] | null = null;
+    if (myCleaner) {
+      const ownedProps = await prisma.property.findMany({
+        where: { ownerId: myCleaner.ownerId },
+        select: { id: true },
+      });
+      cleanerVisibleIds = ownedProps.map(p => p.id);
+      // Fallback when Cleaner.ownerId points to a host with no properties
+      // (data mismatch): use the UserProperty scope which the admin
+      // actually configured.
+      if (cleanerVisibleIds.length === 0 && scopedIds.length > 0) {
+        cleanerVisibleIds = scopedIds;
+      }
+    }
 
     if (auth.isAdmin) {
       if (requestedPropertyIds?.length) where.propertyId = { in: requestedPropertyIds };
     } else if (isCleaner && isOpen === 'true') {
-      // Cleaners browsing open cleanings:
-      //   - if admin scoped them to properties, restrict to those
-      //   - otherwise show everything so they can apply broadly
+      // Application/claim scope is the narrower UserProperty scope.
       if (scopedIds.length > 0) {
         const ids = requestedPropertyIds?.length
           ? requestedPropertyIds.filter(id => scopedIds.includes(id))
@@ -99,6 +127,25 @@ export async function GET(req: Request) {
         where.propertyId = { in: ids };
       } else if (requestedPropertyIds?.length) {
         where.propertyId = { in: requestedPropertyIds };
+      }
+    } else if (isCleaner && cleanerVisibleIds) {
+      // Read-only visibility: every property of the cleaner's owner.
+      const ids = requestedPropertyIds?.length
+        ? requestedPropertyIds.filter(id => cleanerVisibleIds!.includes(id))
+        : cleanerVisibleIds;
+      if (ids.length === 0) return NextResponse.json([]);
+      where.propertyId = { in: ids };
+    } else if (isCleaner) {
+      // Cleaner with no Cleaner record at all — last-resort fallback so
+      // the page still has data. Restricts to whatever propertyIds the
+      // client asked for (it gets those from /api/properties' own
+      // fallback path).
+      if (requestedPropertyIds?.length) {
+        where.propertyId = { in: requestedPropertyIds };
+      } else if (scopedIds.length > 0) {
+        where.propertyId = { in: scopedIds };
+      } else {
+        return NextResponse.json([]);
       }
     } else {
       if (scopedIds.length === 0) return NextResponse.json([]);

@@ -397,10 +397,27 @@ model Tour {
   schedules       TourSchedule[]
   bookings        TourBooking[]
   durationOptions TourDurationOption[]
+  ticketTiers     TourTicketTier[]
 
   @@index([ownerId])
   @@index([operatorId])
   @@map("tours")
+}
+
+// ── 투어 티켓 종류 (성인/어린이/영유아 같은 가격 티어) ──
+model TourTicketTier {
+  id        String   @id @default(uuid())
+  tourId    String   @map("tour_id")
+  label     String   // "성인", "어린이", "영유아"
+  price     Decimal
+  notes     String?  // "(4-7세)" 같은 부가 설명
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tour Tour @relation(fields: [tourId], references: [id], onDelete: Cascade)
+
+  @@index([tourId])
+  @@map("tour_ticket_tiers")
 }
 
 // ── 투어 코스 옵션 (시간별 가격) ──
@@ -454,6 +471,12 @@ model TourBooking {
   durationMin      Int?     @map("duration_min")  // snapshot at booking time
   unitPrice        Decimal? @map("unit_price")    // snapshot at booking time
   totalPrice       Decimal? @map("total_price")
+  // Tier-based ticketing snapshot (e.g. rickshaw 성인/어린이/영유아 mix).
+  // Shape: [{ tierId, label, count, unitPrice }]
+  tickets          Json?    @default("[]")
+  language         String?  // ko, en, zh, ja — preferred guide language
+  meetingChoice    String?  @map("meeting_choice")  // anguk_station, accommodation, custom
+  meetingDetail    String?  @map("meeting_detail")  // free text (e.g. 숙소명/주소)
   status           String   @default("pending") // pending, forwarded, confirmed, cancelled, completed
   forwardedAt      DateTime? @map("forwarded_at")
   message          String?
