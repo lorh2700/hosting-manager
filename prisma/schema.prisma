@@ -57,6 +57,10 @@ model Property {
   basePrice        Decimal? @map("base_price")
   maxGuests        Int?     @map("max_guests")
   description      String?
+  // Bridge to the welcome-pad project. Same Supabase DB but separate
+  // schema lineage; this short key (e.g. 'anon', 'unwadang') is what
+  // the pad URL uses to identify which property's settings to load.
+  welcomepadKey    String?  @unique @map("welcomepad_key")
   createdAt        DateTime @default(now()) @map("created_at")
 
   owner                User                  @relation(fields: [ownerId], references: [id])
@@ -72,8 +76,30 @@ model Property {
   cleaningIssues       CleaningIssue[]
   cleaningApplications CleaningApplication[]
   syncLogs             SyncLog[]
+  welcomepadConfig     WelcomepadConfig?
 
   @@map("properties")
+}
+
+// ── 웰컴 패드 설정 (1:1 사이드카) ──
+// hotel-welcome-pad 프로젝트가 같은 DB의 anon 클라이언트로 SELECT/UPDATE.
+// hosting-manager에서는 호스트가 admin UI로 편집할 때만 다룸.
+model WelcomepadConfig {
+  propertyId      String   @id @map("property_id")
+  hotelName       String?  @map("hotel_name")
+  logoType        String   @default("text") @map("logo_type")
+  logoImage       String?  @map("logo_image")
+  theme           String?
+  themeGradient   String?  @map("theme_gradient")
+  wifiSsid        String?  @map("wifi_ssid")
+  wifiPassword    String?  @map("wifi_password")
+  wifiEncryption  String   @default("WPA") @map("wifi_encryption")
+  cleaningMode    Boolean  @default(false) @map("cleaning_mode")
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@map("welcomepad_configs")
 }
 
 // ── 채널 ──
@@ -130,6 +156,11 @@ model Event {
   guestPhone  String?  @map("guest_phone")
   numAdults   Int?     @map("num_adults")
   numChildren Int?     @map("num_children")
+  // Welcome-pad host overrides (이전 welcomepad_current_guest 의 manual 컬럼).
+  // welcomeMessage 가 set 이면 Property.roomReadyMessage 보다 우선.
+  // manualReturning 가 set 이면 매칭 자동 판정을 무시하고 강제 적용.
+  welcomeMessage   String?  @map("welcome_message")
+  manualReturning  Boolean? @map("manual_returning")
   createdAt   DateTime @default(now()) @map("created_at")
 
   property Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
