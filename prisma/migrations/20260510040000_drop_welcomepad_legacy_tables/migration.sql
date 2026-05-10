@@ -76,13 +76,11 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 2. Realtime publication 에서 제거 (DROP TABLE 전에 필수)
-ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS "welcomepad_current_guest";
-ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS "welcomepad_guest_history";
-
--- 3. 테이블 drop. CASCADE 는 RLS 정책/트리거가 자동 정리되도록 명시.
+-- 2. 테이블 drop. CASCADE 는 RLS 정책/트리거가 자동 정리되도록 명시.
 --    (welcomepad_get_or_create_active_thread 가 위에서 새 정의로 교체됐으니
 --    더 이상 이 테이블을 참조하지 않음.)
+--    Realtime publication 멤버십은 DROP TABLE 시 자동으로 함께 제거됨
+--    (ALTER PUBLICATION ... DROP TABLE IF EXISTS 는 PG 18 이전엔 미지원).
 DROP TABLE IF EXISTS "welcomepad_guest_history" CASCADE;
 DROP TABLE IF EXISTS "welcomepad_current_guest" CASCADE;
 
