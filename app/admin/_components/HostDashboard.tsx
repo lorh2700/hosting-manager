@@ -127,23 +127,31 @@ export default function HostDashboard() {
 
   useEffect(() => {
     if (!user) return;
+    let cancelled = false;
     const load = async () => {
       try {
-        const [res, cleanersRes] = await Promise.all([
-          fetch('/api/dashboard'),
-          isAdmin ? fetch('/api/cleaners') : Promise.resolve(null),
-        ]);
+        // Cleaner list is only needed for the "월별 미배정 청소" panel which
+        // sits below the fold. Fetch it in parallel but don't block initial
+        // paint on it — the dashboard data is the user-visible critical path.
+        if (isAdmin) {
+          fetch('/api/cleaners')
+            .then(r => (r.ok ? r.json() : []))
+            .then(list => {
+              if (cancelled) return;
+              setCleaners(
+                (Array.isArray(list) ? list : []).map((c: { id: string; name: string }) => ({
+                  id: c.id, name: c.name,
+                })),
+              );
+            })
+            .catch(err => console.error('Failed to load cleaners', err));
+        }
+
+        const res = await fetch('/api/dashboard');
+        if (cancelled) return;
         if (!res.ok) { setLoading(false); return; }
         const data = await res.json();
-
-        if (cleanersRes && cleanersRes.ok) {
-          const cleanerList = await cleanersRes.json();
-          setCleaners(
-            (Array.isArray(cleanerList) ? cleanerList : []).map((c: { id: string; name: string }) => ({
-              id: c.id, name: c.name,
-            })),
-          );
-        }
+        if (cancelled) return;
 
         setTotalProperties(data.properties);
         setUnreadMessages(data.unreadMessages);
@@ -227,10 +235,11 @@ export default function HostDashboard() {
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     load();
+    return () => { cancelled = true; };
   }, [user, isAdmin]);
 
   const handleAssign = async (item: UnassignedCheckout) => {

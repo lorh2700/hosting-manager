@@ -240,6 +240,7 @@ model CleaningApplication {
   property Property @relation(fields: [propertyId], references: [id])
 
   @@index([cleaningId])
+  @@index([propertyId, status])
   @@map("cleaning_applications")
 }
 
@@ -289,6 +290,7 @@ model Message {
   @@index([eventId])
   @@index([propertyId])
   @@index([sender, read])
+  @@index([propertyId, sender, read])
   @@map("messages")
 }
 
@@ -320,6 +322,7 @@ model SupplyTodo {
 
   property Property @relation(fields: [propertyId], references: [id])
 
+  @@index([propertyId, done])
   @@map("supply_todos")
 }
 

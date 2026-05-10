@@ -4,19 +4,23 @@ import { getSessionWithUser } from '@/lib/auth';
 import { addDays, endOfMonth, format, startOfMonth } from 'date-fns';
 
 export async function GET(req: Request) {
+  const t0 = Date.now();
+  const timings: Record<string, number> = {};
   try {
     const auth = await getSessionWithUser(req);
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    timings.auth = Date.now() - t0;
 
     const propWhere = auth.isAdmin ? {} : { id: { in: auth.propertyIds! } };
 
-    // Single query for properties (instead of two separate queries)
+    const tProps = Date.now();
     const properties = await prisma.property.findMany({
       where: propWhere,
       select: { id: true, name: true },
     });
     const propIds = properties.map(p => p.id);
     const propsMap = Object.fromEntries(properties.map(p => [p.id, p.name]));
+    timings.properties = Date.now() - tProps;
 
     if (propIds.length === 0) {
       return NextResponse.json({ properties: 0, dayGroups: [], unreadMessages: 0, pendingSupplies: 0, openIssues: 0 });
@@ -28,7 +32,12 @@ export async function GET(req: Request) {
     const monthEndStr = format(endOfMonth(now), 'yyyy-MM-dd');
     const rangeEnd = weekEndStr > monthEndStr ? weekEndStr : monthEndStr;
 
-    // All data queries in parallel (was 2 sequential rounds before)
+    // All data queries in parallel (was 2 sequential rounds before).
+    //
+    // Counts are scoped to the user's properties — previously they spanned
+    // the entire DB, which is both incorrect (a cleaning host saw counts
+    // from every property in the system) and slow (full-table scans).
+    const tQueries = Date.now();
     const [events, bookings, cleanings, cleaners, unreadMessages, pendingSupplies, openIssues, pendingApplications] = await Promise.all([
       prisma.event.findMany({
         where: {
@@ -71,9 +80,15 @@ export async function GET(req: Request) {
       auth.isAdmin
         ? prisma.cleaner.findMany({ select: { id: true, name: true } })
         : prisma.cleaner.findMany({ where: { ownerId: auth.session.userId }, select: { id: true, name: true } }),
-      prisma.message.count({ where: { sender: 'guest', read: false } }),
-      prisma.supplyTodo.count({ where: { done: false } }),
-      prisma.cleaningIssue.count({ where: { status: { in: ['open', 'in_progress'] } } }),
+      prisma.message.count({
+        where: { sender: 'guest', read: false, propertyId: { in: propIds } },
+      }),
+      prisma.supplyTodo.count({
+        where: { done: false, propertyId: { in: propIds } },
+      }),
+      prisma.cleaningIssue.count({
+        where: { status: { in: ['open', 'in_progress'] }, propertyId: { in: propIds } },
+      }),
       prisma.cleaningApplication.count({
         where: {
           status: 'pending',
@@ -81,6 +96,7 @@ export async function GET(req: Request) {
         },
       }),
     ]);
+    timings.queries = Date.now() - tQueries;
 
     const cleanersMap = Object.fromEntries(cleaners.map(c => [c.id, c.name]));
 
@@ -137,6 +153,16 @@ export async function GET(req: Request) {
       }
     }
 
+    timings.total = Date.now() - t0;
+    if (timings.total > 500) {
+      console.warn('[dashboard] slow GET', {
+        timings,
+        eventCount: events.length,
+        bookingCount: bookings.length,
+        cleaningCount: cleanings.length,
+      });
+    }
+
     return NextResponse.json(
       {
         properties: propIds.length,
@@ -148,6 +174,7 @@ export async function GET(req: Request) {
         pendingSupplies,
         openIssues,
         pendingApplications,
+        _timings: process.env.NODE_ENV === 'development' ? timings : undefined,
       },
       {
         headers: {
@@ -156,7 +183,7 @@ export async function GET(req: Request) {
       },
     );
   } catch (e) {
-    console.error('[dashboard] GET error:', e);
+    console.error('[dashboard] GET error:', e, { timings });
     const message = e instanceof Error ? e.message : String(e);
     const code = (e as { code?: string })?.code;
     return NextResponse.json({ error: '서버 오류가 발생했습니다.', message, code }, { status: 500 });
