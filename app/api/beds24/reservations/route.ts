@@ -114,6 +114,10 @@ export async function POST(req: Request) {
         originalUid: String(beds24BookingId),
         description: descriptionParts,
         tags: sanitizedTags,
+        guestEmail: trimmedEmail || null,
+        guestPhone: trimmedPhone || null,
+        numAdults: adults,
+        numChildren: children,
       },
     });
 

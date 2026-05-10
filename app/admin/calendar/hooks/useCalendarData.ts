@@ -22,12 +22,14 @@ export function useCalendarData() {
 
   useEffect(() => {
     const isLoggedIn = !!user;
+    let cancelled = false;
     const fetchAll = async () => {
       try {
         if (isLoggedIn) {
           const res = await fetch('/api/admin/calendar');
           if (!res.ok) throw new Error('Failed to fetch admin calendar');
           const data = await res.json();
+          if (cancelled) return;
 
           const props: Property[] = (data.properties ?? []).map((d: Record<string, unknown>, i: number) => ({
             id: d.id as string, name: d.name as string, color: PROPERTY_COLORS[i % PROPERTY_COLORS.length],
@@ -64,15 +66,26 @@ export function useCalendarData() {
             status: c.status || 'pending', supplies: c.supplies,
           })));
           setCleaners(data.cleaners ?? []);
+          setLoading(false);
 
-          const supplyData = data.supplyTodos ?? [];
+          // Supply todos are deferred to a second roundtrip so the calendar
+          // grid (events + cleanings) renders without waiting on the supply
+          // panel data.
           const propsNameMap = new Map(props.map(p => [p.id, p.name]));
-          setAllSupplyTodos(supplyData.map((d: Record<string, unknown>) => ({
-            id: d.id as string, propertyId: d.propertyId as string,
-            propertyName: propsNameMap.get(d.propertyId as string) || '',
-            date: d.date as string, text: d.text as string,
-            done: (d.done as boolean) ?? false, createdAt: (d.createdAt as string) ?? '',
-          })));
+          fetch('/api/admin/calendar/supply-todos')
+            .then(r => (r.ok ? r.json() : { supplyTodos: [] }))
+            .then(sd => {
+              if (cancelled) return;
+              const supplyData = sd.supplyTodos ?? [];
+              setAllSupplyTodos(supplyData.map((d: Record<string, unknown>) => ({
+                id: d.id as string, propertyId: d.propertyId as string,
+                propertyName: propsNameMap.get(d.propertyId as string) || '',
+                date: d.date as string, text: d.text as string,
+                done: (d.done as boolean) ?? false, createdAt: (d.createdAt as string) ?? '',
+              })));
+            })
+            .catch(err => console.error('Failed to load supply todos', err));
+          return;
         } else {
           const res = await fetch('/api/public/calendar');
           if (!res.ok) throw new Error('Failed to fetch');
@@ -112,10 +125,11 @@ export function useCalendarData() {
       } catch (err) {
         console.error('Failed to load calendar data', err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchAll();
+    return () => { cancelled = true; };
   }, [user, profile]);
 
   // Weeks for current month view

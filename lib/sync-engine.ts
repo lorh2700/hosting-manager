@@ -437,6 +437,10 @@ export async function syncBeds24Property(
         ? `[문의] ${guestName}`
         : (guestName as string);
 
+      // numAdult/numChild may arrive as either string or number depending on Beds24 channel.
+      const adultsRaw = Number(b.numAdult ?? b.numAdults ?? 0);
+      const childrenRaw = Number(b.numChild ?? b.numChildren ?? 0);
+
       return {
         propertyId,
         channelId: 'beds24',
@@ -450,6 +454,13 @@ export async function syncBeds24Property(
         tags: isInquiry ? ['inquiry'] : [],
         originalUid: String(b.id),
         description: descriptionParts,
+        // Promote contact + party size to structured columns so downstream
+        // consumers (welcome-pad check-in matching) don't have to parse description.
+        // Block events have no real guest so leave them null.
+        guestEmail: isBlack ? null : ((b.email as string) || null),
+        guestPhone: isBlack ? null : ((b.phone as string) || (b.mobile as string) || null),
+        numAdults: isBlack ? null : (Number.isFinite(adultsRaw) ? adultsRaw : null),
+        numChildren: isBlack ? null : (Number.isFinite(childrenRaw) ? childrenRaw : null),
       };
     });
 
@@ -472,8 +483,15 @@ export async function syncBeds24Property(
       const datesChanged = existing.startDate !== event.startDate || existing.endDate !== event.endDate;
       const typeChanged = existing.type !== event.type;
       const sourceChanged = existing.source !== event.source && existing.source !== 'manual-reservation';
+      // Guest contact change detection — also drives backfill of NULLs
+      // for rows that existed before the guest_* columns were added.
+      const guestChanged =
+        existing.guestEmail !== event.guestEmail ||
+        existing.guestPhone !== event.guestPhone ||
+        existing.numAdults !== event.numAdults ||
+        existing.numChildren !== event.numChildren;
 
-      if (titleChanged || datesChanged || typeChanged || sourceChanged) {
+      if (titleChanged || datesChanged || typeChanged || sourceChanged || guestChanged) {
         // Preserve source='manual-reservation' so the calendar UI keeps
         // showing the cancel button after a sync round.
         const preservedSource = existing.source === 'manual-reservation' ? existing.source : event.source;
@@ -487,6 +505,10 @@ export async function syncBeds24Property(
             source: preservedSource,
             type: event.type,
             tags: event.tags ?? [],
+            guestEmail: event.guestEmail,
+            guestPhone: event.guestPhone,
+            numAdults: event.numAdults,
+            numChildren: event.numChildren,
           },
         });
         eventsUpdated++;

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/sidebar';
 import { useAuth } from '@/components/AuthProvider';
 import { Logo } from '@/components/Logo';
@@ -20,18 +20,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [error, setError] = useState('');
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   const isPublicPath = PUBLIC_PATHS.includes(pathname);
 
-  // Pre-select login mode from ?mode=tour|host query param. Lets us share
-  // a "tour-admin" deep link with operators so they skip step 1 entirely.
-  // No localStorage fallback here — first-time visitors should always see
-  // the area picker, not be silently routed by a previous browser visit.
+  // Pre-select login mode from ?mode=tour|host query param. Reading
+  // window.location.search directly inside an effect keeps this purely
+  // client-side, so child pages don't need to be wrapped in <Suspense>
+  // (which would fail static prerender otherwise).
   useEffect(() => {
-    const param = searchParams.get('mode');
+    if (typeof window === 'undefined') return;
+    const param = new URLSearchParams(window.location.search).get('mode');
     if (param === 'tour' || param === 'host') setLoginMode(param);
-  }, [searchParams]);
+  }, []);
 
   useEffect(() => {
     if (!loading && profile?.role === 'cleaner') {
