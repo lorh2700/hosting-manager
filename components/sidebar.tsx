@@ -20,6 +20,7 @@ import {
   Briefcase,
   CalendarCheck,
   Hand,
+  KeyRound,
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { Logo } from '@/components/Logo';
@@ -54,6 +55,7 @@ const TOUR_LINKS: NavItem[] = [
 
 const SYSTEM_LINKS: NavItem[] = [
   { href: '/admin/users', label: '유저 관리', icon: UserCog, roles: ['super_admin', 'admin'] },
+  { href: '/admin/api-clients', label: 'API 클라이언트', icon: KeyRound, roles: ['super_admin', 'admin'] },
   { href: '/admin/settings/profile', label: '프로필', icon: Settings, roles: ['super_admin', 'admin', 'host', 'cleaner', 'viewer'] },
 ];
 

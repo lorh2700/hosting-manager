@@ -81,6 +81,26 @@ model Property {
   @@map("properties")
 }
 
+// ── 외부 API 클라이언트 (파트너사용 v1 API key) ──
+// 발급 시점에만 평문 키 노출, 이후엔 sha256 해시만 DB 에 저장.
+// scopes 는 'bookings:read', 'cleanings:write' 형태로 dot-style.
+// propertyIds 가 비어 있으면 모든 지점 접근, 아니면 그 지점들만.
+model ApiClient {
+  id          String    @id @default(uuid())
+  name        String                              // 파트너사 이름
+  keyPrefix   String    @unique @map("key_prefix") // 'vd_live_xxxxxxxx' 식별/로그용
+  keyHash     String    @unique @map("key_hash")   // sha256(전체 키)
+  scopes      String[]  @default([])
+  propertyIds String[]  @default([]) @map("property_ids")
+  expiresAt   DateTime? @map("expires_at")
+  revokedAt   DateTime? @map("revoked_at")
+  lastUsedAt  DateTime? @map("last_used_at")
+  createdBy   String?   @map("created_by")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@map("api_clients")
+}
+
 // ── 웰컴 패드 설정 (1:1 사이드카) ──
 // hotel-welcome-pad 프로젝트가 같은 DB의 anon 클라이언트로 SELECT/UPDATE.
 // hosting-manager에서는 호스트가 admin UI로 편집할 때만 다룸.
@@ -242,6 +262,16 @@ model Cleaning {
   hasIssue       Boolean   @default(false) @map("has_issue")
   isOpen         Boolean   @default(false) @map("is_open")
   assignmentType String    @default("direct") @map("assignment_type")
+  // 외부 파트너(예: 스테이폴리오)가 push한 청소.
+  //   • externalSource = 출처 키 (e.g. 'stayfolio')
+  //   • externalId     = 그쪽 시스템의 청소 ID — 멱등 update 키
+  //   • externalCleanerName / Phone = 그쪽 자체 cleaner pool 을 쓸 때 (cleanerId NULL)
+  //     cleanerId 가 set 이면 내부 Cleaner 풀, 그렇지 않고 externalCleanerName 이
+  //     set 이면 외부 cleaner. 둘 다 NULL 이면 unassigned.
+  externalSource       String? @map("external_source")
+  externalId           String? @map("external_id")
+  externalCleanerName  String? @map("external_cleaner_name")
+  externalCleanerPhone String? @map("external_cleaner_phone")
   createdAt      DateTime  @default(now()) @map("created_at")
 
   property     Property              @relation(fields: [propertyId], references: [id], onDelete: Cascade)
@@ -249,6 +279,7 @@ model Cleaning {
   applications CleaningApplication[]
   issues       CleaningIssue[]
 
+  @@unique([externalSource, externalId])
   @@index([propertyId, date])
   @@index([cleanerId])
   @@map("cleanings")
