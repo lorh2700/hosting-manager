@@ -41,17 +41,32 @@ export async function POST(req: NextRequest) {
     }
 
     let deliveryStatus: 'sent' | 'failed' | 'local_only' = 'local_only';
+    let beds24Response: unknown = null;
+    let beds24Error: string | null = null;
 
     if (beds24BookingId) {
       try {
-        await beds24Post('/bookings/messages', [{
+        // Beds24 v2 POST /bookings/messages 표준 body — array of { bookingId, message }.
+        // `type` 필드는 스펙에 없어서 그동안 무시됨. OTA(Airbnb/Booking) 로의
+        // forward 는 Beds24 가 booking 의 channel 설정에 따라 자동 처리.
+        //
+        // ⚠ Airbnb 메시지가 실제 도달하려면 Beds24 측 설정 필요:
+        //   Beds24 Dashboard → Settings → Channels → Airbnb → Messaging 활성화
+        //   추가로 Airbnb thread 가 살아있어야 (체크아웃 14일 후 닫힘 등 정책).
+        beds24Response = await beds24Post('/bookings/messages', [{
           bookingId: Number(beds24BookingId),
           message: text.trim(),
-          type: 'host',
         }]);
         deliveryStatus = 'sent';
+        // 응답 캡처 — 진단용. Beds24 가 forward 실패하면 응답에 error 포함될 수 있음.
+        console.log('[beds24 send]', {
+          bookingId: beds24BookingId,
+          textLength: text.length,
+          response: beds24Response,
+        });
       } catch (err) {
-        console.error('Beds24 message send failed:', err);
+        beds24Error = err instanceof Error ? err.message : String(err);
+        console.error('[beds24 send] failed:', { bookingId: beds24BookingId, error: beds24Error });
         deliveryStatus = 'failed';
       }
     }
@@ -73,6 +88,9 @@ export async function POST(req: NextRequest) {
       id: message.id,
       deliveryStatus,
       isBeds24: !!beds24BookingId,
+      // 진단용 정보 — 클라이언트에선 무시해도 OK
+      beds24Response,
+      beds24Error,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';

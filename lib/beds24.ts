@@ -86,12 +86,54 @@ export async function getBeds24Token(): Promise<string> {
   return fresh.token;
 }
 
+// Beds24 v2 의 5-분 credit pool 를 모니터링하기 위한 헤더 파싱.
+// 429 발생 시 ResetIn 만큼(또는 Retry-After) 짧게 기다린 후 1회 재시도.
+function parseCreditHeaders(res: Response) {
+  const remaining = Number(res.headers.get('x-fivemincreditremaining') ?? '');
+  const resetIn = Number(res.headers.get('x-fivemincreditresetin') ?? '');
+  const limit = Number(res.headers.get('x-fivemincreditlimit') ?? '');
+  return {
+    remaining: Number.isFinite(remaining) ? remaining : null,
+    resetInSec: Number.isFinite(resetIn) ? resetIn : null,
+    limit: Number.isFinite(limit) ? limit : null,
+  };
+}
+
+// 응답 헤더의 credit remaining 이 임계치 아래로 떨어지면 경고 로그.
+function logCreditIfLow(path: string, headers: ReturnType<typeof parseCreditHeaders>) {
+  if (headers.remaining !== null && headers.remaining < 20) {
+    console.warn('[beds24] credit pool low', { path, ...headers });
+  }
+}
+
+async function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+// 단일 fetch 실행 + 429 시 1회 재시도. 외부 호출자는 throw 결과만 신경 쓰면 됨.
+async function fetchBeds24(path: string, init: RequestInit): Promise<Response> {
+  const url = path.startsWith('http') ? path : `${BEDS24_BASE_URL}${path}`;
+  let res = await fetch(url, init);
+
+  if (res.status === 429) {
+    const credit = parseCreditHeaders(res);
+    const retryAfter = Number(res.headers.get('retry-after') ?? '');
+    // ResetIn 우선, 없으면 Retry-After, 둘 다 없으면 10s. 최대 30s 까지만 (Netlify 함수 타임아웃 26s).
+    const waitSec = credit.resetInSec ?? (Number.isFinite(retryAfter) ? retryAfter : 10);
+    const waitMs = Math.min(Math.max(waitSec, 1), 30) * 1000;
+    console.warn('[beds24] 429 credit exhausted — backing off', { path, waitSec, ...credit });
+    await sleep(waitMs);
+    res = await fetch(url, init);
+  }
+
+  logCreditIfLow(path, parseCreditHeaders(res));
+  return res;
+}
+
 export async function beds24Get(path: string, params?: Record<string, string>) {
   const token = await getBeds24Token();
-  const url = params
-    ? `${BEDS24_BASE_URL}${path}?${new URLSearchParams(params)}`
-    : `${BEDS24_BASE_URL}${path}`;
-  const res = await fetch(url, { headers: { token } });
+  const qs = params ? `?${new URLSearchParams(params)}` : '';
+  const res = await fetchBeds24(`${path}${qs}`, { headers: { token } });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Beds24 GET ${path} failed: ${res.status} ${text}`);
@@ -101,7 +143,7 @@ export async function beds24Get(path: string, params?: Record<string, string>) {
 
 export async function beds24Post(path: string, body: Record<string, unknown> | Record<string, unknown>[]) {
   const token = await getBeds24Token();
-  const res = await fetch(`${BEDS24_BASE_URL}${path}`, {
+  const res = await fetchBeds24(path, {
     method: 'POST',
     headers: { token, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -115,7 +157,7 @@ export async function beds24Post(path: string, body: Record<string, unknown> | R
 
 export async function beds24Put(path: string, body: Record<string, unknown> | Record<string, unknown>[]) {
   const token = await getBeds24Token();
-  const res = await fetch(`${BEDS24_BASE_URL}${path}`, {
+  const res = await fetchBeds24(path, {
     method: 'PUT',
     headers: { token, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

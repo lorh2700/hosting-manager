@@ -5,20 +5,27 @@ import { beds24Post } from '@/lib/beds24';
 // Public-but-API-key-gated endpoint that the welcome-pad calls when the
 // host taps "정비 완료" on the kiosk's cleaning overlay. Two side effects:
 //   1. Mark today's cleaning row as done (creating one if no schedule existed).
-//   2. Send a "your room is ready" message to the guest via the OTA channel
-//      they booked through (currently Beds24 only — Beds24 federates
-//      Airbnb / Booking.com / 네이버 / etc).
+//   2. Send a "your room is ready" message to the guest via Beds24 — same
+//      code path as the host UI's `/api/beds24/messages/send` so behavior
+//      is identical to clicking "정비 완료" in the calendar (which is the
+//      established flow at app/admin/calendar/hooks/useEventModal.ts:103).
 //
 // Auth: x-api-key header (env: WELCOMEPAD_API_KEY) — same secret as /checkins.
-// Body: { propertyKey: 'anon', completionNote?: string|null, message?: string|null }
-//   - completionNote: internal cleaning note (saved on Cleaning row)
-//   - message: override for the guest-facing text. If omitted, falls back to
-//     Property.roomReadyMessage, then to the bilingual default below.
+// Body: {
+//   propertyKey: 'anon',
+//   bookingId?: string|null,        // pad already knows this from /checkins — preferred
+//   completionNote?: string|null,   // saved on Cleaning row
+//   message?: string|null,          // override guest-facing text
+// }
 //
-// "Today" = Asia/Seoul date — pads run in KR timezone.
+// Reservation lookup priority:
+//   (a) bookingId provided  → find Event by originalUid (most precise)
+//   (b) fallback            → today's startDate event for this property
+//   neither hit             → cleaning row still updated, but no message sent
 
 type Body = {
   propertyKey?: string;
+  bookingId?: string | null;
   completionNote?: string | null;
   message?: string | null;
 };
@@ -47,14 +54,7 @@ export async function POST(req: Request) {
   if (!propertyKey) {
     return NextResponse.json({ error: 'propertyKey is required' }, { status: 400 });
   }
-  if ('completionNote' in body
-      && body.completionNote !== null
-      && typeof body.completionNote !== 'string') {
-    return NextResponse.json({ error: 'completionNote must be string or null' }, { status: 400 });
-  }
-  if ('message' in body && body.message !== null && typeof body.message !== 'string') {
-    return NextResponse.json({ error: 'message must be string or null' }, { status: 400 });
-  }
+  const bookingId = (body.bookingId ?? null) || null;
   const completionNote: string | null = body.completionNote ?? null;
   const messageOverride: string | null = (body.message ?? null) || null;
 
@@ -95,30 +95,43 @@ export async function POST(req: Request) {
         },
       });
 
-  // ── 2. 오늘 체크인 게스트에게 "객실 준비 완료" 메시지 ──────────────
-  // 머무는 중인 게스트(어제 이전 체크인)에겐 보내지 않음 — "정비 완료" 알림은
-  // 새로 들어오는 게스트한테만 의미가 있음.
-  const arrivingToday = await prisma.event.findFirst({
-    where: {
-      propertyId: property.id,
-      channelId: 'beds24',
-      type: 'reservation',
-      startDate: today,
-    },
-    select: { id: true, originalUid: true, title: true },
-    orderBy: { createdAt: 'desc' },
-  });
+  // ── 2. Reservation lookup ─────────────────────────────────────────
+  // 패드가 보낸 bookingId 우선 → 그 reservation 정확히 매칭.
+  // 없으면 오늘 startDate 인 reservation fallback.
+  // (channelId 필터는 의도적으로 안 검 — 기존 send/route.ts 와 동일하게,
+  //  originalUid 가 있으면 Beds24 booking 으로 간주.)
+  let reservation: { id: string; originalUid: string | null; title: string | null } | null = null;
+  if (bookingId) {
+    reservation = await prisma.event.findFirst({
+      where: { propertyId: property.id, originalUid: bookingId, type: 'reservation' },
+      select: { id: true, originalUid: true, title: true },
+    });
+  }
+  if (!reservation) {
+    reservation = await prisma.event.findFirst({
+      where: { propertyId: property.id, type: 'reservation', startDate: today },
+      select: { id: true, originalUid: true, title: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
 
+  // ── 3. Beds24 메시지 발송 ──────────────────────────────────────────
+  // app/api/beds24/messages/send/route.ts 의 코어 로직과 동일.
   const messageText = messageOverride ?? property.roomReadyMessage ?? DEFAULT_ROOM_READY_MESSAGE;
+  const beds24BookingId = reservation?.originalUid || null;
 
-  let messageStatus: 'sent' | 'failed' | 'no_arriving_guest' | 'no_beds24_id' = 'no_arriving_guest';
+  let messageStatus: 'sent' | 'failed' | 'no_reservation' | 'no_beds24_id' = 'no_reservation';
   let messageId: string | null = null;
+  let messageError: string | null = null;
 
-  if (arrivingToday) {
-    const beds24BookingId = arrivingToday.originalUid || null;
-    const guestName = (arrivingToday.title || '게스트').replace(/ 예약$/, '');
-
-    if (beds24BookingId) {
+  if (reservation) {
+    if (!beds24BookingId) {
+      messageStatus = 'no_beds24_id';
+      console.warn('[welcomepad/cleanings/done] reservation has no originalUid', {
+        eventId: reservation.id, propertyKey,
+      });
+    } else {
+      const guestName = (reservation.title || '게스트').replace(/ 예약$/, '');
       let deliveryStatus: 'sent' | 'failed' = 'failed';
       try {
         await beds24Post('/bookings/messages', [{
@@ -127,14 +140,20 @@ export async function POST(req: Request) {
           type: 'host',
         }]);
         deliveryStatus = 'sent';
+        console.log('[welcomepad/cleanings/done] beds24 message sent', {
+          beds24BookingId, propertyKey, eventId: reservation.id,
+        });
       } catch (err) {
-        console.error('[welcomepad/cleanings/done] Beds24 message send failed:', err);
         deliveryStatus = 'failed';
+        messageError = err instanceof Error ? err.message : String(err);
+        console.error('[welcomepad/cleanings/done] beds24 send failed', {
+          beds24BookingId, propertyKey, error: messageError,
+        });
       }
 
       const saved = await prisma.message.create({
         data: {
-          eventId: arrivingToday.id,
+          eventId: reservation.id,
           propertyId: property.id,
           guestName,
           text: messageText,
@@ -146,10 +165,11 @@ export async function POST(req: Request) {
       });
       messageId = saved.id;
       messageStatus = deliveryStatus;
-    } else {
-      // 다이렉트 예약 등 Beds24 ID 가 없는 케이스 — 외부 채널이 없으니 발송 불가
-      messageStatus = 'no_beds24_id';
     }
+  } else {
+    console.warn('[welcomepad/cleanings/done] no reservation found', {
+      propertyKey, bookingId, today,
+    });
   }
 
   return NextResponse.json({
@@ -160,8 +180,10 @@ export async function POST(req: Request) {
     message: {
       status: messageStatus,
       messageId,
-      // 디버깅용 — 어떤 reservation 으로 보냈는지
-      eventId: arrivingToday?.id ?? null,
+      eventId: reservation?.id ?? null,
+      beds24BookingId,
+      bookingIdSource: bookingId ? 'pad' : (reservation ? 'today_fallback' : null),
+      error: messageError,
     },
   });
 }
