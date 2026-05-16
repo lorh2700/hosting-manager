@@ -60,7 +60,7 @@ export async function POST(req: Request) {
 
   const property = await prisma.property.findUnique({
     where: { welcomepadKey: propertyKey },
-    select: { id: true, name: true, roomReadyMessage: true },
+    select: { id: true, name: true, roomReadyMessage: true, doorPassword: true, addressUrl: true },
   });
   if (!property) {
     return NextResponse.json({ error: `propertyKey '${propertyKey}' not found` }, { status: 404 });
@@ -117,7 +117,25 @@ export async function POST(req: Request) {
 
   // ── 3. Beds24 메시지 발송 ──────────────────────────────────────────
   // app/api/beds24/messages/send/route.ts 의 코어 로직과 동일.
-  const messageText = messageOverride ?? property.roomReadyMessage ?? DEFAULT_ROOM_READY_MESSAGE;
+  // {password}/{address} 치환은 캘린더 정비완료 경로(getRoomReadyMessage,
+  // app/admin/calendar/types.ts)와 동일하게 적용 — 그동안 패드 경로에서만
+  // 누락되어 토큰이 그대로 발송되던 버그 수정.
+  const substituteTokens = (s: string) =>
+    s
+      .replace(/\{password\}/g, property.doorPassword || '')
+      .replace(/\{address\}/g, property.addressUrl || '');
+
+  let messageText: string;
+  if (messageOverride) {
+    messageText = substituteTokens(messageOverride);
+  } else {
+    messageText = substituteTokens(property.roomReadyMessage || DEFAULT_ROOM_READY_MESSAGE);
+    // 커스텀 템플릿이 없을 때만 비번/주소를 자동으로 덧붙임 (getRoomReadyMessage 와 동일)
+    if (!property.roomReadyMessage) {
+      if (property.doorPassword) messageText += `\n\n비밀번호: ${property.doorPassword}`;
+      if (property.addressUrl) messageText += `\n주소: ${property.addressUrl}`;
+    }
+  }
   const beds24BookingId = reservation?.originalUid || null;
 
   let messageStatus: 'sent' | 'failed' | 'no_reservation' | 'no_beds24_id' = 'no_reservation';
