@@ -290,12 +290,12 @@ export async function GET(req: Request) {
         date,
         propertyKey,
         guest: guest ? { ...guest, isReturning: isReturningEffective } : null,
-        // 패드의 폴백 문구 — guest.welcomeMessage 가 null 이면 호스트가 지정한
-        // Property.roomReadyMessage 를 시도(토큰 치환), 그것도 없으면 기본 문구.
-        fallbackWelcomeMessage:
-          prop.roomReadyMessage && prop.roomReadyMessage.trim()
-            ? substituteTokens(prop.roomReadyMessage.trim())
-            : 'Wishing you a peaceful and comfortable stay.',
+        // 웰컴 화면 fallback 은 항상 기본 환영 문구.
+        // roomReadyMessage 는 '정비 완료' Beds24 메시지 전용(cleanings/done 라우트)
+        // 이라 여기서 쓰지 않는다 — 도어코드/체크인 안내문이 객실 앞 태블릿에
+        // 상시 노출되던 문제 제거. 지점별/예약별 맞춤은 Event.welcomeMessage
+        // 오버라이드(guest.welcomeMessage)로 처리됨.
+        fallbackWelcomeMessage: 'Wishing you a peaceful and comfortable stay.',
       },
       {
         headers: {
