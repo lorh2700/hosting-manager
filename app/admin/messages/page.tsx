@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { MessageSquare, Send, ChevronRight, RefreshCw, Loader2 } from 'lucide-react';
+import WelcomepadChatPanel from './WelcomepadChatPanel';
 
 const PAGE_SIZE = 20;
 
@@ -49,6 +50,7 @@ function MessagesContent() {
   const initialGuestName = searchParams.get('guestName');
   const initialPropertyId = searchParams.get('propertyId');
 
+  const [channel, setChannel] = useState<'beds24' | 'inroom'>('beds24');
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -296,21 +298,50 @@ function MessagesContent() {
           <p className="text-stone-500 mt-1.5 text-sm hidden sm:block">게스트와의 대화를 관리합니다</p>
         </div>
         <div className="flex items-center gap-3">
-          {syncResult && (
-            <span className="text-xs text-stone-500 hidden sm:inline">{syncResult}</span>
+          <div className="flex border border-stone-200 overflow-hidden text-xs font-medium">
+            <button
+              onClick={() => setChannel('beds24')}
+              className={`px-3 sm:px-4 py-2 transition-colors ${
+                channel === 'beds24'
+                  ? 'bg-[var(--brand)] text-white'
+                  : 'bg-white text-stone-600 hover:bg-stone-50'
+              }`}
+            >
+              Beds24
+            </button>
+            <button
+              onClick={() => setChannel('inroom')}
+              className={`px-3 sm:px-4 py-2 border-l border-stone-200 transition-colors ${
+                channel === 'inroom'
+                  ? 'bg-[var(--brand)] text-white'
+                  : 'bg-white text-stone-600 hover:bg-stone-50'
+              }`}
+            >
+              객실 패드
+            </button>
+          </div>
+          {channel === 'beds24' && (
+            <>
+              {syncResult && (
+                <span className="text-xs text-stone-500 hidden sm:inline">{syncResult}</span>
+              )}
+              <button
+                onClick={syncBeds24Messages}
+                disabled={syncing}
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 text-xs font-medium text-stone-700 bg-stone-100 hover:bg-stone-200 hover:text-stone-900 transition-colors disabled:opacity-40"
+              >
+                <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
+                <span className="hidden sm:inline">{syncing ? '동기화 중...' : 'Beds24 동기화'}</span>
+                <span className="sm:hidden">{syncing ? '...' : '동기화'}</span>
+              </button>
+            </>
           )}
-          <button
-            onClick={syncBeds24Messages}
-            disabled={syncing}
-            className="flex items-center gap-2 px-3 sm:px-4 py-2 text-xs font-medium text-stone-700 bg-stone-100 hover:bg-stone-200 hover:text-stone-900 transition-colors disabled:opacity-40"
-          >
-            <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
-            <span className="hidden sm:inline">{syncing ? '동기화 중...' : 'Beds24 동기화'}</span>
-            <span className="sm:hidden">{syncing ? '...' : '동기화'}</span>
-          </button>
         </div>
       </header>
 
+      {channel === 'inroom' ? (
+        <WelcomepadChatPanel />
+      ) : (
       <div className="flex flex-1 min-h-0 mt-5 sm:mt-6 bg-white border border-stone-200 overflow-hidden">
         {/* Conversation list */}
         <div className={`${showMobileThread ? 'hidden sm:flex' : 'flex'} w-full sm:w-72 flex-shrink-0 sm:border-r border-stone-200 flex-col`}>
@@ -513,6 +544,7 @@ function MessagesContent() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
