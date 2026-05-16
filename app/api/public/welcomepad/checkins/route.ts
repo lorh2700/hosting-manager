@@ -122,11 +122,11 @@ export async function GET(req: Request) {
   }
 
   // Resolve target properties — 두 모드 모두 internal UUID 까지 풀어 둠
-  let properties: { id: string; beds24PropId: string | null; welcomepadKey: string | null; roomReadyMessage: string | null }[];
+  let properties: { id: string; beds24PropId: string | null; welcomepadKey: string | null; roomReadyMessage: string | null; doorPassword: string | null; addressUrl: string | null }[];
   if (propertyKey) {
     properties = await prisma.property.findMany({
       where: { welcomepadKey: propertyKey },
-      select: { id: true, beds24PropId: true, welcomepadKey: true, roomReadyMessage: true },
+      select: { id: true, beds24PropId: true, welcomepadKey: true, roomReadyMessage: true, doorPassword: true, addressUrl: true },
     });
     if (properties.length === 0) {
       return NextResponse.json({ error: `propertyKey '${propertyKey}' not found` }, { status: 404 });
@@ -138,7 +138,7 @@ export async function GET(req: Request) {
     }
     properties = await prisma.property.findMany({
       where: { beds24PropId: { in: beds24PropIds } },
-      select: { id: true, beds24PropId: true, welcomepadKey: true, roomReadyMessage: true },
+      select: { id: true, beds24PropId: true, welcomepadKey: true, roomReadyMessage: true, doorPassword: true, addressUrl: true },
     });
   }
   const beds24PropIds = properties.map(p => p.beds24PropId).filter((v): v is string => !!v);
@@ -172,13 +172,24 @@ export async function GET(req: Request) {
     },
   });
 
-  // Pick one per property — prefer ongoing stays (endDate > today) over
-  // checkouts happening today, mirroring the previous Beds24 client-side sort.
+  // Pick one per property. 턴오버 날(당일 체크아웃 + 당일 체크인) 규칙:
+  //   • 체크아웃 컷오프(11:00 KST) 전 → 떠나는(오늘 체크아웃) 예약 우선
+  //   • 컷오프 이후 → 머무는/들어오는 예약 우선 (기존 동작)
+  // 후보가 1건이면 영향 없음. 'date' 는 호출측이 KST 기준으로 전달.
   const checkins: Record<string, CheckinPayload | null> = {};
   // 단일 지점 모드 (propertyKey) 에서는 활성 게스트의 override 도 같이 노출.
   // 다중 지점(beds24PropIds) 모드에서는 호환성 유지를 위해 기존 shape 그대로.
   const overridesByProperty: Record<string, { welcomeMessage: string | null; manualReturning: boolean | null }> = {};
   for (const beds24Id of beds24PropIds) checkins[beds24Id] = null;
+
+  // 현재 KST 시각으로 턴오버 우선순위 결정 (날짜 string 비교만으론 시간 미반영).
+  const CHECKOUT_CUTOFF_HOUR = 11;
+  const kstHour = Number(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Seoul', hour12: false, hour: '2-digit', hourCycle: 'h23',
+    }).format(new Date()),
+  );
+  const preferDepartingGuest = kstHour < CHECKOUT_CUTOFF_HOUR;
 
   for (const propertyId of internalPropertyIds) {
     const beds24Id = propIdToBeds24.get(propertyId) || '';
@@ -187,7 +198,8 @@ export async function GET(req: Request) {
     candidates.sort((a, b) => {
       const aOngoing = a.endDate > date ? 1 : 0;
       const bOngoing = b.endDate > date ? 1 : 0;
-      return bOngoing - aOngoing;
+      // 컷오프 전: 떠나는 예약(ongoing=0) 먼저. 이후: 머무는 예약 먼저(기존).
+      return preferDepartingGuest ? aOngoing - bOngoing : bOngoing - aOngoing;
     });
     const e = candidates[0];
     const { firstName, lastName } = splitName(e.title);
@@ -249,10 +261,20 @@ export async function GET(req: Request) {
     const checkin = beds24Id ? checkins[beds24Id] : null;
     const override = overridesByProperty[prop.id] || { welcomeMessage: null, manualReturning: null };
 
+    // {password}/{address} 치환 — 캘린더 getRoomReadyMessage / cleanings-done 와 동일.
+    // 패드 웰컴 화면이 이 텍스트를 그대로 표시하므로 토큰을 실제 값으로 치환한다
+    // (그동안 미치환되어 게스트에게 '{password}'/'{address}' 가 그대로 노출되던 버그).
+    const substituteTokens = (s: string) =>
+      s
+        .replace(/\{password\}/g, prop.doorPassword || '')
+        .replace(/\{address\}/g, prop.addressUrl || '');
+
     const guest: ActiveGuestPayload | null = checkin
       ? {
           ...checkin,
-          welcomeMessage: override.welcomeMessage,
+          welcomeMessage: override.welcomeMessage
+            ? substituteTokens(override.welcomeMessage)
+            : override.welcomeMessage,
           manualReturning: override.manualReturning,
           ...matchVisits(checkin, history),
         }
@@ -269,10 +291,11 @@ export async function GET(req: Request) {
         propertyKey,
         guest: guest ? { ...guest, isReturning: isReturningEffective } : null,
         // 패드의 폴백 문구 — guest.welcomeMessage 가 null 이면 호스트가 지정한
-        // Property.roomReadyMessage 를 시도, 그것도 없으면 기본 문구.
+        // Property.roomReadyMessage 를 시도(토큰 치환), 그것도 없으면 기본 문구.
         fallbackWelcomeMessage:
-          (prop.roomReadyMessage && prop.roomReadyMessage.trim())
-          || 'Wishing you a peaceful and comfortable stay.',
+          prop.roomReadyMessage && prop.roomReadyMessage.trim()
+            ? substituteTokens(prop.roomReadyMessage.trim())
+            : 'Wishing you a peaceful and comfortable stay.',
       },
       {
         headers: {
