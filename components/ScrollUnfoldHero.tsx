@@ -5,20 +5,24 @@ import { motion, useScroll, useTransform, MotionValue } from 'motion/react';
 import Image from 'next/image';
 import Link from 'next/link';
 
+// 실제로 존재하는 페이지/앵커만 노출 — 사용하지 않는 About/Journal/Contact 제거.
 const menuItems = [
-  { title: 'SPACES', desc: '우리의 공간들', img: '/images/unwa/main.webp', link: '#spaces' },
-  { title: 'ABOUT', desc: '우리의 철학', img: '/images/main_yard.webp', link: '#about' },
-  { title: 'JOURNAL', desc: '이야기', img: '/images/hwayeon/hwayeon_after.webp', link: '#journal' },
-  { title: 'CONTACT', desc: '문의하기', img: '/images/anon/main.webp', link: '#contact' },
+  { title: 'BRAND',  desc: '브랜드 이야기', img: '/images/main_yard.webp',      link: '/brand' },
+  { title: 'SPACES', desc: '우리의 공간들', img: '/images/unwa/main.webp',       link: '#spaces' },
+  { title: 'TOURS',  desc: '북촌 투어',    img: '/images/byeolha/DSC01954.webp', link: '/tours' },
 ];
 
-function MenuCard({ item, index, scrollYProgress }: { item: any, index: number, scrollYProgress: MotionValue<number> }) {
+// 카드 중앙 오프셋 (개수에 따라 자동 계산) — 3개면 offset ∈ {-1, 0, 1}
+const CENTER_INDEX = (menuItems.length - 1) / 2;
+
+function MenuCard({ item, index, scrollYProgress }: { item: (typeof menuItems)[number], index: number, scrollYProgress: MotionValue<number> }) {
   const start = 0.08 + (index * 0.10);
   const end = start + 0.30;
+  const offset = index - CENTER_INDEX;
 
   const y = useTransform(scrollYProgress, [start, end], ["120vh", "0vh"]);
-  const rotate = useTransform(scrollYProgress, [start, end], [20, (index - 1.5) * 8]);
-  const x = useTransform(scrollYProgress, [start, end], ["0vw", `${(index - 1.5) * 22}vw`]);
+  const rotate = useTransform(scrollYProgress, [start, end], [20, offset * 10]);
+  const x = useTransform(scrollYProgress, [start, end], ["0vw", `${offset * 26}vw`]);
   const scale = useTransform(scrollYProgress, [start, end], [0.8, 1]);
 
   return (

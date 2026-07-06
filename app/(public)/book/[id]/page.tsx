@@ -28,6 +28,17 @@ export default function BookPage() {
   const [heroIndex, setHeroIndex] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // 갤러리 뷰어: 한 장씩 노출. 스크롤/화살표/스와이프로 넘김.
+  const [viewerIndex, setViewerIndex] = useState(0);
+  const viewerRef = useRef<HTMLDivElement>(null);
+  const wheelLast = useRef(0);
+  const viewerTouchStartX = useRef<number | null>(null);
+
+  // 라이트박스 (갤러리 확대 뷰). null = 닫힘, index = 그 위치의 사진 표시
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const lightboxOpen = lightboxIndex !== null;
+  const touchStartX = useRef<number | null>(null);
+
   const formRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -65,6 +76,58 @@ export default function BookPage() {
 
     fetchPropertyAndBookings();
   }, [id]);
+
+  // 갤러리 조작: 이전/다음/닫기 (뷰어 + 라이트박스가 공유)
+  const galleryImages = property?.images && property.images.length > 0 ? property.images : [];
+  const wrapIndex = (i: number) => galleryImages.length === 0 ? 0 : ((i % galleryImages.length) + galleryImages.length) % galleryImages.length;
+  const gotoViewer = (i: number) => setViewerIndex(wrapIndex(i));
+  const gotoLightbox = (i: number) => setLightboxIndex(wrapIndex(i));
+  const closeLightbox = () => setLightboxIndex(null);
+
+  // 마우스 휠 조작 — 뷰어 위에 커서가 있을 때만 한 장씩 넘김 (debounced).
+  useEffect(() => {
+    const el = viewerRef.current;
+    if (!el || galleryImages.length <= 1) return;
+    const onWheel = (e: WheelEvent) => {
+      const now = Date.now();
+      // 디바운스 창(400ms) 안에서는 이벤트 흡수만 하고 넘기지 않음.
+      if (now - wheelLast.current < 400) { e.preventDefault(); return; }
+      // 수직/수평 중 큰 쪽을 방향으로 채택 (트랙패드 대비).
+      const dy = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      if (Math.abs(dy) < 5) return;
+      e.preventDefault();
+      wheelLast.current = now;
+      setViewerIndex((prev) => wrapIndex(prev + (dy > 0 ? 1 : -1)));
+    };
+    // React 의 onWheel 은 passive 리스너라 preventDefault 가 무시됨 → 직접 등록.
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [galleryImages.length]);
+
+  // 페이지 (지점) 전환 시 뷰어를 첫 사진으로 리셋.
+  useEffect(() => { setViewerIndex(0); }, [id]);
+
+  // 라이트박스 열려 있는 동안: 키보드 조작 + 배경 스크롤 잠금.
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeLightbox();
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') gotoLightbox((lightboxIndex ?? 0) - 1);
+      else if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+        e.preventDefault();
+        gotoLightbox((lightboxIndex ?? 0) + 1);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lightboxOpen, lightboxIndex, galleryImages.length]);
 
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
@@ -329,6 +392,97 @@ export default function BookPage() {
           </div>
         )}
       </div>
+
+      {/* Photo Gallery Viewer — 한 장씩 넘기는 뷰어. 사진이 1장 초과일 때만. */}
+      {galleryImages.length > 1 && (
+        <section className="max-w-6xl mx-auto px-6 py-16 md:py-20">
+          <div className="flex items-baseline justify-between mb-8 md:mb-10">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-stone-400 mb-3 font-semibold">Gallery</p>
+              <h2 className="font-serif text-3xl md:text-4xl font-light tracking-tight text-stone-100">공간</h2>
+            </div>
+            <p className="text-xs text-stone-500 tracking-widest tabular-nums">
+              {viewerIndex + 1} / {galleryImages.length}
+            </p>
+          </div>
+
+          <div
+            ref={viewerRef}
+            className="relative w-full aspect-[4/3] md:aspect-[16/10] bg-stone-900 overflow-hidden select-none"
+            onTouchStart={(e) => { viewerTouchStartX.current = e.touches[0]?.clientX ?? null; }}
+            onTouchEnd={(e) => {
+              const startX = viewerTouchStartX.current;
+              viewerTouchStartX.current = null;
+              if (startX == null) return;
+              const endX = e.changedTouches[0]?.clientX ?? startX;
+              const delta = endX - startX;
+              if (delta > 50) gotoViewer(viewerIndex - 1);
+              else if (delta < -50) gotoViewer(viewerIndex + 1);
+            }}
+          >
+            {/* 모든 사진을 미리 렌더 (opacity 만 토글) → 넘길 때 로딩 지연 없음.
+                object-cover 로 컨테이너에 꽉 채움. */}
+            {galleryImages.map((src, i) => (
+              <Image
+                key={`viewer-${src}`}
+                src={src}
+                alt={`${property.name} ${i + 1}`}
+                fill
+                sizes="(max-width: 1024px) 100vw, 1200px"
+                className={`object-cover transition-opacity duration-700 ease-in-out ${
+                  i === viewerIndex ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                }`}
+                priority={i === 0}
+              />
+            ))}
+
+            {/* 사진 클릭 → 라이트박스 확대. 화살표 버튼은 z-index 로 이 위에. */}
+            <button
+              type="button"
+              onClick={() => gotoLightbox(viewerIndex)}
+              className="absolute inset-0 z-10 cursor-zoom-in focus:outline-none focus:ring-2 focus:ring-stone-100 focus:ring-inset"
+              aria-label="크게 보기"
+            />
+
+            {/* 이전/다음 */}
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); gotoViewer(viewerIndex - 1); }}
+              className="absolute left-3 md:left-5 top-1/2 -translate-y-1/2 z-20 p-3 md:p-3.5 rounded-full bg-black/45 hover:bg-black/70 backdrop-blur-sm border border-stone-700 text-stone-100 hover:text-white transition-colors"
+              aria-label="이전 사진"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); gotoViewer(viewerIndex + 1); }}
+              className="absolute right-3 md:right-5 top-1/2 -translate-y-1/2 z-20 p-3 md:p-3.5 rounded-full bg-black/45 hover:bg-black/70 backdrop-blur-sm border border-stone-700 text-stone-100 hover:text-white transition-colors"
+              aria-label="다음 사진"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+
+          {/* 진행 표시 dots — 사진 개수가 많으면 축소 표시. */}
+          <div className="flex items-center justify-center gap-1.5 mt-6 flex-wrap">
+            {galleryImages.map((_, i) => (
+              <button
+                key={`dot-${i}`}
+                type="button"
+                onClick={() => gotoViewer(i)}
+                className={`h-1 rounded-full transition-all duration-300 ${
+                  i === viewerIndex ? 'bg-stone-100 w-8' : 'bg-stone-100/25 hover:bg-stone-100/60 w-1.5'
+                }`}
+                aria-label={`${i + 1}번 사진으로 이동`}
+              />
+            ))}
+          </div>
+
+          <p className="text-center text-[10px] uppercase tracking-widest text-stone-500 mt-4">
+            스크롤 · 화살표로 넘기기 · 사진 클릭 시 크게 보기
+          </p>
+        </section>
+      )}
 
       {property.status === 'coming_soon' ? (
         /* Coming Soon Panel — 캘린더/폼 대신 오픈 예정 안내 */
@@ -597,6 +751,87 @@ export default function BookPage() {
           <p className="text-xs text-stone-600 tracking-widest font-light">
             {property.permit}
           </p>
+        </div>
+      )}
+
+      {/* Lightbox — 그리드 썸네일 클릭 시 확대 */}
+      {lightboxOpen && galleryImages.length > 0 && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm flex items-center justify-center"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${property.name} 사진 크게 보기`}
+          onClick={closeLightbox}
+          onTouchStart={(e) => { touchStartX.current = e.touches[0]?.clientX ?? null; }}
+          onTouchEnd={(e) => {
+            const startX = touchStartX.current;
+            touchStartX.current = null;
+            if (startX == null) return;
+            const endX = e.changedTouches[0]?.clientX ?? startX;
+            const delta = endX - startX;
+            if (delta > 50) gotoLightbox((lightboxIndex ?? 0) - 1);
+            else if (delta < -50) gotoLightbox((lightboxIndex ?? 0) + 1);
+          }}
+        >
+          {/* 실제 이미지 컨테이너 — 배경 클릭으로 닫히도록 stopPropagation */}
+          <div
+            className="relative w-full h-full flex items-center justify-center px-2 sm:px-16 py-16"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative w-full max-w-[1600px] h-full">
+              <Image
+                key={`lightbox-${lightboxIndex}`}
+                src={galleryImages[lightboxIndex!]}
+                alt={`${property.name} ${lightboxIndex! + 1}`}
+                fill
+                sizes="100vw"
+                className="object-contain"
+                priority
+              />
+            </div>
+
+            {/* 좌우 네비게이션 */}
+            {galleryImages.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); gotoLightbox(lightboxIndex! - 1); }}
+                  className="absolute left-3 md:left-6 top-1/2 -translate-y-1/2 z-10 p-3 md:p-4 rounded-full bg-black/40 hover:bg-white/10 backdrop-blur-md border border-stone-800 text-stone-200 hover:text-white transition-colors"
+                  aria-label="이전 사진"
+                >
+                  <ChevronLeft size={22} />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); gotoLightbox(lightboxIndex! + 1); }}
+                  className="absolute right-3 md:right-6 top-1/2 -translate-y-1/2 z-10 p-3 md:p-4 rounded-full bg-black/40 hover:bg-white/10 backdrop-blur-md border border-stone-800 text-stone-200 hover:text-white transition-colors"
+                  aria-label="다음 사진"
+                >
+                  <ChevronRight size={22} />
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* 상단바: 카운터 + 닫기 */}
+          <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 md:px-8 py-4 md:py-5 pointer-events-none">
+            <p className="text-xs md:text-sm tracking-[0.25em] uppercase text-stone-300 font-medium pointer-events-auto">
+              {(lightboxIndex ?? 0) + 1} / {galleryImages.length}
+            </p>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); closeLightbox(); }}
+              className="p-2.5 rounded-full bg-black/40 hover:bg-white/10 backdrop-blur-md border border-stone-800 text-stone-200 hover:text-white transition-colors pointer-events-auto"
+              aria-label="닫기"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          {/* 하단 힌트 (데스크톱만) */}
+          <div className="hidden md:block absolute bottom-4 left-1/2 -translate-x-1/2 text-[10px] uppercase tracking-widest text-stone-500 pointer-events-none">
+            ← → 이동 · ESC 닫기
+          </div>
         </div>
       )}
     </div>

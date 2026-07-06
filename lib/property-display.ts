@@ -53,7 +53,7 @@ export const PROPERTY_DISPLAY: Record<string, PropertyDisplay> = {
     region: '북촌',
     catchphrase: '꽃과 인연을 나누는 자리',
     imageFolder: 'hwayeon',
-    imageFiles: ['main', 'DSC04187', 'DSC04190', 'DSC04192', 'DSC04236', 'DSC04238', 'hwayeon_after'],
+    imageFiles: ['DSC04187', 'DSC04190', 'DSC04192', 'DSC04236', 'DSC04238', 'hwayeon_after'],
     checkInTime: '15:00',
     checkOutTime: '11:00',
     addressKo: '서울 종로구 북촌한옥마을 인근',
@@ -77,7 +77,25 @@ export const PROPERTY_DISPLAY: Record<string, PropertyDisplay> = {
     region: '북촌',
     catchphrase: '별빛 아래 머무는 밤',
     imageFolder: 'byeolha',
-    imageFiles: [],  // 사진 준비 후 채움
+    // 순서: 인상 좋은 컷 (마당 뷰) → 외관 → 침실 → 부엌 → 욕실 → 디테일.
+    // 첫 번째가 홈 카드 커버 + /book 갤러리 첫 장.
+    imageFiles: [
+      'DSC01785',   // 침실에서 본 마당/별채 뷰 (커버)
+      'DSC02015',   // 대문/현관 통로
+      'DSC01954',   // 한옥 골목 외관
+      'DSC01742',   // 침실 (창호)
+      'DSC01712',   // 침실 (트윈, TV)
+      'DSC01619',   // 부엌 아일랜드
+      'DSC01625',   // 부엌/다이닝
+      'DSC01646',   // 부엌 전체
+      'DSC01652',   // 욕실 세면대
+      'DSC01769',   // 샤워 + 욕조
+      'DSC01688',   // 샤워부스
+      'DSC06393',   // 세면대 클로즈업
+      'DSC01906',   // 인테리어 오브제
+      'DSC06377',   // 도자기 오브제
+      'DSC06408',   // 다구
+    ],
     checkInTime: '15:00',
     checkOutTime: '11:00',
     addressKo: '서울 종로구 북촌로5나길 7-4',
