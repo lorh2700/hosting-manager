@@ -61,6 +61,13 @@ model Property {
   // schema lineage; this short key (e.g. 'anon', 'unwadang') is what
   // the pad URL uses to identify which property's settings to load.
   welcomepadKey    String?  @unique @map("welcomepad_key")
+  // 공개 URL 및 UI 슬러그 — /book/{slug} 로 접근. UUID 대신 사람이 읽는 키.
+  slug             String?  @unique
+  // 오픈 상태. 'active' | 'coming_soon' | 'closed'.
+  // coming_soon 이면 소개 페이지는 노출되지만 캘린더/예약 폼은 비활성.
+  status           String   @default("active")
+  // "10월 오픈 예정" 같은 자유 형식 표시. YYYY-MM 또는 YYYY-MM-DD 권장.
+  openingDate      String?  @map("opening_date")
   createdAt        DateTime @default(now()) @map("created_at")
 
   owner                User                  @relation(fields: [ownerId], references: [id])

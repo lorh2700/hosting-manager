@@ -1,11 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState } from 'react';
 import { motion } from 'motion/react';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, ArrowUpRight } from 'lucide-react';
 import { ScrollUnfoldHero } from '@/components/ScrollUnfoldHero';
 import { Logo } from '@/components/Logo';
+import { PROPERTY_DISPLAY, PROPERTY_DISPLAY_ORDER } from '@/lib/property-display';
 
 const NAV_LINKS = [
   { href: '#spaces', label: '공간' },
@@ -141,23 +143,86 @@ export default function PublicPortal() {
 
       {/* Spaces Grid Section */}
       <section id="spaces" className="py-24 px-6 md:px-12 max-w-[1600px] mx-auto border-t border-stone-800">
-        <div className="flex flex-col items-center mb-16">
-          <p className="text-xs uppercase tracking-[0.3em] text-stone-400 mb-4">영감과 아이디어</p>
-          <h2 className="text-4xl md:text-5xl font-light tracking-tight mb-16">VOID ANCHAE 공간</h2>
+        <div className="flex flex-col items-center mb-16 md:mb-20">
+          <p className="text-xs uppercase tracking-[0.3em] text-stone-400 mb-4">Bukchon Hanok Stay</p>
+          <h2 className="text-4xl md:text-5xl font-light tracking-tight mb-4 text-center">VOID ANCHAE 공간</h2>
+          <p className="text-sm text-stone-400 font-light tracking-wide text-center max-w-lg">
+            북촌에서 만나는 다섯 개의 한옥. 하나의 이야기가 하나의 공간이 됩니다.
+          </p>
         </div>
 
-        <div className="py-32 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-          >
-            <p className="text-xs uppercase tracking-[0.3em] text-stone-400 mb-6">Coming Soon</p>
-            <p className="text-stone-300 font-light tracking-wide">
-              공간 소개를 준비 중입니다.
-            </p>
-          </motion.div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+          {PROPERTY_DISPLAY_ORDER.map((slug, idx) => {
+            const p = PROPERTY_DISPLAY[slug];
+            if (!p) return null;
+            const isComingSoon = p.status === 'coming_soon';
+            const hasImage = p.imageFiles.length > 0;
+            const coverJpg = hasImage ? `/images/${p.imageFolder}/${p.imageFiles[0]}.jpg` : null;
+            const coverWebp = hasImage ? `/images/${p.imageFolder}/${p.imageFiles[0]}.webp` : null;
+            return (
+              <motion.div
+                key={slug}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-80px' }}
+                transition={{ duration: 0.7, delay: idx * 0.05 }}
+              >
+                <Link
+                  href={`/book/${p.slug}`}
+                  className="group block relative overflow-hidden bg-stone-900 aspect-[4/5] rounded-2xl"
+                >
+                  {/* Cover image or placeholder */}
+                  {coverJpg && coverWebp ? (
+                    <picture>
+                      <source srcSet={coverWebp} type="image/webp" />
+                      <Image
+                        src={coverJpg}
+                        alt={p.name}
+                        fill
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        className="object-cover transition-transform duration-1000 ease-out group-hover:scale-105"
+                      />
+                    </picture>
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-stone-800 to-stone-950">
+                      <span className="font-serif text-5xl md:text-6xl text-stone-700 tracking-tight">
+                        {p.name.charAt(0)}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Gradient overlay for text legibility */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
+
+                  {/* Coming soon badge */}
+                  {isComingSoon && (
+                    <div className="absolute top-4 left-4 z-10 bg-amber-500/90 text-black text-[10px] uppercase tracking-[0.2em] font-semibold px-3 py-1.5 rounded-full">
+                      {p.openingLabel || 'Coming Soon'}
+                    </div>
+                  )}
+
+                  {/* Card content — bottom */}
+                  <div className="absolute inset-x-0 bottom-0 p-6 md:p-7 z-10">
+                    <p className="text-[10px] uppercase tracking-[0.25em] text-stone-300 mb-2 font-medium">
+                      {p.region}
+                    </p>
+                    <div className="flex items-end justify-between gap-3">
+                      <h3 className="font-serif text-3xl md:text-4xl font-light tracking-tight text-stone-50 leading-none">
+                        {p.name}
+                      </h3>
+                      <ArrowUpRight
+                        size={22}
+                        className="text-stone-100 shrink-0 mb-1 opacity-70 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all duration-300"
+                      />
+                    </div>
+                    <p className="text-sm text-stone-300 font-light mt-2 tracking-wide">
+                      {p.catchphrase}
+                    </p>
+                  </div>
+                </Link>
+              </motion.div>
+            );
+          })}
         </div>
       </section>
 

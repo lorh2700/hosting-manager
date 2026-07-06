@@ -48,6 +48,11 @@ export default function BookPage() {
             checkOutTime: data.checkOutTime ?? null,
             maxGuests: data.maxGuests ?? null,
             region: data.region ?? null,
+            slug: data.slug ?? null,
+            status: data.status ?? 'active',
+            openingDate: data.openingDate ?? null,
+            addressKo: data.addressKo ?? null,
+            catchphrase: data.catchphrase ?? null,
             bookedDates: data.bookedDates ?? [],
           });
         }
@@ -325,6 +330,30 @@ export default function BookPage() {
         )}
       </div>
 
+      {property.status === 'coming_soon' ? (
+        /* Coming Soon Panel — 캘린더/폼 대신 오픈 예정 안내 */
+        <div className="max-w-2xl mx-auto px-6 py-24 md:py-32 text-center">
+          <p className="text-xs uppercase tracking-[0.3em] text-amber-400 mb-6 font-semibold">
+            Coming Soon
+          </p>
+          <h2 className="font-serif text-3xl md:text-5xl font-light mb-6 tracking-tight text-stone-100">
+            {property.openingDate
+              ? `${property.openingDate.replace(/^(\d{4})-(\d{2}).*/, '$2월')} 오픈 예정`
+              : '오픈 예정'}
+          </h2>
+          <p className="text-stone-400 text-base md:text-lg font-light leading-relaxed max-w-lg mx-auto mb-12">
+            {property.name} 은 곧 새로운 손님을 맞이할 준비를 하고 있습니다.
+            오픈 소식은 홈에서 먼저 안내드리겠습니다.
+          </p>
+          <Link
+            href="/"
+            className="inline-flex items-center gap-3 px-8 py-4 border border-stone-700 rounded-full text-sm uppercase tracking-widest text-stone-300 hover:bg-stone-100 hover:text-stone-900 hover:border-stone-100 transition-colors duration-500"
+          >
+            메인으로
+            <ArrowRight size={16} />
+          </Link>
+        </div>
+      ) : (
       <div className="max-w-5xl mx-auto px-6 py-16 md:py-24 grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-20">
 
         {/* Left: Calendar */}
@@ -560,6 +589,7 @@ export default function BookPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Legal Footer */}
       {property.permit && (

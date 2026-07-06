@@ -249,4 +249,9 @@ export interface PropertyData extends Property {
   checkOutTime?: string | null;
   maxGuests?: number | null;
   region?: string | null;
+  slug?: string | null;
+  status?: 'active' | 'coming_soon' | 'closed';
+  openingDate?: string | null;
+  addressKo?: string | null;
+  catchphrase?: string | null;
 }

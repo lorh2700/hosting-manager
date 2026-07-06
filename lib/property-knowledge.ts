@@ -138,6 +138,107 @@ export const PROPERTY_KNOWLEDGE: PropertyKnowledge[] = [
       'Anonaje is a cozy space designed for 2 guests maximum',
     ],
   },
+  {
+    id: 'dowonjae',
+    name: { ko: '도원재', en: 'Dowonjae' },
+    address: {
+      ko: '서울 종로구 북촌한옥마을 인근',
+      en: 'Near Bukchon Hanok Village, Jongno-gu, Seoul',
+    },
+    doorLockPassword: '',  // 관리자가 채워야 함
+    checkIn: '3:00 PM',
+    checkOut: '11:00 AM',
+    maxGuests: 4,
+    directions: {
+      subway: 'Anguk Station (Line 3), Exit 2 — about 10 min walk',
+      taxi: 'Show the driver the Korean address below',
+      taxiKorean: '종로구 북촌한옥마을',
+    },
+    houseRules: [
+      'Please remove your shoes when entering the hanok',
+      'Keep noise to a minimum, especially after 10:00 PM (quiet residential area)',
+      'No smoking inside the hanok',
+      'Please close all windows and doors when you leave',
+    ],
+    nearbyAttractions: [
+      { name: 'Bukchon Hanok Village', distance: 'right outside', description: 'Traditional Korean village with beautiful hanok houses' },
+      { name: 'Gyeongbokgung Palace', distance: '10 min walk', description: 'The main royal palace of the Joseon dynasty' },
+      { name: 'Samcheong-dong', distance: '5 min walk', description: 'Trendy area with cafes, galleries and boutiques' },
+      { name: 'Insadong', distance: '10 min walk', description: 'Traditional street with Korean crafts, tea houses and antiques' },
+    ],
+    extras: [
+      'The hanok is a traditional Korean house — floors are heated (ondol system)',
+      'Bedding is Korean-style (yo/mattress on the floor)',
+    ],
+  },
+  {
+    id: 'byeolha',
+    name: { ko: '별하재', en: 'Byeolhajae' },
+    address: {
+      ko: '서울 종로구 북촌로5나길 7-4',
+      en: '7-4, Bukchon-ro 5na-gil, Jongno-gu, Seoul',
+    },
+    doorLockPassword: '',  // 관리자가 채워야 함
+    checkIn: '3:00 PM',
+    checkOut: '11:00 AM',
+    maxGuests: 6,
+    directions: {
+      subway: 'Anguk Station (Line 3), Exit 2 — about 10 min walk',
+      taxi: 'Show the driver the Korean address below',
+      taxiKorean: '종로구 북촌로5나길 7-4',
+    },
+    houseRules: [
+      'Please remove your shoes when entering the hanok',
+      'Keep noise to a minimum, especially after 10:00 PM (quiet residential area)',
+      'No smoking inside the hanok',
+      'Please close all windows and doors when you leave',
+    ],
+    nearbyAttractions: [
+      { name: 'Bukchon Hanok Village', distance: 'right outside', description: 'Traditional Korean village with beautiful hanok houses' },
+      { name: 'Gyeongbokgung Palace', distance: '10 min walk', description: 'The main royal palace of the Joseon dynasty' },
+      { name: 'Samcheong-dong', distance: '5 min walk', description: 'Trendy area with cafes, galleries and boutiques' },
+      { name: 'Insadong', distance: '10 min walk', description: 'Traditional street with Korean crafts, tea houses and antiques' },
+      { name: 'Changdeokgung Palace', distance: '10 min walk', description: 'UNESCO World Heritage palace with beautiful Secret Garden' },
+    ],
+    extras: [
+      'The hanok is a traditional Korean house — floors are heated (ondol system)',
+      'Bedding is Korean-style (yo/mattress on the floor)',
+      'Byeolhajae accommodates up to 6 guests — spacious for families or small groups',
+    ],
+  },
+  {
+    id: 'jarakheon',
+    name: { ko: '자락헌', en: 'Jarakheon' },
+    address: {
+      ko: '서울 종로구 북촌로15길 37',
+      en: '37, Bukchon-ro 15-gil, Jongno-gu, Seoul',
+    },
+    doorLockPassword: '',  // 오픈 전 미정
+    checkIn: '3:00 PM',
+    checkOut: '11:00 AM',
+    maxGuests: 4,
+    directions: {
+      subway: 'Anguk Station (Line 3), Exit 2 — about 12 min walk',
+      taxi: 'Show the driver the Korean address below',
+      taxiKorean: '종로구 북촌로15길 37',
+    },
+    houseRules: [
+      'Please remove your shoes when entering the hanok',
+      'Keep noise to a minimum, especially after 10:00 PM (quiet residential area)',
+      'No smoking inside the hanok',
+      'Please close all windows and doors when you leave',
+    ],
+    nearbyAttractions: [
+      { name: 'Bukchon Hanok Village', distance: 'right outside', description: 'Traditional Korean village with beautiful hanok houses' },
+      { name: 'Gyeongbokgung Palace', distance: '10 min walk', description: 'The main royal palace of the Joseon dynasty' },
+      { name: 'Samcheong-dong', distance: '5 min walk', description: 'Trendy area with cafes, galleries and boutiques' },
+    ],
+    extras: [
+      'Opening October 2026 — details will be finalized closer to launch',
+      'The hanok is a traditional Korean house — floors are heated (ondol system)',
+      'Bedding is Korean-style (yo/mattress on the floor)',
+    ],
+  },
 ];
 
 /**
