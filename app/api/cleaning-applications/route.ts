@@ -95,6 +95,23 @@ export async function POST(req: Request) {
       if (cleaning.cleanerId) {
         return NextResponse.json({ error: '이미 다른 담당자에게 배정된 청소입니다.' }, { status: 400 });
       }
+      // 동일 (propertyId, date) 슬롯에 배정된 sibling 행이 있으면 이 미배정
+      // 행은 유령 잔재 — 신청 차단해 이중 배정 방지.
+      const siblingClaimed = await prisma.cleaning.findFirst({
+        where: {
+          propertyId: cleaning.propertyId,
+          date: cleaning.date,
+          cleanerId: { not: null },
+          id: { not: cleaning.id },
+        },
+        select: { id: true },
+      });
+      if (siblingClaimed) {
+        return NextResponse.json(
+          { error: '이 날짜의 청소는 이미 다른 담당자에게 배정되었습니다.' },
+          { status: 400 },
+        );
+      }
       if (scopedIds.length > 0 && !scopedIds.includes(cleaning.propertyId)) {
         return NextResponse.json({ error: '이 지점의 청소는 신청할 수 없습니다.' }, { status: 403 });
       }

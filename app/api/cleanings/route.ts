@@ -165,11 +165,32 @@ export async function GET(req: Request) {
       where.cleanerId = null;
     }
 
-    const cleanings = await prisma.cleaning.findMany({
+    let cleanings = await prisma.cleaning.findMany({
       where,
       include: { cleaner: true, applications: true },
       orderBy: { date: 'desc' },
     });
+
+    // isOpen=true 신청 가능 모드에서만 dedupe:
+    //   동일 (propertyId, date) 슬롯에 이미 배정된 청소가 있으면 미배정
+    //   행은 유령 잔재 — 신청 가능 목록에서 제외.
+    // (관리자가 예약 없이 미리 잡아둔 청소부터 신청 케이스는 배정되기 전이라
+    //  살아있고, 배정 완료 이후엔 자동 숨김.)
+    if (isOpen === 'true' && cleanings.length > 0) {
+      const propIds = [...new Set(cleanings.map((c) => c.propertyId))];
+      const dates   = [...new Set(cleanings.map((c) => c.date))];
+      const claimed = await prisma.cleaning.findMany({
+        where: {
+          propertyId: { in: propIds },
+          date: { in: dates },
+          cleanerId: { not: null },
+        },
+        select: { propertyId: true, date: true },
+      });
+      const claimedSet = new Set(claimed.map((c) => `${c.propertyId}|${c.date}`));
+      cleanings = cleanings.filter((c) => !claimedSet.has(`${c.propertyId}|${c.date}`));
+    }
+
     return NextResponse.json(cleanings);
   } catch (e) {
     console.error('[cleanings] GET error:', e);
