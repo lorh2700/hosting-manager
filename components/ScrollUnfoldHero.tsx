@@ -122,6 +122,7 @@ function LiquidBackground({ scrollYProgress }: { scrollYProgress: MotionValue<nu
     /* texture — 이미지 로드 전 임시 다크 그라데이션 */
     const tex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); // 이미지 상하 반전 방지 (WebGL은 Y축이 반대)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
