@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getPropertyDisplay, propertyImagePaths } from '@/lib/property-display';
+import { getPropertyDisplay, propertyImagePaths, slugCandidates } from '@/lib/property-display';
 
 // GET /api/public/properties/{idOrSlug}
 //
@@ -14,8 +14,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const key = raw.trim();
 
   try {
+    // slugCandidates — 리네임된 지점은 구/신 슬러그 양쪽으로 찾는다.
+    // (DB 마이그레이션이 아직 안 돌았어도 새 URL 이 살아있게)
     const property = await prisma.property.findFirst({
-      where: UUID_REGEX.test(key) ? { id: key } : { slug: key },
+      where: UUID_REGEX.test(key) ? { id: key } : { slug: { in: slugCandidates(key) } },
     });
     if (!property) {
       return NextResponse.json({ error: 'Property not found' }, { status: 404 });

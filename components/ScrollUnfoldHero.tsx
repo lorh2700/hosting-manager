@@ -9,7 +9,7 @@ import Link from 'next/link';
 const menuItems = [
   { title: 'BRAND',  desc: '브랜드 이야기', img: '/images/main_yard.webp',      link: '/brand' },
   { title: 'SPACES', desc: '우리의 공간들', img: '/images/unwa/main.webp',       link: '#spaces' },
-  { title: 'TOURS',  desc: '북촌 투어',    img: '/images/byeolha/DSC01954.webp', link: '/tours' },
+  { title: 'TOURS',  desc: '북촌 투어',    img: '/images/byulha/DSC01954.webp', link: '/tours' },
 ];
 
 // 카드 중앙 오프셋 (개수에 따라 자동 계산) — 3개면 offset ∈ {-1, 0, 1}

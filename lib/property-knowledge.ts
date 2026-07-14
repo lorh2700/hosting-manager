@@ -172,8 +172,8 @@ export const PROPERTY_KNOWLEDGE: PropertyKnowledge[] = [
     ],
   },
   {
-    id: 'byeolha',
-    name: { ko: '별하재', en: 'Byeolhajae' },
+    id: 'byulha',
+    name: { ko: '별하재', en: 'Byulhajae' },
     address: {
       ko: '서울 종로구 북촌로5나길 7-4',
       en: '7-4, Bukchon-ro 5na-gil, Jongno-gu, Seoul',
@@ -203,7 +203,7 @@ export const PROPERTY_KNOWLEDGE: PropertyKnowledge[] = [
     extras: [
       'The hanok is a traditional Korean house — floors are heated (ondol system)',
       'Bedding is Korean-style (yo/mattress on the floor)',
-      'Byeolhajae accommodates up to 6 guests — spacious for families or small groups',
+      'Byulhajae accommodates up to 6 guests — spacious for families or small groups',
     ],
   },
   {

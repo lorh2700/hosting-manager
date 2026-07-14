@@ -71,12 +71,14 @@ export const PROPERTY_DISPLAY: Record<string, PropertyDisplay> = {
     addressKo: '서울 종로구 북촌한옥마을 인근',
     status: 'active',
   },
-  byeolha: {
-    slug: 'byeolha',
+  // 로마자 표기는 byulha 로 통일 (웰컴패드 ?p=byulha 와 동일 키).
+  // 구 URL /book/byeolha 는 next.config.ts 영구 리다이렉트로 유지.
+  byulha: {
+    slug: 'byulha',
     name: '별하재',
     region: '북촌',
     catchphrase: '별빛 아래 머무는 밤',
-    imageFolder: 'byeolha',
+    imageFolder: 'byulha',
     // 순서: 인상 좋은 컷 (마당 뷰) → 외관 → 침실 → 부엌 → 욕실 → 디테일.
     // 첫 번째가 홈 카드 커버 + /book 갤러리 첫 장.
     imageFiles: [
@@ -118,11 +120,26 @@ export const PROPERTY_DISPLAY: Record<string, PropertyDisplay> = {
 
 // 홈페이지 카드 순서 — coming_soon 은 뒤로.
 export const PROPERTY_DISPLAY_ORDER: string[] = [
-  'unwadang', 'hwayeonjae', 'anon', 'dowonjae', 'byeolha', 'jarakheon',
+  'unwadang', 'hwayeonjae', 'anon', 'dowonjae', 'byulha', 'jarakheon',
 ];
 
+// 구 슬러그 → 현 슬러그. 코드 배포와 DB 마이그레이션은 원자적이지 않다
+// (마이그레이션은 Supabase SQL Editor 에서 손으로 돌린다) — 그 사이 구간에
+// 어느 쪽 DB 상태여도 페이지가 살아있도록 양쪽 슬러그를 모두 받아준다.
+// 마이그레이션이 프로덕션에 적용된 것을 확인한 뒤 이 항목을 지울 것.
+export const LEGACY_SLUGS: Record<string, string> = {
+  byeolha: 'byulha',   // 2026-07 로마자 표기 통일
+};
+
+// DB 조회용 — 구/신 슬러그 양쪽을 후보로 돌려준다 (where: { slug: { in: ... } }).
+export function slugCandidates(key: string): string[] {
+  const canonical = LEGACY_SLUGS[key] ?? key;
+  const legacy = Object.keys(LEGACY_SLUGS).filter((k) => LEGACY_SLUGS[k] === canonical);
+  return Array.from(new Set([canonical, ...legacy]));
+}
+
 export function getPropertyDisplay(slug: string): PropertyDisplay | null {
-  return PROPERTY_DISPLAY[slug] ?? null;
+  return PROPERTY_DISPLAY[LEGACY_SLUGS[slug] ?? slug] ?? null;
 }
 
 // 이미지 파일들을 { src, webp } 페어 배열로 반환. 페이지가 <Image> 로 로드.
