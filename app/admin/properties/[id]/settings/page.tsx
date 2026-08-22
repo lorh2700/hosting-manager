@@ -3,12 +3,13 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, usePathname, useRouter } from 'next/navigation';
-import { ArrowLeft, Save, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save, Trash2, Copy, Check, Link as LinkIcon } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 
 interface Property {
   id: string;
   name: string;
+  slug?: string | null;
   timezone: string;
   ownerId: string;
   description?: string;
@@ -234,6 +235,9 @@ export default function PropertySettingsPage() {
             </div>
           </div>
 
+          {/* iCal 리다이렉트 URL — Beds24 Room ID 가 설정된 경우에만 표시 */}
+          <IcalUrlSection slug={property?.slug ?? null} beds24RoomId={beds24RoomId} />
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">도어락 비밀번호</label>
@@ -324,6 +328,115 @@ export default function PropertySettingsPage() {
             이 숙소 영구 삭제하기
           </button>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ─── iCal URL 섹션 ────────────────────────────────────────────────────
+// 이 숙소의 예약 캘린더를 OTA/개인 캘린더로 export 하는 URL.
+// - Beds24 Room ID 가 있어야만 URL 이 노출됨 (없으면 안내 문구).
+// - Pretty URL (voidanchae.com/ical/{slug}) 은 netlify.toml 리다이렉트 또는
+//   /ical/[slug] 동적 라우트가 처리 → Beds24 로 301 리다이렉트.
+// - 참고용으로 Beds24 직접 URL 도 함께 표시 (리다이렉트 없이 즉시 동작).
+
+interface IcalUrlSectionProps {
+  slug: string | null;
+  beds24RoomId: string;
+}
+
+function IcalUrlSection({ slug, beds24RoomId }: IcalUrlSectionProps) {
+  const [copied, setCopied] = useState<'pretty' | 'direct' | null>(null);
+
+  const trimmedRoomId = beds24RoomId.trim();
+  if (!trimmedRoomId) {
+    return (
+      <div className="border-t border-stone-200 pt-6 mt-6">
+        <div className="flex items-center gap-2 mb-2">
+          <LinkIcon size={14} className="text-stone-400" />
+          <label className="text-[10px] uppercase tracking-widest text-stone-500">iCal 예약 캘린더</label>
+        </div>
+        <p className="text-[12px] text-stone-400 leading-relaxed">
+          Beds24 Room ID 를 저장하면 iCal 링크가 여기에 노출됩니다. OTA (Airbnb / Booking.com 등) 나
+          개인 캘린더에 붙여 예약 일정을 자동 동기화할 수 있습니다.
+        </p>
+      </div>
+    );
+  }
+
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://voidanchae.com';
+  const prettyUrl = slug ? `${origin}/ical/${slug}` : null;
+  const directUrl = `https://api.beds24.com/ical/bookings.ics?roomid=${trimmedRoomId}`;
+
+  const copy = async (url: string, kind: 'pretty' | 'direct') => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(kind);
+      setTimeout(() => setCopied(null), 2000);
+    } catch (e) {
+      console.error('clipboard write failed', e);
+    }
+  };
+
+  return (
+    <div className="border-t border-stone-200 pt-6 mt-6 space-y-5">
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <LinkIcon size={14} className="text-stone-400" />
+          <label className="text-[10px] uppercase tracking-widest text-stone-500">iCal 예약 캘린더</label>
+        </div>
+        <p className="text-[12px] text-stone-500 leading-relaxed">
+          아래 URL 을 OTA (Airbnb, Booking.com 등) 나 Google/Apple 캘린더에 붙여 넣으면 이 숙소의 예약이 자동 동기화됩니다.
+        </p>
+      </div>
+
+      {prettyUrl && (
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <p className="text-[10px] uppercase tracking-widest text-stone-600 font-semibold">공유용 URL (권장)</p>
+            <button
+              type="button"
+              onClick={() => copy(prettyUrl, 'pretty')}
+              className={`text-[11px] px-2.5 py-1 rounded flex items-center gap-1.5 transition-colors ${
+                copied === 'pretty'
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+              }`}
+              aria-label="공유용 URL 복사"
+            >
+              {copied === 'pretty' ? <Check size={12} /> : <Copy size={12} />}
+              {copied === 'pretty' ? '복사됨' : '복사'}
+            </button>
+          </div>
+          <code className="block bg-stone-50 border border-stone-200 px-3 py-2 text-[12px] font-mono text-stone-800 break-all">
+            {prettyUrl}
+          </code>
+        </div>
+      )}
+
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <p className="text-[10px] uppercase tracking-widest text-stone-500">Beds24 직접 URL</p>
+          <button
+            type="button"
+            onClick={() => copy(directUrl, 'direct')}
+            className={`text-[11px] px-2.5 py-1 rounded flex items-center gap-1.5 transition-colors ${
+              copied === 'direct'
+                ? 'bg-emerald-100 text-emerald-700'
+                : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+            }`}
+            aria-label="Beds24 직접 URL 복사"
+          >
+            {copied === 'direct' ? <Check size={12} /> : <Copy size={12} />}
+            {copied === 'direct' ? '복사됨' : '복사'}
+          </button>
+        </div>
+        <code className="block bg-stone-50 border border-stone-200 px-3 py-2 text-[12px] font-mono text-stone-500 break-all">
+          {directUrl}
+        </code>
+        <p className="text-[11px] text-stone-400 mt-1.5">
+          리다이렉트 없이 Beds24 서버로 바로 향합니다. 공유용 URL 이 문제 있을 때 fallback 으로 사용.
+        </p>
       </div>
     </div>
   );
