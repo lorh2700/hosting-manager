@@ -34,29 +34,29 @@ interface NavItem {
 }
 
 const COMMON_TOP: NavItem[] = [
-  { href: '/admin', label: '대시보드', icon: Home, roles: ['super_admin', 'admin', 'host'] },
+  { href: '/admin', label: '대시보드', icon: Home, roles: ['admin', 'manager'] },
 ];
 
 const HOST_LINKS: NavItem[] = [
-  { href: '/admin/properties', label: '숙소 관리', icon: HomeIcon, roles: ['super_admin', 'admin', 'host'] },
-  { href: '/admin/calendar', label: '캘린더', icon: Calendar, roles: ['super_admin', 'admin', 'host'] },
-  { href: '/admin/bookings', label: '예약', icon: BookOpen, roles: ['super_admin', 'admin', 'host'] },
-  { href: '/admin/messages', label: '메시지', icon: MessageSquare, roles: ['super_admin', 'admin', 'host'] },
-  { href: '/admin/cleaners', label: '청소 담당자', icon: Users, roles: ['super_admin', 'admin', 'host'] },
-  { href: '/admin/cleaning-requests', label: '청소 신청 관리', icon: Hand, roles: ['super_admin', 'admin', 'host'] },
-  { href: '/admin/cleaning-report', label: '청소 보고서', icon: FileBarChart, roles: ['super_admin', 'admin', 'host'] },
+  { href: '/admin/properties', label: '숙소 관리', icon: HomeIcon, roles: ['admin', 'manager'] },
+  { href: '/admin/calendar', label: '캘린더', icon: Calendar, roles: ['admin', 'manager'] },
+  { href: '/admin/bookings', label: '예약', icon: BookOpen, roles: ['admin', 'manager'] },
+  { href: '/admin/messages', label: '메시지', icon: MessageSquare, roles: ['admin', 'manager'] },
+  { href: '/admin/cleaners', label: '청소 담당자', icon: Users, roles: ['admin', 'manager'] },
+  { href: '/admin/cleaning-requests', label: '청소 신청 관리', icon: Hand, roles: ['admin', 'manager'] },
+  { href: '/admin/cleaning-report', label: '청소 보고서', icon: FileBarChart, roles: ['admin', 'manager'] },
 ];
 
 const TOUR_LINKS: NavItem[] = [
-  { href: '/admin/tours', label: '투어 상품', icon: Compass, roles: ['super_admin', 'admin', 'host'] },
-  { href: '/admin/tour-bookings', label: '투어 예약', icon: CalendarCheck, roles: ['super_admin', 'admin', 'host'] },
-  { href: '/admin/tour-operators', label: '운영업체', icon: Briefcase, roles: ['super_admin', 'admin', 'host'] },
+  { href: '/admin/tours', label: '투어 상품', icon: Compass, roles: ['admin', 'manager'] },
+  { href: '/admin/tour-bookings', label: '투어 예약', icon: CalendarCheck, roles: ['admin', 'manager'] },
+  { href: '/admin/tour-operators', label: '운영업체', icon: Briefcase, roles: ['admin', 'manager'] },
 ];
 
 const SYSTEM_LINKS: NavItem[] = [
-  { href: '/admin/users', label: '유저 관리', icon: UserCog, roles: ['super_admin', 'admin'] },
-  { href: '/admin/api-clients', label: 'API 클라이언트', icon: KeyRound, roles: ['super_admin', 'admin'] },
-  { href: '/admin/settings/profile', label: '프로필', icon: Settings, roles: ['super_admin', 'admin', 'host', 'cleaner', 'viewer'] },
+  { href: '/admin/users', label: '유저 관리', icon: UserCog, roles: ['admin'] },
+  { href: '/admin/api-clients', label: 'API 클라이언트', icon: KeyRound, roles: ['admin'] },
+  { href: '/admin/settings/profile', label: '프로필', icon: Settings, roles: ['admin', 'manager', 'cleaner'] },
 ];
 
 const MOBILE_PRIMARY_COUNT = 4;
@@ -65,7 +65,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { profile, user } = useAuth();
-  const role = profile?.role ?? 'host';
+  const role = profile?.role ?? 'manager';
   const [unreadCount, setUnreadCount] = useState(0);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);

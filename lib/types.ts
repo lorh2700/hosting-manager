@@ -1,6 +1,13 @@
 // ─── User & Account Management ──────────────────────────────────────────────
 
-export type UserRole = 'super_admin' | 'admin' | 'host' | 'cleaner' | 'viewer';
+/**
+ * 역할 3종.
+ *  - admin   관리자: 모든 숙소, 유저 관리, 삭제 권한
+ *  - manager 매니저: 배정된 숙소(UserProperty)만
+ *  - cleaner 청소담당자: Cleaner 프로필이 정체성, 로그인은 선택. 배정 지점(CleanerProperty)만 본다
+ * DB 에 남아 있을 수 있는 옛 값(super_admin/host/viewer)은 lib/access.normalizeRole 이 흡수한다.
+ */
+export type UserRole = 'admin' | 'manager' | 'cleaner';
 export type UserStatus = 'active' | 'suspended' | 'pending_invite';
 
 export interface UserProfile {
@@ -154,6 +161,8 @@ export interface Cleaner {
   name: string;
   phone?: string;
   ownerId: string;
+  /** 신규 오픈 청소 알림톡 수신 여부 */
+  notifyNewOpen?: boolean;
   createdAt: string;
 }
 

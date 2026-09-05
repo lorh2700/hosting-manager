@@ -14,7 +14,7 @@ model User {
   password    String
   displayName String?   @map("display_name")
   phone       String?
-  role        String    @default("host") // super_admin, admin, host, cleaner, viewer
+  role        String    @default("manager") // admin(관리자) | manager(매니저) | cleaner(청소담당자)
   status      String    @default("active") // active, suspended, pending_invite
   lastLoginAt DateTime? @map("last_login_at")
   createdAt   DateTime  @default(now()) @map("created_at")
@@ -83,6 +83,7 @@ model Property {
   cleaningIssues       CleaningIssue[]
   cleaningApplications CleaningApplication[]
   syncLogs             SyncLog[]
+  cleanerAssignments   CleanerProperty[]
   welcomepadConfig     WelcomepadConfig?
 
   @@map("properties")
@@ -242,20 +243,36 @@ model Guest {
 
 // ── 청소 담당자 ──
 model Cleaner {
-  id          String   @id @default(uuid())
-  name        String
-  phone       String?  @unique
-  publicToken String?  @unique @map("public_token")
-  userId      String?  @unique @map("user_id")
-  ownerId     String   @map("owner_id")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id            String   @id @default(uuid())
+  name          String
+  phone         String?  @unique
+  publicToken   String?  @unique @map("public_token")
+  userId        String?  @unique @map("user_id")
+  ownerId       String   @map("owner_id")
+  /// 신규 오픈 청소 알림톡 수신 여부 (호스트 본인 프로필 등은 끈다)
+  notifyNewOpen Boolean  @default(true) @map("notify_new_open")
+  createdAt     DateTime @default(now()) @map("created_at")
 
-  owner       User         @relation("OwnedCleaners", fields: [ownerId], references: [id])
-  user        User?        @relation("CleanerAccount", fields: [userId], references: [id], onDelete: SetNull)
+  owner       User              @relation("OwnedCleaners", fields: [ownerId], references: [id])
+  user        User?             @relation("CleanerAccount", fields: [userId], references: [id], onDelete: SetNull)
   cleanings   Cleaning[]
-  invitations Invitation[] @relation("CleanerInvitations")
+  invitations Invitation[]      @relation("CleanerInvitations")
+  /// 담당 지점. 비어 있으면 소유 호스트의 모든 숙소.
+  assignments CleanerProperty[]
 
   @@map("cleaners")
+}
+
+/// 청소담당자 ↔ 숙소 배정. 화면 표시·청소 신청·신규 오픈 알림이 모두 이 한 규칙을 쓴다.
+model CleanerProperty {
+  cleanerId  String @map("cleaner_id")
+  propertyId String @map("property_id")
+
+  cleaner  Cleaner  @relation(fields: [cleanerId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@id([cleanerId, propertyId])
+  @@map("cleaner_properties")
 }
 
 // ── 청소 일정 ──

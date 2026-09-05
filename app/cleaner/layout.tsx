@@ -37,7 +37,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading && profile && profile.role !== 'cleaner' && profile.role !== 'super_admin') {
+    if (!loading && profile && profile.role !== 'cleaner' && profile.role !== 'admin') {
       router.replace('/admin');
     }
   }, [loading, profile, router]);
@@ -150,7 +150,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
     );
   }
 
-  if (profile && profile.role !== 'cleaner' && profile.role !== 'super_admin') return null;
+  if (profile && profile.role !== 'cleaner' && profile.role !== 'admin') return null;
 
   const mainItems = NAV_ITEMS.slice(0, MOBILE_PRIMARY_COUNT);
   const moreItems = NAV_ITEMS.slice(MOBILE_PRIMARY_COUNT);

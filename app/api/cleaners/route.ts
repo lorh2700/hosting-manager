@@ -1,218 +1,163 @@
-import { NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
-import { getSessionWithUser, type SessionAuth } from '@/lib/auth';
+import { type SessionAuth } from '@/lib/auth';
+import { canManageCleaner } from '@/lib/access';
+import { withAuth, ok, created, fail, MESSAGES, readJson, str, requireQuery } from '@/lib/core/http';
 import { lastFourDigits, normalizePhone, phoneToSyntheticEmail } from '@/lib/phone';
 
 function generatePublicToken(): string {
   return randomBytes(24).toString('base64url');
 }
 
-function forbidden() {
-  return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
+// 청소담당자 프로필은 만든 호스트(ownerId)와 관리자만 수정·삭제할 수 있다.
+// 전화번호 변경은 연결된 로그인 계정의 이메일·비밀번호까지 바꾸므로 특히 중요.
+function requireCleanerOwner(auth: SessionAuth, cleaner: { ownerId: string }): void {
+  if (!canManageCleaner(auth, cleaner)) throw fail(403, MESSAGES.forbidden);
 }
 
-// 청소매니저 레코드는 만든 호스트(ownerId)와 관리자만 수정·삭제할 수 있다.
-// 전화번호 변경은 연결된 로그인 계정의 이메일·비밀번호까지 바꾸므로 특히 중요.
-function canManageCleaner(auth: SessionAuth, cleaner: { ownerId: string }): boolean {
-  return auth.isAdmin || cleaner.ownerId === auth.session.userId;
-}
+type CleanerRow = {
+  id: string; name: string; phone: string | null; publicToken: string | null; userId: string | null;
+  ownerId: string; notifyNewOpen: boolean; createdAt: Date;
+  user: { email: string; status: string } | null;
+  assignments: { propertyId: string }[];
+  invitations: { id: string; email: string; token: string; expiresAt: Date }[];
+};
 
 /**
- * Create a cleaner-role User whose email is the phone-derived synthetic
- * email and whose password is the last 4 digits of the phone. Returns the
- * created user id, or null if phone was invalid or account already exists.
+ * 화면용 응답. 담당자의 정체성은 이 프로필이고, 로그인은 선택 사항이다.
+ *  - login: null = 계정 없음 / { status } = 전화번호 로그인 계정 (active|suspended)
+ *  - assignedPropertyIds: 비어 있으면 소유 호스트의 모든 숙소를 본다
  */
-async function createPhoneAccount(phone: string, displayName: string): Promise<string | null> {
-  const synthetic = phoneToSyntheticEmail(phone);
-  const last4 = lastFourDigits(phone);
-  if (!synthetic || !last4) return null;
+function serialize(c: CleanerRow) {
+  return {
+    id: c.id,
+    name: c.name,
+    phone: c.phone,
+    publicToken: c.publicToken,
+    userId: c.userId,
+    ownerId: c.ownerId,
+    notifyNewOpen: c.notifyNewOpen,
+    createdAt: c.createdAt,
+    login: c.user ? { email: c.user.email, status: c.user.status } : null,
+    // 이전 화면 호환
+    linkedUser: c.user ? { email: c.user.email, status: c.user.status } : null,
+    assignedPropertyIds: c.assignments.map(a => a.propertyId),
+    pendingInvitation: c.invitations[0] ?? null,
+  };
+}
 
-  const existing = await prisma.user.findUnique({ where: { email: synthetic } });
-  if (existing) return existing.id;
+const INCLUDE = {
+  user: { select: { email: true, status: true } },
+  assignments: { select: { propertyId: true } },
+  invitations: {
+    where: { status: 'pending' },
+    select: { id: true, email: true, token: true, expiresAt: true },
+    orderBy: { createdAt: 'desc' as const },
+    take: 1,
+  },
+};
 
-  const hashed = await bcrypt.hash(last4, 12);
-  const user = await prisma.user.create({
-    data: {
-      email: synthetic,
-      password: hashed,
-      displayName,
-      phone: normalizePhone(phone),
-      role: 'cleaner',
-      status: 'active',
-    },
+export const GET = withAuth('cleaners', async (_req, { auth }) => {
+  const cleaners = await prisma.cleaner.findMany({
+    where: auth.role === 'admin' ? undefined : { ownerId: auth.session.userId },
+    orderBy: { createdAt: 'desc' },
+    include: INCLUDE,
   });
-  return user.id;
-}
+  return ok(cleaners.map(c => serialize(c as CleanerRow)));
+});
 
-export async function GET(req: Request) {
-  try {
-    const auth = await getSessionWithUser(req);
-    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+/**
+ * 담당자 프로필 생성. 로그인 계정은 자동으로 만들지 않는다 —
+ * 화면의 "앱 로그인 만들기"(/api/cleaners/[id]/reset-password)로 명시적으로 만든다.
+ */
+export const POST = withAuth('cleaners', async (req, { auth }) => {
+  if (auth.role === 'cleaner') throw fail(403, MESSAGES.forbidden);
+  const body = await readJson(req);
+  const name = str(body, 'name', { required: true, max: 100 })!.trim();
 
-    const cleaners = await prisma.cleaner.findMany({
-      where: auth.isAdmin ? undefined : { ownerId: auth.session.userId },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        user: {
-          select: {
-            email: true,
-            status: true,
-            properties: { select: { propertyId: true } },
-          },
-        },
-        invitations: {
-          where: { status: 'pending' },
-          select: { id: true, email: true, token: true, expiresAt: true },
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-        },
-      },
-    });
-
-    const shaped = cleaners.map(c => ({
-      id: c.id,
-      name: c.name,
-      phone: c.phone,
-      publicToken: c.publicToken,
-      userId: c.userId,
-      ownerId: c.ownerId,
-      createdAt: c.createdAt,
-      linkedUser: c.user ? { email: c.user.email, status: c.user.status } : null,
-      assignedPropertyIds: c.user?.properties.map(p => p.propertyId) ?? [],
-      pendingInvitation: c.invitations[0] ?? null,
-    }));
-
-    return NextResponse.json(shaped);
-  } catch (e) {
-    console.error('[cleaners] GET error:', e);
-    return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
+  const normalizedPhone = body.phone ? normalizePhone(String(body.phone)) : null;
+  if (body.phone && !normalizedPhone) throw fail(400, '전화번호 형식이 올바르지 않습니다.');
+  if (normalizedPhone && await prisma.cleaner.findUnique({ where: { phone: normalizedPhone }, select: { id: true } })) {
+    throw fail(409, '같은 전화번호의 담당자가 이미 있습니다.');
   }
-}
 
-export async function POST(req: Request) {
-  try {
-    const auth = await getSessionWithUser(req);
-    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    // 청소매니저 계정이 다른 청소매니저를 만드는 것은 허용하지 않는다.
-    if (auth.user.role === 'cleaner') return forbidden();
+  const cleaner = await prisma.cleaner.create({
+    data: { name, phone: normalizedPhone, ownerId: auth.session.userId, publicToken: generatePublicToken() },
+    include: INCLUDE,
+  });
+  return created(serialize(cleaner as CleanerRow));
+});
 
-    const body = await req.json();
-    if (!body.name || typeof body.name !== 'string') {
-      return NextResponse.json({ error: 'name은 필수입니다.' }, { status: 400 });
+/**
+ * 허용 필드: name, phone, regenerateToken, notifyNewOpen, loginEnabled.
+ * (ownerId/userId 는 바꿀 수 없다. 배정 지점은 /api/cleaners/[id]/properties.)
+ */
+export const PUT = withAuth('cleaners', async (req, { auth }) => {
+  const body = await readJson(req);
+  const id = str(body, 'id', { required: true })!;
+
+  const before = await prisma.cleaner.findUnique({ where: { id }, select: { phone: true, userId: true, name: true, ownerId: true } });
+  if (!before) throw fail(404, MESSAGES.notFound);
+  requireCleanerOwner(auth, before);
+
+  const data: { name?: string; phone?: string | null; publicToken?: string; notifyNewOpen?: boolean } = {};
+  const name = str(body, 'name', { max: 100 });
+  if (name && name.trim()) data.name = name.trim();
+  if (body.regenerateToken) data.publicToken = generatePublicToken();
+  if (typeof body.notifyNewOpen === 'boolean') data.notifyNewOpen = body.notifyNewOpen;
+
+  if (body.phone !== undefined) {
+    const normalized = body.phone ? normalizePhone(String(body.phone)) : null;
+    if (body.phone && !normalized) throw fail(400, '전화번호 형식이 올바르지 않습니다.');
+    if (normalized && normalized !== before.phone) {
+      const dup = await prisma.cleaner.findUnique({ where: { phone: normalized }, select: { id: true } });
+      if (dup && dup.id !== id) throw fail(409, '같은 전화번호의 담당자가 이미 있습니다.');
     }
-
-    const normalizedPhone = body.phone ? normalizePhone(String(body.phone)) : null;
-    if (body.phone && !normalizedPhone) {
-      return NextResponse.json({ error: '전화번호 형식이 올바르지 않습니다.' }, { status: 400 });
-    }
-
-    // Auto-create phone-based cleaner account (email = synthetic, password = last4)
-    const userId = normalizedPhone ? await createPhoneAccount(normalizedPhone, body.name) : null;
-
-    const cleaner = await prisma.cleaner.create({
-      data: {
-        name: body.name.trim().slice(0, 100),
-        phone: normalizedPhone,
-        ownerId: auth.session.userId,
-        publicToken: generatePublicToken(),
-        userId,
-      },
-    });
-    return NextResponse.json(cleaner, { status: 201 });
-  } catch (e) {
-    console.error('[cleaners] POST error:', e);
-    return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
+    data.phone = normalized;
   }
-}
 
-export async function PUT(req: Request) {
-  try {
-    const auth = await getSessionWithUser(req);
-    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // 앱 로그인 켜기/끄기 — 연결된 계정의 status 만 바꾼다 (계정 생성은 reset-password).
+  let loginStatus: 'active' | 'suspended' | undefined;
+  if (typeof body.loginEnabled === 'boolean') {
+    if (!before.userId) throw fail(400, '먼저 앱 로그인 계정을 만들어 주세요.');
+    loginStatus = body.loginEnabled ? 'active' : 'suspended';
+  }
 
-    const body = (await req.json()) as Record<string, unknown>;
-    const id = typeof body.id === 'string' ? body.id : null;
-    if (!id) return NextResponse.json({ error: 'id는 필수입니다.' }, { status: 400 });
+  if (Object.keys(data).length === 0 && !loginStatus) throw fail(400, MESSAGES.noFields);
 
-    const before = await prisma.cleaner.findUnique({
-      where: { id },
-      select: { phone: true, userId: true, name: true, ownerId: true },
-    });
-    if (!before) return NextResponse.json({ error: 'not found' }, { status: 404 });
-    if (!canManageCleaner(auth, before)) return forbidden();
+  const cleaner = await prisma.cleaner.update({ where: { id }, data, include: INCLUDE });
 
-    // 허용 필드만: name, phone, regenerateToken. (ownerId/userId 등은 바꿀 수 없다)
-    const data: { name?: string; phone?: string | null; publicToken?: string; userId?: string | null } = {};
-    if (typeof body.name === 'string' && body.name.trim()) data.name = body.name.trim().slice(0, 100);
-    if (body.regenerateToken) data.publicToken = generatePublicToken();
-
-    // Normalize phone; if it changed on a linked user, keep the synthetic
-    // email + password (last4) aligned so the cleaner can keep logging in
-    // with their current number.
-    if (body.phone !== undefined) {
-      const normalized = body.phone ? normalizePhone(String(body.phone)) : null;
-      if (body.phone && !normalized) {
-        return NextResponse.json({ error: '전화번호 형식이 올바르지 않습니다.' }, { status: 400 });
-      }
-      data.phone = normalized;
-    }
-
-    if (Object.keys(data).length === 0) {
-      return NextResponse.json({ error: '업데이트할 필드가 없습니다.' }, { status: 400 });
-    }
-
-    // If the cleaner has no linked user yet but now gains a phone, create one.
-    if (!before.userId && data.phone) {
-      data.userId = await createPhoneAccount(data.phone, data.name ?? before.name);
-    }
-
-    const cleaner = await prisma.cleaner.update({ where: { id }, data });
-
-    // Sync linked User when phone changed on an already-linked cleaner.
-    if (before.userId && data.phone !== undefined && data.phone !== before.phone) {
-      const linked = await prisma.user.findUnique({ where: { id: before.userId } });
-      if (linked) {
-        const synthetic = data.phone ? phoneToSyntheticEmail(data.phone) : null;
-        const last4 = data.phone ? lastFourDigits(data.phone) : null;
-        if (synthetic && last4) {
-          await prisma.user.update({
-            where: { id: before.userId },
-            data: {
-              email: synthetic,
-              phone: data.phone,
-              password: await bcrypt.hash(last4, 12),
-            },
-          });
-        }
+  if (before.userId) {
+    const userData: { email?: string; phone?: string | null; password?: string; status?: string } = {};
+    // 전화번호가 바뀌면 로그인 식별자(합성 이메일)와 뒷 4자리 비밀번호도 따라간다.
+    if (data.phone !== undefined && data.phone !== before.phone) {
+      const synthetic = data.phone ? phoneToSyntheticEmail(data.phone) : null;
+      const last4 = data.phone ? lastFourDigits(data.phone) : null;
+      if (synthetic && last4) {
+        userData.email = synthetic;
+        userData.phone = data.phone;
+        userData.password = await bcrypt.hash(last4, 12);
       }
     }
-
-    return NextResponse.json(cleaner);
-  } catch (e) {
-    console.error('[cleaners] PUT error:', e);
-    return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
+    if (loginStatus) userData.status = loginStatus;
+    if (Object.keys(userData).length > 0) {
+      await prisma.user.update({ where: { id: before.userId }, data: userData });
+      if (cleaner.user && loginStatus) cleaner.user.status = loginStatus;
+    }
   }
-}
 
-export async function DELETE(req: Request) {
-  try {
-    const auth = await getSessionWithUser(req);
-    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  return ok(serialize(cleaner as CleanerRow));
+});
 
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
-    if (!id) return NextResponse.json({ error: 'id는 필수입니다.' }, { status: 400 });
+/** 프로필 삭제. 연결된 로그인 계정(청소담당자 전용)도 함께 지워 고아 계정을 남기지 않는다. */
+export const DELETE = withAuth('cleaners', async (req, { auth }) => {
+  const id = requireQuery(req, 'id');
+  const cleaner = await prisma.cleaner.findUnique({ where: { id }, select: { ownerId: true, userId: true } });
+  if (!cleaner) throw fail(404, MESSAGES.notFound);
+  requireCleanerOwner(auth, cleaner);
 
-    const cleaner = await prisma.cleaner.findUnique({ where: { id }, select: { ownerId: true } });
-    if (!cleaner) return NextResponse.json({ error: 'not found' }, { status: 404 });
-    if (!canManageCleaner(auth, cleaner)) return forbidden();
-
-    await prisma.cleaner.delete({ where: { id } });
-    return NextResponse.json({ success: true });
-  } catch (e) {
-    console.error('[cleaners] DELETE error:', e);
-    return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
-  }
-}
+  await prisma.cleaner.delete({ where: { id } });
+  if (cleaner.userId) await prisma.user.delete({ where: { id: cleaner.userId } }).catch(() => null);
+  return ok({ success: true });
+});

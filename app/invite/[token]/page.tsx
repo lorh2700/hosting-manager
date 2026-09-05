@@ -128,9 +128,12 @@ export default function InvitePage() {
 
   const roleLabels: Record<string, string> = {
     admin: '관리자',
-    host: '호스트',
-    cleaner: '청소 담당자',
-    viewer: '뷰어',
+    manager: '매니저',
+    cleaner: '청소담당자',
+    // 옛 초대 레코드 호환
+    super_admin: '관리자',
+    host: '매니저',
+    viewer: '매니저',
   };
 
   if (loading) {

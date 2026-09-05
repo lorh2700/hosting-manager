@@ -1,30 +1,20 @@
-import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifySession } from '@/lib/auth';
+import { normalizeRole } from '@/lib/access';
+import { withAuth, ok, fail, MESSAGES } from '@/lib/core/http';
 
-export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const session = await verifySession(req);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+type Params = { id: string };
 
-    const me = await prisma.user.findUnique({ where: { id: session.userId } });
-    if (!me || !['super_admin', 'admin'].includes(me.role)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+/**
+ * 계정 삭제 (관리자). 청소담당자 로그인 계정은 프로필과 함께 청소 담당자 화면에서 지운다 —
+ * 여기서 지우면 Cleaner 행만 남아 "로그인 없는 담당자"가 되어 버린다.
+ */
+export const DELETE = withAuth<Params>('users/id', async (_req, { auth, params }) => {
+  if (params.id === auth.session.userId) throw fail(400, '자기 자신은 삭제할 수 없습니다.');
 
-    const { id } = await params;
-    if (id === session.userId) {
-      return NextResponse.json({ error: '자기 자신은 삭제할 수 없습니다.' }, { status: 400 });
-    }
+  const target = await prisma.user.findUnique({ where: { id: params.id } });
+  if (!target) throw fail(404, MESSAGES.notFound);
+  if (normalizeRole(target.role) === 'cleaner') throw fail(400, '청소담당자 계정은 청소 담당자 관리에서 삭제합니다.');
 
-    const target = await prisma.user.findUnique({ where: { id } });
-    if (!target) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-
-    await prisma.user.delete({ where: { id } });
-
-    return NextResponse.json({ ok: true });
-  } catch (e) {
-    console.error('[users/:id] DELETE error:', e);
-    return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
-  }
-}
+  await prisma.user.delete({ where: { id: params.id } });
+  return ok({ ok: true });
+}, { admin: true });
