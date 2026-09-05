@@ -99,7 +99,7 @@ export default function ProfilePage() {
   return (
     <div className="max-w-2xl mx-auto space-y-8 sm:space-y-12">
       <header className="border-b border-stone-200 pb-6 sm:pb-8">
-        <p className="text-[10px] tracking-[0.3em] text-stone-500 mb-3 sm:mb-4">설정</p>
+        <p className="text-[12px] tracking-[0.3em] text-stone-500 mb-3 sm:mb-4">설정</p>
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-light tracking-tight text-stone-900">내 프로필</h1>
       </header>
 
@@ -109,7 +109,7 @@ export default function ProfilePage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">이메일</label>
+            <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">이메일</label>
             <input
               type="email"
               value={user.email ?? ''}
@@ -118,7 +118,7 @@ export default function ProfilePage() {
             />
           </div>
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">역할</label>
+            <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">역할</label>
             <input
               type="text"
               value={ROLE_LABELS[profile.role] ?? profile.role}
@@ -130,7 +130,7 @@ export default function ProfilePage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">이름</label>
+            <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">이름</label>
             <input
               type="text"
               value={displayName}
@@ -140,7 +140,7 @@ export default function ProfilePage() {
             />
           </div>
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">연락처</label>
+            <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">연락처</label>
             <input
               type="tel"
               value={phone}
@@ -161,7 +161,7 @@ export default function ProfilePage() {
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center gap-2 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white px-6 py-2.5 text-[10px] tracking-widest font-semibold uppercase transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white px-6 py-2.5 text-[12px] tracking-widest font-semibold uppercase transition-colors disabled:opacity-50"
             >
               <Save size={13} />
               {saving ? '저장 중...' : '저장'}
@@ -178,7 +178,7 @@ export default function ProfilePage() {
         </h2>
 
         <div>
-          <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">현재 비밀번호</label>
+          <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">현재 비밀번호</label>
           <input
             type="password"
             value={currentPassword}
@@ -190,7 +190,7 @@ export default function ProfilePage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">새 비밀번호</label>
+            <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">새 비밀번호</label>
             <input
               type="password"
               value={newPassword}
@@ -202,7 +202,7 @@ export default function ProfilePage() {
             />
           </div>
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">새 비밀번호 확인</label>
+            <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">새 비밀번호 확인</label>
             <input
               type="password"
               value={confirmPassword}
@@ -223,7 +223,7 @@ export default function ProfilePage() {
             <button
               type="submit"
               disabled={changingPassword}
-              className="flex items-center gap-2 bg-stone-100 hover:bg-[var(--brand)] hover:text-white text-stone-900 px-6 py-2.5 text-[10px] tracking-widest font-semibold uppercase transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 bg-stone-100 hover:bg-[var(--brand)] hover:text-white text-stone-900 px-6 py-2.5 text-[12px] tracking-widest font-semibold uppercase transition-colors disabled:opacity-50"
             >
               <Lock size={13} />
               {changingPassword ? '변경 중...' : '비밀번호 변경'}

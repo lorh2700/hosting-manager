@@ -7,7 +7,7 @@ import { ko } from 'date-fns/locale';
 import { Package, Plus, Trash2, Send } from 'lucide-react';
 import type { SupplyRequest, SupplyItem, IssueUrgency } from '@/lib/types';
 import { SUPPLY_STATUS_CONFIG, URGENCY_LABELS } from '@/lib/constants';
-import { toast } from '@/components/ui';
+import { toast, SkeletonList } from '@/components/ui';
 
 const URGENCY: { value: IssueUrgency; label: string }[] = (
   Object.entries(URGENCY_LABELS) as [IssueUrgency, { label: string }][]
@@ -106,23 +106,19 @@ export default function CleanerSuppliesPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="w-8 h-8 border-t-2 border-white rounded-full animate-spin" />
-      </div>
-    );
+    return <SkeletonList count={3} rows={2} />;
   }
 
   return (
     <div className="space-y-8">
       <header className="border-b border-stone-200 pb-6 mt-4 flex items-end justify-between">
         <div>
-          <p className="text-[10px] tracking-[0.3em] text-stone-500 mb-2">비품 관리</p>
+          <p className="text-[12px] tracking-[0.3em] text-stone-500 mb-2">비품 관리</p>
           <h1 className="text-2xl font-light tracking-tight text-stone-900">비품 요청</h1>
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="border border-stone-300 text-stone-900 px-4 py-2.5 text-[10px] uppercase tracking-widest font-semibold hover:bg-stone-50 transition-colors flex items-center gap-1.5"
+          className="border border-stone-300 text-stone-900 px-4 py-2.5 text-[12px] uppercase tracking-widest font-semibold hover:bg-stone-50 transition-colors flex items-center gap-1.5"
         >
           <Plus size={14} /> 새 요청
         </button>
@@ -131,10 +127,10 @@ export default function CleanerSuppliesPage() {
       {/* New Request Form */}
       {showForm && (
         <div className="border border-stone-200 bg-white p-5 space-y-4">
-          <p className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold">비품 요청 등록</p>
+          <p className="text-[12px] uppercase tracking-widest text-stone-500 font-semibold">비품 요청 등록</p>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-stone-400 mb-1.5">숙소</label>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-400 mb-1.5">숙소</label>
               <select
                 value={selectedProperty}
                 onChange={e => setSelectedProperty(e.target.value)}
@@ -144,7 +140,7 @@ export default function CleanerSuppliesPage() {
               </select>
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-stone-400 mb-1.5">긴급도</label>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-400 mb-1.5">긴급도</label>
               <select
                 value={urgency}
                 onChange={e => setUrgency(e.target.value as IssueUrgency)}
@@ -156,7 +152,7 @@ export default function CleanerSuppliesPage() {
           </div>
 
           <div className="space-y-2">
-            <label className="block text-[10px] uppercase tracking-widest text-stone-400">품목</label>
+            <label className="block text-[12px] uppercase tracking-widest text-stone-400">품목</label>
             {items.map((item, i) => (
               <div key={i} className="flex gap-2">
                 <input
@@ -180,7 +176,7 @@ export default function CleanerSuppliesPage() {
                 )}
               </div>
             ))}
-            <button onClick={addItem} className="text-stone-300 hover:text-stone-900 text-[10px] uppercase tracking-widest mt-1">
+            <button onClick={addItem} className="text-stone-300 hover:text-stone-900 text-[12px] uppercase tracking-widest mt-1">
               + 품목 추가
             </button>
           </div>
@@ -188,7 +184,7 @@ export default function CleanerSuppliesPage() {
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="w-full bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white py-3 text-[11px] uppercase tracking-widest font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white py-3 text-[13px] uppercase tracking-widest font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {submitting ? (
               <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
@@ -214,11 +210,11 @@ export default function CleanerSuppliesPage() {
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div>
                     <p className="text-stone-900 font-medium text-sm">{req.propertyName}</p>
-                    <p className="text-stone-300 text-[10px] mt-0.5">
+                    <p className="text-stone-300 text-[12px] mt-0.5">
                       {format(parseISO(req.createdAt), 'M월 d일', { locale: ko })}
                     </p>
                   </div>
-                  <span className={`text-[10px] px-1.5 py-0.5 tracking-wider ${st.bg} ${st.color}`}>{st.label}</span>
+                  <span className={`text-[12px] px-1.5 py-0.5 tracking-wider ${st.bg} ${st.color}`}>{st.label}</span>
                 </div>
                 <div className="space-y-1">
                   {req.items.map((item, i) => (

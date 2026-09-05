@@ -87,7 +87,7 @@ export default function AdminIssuesPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6 sm:space-y-8">
       <header className="border-b border-stone-200 pb-5 sm:pb-6">
-        <p className="text-[10px] tracking-[0.3em] text-stone-500 mb-3">관리</p>
+        <p className="text-[12px] tracking-[0.3em] text-stone-500 mb-3">관리</p>
         <h1 className="text-2xl sm:text-3xl font-light tracking-tight text-stone-900">이슈 관리</h1>
         {openCount > 0 && (
           <p className="text-amber-600 text-sm mt-2">{openCount}건의 미해결 이슈</p>
@@ -104,7 +104,7 @@ export default function AdminIssuesPage() {
           <button
             key={f.key}
             onClick={() => setFilter(f.key as typeof filter)}
-            className={`px-4 py-2.5 text-[11px] uppercase tracking-widest font-semibold transition-colors ${
+            className={`px-4 py-2.5 text-[13px] uppercase tracking-widest font-semibold transition-colors ${
               filter === f.key ? 'bg-[var(--brand)] text-white' : 'border border-stone-200 text-stone-500 hover:text-stone-900'
             }`}
           >
@@ -132,9 +132,9 @@ export default function AdminIssuesPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      <span className={`text-[10px] px-1.5 py-0.5 tracking-wider ${st.bg} ${st.color}`}>{st.label}</span>
-                      <span className="text-[10px] text-stone-400 tracking-wider">{ISSUE_CATEGORY_LABELS[issue.category]}</span>
-                      <span className={`text-[10px] tracking-wider ${urg.color}`}>{urg.label}</span>
+                      <span className={`text-[12px] px-1.5 py-0.5 tracking-wider ${st.bg} ${st.color}`}>{st.label}</span>
+                      <span className="text-[12px] text-stone-400 tracking-wider">{ISSUE_CATEGORY_LABELS[issue.category]}</span>
+                      <span className={`text-[12px] tracking-wider ${urg.color}`}>{urg.label}</span>
                     </div>
                     <p className="text-stone-900 font-medium">{issue.title}</p>
                     <p className="text-stone-500 text-xs mt-1">{issue.propertyName} — {issue.reportedByName}</p>
@@ -143,7 +143,7 @@ export default function AdminIssuesPage() {
                       <p className="text-green-600/80 text-xs mt-2">처리 내용: {issue.resolvedNote}</p>
                     )}
                   </div>
-                  <p className="text-stone-300 text-[10px] shrink-0">
+                  <p className="text-stone-300 text-[12px] shrink-0">
                     {format(parseISO(issue.createdAt), 'M/d HH:mm', { locale: ko })}
                   </p>
                 </div>
@@ -163,7 +163,7 @@ export default function AdminIssuesPage() {
                     <button
                       onClick={() => handleStatusChange(issue)}
                       disabled={updating === issue.id}
-                      className={`px-4 py-2.5 text-[11px] uppercase tracking-widest font-semibold transition-colors flex items-center justify-center gap-1.5 active:scale-[0.98] shrink-0 ${
+                      className={`px-4 py-2.5 text-[13px] uppercase tracking-widest font-semibold transition-colors flex items-center justify-center gap-1.5 active:scale-[0.98] shrink-0 ${
                         next === 'resolved'
                           ? 'bg-green-50 text-green-700 hover:bg-green-100'
                           : 'border border-stone-300 text-stone-700 hover:text-stone-900'

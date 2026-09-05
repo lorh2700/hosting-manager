@@ -51,7 +51,7 @@ export function CalendarHeader({
     <>
       <header className="pb-6 border-b border-stone-200 flex flex-col sm:flex-row gap-4 sm:items-end sm:justify-between">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">캘린더</p>
+          <p className="text-[13px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">캘린더</p>
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-900">통합 캘린더</h1>
           <p className="text-stone-500 mt-2 text-sm">모든 숙소의 투숙 및 청소 일정</p>
         </div>

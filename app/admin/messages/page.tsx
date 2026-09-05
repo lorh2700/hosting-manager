@@ -6,6 +6,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { MessageSquare, Send, ChevronRight, RefreshCw, Loader2 } from 'lucide-react';
 import WelcomepadChatPanel from './WelcomepadChatPanel';
 import { SkeletonList, Skeleton } from '@/components/ui';
+import { useRefetchOnReturn } from '@/lib/hooks/useRefetchOnReturn';
 
 const PAGE_SIZE = 20;
 
@@ -123,6 +124,8 @@ function MessagesContent() {
   }, [user, initialEventId, initialGuestName, initialPropertyId, properties]);
 
   const loadConversations = useCallback(() => loadPage(0, true), [loadPage]);
+  // 탭에 돌아오면 대화 목록을 다시 불러온다 (스레드는 아래 폴링이 따로 갱신).
+  useRefetchOnReturn(loadConversations, { minIntervalMs: 30_000 });
 
   useEffect(() => {
     if (!user) return;
@@ -294,7 +297,7 @@ function MessagesContent() {
     <div className="max-w-5xl mx-auto h-[calc(100vh-7rem)] flex flex-col">
       <header className="pb-4 sm:pb-5 border-b border-stone-200 flex-shrink-0 flex items-end justify-between gap-4">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">대화</p>
+          <p className="text-[13px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">대화</p>
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-900">메시지</h1>
           <p className="text-stone-500 mt-1.5 text-sm hidden sm:block">게스트와의 대화를 관리합니다</p>
         </div>
@@ -380,9 +383,9 @@ function MessagesContent() {
                       <p className="text-xs text-stone-500 mt-1.5 truncate">{conv.lastMessage || '메시지 없음'}</p>
                     </div>
                     <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                      <span className="text-[10px] text-stone-400 tabular-nums">{formatTime(conv.lastMessageAt)}</span>
+                      <span className="text-[12px] text-stone-400 tabular-nums">{formatTime(conv.lastMessageAt)}</span>
                       {conv.unread > 0 && (
-                        <span className="min-w-[18px] h-[18px] px-1 bg-[var(--brand)] flex items-center justify-center text-[10px] font-semibold text-white">
+                        <span className="min-w-[18px] h-[18px] px-1 bg-[var(--brand)] flex items-center justify-center text-[12px] font-semibold text-white">
                           {conv.unread}
                         </span>
                       )}
@@ -397,7 +400,7 @@ function MessagesContent() {
                 {loadingMore ? (
                   <Loader2 size={14} className="animate-spin text-stone-500" />
                 ) : (
-                  <span className="text-[10px] text-stone-400">스크롤하여 더 보기</span>
+                  <span className="text-[12px] text-stone-400">스크롤하여 더 보기</span>
                 )}
               </div>
             )}
@@ -492,14 +495,14 @@ function MessagesContent() {
                       }`}
                     >
                       {isBeds24 && (
-                        <p className={`text-[10px] font-medium mb-1 ${
+                        <p className={`text-[12px] font-medium mb-1 ${
                           isHost ? 'text-white/70' : 'text-[var(--brand-dark)]'
                         }`}>
                           Beds24 · {msg.beds24MessageType || msg.sender}
                         </p>
                       )}
                       <p className="whitespace-pre-wrap break-words">{msg.text}</p>
-                      <p className={`text-[10px] mt-1 ${isHost ? 'text-white/70' : 'text-stone-400'}`}>
+                      <p className={`text-[12px] mt-1 ${isHost ? 'text-white/70' : 'text-stone-400'}`}>
                         {formatTime(msg.createdAt)}
                       </p>
                     </div>

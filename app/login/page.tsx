@@ -136,7 +136,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 p-5 font-sans">
+    <div className="min-h-dvh flex flex-col items-center justify-center bg-stone-50 p-5 font-sans">
       <Link
         href="/"
         aria-label="void anchae 홈으로"
@@ -146,7 +146,7 @@ export default function LoginPage() {
       </Link>
 
       <div className="bg-white p-8 sm:p-10 border border-stone-200 max-w-md w-full">
-        <p className="text-[10px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">
+        <p className="text-[12px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">
           {eyebrow[mode]}
         </p>
         <h1 className="text-xl font-semibold text-stone-900 mb-1.5">
@@ -161,7 +161,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => { setMode('email'); resetFields(); }}
-              className={`pb-3 px-3 text-[11px] uppercase tracking-widest transition-colors ${
+              className={`pb-3 px-3 text-[13px] uppercase tracking-widest transition-colors ${
                 mode === 'email' ? 'text-stone-900 border-b-2 border-[var(--brand)] font-semibold' : 'text-stone-500 hover:text-stone-700'
               }`}
             >
@@ -170,7 +170,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => { setMode('phone'); resetFields(); }}
-              className={`pb-3 px-3 text-[11px] uppercase tracking-widest transition-colors ${
+              className={`pb-3 px-3 text-[13px] uppercase tracking-widest transition-colors ${
                 mode === 'phone' ? 'text-stone-900 border-b-2 border-[var(--brand)] font-semibold' : 'text-stone-500 hover:text-stone-700'
               }`}
             >
@@ -182,7 +182,7 @@ export default function LoginPage() {
         {/* Admin area toggle — only relevant for email login (host vs tour operator) */}
         {(mode === 'email' || mode === 'register') && (
           <div className="mb-5">
-            <label className="block text-[10px] uppercase tracking-widest text-stone-600 mb-2">관리 영역</label>
+            <label className="block text-[12px] uppercase tracking-widest text-stone-600 mb-2">관리 영역</label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
@@ -220,7 +220,7 @@ export default function LoginPage() {
         >
           {mode === 'phone' ? (
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-stone-600 mb-2">전화번호</label>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-600 mb-2">전화번호</label>
               <input
                 type="tel"
                 value={phone}
@@ -234,7 +234,7 @@ export default function LoginPage() {
             </div>
           ) : (
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-stone-600 mb-2">이메일</label>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-600 mb-2">이메일</label>
               <input
                 type="email"
                 value={email}
@@ -247,7 +247,7 @@ export default function LoginPage() {
             </div>
           )}
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-stone-600 mb-2">
+            <label className="block text-[12px] uppercase tracking-widest text-stone-600 mb-2">
               {mode === 'phone' ? '비밀번호 (전화번호 뒷 4자리)' : '비밀번호'}
             </label>
             <input
@@ -263,7 +263,7 @@ export default function LoginPage() {
           </div>
           {mode === 'register' && (
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-stone-600 mb-2">비밀번호 확인</label>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-600 mb-2">비밀번호 확인</label>
               <input
                 type="password"
                 value={confirmPassword}

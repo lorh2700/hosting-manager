@@ -79,7 +79,7 @@ export default function GuestsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <div className="w-8 h-8 border-t-2 border-[var(--brand)] rounded-full animate-spin" />
       </div>
     );
@@ -88,7 +88,7 @@ export default function GuestsPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-12">
       <header className="border-b border-stone-200 pb-8">
-        <p className="text-[10px] tracking-[0.3em] text-stone-500 mb-4">관리</p>
+        <p className="text-[12px] tracking-[0.3em] text-stone-500 mb-4">관리</p>
         <h1 className="text-3xl md:text-4xl font-light tracking-tight text-stone-900">게스트 관리</h1>
         <p className="text-stone-500 mt-4 text-sm font-light tracking-wide">
           총 {guests.length}명의 게스트 &middot; 재방문 추적 및 메모를 관리합니다.
@@ -121,14 +121,14 @@ export default function GuestsPage() {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-1">
                     <span className="text-stone-900 font-medium text-sm">{guest.name}</span>
-                    <span className={`text-[9px] px-2 py-0.5 tracking-wider ${
+                    <span className={`text-[11px] px-2 py-0.5 tracking-wider ${
                       guest.bookingCount >= 3 ? 'bg-amber-50 text-amber-600' :
                       guest.bookingCount >= 2 ? 'bg-blue-50 text-blue-600' :
                       'bg-stone-100 text-stone-500'
                     }`}>
                       {guest.bookingCount}회 방문
                     </span>
-                    <span className="text-[9px] text-stone-400">{SOURCE_LABELS[guest.source] ?? guest.source}</span>
+                    <span className="text-[11px] text-stone-400">{SOURCE_LABELS[guest.source] ?? guest.source}</span>
                   </div>
                   <div className="flex items-center gap-4 text-xs text-stone-500">
                     <span>{guest.email}</span>
@@ -139,7 +139,7 @@ export default function GuestsPage() {
 
                 <div className="flex items-end gap-2 w-full sm:w-auto">
                   <div className="flex-1 sm:w-64">
-                    <label className="block text-[9px] uppercase tracking-widest text-stone-400 mb-1">메모</label>
+                    <label className="block text-[11px] uppercase tracking-widest text-stone-400 mb-1">메모</label>
                     <input
                       type="text"
                       defaultValue={guest.notes ?? ''}

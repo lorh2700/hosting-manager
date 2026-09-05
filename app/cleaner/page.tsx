@@ -332,16 +332,16 @@ export default function CleanerPage() {
           <span className={`text-xs tracking-widest uppercase ${weekdayCls}`}>
             {weekday}
           </span>
-          <span className={`text-[11px] ${isPastVariant ? 'text-stone-500' : 'text-stone-600'}`}>
+          <span className={`text-[13px] ${isPastVariant ? 'text-stone-500' : 'text-stone-600'}`}>
             {format(d, 'yyyy.MM')}
           </span>
         </div>
         {badge && (
-          <span className={`text-[10px] font-bold tracking-widest px-2 py-1 rounded-md ${badge.cls}`}>
+          <span className={`text-[12px] font-bold tracking-widest px-2 py-1 rounded-md ${badge.cls}`}>
             {badge.text}
           </span>
         )}
-        <span className={`text-[11px] tracking-widest ${isPastVariant ? 'text-stone-500' : 'text-stone-700'}`}>
+        <span className={`text-[13px] tracking-widest ${isPastVariant ? 'text-stone-500' : 'text-stone-700'}`}>
           {count}건
         </span>
       </div>
@@ -367,13 +367,13 @@ export default function CleanerPage() {
                   ? <CheckCircle2 size={14} className="text-green-400 shrink-0" />
                   : <Clock size={14} className="text-stone-400 shrink-0" />
                 }
-                <span className={`text-[10px] uppercase tracking-widest font-semibold ${
+                <span className={`text-[12px] uppercase tracking-widest font-semibold ${
                   task.status === 'done' ? 'text-green-400' : 'text-stone-500'
                 }`}>
                   {task.status === 'done' ? '완료' : '청소 예정'}
                 </span>
                 {task.hasIssue && (
-                  <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 tracking-wider">이슈</span>
+                  <span className="text-[12px] bg-red-500/20 text-red-400 px-1.5 py-0.5 tracking-wider">이슈</span>
                 )}
               </div>
               <p className="text-stone-900 font-medium text-sm">{task.propertyName}</p>
@@ -404,7 +404,7 @@ export default function CleanerPage() {
           return (
           <div className="border-t border-stone-100 p-5 space-y-4">
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-stone-400 mb-2">완료 메모 (선택)</label>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-400 mb-2">완료 메모 (선택)</label>
               <input
                 type="text"
                 value={completionNote}
@@ -414,14 +414,14 @@ export default function CleanerPage() {
               />
             </div>
             {disabledReason && (
-              <p className="text-[11px] text-amber-400/80 leading-relaxed">{disabledReason}</p>
+              <p className="text-[13px] text-amber-400/80 leading-relaxed">{disabledReason}</p>
             )}
             <div className="flex gap-3">
               <button
                 onClick={() => handleComplete(task)}
                 disabled={completing === task.cleaningId || !canComplete}
                 title={disabledReason ?? undefined}
-                className="flex-1 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white py-3 text-[11px] uppercase tracking-widest font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white py-3 text-[13px] uppercase tracking-widest font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {completing === task.cleaningId ? (
                   <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
@@ -431,7 +431,7 @@ export default function CleanerPage() {
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); setShowIssueForm(isIssueOpen ? null : task.cleaningId); }}
-                className="border border-amber-500/30 text-amber-400 px-4 py-3 text-[11px] uppercase tracking-widest font-semibold hover:bg-amber-500/10 transition-colors flex items-center gap-2"
+                className="border border-amber-500/30 text-amber-400 px-4 py-3 text-[13px] uppercase tracking-widest font-semibold hover:bg-amber-500/10 transition-colors flex items-center gap-2"
               >
                 <AlertTriangle size={14} /> 이슈
               </button>
@@ -440,10 +440,10 @@ export default function CleanerPage() {
             {/* 이슈 등록 폼 */}
             {isIssueOpen && (
               <div className="border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
-                <p className="text-[10px] uppercase tracking-widest text-amber-400/80 font-semibold">이슈 등록</p>
+                <p className="text-[12px] uppercase tracking-widest text-amber-400/80 font-semibold">이슈 등록</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-stone-400 mb-1.5">카테고리</label>
+                    <label className="block text-[12px] uppercase tracking-widest text-stone-400 mb-1.5">카테고리</label>
                     <select
                       value={issueCategory}
                       onChange={e => setIssueCategory(e.target.value as IssueCategory)}
@@ -455,7 +455,7 @@ export default function CleanerPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-stone-400 mb-1.5">긴급도</label>
+                    <label className="block text-[12px] uppercase tracking-widest text-stone-400 mb-1.5">긴급도</label>
                     <select
                       value={issueUrgency}
                       onChange={e => setIssueUrgency(e.target.value as IssueUrgency)}
@@ -468,7 +468,7 @@ export default function CleanerPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-stone-400 mb-1.5">이슈 제목</label>
+                  <label className="block text-[12px] uppercase tracking-widest text-stone-400 mb-1.5">이슈 제목</label>
                   <input
                     type="text"
                     value={issueTitle}
@@ -478,7 +478,7 @@ export default function CleanerPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-stone-400 mb-1.5">상세 설명</label>
+                  <label className="block text-[12px] uppercase tracking-widest text-stone-400 mb-1.5">상세 설명</label>
                   <textarea
                     value={issueDesc}
                     onChange={e => setIssueDesc(e.target.value)}
@@ -490,7 +490,7 @@ export default function CleanerPage() {
                 <button
                   onClick={() => handleSubmitIssue(task)}
                   disabled={submittingIssue || !issueTitle.trim()}
-                  className="w-full bg-amber-500 text-black py-3 text-[11px] uppercase tracking-widest font-semibold hover:bg-amber-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full bg-amber-500 text-black py-3 text-[13px] uppercase tracking-widest font-semibold hover:bg-amber-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {submittingIssue ? (
                     <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
@@ -537,7 +537,7 @@ export default function CleanerPage() {
         <section className="bg-white border border-stone-200 overflow-hidden">
           <div className="px-5 sm:px-6 py-4 border-b border-stone-200 flex items-center gap-3">
             <p className="text-base sm:text-lg text-stone-900 font-semibold tracking-tight">오늘의 운영</p>
-            <span className="ml-auto text-[10px] uppercase tracking-widest text-[var(--brand)] bg-[var(--brand-tint)] px-2.5 py-1 font-semibold">오늘</span>
+            <span className="ml-auto text-[12px] uppercase tracking-widest text-[var(--brand)] bg-[var(--brand-tint)] px-2.5 py-1 font-semibold">오늘</span>
           </div>
 
           {/* 체크인 */}
@@ -562,7 +562,7 @@ export default function CleanerPage() {
                         <p className="text-sm text-stone-900 truncate flex items-center gap-2">
                           <span className="truncate">{r.propertyName}</span>
                           {ch && (
-                            <span className="text-[10px] text-stone-700 bg-stone-100 px-1.5 py-0.5 shrink-0 uppercase tracking-wider">
+                            <span className="text-[12px] text-stone-700 bg-stone-100 px-1.5 py-0.5 shrink-0 uppercase tracking-wider">
                               {ch}
                             </span>
                           )}
@@ -668,7 +668,7 @@ export default function CleanerPage() {
         <>
           {upcomingGroups.length > 0 && (
             <section className="space-y-6">
-              <h2 className="text-[10px] uppercase tracking-widest text-stone-400">예정된 일정 ({upcoming.length})</h2>
+              <h2 className="text-[12px] uppercase tracking-widest text-stone-400">예정된 일정 ({upcoming.length})</h2>
               {upcomingGroups.map(([dateStr, items]) => (
                 <div key={dateStr} className="space-y-2">
                   <DateHeader dateStr={dateStr} count={items.length} variant="upcoming" />
@@ -681,7 +681,7 @@ export default function CleanerPage() {
           )}
           {pastGroups.length > 0 && (
             <section className="space-y-6">
-              <h2 className="text-[10px] uppercase tracking-widest text-stone-400">지난 일정 ({past.length})</h2>
+              <h2 className="text-[12px] uppercase tracking-widest text-stone-400">지난 일정 ({past.length})</h2>
               {pastGroups.map(([dateStr, items]) => (
                 <div key={dateStr} className="space-y-2">
                   <DateHeader dateStr={dateStr} count={items.length} variant="past" />
@@ -710,7 +710,7 @@ export default function CleanerPage() {
                 <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                   <p className="text-xs text-stone-500">{chatGuest.propertyName}</p>
                   {channelLabel(chatGuest.source) && (
-                    <span className="text-[10px] text-stone-700 bg-stone-100 px-1.5 py-0.5 uppercase tracking-wider">
+                    <span className="text-[12px] text-stone-700 bg-stone-100 px-1.5 py-0.5 uppercase tracking-wider">
                       {channelLabel(chatGuest.source)}
                     </span>
                   )}
@@ -765,7 +765,7 @@ export default function CleanerPage() {
                           }`}
                         >
                           <p className="text-sm whitespace-pre-wrap break-words">{m.text}</p>
-                          <p className={`text-[10px] mt-1 ${isGuest ? 'text-stone-400' : 'text-white/70'}`}>
+                          <p className={`text-[12px] mt-1 ${isGuest ? 'text-stone-400' : 'text-white/70'}`}>
                             {m.createdAt ? format(parseISO(m.createdAt), 'M월 d일 HH:mm', { locale: ko }) : ''}
                           </p>
                         </div>

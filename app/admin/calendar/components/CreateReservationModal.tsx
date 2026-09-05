@@ -197,7 +197,7 @@ export function CreateReservationModal({ properties, defaultPropertyId, onClose,
               <button
                 type="button"
                 onClick={() => { setPendingBeds24BookingId(null); setError(null); }}
-                className="text-[11px] underline text-amber-700 hover:text-amber-900"
+                className="text-[13px] underline text-amber-700 hover:text-amber-900"
               >
                 대기 중인 예약을 무시하고 처음부터 다시 입력
               </button>
@@ -356,7 +356,7 @@ export function CreateReservationModal({ properties, defaultPropertyId, onClose,
                   key={p}
                   type="button"
                   onClick={() => addTag(p)}
-                  className="text-[11px] px-2.5 py-0.5 bg-stone-100 text-stone-500 hover:text-stone-900 hover:bg-stone-200 transition-colors"
+                  className="text-[13px] px-2.5 py-0.5 bg-stone-100 text-stone-500 hover:text-stone-900 hover:bg-stone-200 transition-colors"
                 >
                   + {p}
                 </button>

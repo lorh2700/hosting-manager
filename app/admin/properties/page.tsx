@@ -63,7 +63,7 @@ export default function PropertiesPage() {
     <div className="max-w-5xl mx-auto space-y-8 sm:space-y-10">
       <header className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-end border-b border-stone-200 pb-6 sm:pb-7">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">관리</p>
+          <p className="text-[13px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">관리</p>
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-900">숙소 관리</h1>
           <p className="text-stone-500 mt-2 text-sm">숙소와 채널 연결을 관리하세요.</p>
         </div>

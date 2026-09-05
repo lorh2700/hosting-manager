@@ -246,7 +246,7 @@ export default function WelcomepadChatPanel() {
       >
         <div className="px-4 py-3 border-b border-stone-200 flex items-center justify-between">
           <span className="text-xs font-semibold text-stone-500">객실 패드 대화</span>
-          <span className="flex items-center gap-1.5 text-[10px] text-stone-400">
+          <span className="flex items-center gap-1.5 text-[12px] text-stone-400">
             <span
               className={`w-1.5 h-1.5 rounded-full ${realtime ? 'bg-emerald-500' : 'bg-stone-300'}`}
             />
@@ -291,15 +291,15 @@ export default function WelcomepadChatPanel() {
                         </span>
                       </p>
                       {stay && (
-                        <p className="text-[11px] text-stone-400 mt-1 truncate">{stay}</p>
+                        <p className="text-[13px] text-stone-400 mt-1 truncate">{stay}</p>
                       )}
                     </div>
                     <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                      <span className="text-[10px] text-stone-400 tabular-nums">
+                      <span className="text-[12px] text-stone-400 tabular-nums">
                         {fmtTime(t.last_message_at || t.created_at)}
                       </span>
                       {t.unread > 0 && (
-                        <span className="min-w-[18px] h-[18px] px-1 bg-[var(--brand)] flex items-center justify-center text-[10px] font-semibold text-white">
+                        <span className="min-w-[18px] h-[18px] px-1 bg-[var(--brand)] flex items-center justify-center text-[12px] font-semibold text-white">
                           {t.unread}
                         </span>
                       )}
@@ -363,7 +363,7 @@ export default function WelcomepadChatPanel() {
                 if (m.sender === 'system') {
                   return (
                     <div key={m.id} className="flex justify-center">
-                      <span className="text-[11px] text-stone-400 bg-stone-50 px-3 py-1">
+                      <span className="text-[13px] text-stone-400 bg-stone-50 px-3 py-1">
                         {m.body}
                       </span>
                     </div>
@@ -384,7 +384,7 @@ export default function WelcomepadChatPanel() {
                     >
                       <p className="whitespace-pre-wrap break-words">{m.body}</p>
                       <p
-                        className={`text-[10px] mt-1 ${isHost ? 'text-white/70' : 'text-stone-400'}`}
+                        className={`text-[12px] mt-1 ${isHost ? 'text-white/70' : 'text-stone-400'}`}
                       >
                         {fmtTime(m.created_at)}
                         {isHost && m.read_by_guest_at ? ' · 읽음' : ''}

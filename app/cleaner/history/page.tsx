@@ -5,6 +5,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { format, parseISO, isPast, isToday } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { CheckCircle2, Clock, History } from 'lucide-react';
+import { SkeletonList } from '@/components/ui';
 
 interface PastCleaning {
   id: string;
@@ -81,11 +82,7 @@ export default function CleanerHistoryPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="w-8 h-8 border-t-2 border-white rounded-full animate-spin" />
-      </div>
-    );
+    return <SkeletonList count={3} rows={2} />;
   }
 
   // Group by month
@@ -99,7 +96,7 @@ export default function CleanerHistoryPage() {
   return (
     <div className="space-y-8">
       <header className="border-b border-stone-200 pb-6 mt-4">
-        <p className="text-[10px] tracking-[0.3em] text-stone-500 mb-2">청소 기록</p>
+        <p className="text-[12px] tracking-[0.3em] text-stone-500 mb-2">청소 기록</p>
         <h1 className="text-2xl font-light tracking-tight text-stone-900">지난 기록</h1>
       </header>
 
@@ -111,7 +108,7 @@ export default function CleanerHistoryPage() {
       ) : (
         Object.entries(grouped).map(([month, items]) => (
           <section key={month} className="space-y-3">
-            <h2 className="text-[10px] uppercase tracking-widest text-stone-400">{month} ({items.length}건)</h2>
+            <h2 className="text-[12px] uppercase tracking-widest text-stone-400">{month} ({items.length}건)</h2>
             {items.map(c => (
               <div key={c.id} className={`border p-4 ${
                 c.status === 'done' ? 'border-stone-100 bg-stone-50' : 'border-amber-500/20 bg-amber-500/5'
@@ -123,13 +120,13 @@ export default function CleanerHistoryPage() {
                         ? <CheckCircle2 size={12} className="text-green-400" />
                         : <Clock size={12} className="text-amber-400" />
                       }
-                      <span className={`text-[10px] tracking-wider ${
+                      <span className={`text-[12px] tracking-wider ${
                         c.status === 'done' ? 'text-green-400' : 'text-amber-400'
                       }`}>
                         {c.status === 'done' ? '완료' : '미완료'}
                       </span>
                       {c.hasIssue && (
-                        <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5">이슈</span>
+                        <span className="text-[12px] bg-red-500/20 text-red-400 px-1.5 py-0.5">이슈</span>
                       )}
                     </div>
                     <p className="text-stone-900 text-sm">{c.propertyName}</p>

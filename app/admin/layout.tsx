@@ -69,7 +69,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (loading && !isPublicPath) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="min-h-dvh flex items-center justify-center bg-white">
         <div className="w-7 h-7 border-2 border-stone-200 border-t-[var(--brand)] rounded-full animate-spin" />
       </div>
     );
@@ -78,7 +78,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   // Public paths: skip login, render without sidebar
   if (isPublicPath && !profile) {
     return (
-      <div className="min-h-screen bg-white font-sans text-stone-900 selection:bg-[var(--brand)]/20">
+      <div className="min-h-dvh bg-white font-sans text-stone-900 selection:bg-[var(--brand)]/20">
         <main className="p-4 pb-24 md:p-8 lg:p-12 md:pb-12 overflow-y-auto">
           {children}
         </main>
@@ -88,7 +88,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (!user) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 p-5 font-sans">
+      <div className="min-h-dvh flex flex-col items-center justify-center bg-stone-50 p-5 font-sans">
         <Link
           href="/"
           aria-label="void anchae 홈으로"
@@ -99,7 +99,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {loginMode === null ? (
           // Step 1: choose area
           <div className="bg-white p-8 sm:p-10 border border-stone-200 max-w-md w-full">
-            <p className="text-[10px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">Admin</p>
+            <p className="text-[12px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">Admin</p>
             <h1 className="text-xl font-semibold text-stone-900 mb-1.5">관리자 로그인</h1>
             <p className="text-stone-500 mb-7 text-sm">먼저 관리하실 영역을 선택해주세요.</p>
 
@@ -139,12 +139,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <button
               type="button"
               onClick={() => { setLoginMode(null); setError(''); }}
-              className="text-[11px] uppercase tracking-widest text-stone-500 hover:text-stone-900 mb-4 inline-flex items-center gap-1 transition-colors"
+              className="text-[13px] uppercase tracking-widest text-stone-500 hover:text-stone-900 mb-4 inline-flex items-center gap-1 transition-colors"
             >
               ← 영역 다시 선택
             </button>
 
-            <p className="text-[10px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">
+            <p className="text-[12px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">
               {loginMode === 'tour' ? '투어 운영자' : '숙박 호스트'}
             </p>
             <h1 className="text-xl font-semibold text-stone-900 mb-1.5">관리자 로그인</h1>
@@ -156,7 +156,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="block text-[10px] uppercase tracking-widest text-stone-600 mb-2">이메일</label>
+                <label className="block text-[12px] uppercase tracking-widest text-stone-600 mb-2">이메일</label>
                 <input
                   type="email"
                   value={email}
@@ -169,7 +169,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 />
               </div>
               <div>
-                <label className="block text-[10px] uppercase tracking-widest text-stone-600 mb-2">비밀번호</label>
+                <label className="block text-[12px] uppercase tracking-widest text-stone-600 mb-2">비밀번호</label>
                 <input
                   type="password"
                   value={password}
@@ -210,7 +210,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (profile?.status === 'suspended') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 p-5 font-sans">
+      <div className="min-h-dvh flex flex-col items-center justify-center bg-stone-50 p-5 font-sans">
         <div className="bg-white p-8 border-l-2 border border-stone-200 border-l-rose-500 max-w-md w-full text-center">
           <h1 className="text-lg font-semibold text-stone-900 mb-2">계정 비활성화</h1>
           <p className="text-stone-600 text-sm">계정이 비활성화되었습니다. 관리자에게 문의하세요.</p>
@@ -221,7 +221,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (profile?.status === 'pending_invite') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 p-5 font-sans">
+      <div className="min-h-dvh flex flex-col items-center justify-center bg-stone-50 p-5 font-sans">
         <div className="bg-white p-8 border-l-2 border border-stone-200 border-l-amber-500 max-w-md w-full text-center">
           <h1 className="text-lg font-semibold text-stone-900 mb-2">승인 대기중</h1>
           <p className="text-stone-600 text-sm">관리자의 승인을 기다리고 있습니다. 잠시만 기다려주세요.</p>
@@ -231,7 +231,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="flex min-h-screen bg-stone-50 font-sans text-stone-900 selection:bg-[var(--brand)]/20">
+    <div className="flex min-h-dvh bg-stone-50 font-sans text-stone-900 selection:bg-[var(--brand)]/20">
       <Sidebar />
       <main className="flex-1 px-4 pt-4 pb-28 md:px-8 md:pt-8 md:pb-12 lg:px-10 lg:pt-10 overflow-y-auto min-w-0">
         {children}

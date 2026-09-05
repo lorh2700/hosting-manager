@@ -19,7 +19,7 @@ import {
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { CalendarDays, Hand, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
-import { toast } from '@/components/ui';
+import { toast, SkeletonList } from '@/components/ui';
 
 interface OpenCleaning {
   id: string;
@@ -204,9 +204,9 @@ export default function CleanerSchedulePage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'pending': return <span className="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 tracking-wider">대기</span>;
-      case 'approved': return <span className="text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 tracking-wider">승인</span>;
-      case 'rejected': return <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 tracking-wider">거절</span>;
+      case 'pending': return <span className="text-[12px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 tracking-wider">대기</span>;
+      case 'approved': return <span className="text-[12px] bg-green-500/20 text-green-400 px-1.5 py-0.5 tracking-wider">승인</span>;
+      case 'rejected': return <span className="text-[12px] bg-red-500/20 text-red-400 px-1.5 py-0.5 tracking-wider">거절</span>;
       default: return null;
     }
   };
@@ -215,17 +215,13 @@ export default function CleanerSchedulePage() {
   const canGoNext = isBefore(startOfMonth(monthCursor), startOfMonth(windowEnd));
 
   if (loading) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="w-8 h-8 border-t-2 border-white rounded-full animate-spin" />
-      </div>
-    );
+    return <SkeletonList count={3} rows={2} />;
   }
 
   return (
     <div className="space-y-10">
       <header className="border-b border-stone-200 pb-6 sm:pb-7 mt-4">
-        <p className="text-[11px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">청소 담당자</p>
+        <p className="text-[13px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">청소 담당자</p>
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-900">청소 신청</h1>
         <p className="text-stone-500 mt-2 text-sm">
           앞으로 4주 이내의 미배정 청소를 클릭 한 번으로 신청할 수 있습니다.
@@ -258,7 +254,7 @@ export default function CleanerSchedulePage() {
 
         <div className="grid grid-cols-7 gap-px bg-stone-50 border border-stone-200">
           {['월', '화', '수', '목', '금', '토', '일'].map(d => (
-            <div key={d} className="bg-stone-50 text-center py-2 text-[10px] uppercase tracking-widest text-stone-400">
+            <div key={d} className="bg-stone-50 text-center py-2 text-[12px] uppercase tracking-widest text-stone-400">
               {d}
             </div>
           ))}
@@ -295,7 +291,7 @@ export default function CleanerSchedulePage() {
                     {dayCleanings.slice(0, 2).map(c => (
                       <div
                         key={c.id}
-                        className={`text-[9px] truncate px-1 py-0.5 tracking-wide ${
+                        className={`text-[11px] truncate px-1 py-0.5 tracking-wide ${
                           hasApplied(c.id)
                             ? 'bg-green-500/20 text-green-400'
                             : 'bg-stone-100 text-stone-600'
@@ -305,10 +301,10 @@ export default function CleanerSchedulePage() {
                       </div>
                     ))}
                     {dayCleanings.length > 2 && (
-                      <div className="text-[9px] text-stone-400 px-1">+{dayCleanings.length - 2}</div>
+                      <div className="text-[11px] text-stone-400 px-1">+{dayCleanings.length - 2}</div>
                     )}
                     {myAppOnDay && dayCleanings.length <= 2 && (
-                      <div className="text-[9px] text-green-400/60 px-1 flex items-center gap-0.5">
+                      <div className="text-[11px] text-green-400/60 px-1 flex items-center gap-0.5">
                         <CheckCircle2 size={8} />
                       </div>
                     )}
@@ -319,7 +315,7 @@ export default function CleanerSchedulePage() {
           })}
         </div>
 
-        <div className="flex items-center gap-4 text-[10px] text-stone-400 tracking-wider">
+        <div className="flex items-center gap-4 text-[12px] text-stone-400 tracking-wider">
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 bg-stone-100 inline-block" /> 신청 가능
           </div>
@@ -332,7 +328,7 @@ export default function CleanerSchedulePage() {
       {/* Selected day detail */}
       {selectedDate && (
         <section className="space-y-3">
-          <h2 className="text-[10px] uppercase tracking-widest text-stone-400">
+          <h2 className="text-[12px] uppercase tracking-widest text-stone-400">
             {format(parseISO(selectedDate), 'M월 d일 (EEE)', { locale: ko })} 신청 가능한 일정 ({selectedCleanings.length})
           </h2>
           {selectedCleanings.length === 0 ? (
@@ -353,14 +349,14 @@ export default function CleanerSchedulePage() {
                   </div>
                   <div>
                     {hasApplied(c.id) ? (
-                      <span className="text-[10px] text-green-400 tracking-wider flex items-center gap-1">
+                      <span className="text-[12px] text-green-400 tracking-wider flex items-center gap-1">
                         <CheckCircle2 size={12} /> 배정됨
                       </span>
                     ) : (
                       <button
                         onClick={() => handleApply(c)}
                         disabled={applying === c.id}
-                        className="border border-stone-300 text-stone-900 px-3 py-2 text-[10px] uppercase tracking-widest font-semibold hover:bg-stone-50 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                        className="border border-stone-300 text-stone-900 px-3 py-2 text-[12px] uppercase tracking-widest font-semibold hover:bg-stone-50 transition-colors flex items-center gap-1.5 disabled:opacity-50"
                       >
                         {applying === c.id ? (
                           <div className="w-3 h-3 border-2 border-stone-400 border-t-white rounded-full animate-spin" />
@@ -382,8 +378,8 @@ export default function CleanerSchedulePage() {
       {!selectedDate && (
         <section className="space-y-3">
           <div className="flex items-baseline justify-between">
-            <h2 className="text-[10px] uppercase tracking-widest text-stone-400">신청 가능한 일정 ({openCleanings.length})</h2>
-            <p className="text-[10px] text-stone-300 tracking-wider">앞으로 4주</p>
+            <h2 className="text-[12px] uppercase tracking-widest text-stone-400">신청 가능한 일정 ({openCleanings.length})</h2>
+            <p className="text-[12px] text-stone-300 tracking-wider">앞으로 4주</p>
           </div>
           {openCleanings.length === 0 ? (
             <div className="flex flex-col items-center text-stone-400 py-12">
@@ -403,14 +399,14 @@ export default function CleanerSchedulePage() {
                   </div>
                   <div>
                     {hasApplied(c.id) ? (
-                      <span className="text-[10px] text-green-400 tracking-wider flex items-center gap-1">
+                      <span className="text-[12px] text-green-400 tracking-wider flex items-center gap-1">
                         <CheckCircle2 size={12} /> 배정됨
                       </span>
                     ) : (
                       <button
                         onClick={() => handleApply(c)}
                         disabled={applying === c.id}
-                        className="border border-stone-300 text-stone-900 px-3 py-2 text-[10px] uppercase tracking-widest font-semibold hover:bg-stone-50 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                        className="border border-stone-300 text-stone-900 px-3 py-2 text-[12px] uppercase tracking-widest font-semibold hover:bg-stone-50 transition-colors flex items-center gap-1.5 disabled:opacity-50"
                       >
                         {applying === c.id ? (
                           <div className="w-3 h-3 border-2 border-stone-400 border-t-white rounded-full animate-spin" />
@@ -431,7 +427,7 @@ export default function CleanerSchedulePage() {
       {/* My applications */}
       {myApplications.length > 0 && (
         <section className="space-y-3">
-          <h2 className="text-[10px] uppercase tracking-widest text-stone-400">내 신청 내역 ({myApplications.length})</h2>
+          <h2 className="text-[12px] uppercase tracking-widest text-stone-400">내 신청 내역 ({myApplications.length})</h2>
           {myApplications.map(app => (
             <div key={app.id} className={`border p-4 ${
               app.status === 'approved' ? 'border-green-500/20 bg-green-500/5' :

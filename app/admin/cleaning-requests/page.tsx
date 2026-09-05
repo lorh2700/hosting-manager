@@ -7,7 +7,7 @@ import { ko } from 'date-fns/locale';
 import { CalendarDays, Check, X, Plus, Users } from 'lucide-react';
 import type { CleaningApplication, Cleaning } from '@/lib/types';
 import { fetchPropertyNames, enrichWithPropertyName, apiPut, apiPost } from '@/lib/api-client';
-import { toast } from '@/components/ui';
+import { toast, SkeletonList } from '@/components/ui';
 
 interface EnrichedApplication extends CleaningApplication {
   propertyName: string;
@@ -152,7 +152,7 @@ export default function AdminCleaningRequestsPage() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-[60vh]"><div className="w-6 h-6 border-t-2 border-[var(--brand)] rounded-full animate-spin" /></div>;
+    return <SkeletonList count={3} rows={2} />;
   }
 
   const pendingApps = applications.filter(a => a.status === 'pending');
@@ -160,7 +160,7 @@ export default function AdminCleaningRequestsPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6 sm:space-y-8">
       <header className="border-b border-stone-200 pb-5 sm:pb-6">
-        <p className="text-[10px] tracking-[0.3em] text-stone-500 mb-3">관리</p>
+        <p className="text-[12px] tracking-[0.3em] text-stone-500 mb-3">관리</p>
         <h1 className="text-2xl sm:text-3xl font-light tracking-tight text-stone-900">청소 일정 신청 관리</h1>
         {pendingApps.length > 0 && (
           <p className="text-amber-600 text-sm mt-2">{pendingApps.length}건의 대기 중인 신청</p>
@@ -176,7 +176,7 @@ export default function AdminCleaningRequestsPage() {
           <button
             key={t.key}
             onClick={() => setTab(t.key as typeof tab)}
-            className={`px-4 py-2 text-[10px] uppercase tracking-widest font-semibold transition-colors ${
+            className={`px-4 py-2 text-[12px] uppercase tracking-widest font-semibold transition-colors ${
               tab === t.key ? 'bg-[var(--brand)] text-white' : 'border border-stone-200 text-stone-500 hover:text-stone-900'
             }`}
           >
@@ -207,7 +207,7 @@ export default function AdminCleaningRequestsPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <span className={`text-[10px] px-1.5 py-0.5 tracking-wider ${statusColor}`}>{statusLabel}</span>
+                        <span className={`text-[12px] px-1.5 py-0.5 tracking-wider ${statusColor}`}>{statusLabel}</span>
                       </div>
                       <p className="text-stone-900 font-medium text-sm">{app.propertyName}</p>
                       <p className="text-stone-500 text-xs mt-0.5">
@@ -217,7 +217,7 @@ export default function AdminCleaningRequestsPage() {
                       {app.note && <p className="text-stone-400 text-xs mt-1">메모: {app.note}</p>}
                       {app.rejectedReason && <p className="text-red-600/80 text-xs mt-1">거절 사유: {app.rejectedReason}</p>}
                     </div>
-                    <p className="text-stone-300 text-[10px] shrink-0">
+                    <p className="text-stone-300 text-[12px] shrink-0">
                       {format(parseISO(app.createdAt), 'M/d HH:mm', { locale: ko })}
                     </p>
                   </div>
@@ -234,14 +234,14 @@ export default function AdminCleaningRequestsPage() {
                       <button
                         onClick={() => handleApprove(app)}
                         disabled={updating === app.id}
-                        className="bg-green-50 text-green-700 px-4 py-2 text-[10px] uppercase tracking-widest font-semibold hover:bg-green-100 transition-colors flex items-center gap-1"
+                        className="bg-green-50 text-green-700 px-4 py-2 text-[12px] uppercase tracking-widest font-semibold hover:bg-green-100 transition-colors flex items-center gap-1"
                       >
                         <Check size={12} /> 승인
                       </button>
                       <button
                         onClick={() => handleReject(app)}
                         disabled={updating === app.id}
-                        className="bg-red-50 text-red-600 px-4 py-2 text-[10px] uppercase tracking-widest font-semibold hover:bg-red-100 transition-colors flex items-center gap-1"
+                        className="bg-red-50 text-red-600 px-4 py-2 text-[12px] uppercase tracking-widest font-semibold hover:bg-red-100 transition-colors flex items-center gap-1"
                       >
                         <X size={12} /> 거절
                       </button>
@@ -257,17 +257,17 @@ export default function AdminCleaningRequestsPage() {
         <div className="space-y-4">
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}
-            className="w-full border border-dashed border-stone-300 text-stone-500 py-4 text-[10px] uppercase tracking-widest font-semibold hover:bg-stone-100 hover:text-stone-900 transition-colors flex items-center justify-center gap-2"
+            className="w-full border border-dashed border-stone-300 text-stone-500 py-4 text-[12px] uppercase tracking-widest font-semibold hover:bg-stone-100 hover:text-stone-900 transition-colors flex items-center justify-center gap-2"
           >
             <Plus size={14} /> 빈 일정 생성 (신청 받기)
           </button>
 
           {showCreateForm && (
             <div className="bg-white border border-stone-200 p-5 space-y-4">
-              <p className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold">새 오픈 일정</p>
+              <p className="text-[12px] uppercase tracking-widest text-stone-500 font-semibold">새 오픈 일정</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-1.5">숙소</label>
+                  <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-1.5">숙소</label>
                   <select
                     value={newCleaningProp}
                     onChange={e => setNewCleaningProp(e.target.value)}
@@ -277,7 +277,7 @@ export default function AdminCleaningRequestsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-1.5">날짜</label>
+                  <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-1.5">날짜</label>
                   <input
                     type="date"
                     value={newCleaningDate}
@@ -287,7 +287,7 @@ export default function AdminCleaningRequestsPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-1.5">메모 (선택)</label>
+                <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-1.5">메모 (선택)</label>
                 <input
                   type="text"
                   value={newCleaningNotes}
@@ -299,7 +299,7 @@ export default function AdminCleaningRequestsPage() {
               <button
                 onClick={handleCreateOpenCleaning}
                 disabled={creating || !newCleaningDate}
-                className="w-full bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white py-3 text-[11px] uppercase tracking-widest font-semibold transition-colors disabled:opacity-50"
+                className="w-full bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white py-3 text-[13px] uppercase tracking-widest font-semibold transition-colors disabled:opacity-50"
               >
                 {creating ? '생성 중...' : '일정 생성'}
               </button>
@@ -324,11 +324,11 @@ export default function AdminCleaningRequestsPage() {
                   </div>
                   <div className="text-right">
                     {c.applicationCount > 0 ? (
-                      <span className="text-[10px] bg-amber-50 text-amber-600 px-2 py-1 tracking-wider">
+                      <span className="text-[12px] bg-amber-50 text-amber-600 px-2 py-1 tracking-wider">
                         {c.applicationCount}명 신청
                       </span>
                     ) : (
-                      <span className="text-[10px] text-stone-300 tracking-wider">신청 없음</span>
+                      <span className="text-[12px] text-stone-300 tracking-wider">신청 없음</span>
                     )}
                   </div>
                 </div>

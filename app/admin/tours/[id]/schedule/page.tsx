@@ -226,7 +226,7 @@ export default function TourSchedulePage() {
 
       <header className="border-b border-stone-200 pb-6 sm:pb-7 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">일정 · 재고 관리</p>
+          <p className="text-[13px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">일정 · 재고 관리</p>
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-900">{tour?.title}</h1>
           <p className="text-stone-500 mt-2 text-sm">
             빈 시간을 드래그/클릭해서 슬롯을 만들고, 슬롯을 클릭하면 예약 명단을 확인할 수 있습니다.
@@ -241,7 +241,7 @@ export default function TourSchedulePage() {
       </header>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 text-[11px] text-stone-500">
+      <div className="flex items-center gap-4 text-[13px] text-stone-500">
         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3" style={{ backgroundColor: '#0ea5e9' }} /> 오픈 (예약 없음)</span>
         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3" style={{ backgroundColor: 'var(--brand)' }} /> 예약 있음</span>
         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3" style={{ backgroundColor: '#dc2626' }} /> 만석</span>
@@ -307,7 +307,7 @@ export default function TourSchedulePage() {
 
             <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 bg-stone-50 space-y-4">
               <div>
-                <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">정원</label>
+                <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">정원</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
@@ -318,16 +318,16 @@ export default function TourSchedulePage() {
                   />
                   <button
                     onClick={() => handleUpdateCapacity(selectedSlot.capacity)}
-                    className="text-[10px] uppercase tracking-widest px-3 py-2 bg-stone-100 hover:bg-[var(--brand)] hover:text-white text-stone-700 transition-colors"
+                    className="text-[12px] uppercase tracking-widest px-3 py-2 bg-stone-100 hover:bg-[var(--brand)] hover:text-white text-stone-700 transition-colors"
                   >
                     저장
                   </button>
-                  <p className="text-[10px] text-stone-400">현재 {selectedSlot.bookedCount}명 예약 — 그 이하로는 줄일 수 없습니다</p>
+                  <p className="text-[12px] text-stone-400">현재 {selectedSlot.bookedCount}명 예약 — 그 이하로는 줄일 수 없습니다</p>
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">예약 명단</label>
+                <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">예약 명단</label>
                 {loadingBookings ? (
                   <div className="flex items-center justify-center py-6">
                     <Loader2 size={16} className="animate-spin text-stone-400" />
@@ -347,7 +347,7 @@ export default function TourSchedulePage() {
                             <a href={`tel:${b.phone}`} className="hover:text-stone-900">{b.phone}</a>
                           </p>
                         </div>
-                        <span className="text-[10px] uppercase tracking-widest text-stone-500">{b.status}</span>
+                        <span className="text-[12px] uppercase tracking-widest text-stone-500">{b.status}</span>
                       </div>
                     ))}
                   </div>
@@ -396,7 +396,7 @@ export default function TourSchedulePage() {
               </p>
             </div>
             <div className="px-5 py-4">
-              <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">정원</label>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">정원</label>
               <input
                 type="number"
                 min="1"
@@ -407,7 +407,7 @@ export default function TourSchedulePage() {
                 autoFocus
               />
               {tour && tour.durationOptions.length > 0 && (
-                <p className="text-[11px] text-stone-500 mt-2">
+                <p className="text-[13px] text-stone-500 mt-2">
                   코스 옵션: {tour.durationOptions.map(o => `${o.durationMin}분`).join(' · ')} · 손님이 슬롯 시간에 코스를 선택합니다
                 </p>
               )}
@@ -511,17 +511,17 @@ function BulkAddModal({
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">시작일</label>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">시작일</label>
               <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-full bg-white border border-stone-200 px-3 py-2.5 text-sm" />
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">종료일</label>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">종료일</label>
               <input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-full bg-white border border-stone-200 px-3 py-2.5 text-sm" />
             </div>
           </div>
 
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">요일</label>
+            <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">요일</label>
             <div className="flex gap-1.5">
               {['일', '월', '화', '수', '목', '금', '토'].map((label, idx) => (
                 <button
@@ -541,7 +541,7 @@ function BulkAddModal({
           </div>
 
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">시간</label>
+            <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">시간</label>
             <div className="space-y-2">
               {times.map((t, i) => (
                 <div key={i} className="flex gap-2">
@@ -571,7 +571,7 @@ function BulkAddModal({
           </div>
 
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">슬롯별 정원</label>
+            <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">슬롯별 정원</label>
             <input
               type="number"
               value={capacity}

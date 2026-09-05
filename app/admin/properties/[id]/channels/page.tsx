@@ -148,14 +148,14 @@ export default function ChannelsPage() {
     );
   };
 
-  if (loading) return <div className="text-center py-24 text-stone-500 font-light tracking-widest text-[11px]">불러오는 중...</div>;
-  if (!property) return <div className="text-center py-24 text-stone-500 font-light tracking-widest text-[11px]">숙소를 찾을 수 없습니다</div>;
+  if (loading) return <div className="text-center py-24 text-stone-500 font-light tracking-widest text-[13px]">불러오는 중...</div>;
+  if (!property) return <div className="text-center py-24 text-stone-500 font-light tracking-widest text-[13px]">숙소를 찾을 수 없습니다</div>;
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       <header className="flex flex-col gap-6 md:flex-row md:justify-between md:items-end border-b border-stone-200 pb-8">
         <div>
-          <Link href="/admin/properties" className="text-stone-500 hover:text-stone-900 text-[10px] tracking-widest font-medium flex items-center gap-2 mb-6 transition-colors">
+          <Link href="/admin/properties" className="text-stone-500 hover:text-stone-900 text-[12px] tracking-widest font-medium flex items-center gap-2 mb-6 transition-colors">
             <ArrowLeft size={14} /> 숙소 목록으로 돌아가기
           </Link>
           <h1 className="text-4xl font-light tracking-tight text-stone-900">{property.name}</h1>
@@ -165,7 +165,7 @@ export default function ChannelsPage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white px-6 py-3 text-[11px] tracking-widest font-semibold uppercase flex items-center gap-3 transition-colors disabled:opacity-50"
+            className="bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white px-6 py-3 text-[13px] tracking-widest font-semibold uppercase flex items-center gap-3 transition-colors disabled:opacity-50"
           >
             <Save size={16} />
             {saving ? '저장 중...' : '변경사항 저장'}
@@ -175,13 +175,13 @@ export default function ChannelsPage() {
 
       {/* Sub-menu Tabs */}
       <div className="flex border-b border-stone-200 mb-8">
-        <Link href={`/admin/properties/${id}`} className={`px-6 py-4 text-[11px] tracking-widest font-semibold border-b-2 transition-colors ${pathname === `/admin/properties/${id}` ? 'border-[var(--brand)] text-stone-900' : 'border-transparent text-stone-500 hover:text-stone-900 hover:border-stone-300'}`}>
+        <Link href={`/admin/properties/${id}`} className={`px-6 py-4 text-[13px] tracking-widest font-semibold border-b-2 transition-colors ${pathname === `/admin/properties/${id}` ? 'border-[var(--brand)] text-stone-900' : 'border-transparent text-stone-500 hover:text-stone-900 hover:border-stone-300'}`}>
           캘린더
         </Link>
-        <Link href={`/admin/properties/${id}/channels`} className={`px-6 py-4 text-[11px] tracking-widest font-semibold border-b-2 transition-colors ${pathname === `/admin/properties/${id}/channels` ? 'border-[var(--brand)] text-stone-900' : 'border-transparent text-stone-500 hover:text-stone-900 hover:border-stone-300'}`}>
+        <Link href={`/admin/properties/${id}/channels`} className={`px-6 py-4 text-[13px] tracking-widest font-semibold border-b-2 transition-colors ${pathname === `/admin/properties/${id}/channels` ? 'border-[var(--brand)] text-stone-900' : 'border-transparent text-stone-500 hover:text-stone-900 hover:border-stone-300'}`}>
           채널 연결
         </Link>
-        <Link href={`/admin/properties/${id}/settings`} className={`px-6 py-4 text-[11px] tracking-widest font-semibold border-b-2 transition-colors ${pathname === `/admin/properties/${id}/settings` ? 'border-[var(--brand)] text-stone-900' : 'border-transparent text-stone-500 hover:text-stone-900 hover:border-stone-300'}`}>
+        <Link href={`/admin/properties/${id}/settings`} className={`px-6 py-4 text-[13px] tracking-widest font-semibold border-b-2 transition-colors ${pathname === `/admin/properties/${id}/settings` ? 'border-[var(--brand)] text-stone-900' : 'border-transparent text-stone-500 hover:text-stone-900 hover:border-stone-300'}`}>
           숙소 설정
         </Link>
       </div>
@@ -195,11 +195,11 @@ export default function ChannelsPage() {
           </p>
 
           {/* 1단계 */}
-          <h3 className="text-[11px] tracking-widest font-medium text-stone-900 mb-2">1단계</h3>
+          <h3 className="text-[13px] tracking-widest font-medium text-stone-900 mb-2">1단계</h3>
           <p className="text-stone-500 text-sm font-light mb-8">채널을 추가하면 내보내기 URL이 자동으로 생성됩니다. 추가 후 우측 목록에서 복사하세요.</p>
 
           {/* 2단계 */}
-          <h3 className="text-[11px] tracking-widest font-medium text-stone-900 mb-2">2단계</h3>
+          <h3 className="text-[13px] tracking-widest font-medium text-stone-900 mb-2">2단계</h3>
           <p className="text-stone-500 text-sm font-light mb-4">다른 플랫폼의 가져오기 링크를 여기에 붙여넣으세요.</p>
 
           <div className="border border-stone-300 bg-white overflow-hidden mb-8 flex flex-col focus-within:border-[var(--brand)] transition-colors">
@@ -227,7 +227,7 @@ export default function ChannelsPage() {
             <button
               onClick={handleAddChannel}
               disabled={saving || !newChannelImportUrl.trim() || !newChannelName.trim()}
-              className={`w-full py-4 text-[11px] tracking-widest font-semibold uppercase transition-colors ${
+              className={`w-full py-4 text-[13px] tracking-widest font-semibold uppercase transition-colors ${
                 newChannelImportUrl.trim() && newChannelName.trim()
                   ? 'bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white'
                   : 'bg-stone-100 text-stone-400 cursor-not-allowed'
@@ -250,7 +250,7 @@ export default function ChannelsPage() {
               <div key={channel.id} className="bg-white border border-stone-200 p-8 flex flex-col gap-6 relative group hover:border-stone-300 transition-colors">
                 <button
                   onClick={() => handleDeleteChannel(channel.id)}
-                  className="absolute top-6 right-6 p-2 text-stone-400 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                  className="absolute top-6 right-6 p-2 text-stone-400 hover:text-red-600 transition-colors"
                   title="채널 삭제"
                 >
                   <Trash2 size={18} strokeWidth={1.5} />
@@ -265,7 +265,7 @@ export default function ChannelsPage() {
 
                 <div className="space-y-5">
                   <div>
-                    <label className="block text-[10px] tracking-widest font-medium text-stone-500 mb-2">가져오기 URL</label>
+                    <label className="block text-[12px] tracking-widest font-medium text-stone-500 mb-2">가져오기 URL</label>
                     <input
                       type="url"
                       value={channel.importUrl || ''}
@@ -276,7 +276,7 @@ export default function ChannelsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] tracking-widest font-medium text-stone-500 mb-2">내보내기 URL</label>
+                    <label className="block text-[12px] tracking-widest font-medium text-stone-500 mb-2">내보내기 URL</label>
                     <div className="flex items-center gap-3">
                       <input
                         type="text"

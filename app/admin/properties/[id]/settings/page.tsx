@@ -125,14 +125,14 @@ export default function PropertySettingsPage() {
     }
   };
 
-  if (loading) return <div className="text-center py-24 text-stone-500 font-light tracking-widest text-[11px]">불러오는 중...</div>;
-  if (!property) return <div className="text-center py-24 text-stone-500 font-light tracking-widest text-[11px]">숙소를 찾을 수 없습니다</div>;
+  if (loading) return <div className="text-center py-24 text-stone-500 font-light tracking-widest text-[13px]">불러오는 중...</div>;
+  if (!property) return <div className="text-center py-24 text-stone-500 font-light tracking-widest text-[13px]">숙소를 찾을 수 없습니다</div>;
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       <header className="flex flex-col gap-6 md:flex-row md:justify-between md:items-end border-b border-stone-200 pb-8">
         <div>
-          <Link href="/admin/properties" className="text-stone-500 hover:text-stone-900 text-[10px] tracking-widest font-medium flex items-center gap-2 mb-6 transition-colors">
+          <Link href="/admin/properties" className="text-stone-500 hover:text-stone-900 text-[12px] tracking-widest font-medium flex items-center gap-2 mb-6 transition-colors">
             <ArrowLeft size={14} /> 숙소 목록으로 돌아가기
           </Link>
           <h1 className="text-4xl font-light tracking-tight text-stone-900">{property.name}</h1>
@@ -142,14 +142,14 @@ export default function PropertySettingsPage() {
           <Link
             href={`/book/${id}`}
             target="_blank"
-            className="bg-transparent border border-stone-300 text-stone-700 px-6 py-3 text-[11px] tracking-widest font-semibold flex items-center gap-2 hover:bg-stone-100 hover:text-stone-900 transition-colors"
+            className="bg-transparent border border-stone-300 text-stone-700 px-6 py-3 text-[13px] tracking-widest font-semibold flex items-center gap-2 hover:bg-stone-100 hover:text-stone-900 transition-colors"
           >
             예약 페이지 보기
           </Link>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white px-6 py-3 text-[11px] tracking-widest font-semibold uppercase flex items-center gap-3 transition-colors disabled:opacity-50"
+            className="bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white px-6 py-3 text-[13px] tracking-widest font-semibold uppercase flex items-center gap-3 transition-colors disabled:opacity-50"
           >
             <Save size={16} />
             {saving ? '저장 중...' : '변경사항 저장'}
@@ -159,13 +159,13 @@ export default function PropertySettingsPage() {
 
       {/* Sub-menu Tabs */}
       <div className="flex border-b border-stone-200 mb-8">
-        <Link href={`/admin/properties/${id}`} className={`px-6 py-4 text-[11px] tracking-widest font-semibold border-b-2 transition-colors ${pathname === `/admin/properties/${id}` ? 'border-[var(--brand)] text-stone-900' : 'border-transparent text-stone-500 hover:text-stone-900 hover:border-stone-300'}`}>
+        <Link href={`/admin/properties/${id}`} className={`px-6 py-4 text-[13px] tracking-widest font-semibold border-b-2 transition-colors ${pathname === `/admin/properties/${id}` ? 'border-[var(--brand)] text-stone-900' : 'border-transparent text-stone-500 hover:text-stone-900 hover:border-stone-300'}`}>
           캘린더
         </Link>
-        <Link href={`/admin/properties/${id}/channels`} className={`px-6 py-4 text-[11px] tracking-widest font-semibold border-b-2 transition-colors ${pathname === `/admin/properties/${id}/channels` ? 'border-[var(--brand)] text-stone-900' : 'border-transparent text-stone-500 hover:text-stone-900 hover:border-stone-300'}`}>
+        <Link href={`/admin/properties/${id}/channels`} className={`px-6 py-4 text-[13px] tracking-widest font-semibold border-b-2 transition-colors ${pathname === `/admin/properties/${id}/channels` ? 'border-[var(--brand)] text-stone-900' : 'border-transparent text-stone-500 hover:text-stone-900 hover:border-stone-300'}`}>
           채널 연결
         </Link>
-        <Link href={`/admin/properties/${id}/settings`} className={`px-6 py-4 text-[11px] tracking-widest font-semibold border-b-2 transition-colors ${pathname === `/admin/properties/${id}/settings` ? 'border-[var(--brand)] text-stone-900' : 'border-transparent text-stone-500 hover:text-stone-900 hover:border-stone-300'}`}>
+        <Link href={`/admin/properties/${id}/settings`} className={`px-6 py-4 text-[13px] tracking-widest font-semibold border-b-2 transition-colors ${pathname === `/admin/properties/${id}/settings` ? 'border-[var(--brand)] text-stone-900' : 'border-transparent text-stone-500 hover:text-stone-900 hover:border-stone-300'}`}>
           숙소 설정
         </Link>
       </div>
@@ -175,7 +175,7 @@ export default function PropertySettingsPage() {
 
         <div className="space-y-6">
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">숙소 이름</label>
+            <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">숙소 이름</label>
             <input
               type="text"
               value={name}
@@ -185,7 +185,7 @@ export default function PropertySettingsPage() {
           </div>
 
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">시간대 (Timezone)</label>
+            <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">시간대 (Timezone)</label>
             <select
               value={timezone}
               onChange={(e) => setTimezone(e.target.value)}
@@ -201,7 +201,7 @@ export default function PropertySettingsPage() {
           </div>
 
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">숙소 설명</label>
+            <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">숙소 설명</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -213,7 +213,7 @@ export default function PropertySettingsPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">Beds24 Property ID</label>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">Beds24 Property ID</label>
               <input
                 type="text"
                 value={beds24PropId}
@@ -221,10 +221,10 @@ export default function PropertySettingsPage() {
                 placeholder="예: 319544"
                 className="w-full bg-white border border-stone-200 rounded-none px-4 py-3 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors font-mono"
               />
-              <p className="text-[11px] text-stone-400 mt-2">동기화(GET /bookings)에 사용됩니다.</p>
+              <p className="text-[13px] text-stone-400 mt-2">동기화(GET /bookings)에 사용됩니다.</p>
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">Beds24 Room ID</label>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">Beds24 Room ID</label>
               <input
                 type="text"
                 value={beds24RoomId}
@@ -232,7 +232,7 @@ export default function PropertySettingsPage() {
                 placeholder="예: 664844"
                 className="w-full bg-white border border-stone-200 rounded-none px-4 py-3 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors font-mono"
               />
-              <p className="text-[11px] text-stone-400 mt-2">예약 생성(POST /bookings)에 사용됩니다.</p>
+              <p className="text-[13px] text-stone-400 mt-2">예약 생성(POST /bookings)에 사용됩니다.</p>
             </div>
           </div>
 
@@ -241,7 +241,7 @@ export default function PropertySettingsPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">도어락 비밀번호</label>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">도어락 비밀번호</label>
               <input
                 type="text"
                 value={doorPassword}
@@ -251,7 +251,7 @@ export default function PropertySettingsPage() {
               />
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">주소 링크</label>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">주소 링크</label>
               <input
                 type="url"
                 value={addressUrl}
@@ -263,7 +263,7 @@ export default function PropertySettingsPage() {
           </div>
 
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">정비 완료 메시지 템플릿</label>
+            <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">정비 완료 메시지 템플릿</label>
             <textarea
               value={roomReadyMessage}
               onChange={(e) => setRoomReadyMessage(e.target.value)}
@@ -271,12 +271,12 @@ export default function PropertySettingsPage() {
               placeholder="비워두면 기본 메시지가 사용됩니다. {password}와 {address}를 사용하면 위 정보로 자동 치환됩니다."
               className="w-full bg-white border border-stone-200 rounded-none px-4 py-3 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors resize-none"
             />
-            <p className="text-[11px] text-stone-400 mt-2">사용 가능 변수: {'{password}'} = 도어락 비밀번호, {'{address}'} = 주소 링크</p>
+            <p className="text-[13px] text-stone-400 mt-2">사용 가능 변수: {'{password}'} = 도어락 비밀번호, {'{address}'} = 주소 링크</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">기본 1박 요금 (₩)</label>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">기본 1박 요금 (₩)</label>
               <input
                 type="number"
                 value={basePrice}
@@ -286,7 +286,7 @@ export default function PropertySettingsPage() {
               />
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">최대 수용 인원 (명)</label>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">최대 수용 인원 (명)</label>
               <input
                 type="number"
                 value={maxGuests}
@@ -308,14 +308,14 @@ export default function PropertySettingsPage() {
             <button
               onClick={handleDelete}
               disabled={deleting}
-              className="bg-red-600 border border-red-700 text-white px-6 py-3 text-[11px] tracking-widest font-semibold flex items-center gap-3 hover:bg-red-700 transition-colors disabled:opacity-50"
+              className="bg-red-600 border border-red-700 text-white px-6 py-3 text-[13px] tracking-widest font-semibold flex items-center gap-3 hover:bg-red-700 transition-colors disabled:opacity-50"
             >
               <Trash2 size={16} />
               {deleting ? '삭제 중...' : '확인 — 영구 삭제'}
             </button>
             <button
               onClick={() => setDeleteConfirm(false)}
-              className="text-stone-500 hover:text-stone-900 text-[11px] tracking-widest transition-colors"
+              className="text-stone-500 hover:text-stone-900 text-[13px] tracking-widest transition-colors"
             >
               취소
             </button>
@@ -323,7 +323,7 @@ export default function PropertySettingsPage() {
         ) : (
           <button
             onClick={handleDelete}
-            className="bg-transparent border border-red-300 text-red-600 px-6 py-3 text-[11px] tracking-widest font-semibold flex items-center gap-3 hover:bg-red-100 transition-colors"
+            className="bg-transparent border border-red-300 text-red-600 px-6 py-3 text-[13px] tracking-widest font-semibold flex items-center gap-3 hover:bg-red-100 transition-colors"
           >
             <Trash2 size={16} />
             이 숙소 영구 삭제하기
@@ -355,7 +355,7 @@ function IcalUrlSection({ slug, beds24RoomId }: IcalUrlSectionProps) {
       <div className="border-t border-stone-200 pt-6 mt-6">
         <div className="flex items-center gap-2 mb-2">
           <LinkIcon size={14} className="text-stone-400" />
-          <label className="text-[10px] uppercase tracking-widest text-stone-500">iCal 예약 캘린더</label>
+          <label className="text-[12px] uppercase tracking-widest text-stone-500">iCal 예약 캘린더</label>
         </div>
         <p className="text-[12px] text-stone-400 leading-relaxed">
           Beds24 Room ID 를 저장하면 iCal 링크가 여기에 노출됩니다. OTA (Airbnb / Booking.com 등) 나
@@ -384,7 +384,7 @@ function IcalUrlSection({ slug, beds24RoomId }: IcalUrlSectionProps) {
       <div>
         <div className="flex items-center gap-2 mb-2">
           <LinkIcon size={14} className="text-stone-400" />
-          <label className="text-[10px] uppercase tracking-widest text-stone-500">iCal 예약 캘린더</label>
+          <label className="text-[12px] uppercase tracking-widest text-stone-500">iCal 예약 캘린더</label>
         </div>
         <p className="text-[12px] text-stone-500 leading-relaxed">
           아래 URL 을 OTA (Airbnb, Booking.com 등) 나 Google/Apple 캘린더에 붙여 넣으면 이 숙소의 예약이 자동 동기화됩니다.
@@ -394,11 +394,11 @@ function IcalUrlSection({ slug, beds24RoomId }: IcalUrlSectionProps) {
       {prettyUrl && (
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <p className="text-[10px] uppercase tracking-widest text-stone-600 font-semibold">공유용 URL (권장)</p>
+            <p className="text-[12px] uppercase tracking-widest text-stone-600 font-semibold">공유용 URL (권장)</p>
             <button
               type="button"
               onClick={() => copy(prettyUrl, 'pretty')}
-              className={`text-[11px] px-2.5 py-1 rounded flex items-center gap-1.5 transition-colors ${
+              className={`text-[13px] px-2.5 py-1 rounded flex items-center gap-1.5 transition-colors ${
                 copied === 'pretty'
                   ? 'bg-emerald-100 text-emerald-700'
                   : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
@@ -417,11 +417,11 @@ function IcalUrlSection({ slug, beds24RoomId }: IcalUrlSectionProps) {
 
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <p className="text-[10px] uppercase tracking-widest text-stone-500">Beds24 직접 URL</p>
+          <p className="text-[12px] uppercase tracking-widest text-stone-500">Beds24 직접 URL</p>
           <button
             type="button"
             onClick={() => copy(directUrl, 'direct')}
-            className={`text-[11px] px-2.5 py-1 rounded flex items-center gap-1.5 transition-colors ${
+            className={`text-[13px] px-2.5 py-1 rounded flex items-center gap-1.5 transition-colors ${
               copied === 'direct'
                 ? 'bg-emerald-100 text-emerald-700'
                 : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
@@ -435,7 +435,7 @@ function IcalUrlSection({ slug, beds24RoomId }: IcalUrlSectionProps) {
         <code className="block bg-stone-50 border border-stone-200 px-3 py-2 text-[12px] font-mono text-stone-500 break-all">
           {directUrl}
         </code>
-        <p className="text-[11px] text-stone-400 mt-1.5">
+        <p className="text-[13px] text-stone-400 mt-1.5">
           리다이렉트 없이 Beds24 서버로 바로 향합니다. 공유용 URL 이 문제 있을 때 fallback 으로 사용.
         </p>
       </div>

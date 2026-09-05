@@ -101,7 +101,7 @@ const CHECKIN_BADGE = { ko: '체크인', cls: 'bg-stone-100 text-stone-800 ring-
 
 function StatusPill({ ko, cls }: { ko: string; cls: string }) {
   return (
-    <span className={`inline-flex items-center px-2 py-1 ring-1 text-[10px] leading-none uppercase tracking-widest ${cls}`}>
+    <span className={`inline-flex items-center px-2 py-1 ring-1 text-[12px] leading-none uppercase tracking-widest ${cls}`}>
       {ko}
     </span>
   );
@@ -351,7 +351,7 @@ export default function HostDashboard() {
   return (
     <div className="max-w-3xl mx-auto space-y-8 sm:space-y-10">
       <header>
-        <p className="text-[11px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">숙박 호스팅</p>
+        <p className="text-[13px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">숙박 호스팅</p>
         <h1 className="text-2xl sm:text-3xl font-semibold text-stone-900 tracking-tight">
           {format(new Date(), 'M월 d일 EEEE', { locale: ko })}
         </h1>
@@ -389,7 +389,7 @@ export default function HostDashboard() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-2xl font-semibold text-stone-900 tabular-nums leading-none">{item.count}</p>
-                  <p className="text-[11px] uppercase tracking-widest text-stone-500 mt-1.5">{item.label}</p>
+                  <p className="text-[13px] uppercase tracking-widest text-stone-500 mt-1.5">{item.label}</p>
                 </div>
               </Link>
             ) : (
@@ -402,7 +402,7 @@ export default function HostDashboard() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-2xl font-semibold text-stone-300 tabular-nums leading-none">0</p>
-                  <p className="text-[11px] uppercase tracking-widest text-stone-400 mt-1.5">{item.label}</p>
+                  <p className="text-[13px] uppercase tracking-widest text-stone-400 mt-1.5">{item.label}</p>
                 </div>
               </div>
             );
@@ -411,20 +411,20 @@ export default function HostDashboard() {
       )}
 
       <div className="border-t border-b border-stone-200 py-3 flex items-center gap-x-5 sm:gap-x-7 gap-y-1.5 flex-wrap">
-        <span className="text-[10px] uppercase tracking-[0.25em] text-stone-400">오늘</span>
+        <span className="text-[12px] uppercase tracking-[0.25em] text-stone-400">오늘</span>
         <span className="flex items-baseline gap-1.5">
           <span className={`text-lg font-semibold tabular-nums ${todayIn > 0 ? 'text-stone-900' : 'text-stone-300'}`}>{todayIn}</span>
-          <span className="text-[11px] uppercase tracking-widest text-stone-500">체크인</span>
+          <span className="text-[13px] uppercase tracking-widest text-stone-500">체크인</span>
         </span>
         <span className="text-stone-300">/</span>
         <span className="flex items-baseline gap-1.5">
           <span className={`text-lg font-semibold tabular-nums ${todayOut > 0 ? 'text-stone-900' : 'text-stone-300'}`}>{todayOut}</span>
-          <span className="text-[11px] uppercase tracking-widest text-stone-500">체크아웃</span>
+          <span className="text-[13px] uppercase tracking-widest text-stone-500">체크아웃</span>
         </span>
         <span className="text-stone-300">/</span>
         <span className="flex items-baseline gap-1.5">
           <span className={`text-lg font-semibold tabular-nums ${pendingCleanings > 0 ? 'text-amber-700' : 'text-stone-300'}`}>{pendingCleanings}</span>
-          <span className="text-[11px] uppercase tracking-widest text-stone-500">청소대기</span>
+          <span className="text-[13px] uppercase tracking-widest text-stone-500">청소대기</span>
         </span>
       </div>
 
@@ -437,7 +437,7 @@ export default function HostDashboard() {
                 {format(new Date(), 'M월 d일 (EEE)', { locale: ko })}
               </p>
             </div>
-            <span className="ml-auto text-[10px] uppercase tracking-widest text-[var(--brand)] bg-[var(--brand-tint)] px-2.5 py-1 font-semibold">오늘</span>
+            <span className="ml-auto text-[12px] uppercase tracking-widest text-[var(--brand)] bg-[var(--brand-tint)] px-2.5 py-1 font-semibold">오늘</span>
           </div>
 
           {todayGroup.checkins.length > 0 && (
@@ -461,7 +461,7 @@ export default function HostDashboard() {
                         <p className="text-sm text-stone-900 truncate flex items-center gap-2">
                           <span className="truncate">{r.propertyName}</span>
                           {channel && (
-                            <span className="text-[10px] text-stone-700 bg-stone-200 px-1.5 py-0.5 shrink-0 uppercase tracking-wider">
+                            <span className="text-[12px] text-stone-700 bg-stone-200 px-1.5 py-0.5 shrink-0 uppercase tracking-wider">
                               {channel}
                             </span>
                           )}
@@ -531,7 +531,7 @@ export default function HostDashboard() {
                 <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                   <p className="text-xs text-stone-500">{selectedGuest.reservation.propertyName}</p>
                   {formatChannel(selectedGuest.reservation.source) && (
-                    <span className="text-[10px] text-stone-700 bg-stone-100 px-1.5 py-0.5 uppercase tracking-wider">
+                    <span className="text-[12px] text-stone-700 bg-stone-100 px-1.5 py-0.5 uppercase tracking-wider">
                       {formatChannel(selectedGuest.reservation.source)}
                     </span>
                   )}
@@ -591,7 +591,7 @@ export default function HostDashboard() {
                           }`}
                         >
                           <p className="text-sm whitespace-pre-wrap break-words">{m.text}</p>
-                          <p className={`text-[10px] mt-1 ${isGuest ? 'text-stone-400' : 'text-white/70'}`}>
+                          <p className={`text-[12px] mt-1 ${isGuest ? 'text-stone-400' : 'text-white/70'}`}>
                             {m.createdAt ? format(parseISO(m.createdAt), 'M월 d일 HH:mm', { locale: ko }) : ''}
                           </p>
                         </div>
@@ -717,7 +717,7 @@ export default function HostDashboard() {
                         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                           <span className="text-xs text-stone-500">{r.propertyName} · {nights}박</span>
                           {channel && (
-                            <span className="text-[10px] text-stone-700 bg-stone-100 px-1.5 py-0.5 uppercase tracking-wider">
+                            <span className="text-[12px] text-stone-700 bg-stone-100 px-1.5 py-0.5 uppercase tracking-wider">
                               {channel}
                             </span>
                           )}

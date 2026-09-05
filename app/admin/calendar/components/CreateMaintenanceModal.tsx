@@ -158,7 +158,7 @@ export function CreateMaintenanceModal({ properties, defaultPropertyId, onClose,
               <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} disabled={isPending} className={inputCls} />
             </div>
           </div>
-          <p className="text-[11px] text-stone-400 -mt-2">
+          <p className="text-[13px] text-stone-400 -mt-2">
             예약과 같은 규칙입니다. 하루만 막으려면 해제일을 다음 날로 두세요.{nights > 0 ? ` (${nights}박 차단)` : ''}
           </p>
 
@@ -172,7 +172,7 @@ export function CreateMaintenanceModal({ properties, defaultPropertyId, onClose,
               maxLength={200}
               className={inputCls}
             />
-            <p className="text-[11px] text-stone-400 mt-1">Beds24 메모에 &quot;객실정비: 사유&quot; 형태로 저장되어 어디서 봐도 정비로 구분됩니다.</p>
+            <p className="text-[13px] text-stone-400 mt-1">Beds24 메모에 &quot;객실정비: 사유&quot; 형태로 저장되어 어디서 봐도 정비로 구분됩니다.</p>
           </div>
 
           {error && (

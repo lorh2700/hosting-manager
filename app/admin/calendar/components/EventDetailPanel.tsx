@@ -143,11 +143,11 @@ export function EventDetailPanel({
               <p className="text-xs text-stone-500 font-medium">{selectedEvent.propertyName}</p>
               <div className="flex items-center gap-2 mt-1">
                 {isMaintenance ? (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold bg-slate-100 text-slate-700">
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[12px] font-semibold bg-slate-100 text-slate-700">
                     <Wrench size={10} /> 객실정비
                   </span>
                 ) : isBlock && (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold bg-rose-50 text-rose-600">
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[12px] font-semibold bg-rose-50 text-rose-600">
                     <Ban size={10} /> 차단
                   </span>
                 )}
@@ -203,7 +203,7 @@ export function EventDetailPanel({
             <button
               onClick={onReleaseMaintenance}
               disabled={!!releasingMaintenance}
-              className="w-full flex items-center justify-center gap-2 border border-slate-300 text-slate-700 hover:bg-slate-50 py-2.5 text-[11px] tracking-widest font-medium transition-colors disabled:opacity-40"
+              className="w-full flex items-center justify-center gap-2 border border-slate-300 text-slate-700 hover:bg-slate-50 py-2.5 text-[13px] tracking-widest font-medium transition-colors disabled:opacity-40"
             >
               <Wrench size={13} />
               {releasingMaintenance ? '해제 중...' : '정비 해제 (Beds24 차단 취소)'}
@@ -268,7 +268,7 @@ export function EventDetailPanel({
                 key={p}
                 onClick={() => addTag(p)}
                 disabled={savingTags}
-                className="text-[11px] px-2.5 py-0.5 bg-stone-100 text-stone-500 hover:text-stone-900 hover:bg-stone-200 transition-colors disabled:opacity-40"
+                className="text-[13px] px-2.5 py-0.5 bg-stone-100 text-stone-500 hover:text-stone-900 hover:bg-stone-200 transition-colors disabled:opacity-40"
               >
                 + {p}
               </button>
@@ -314,9 +314,9 @@ export function EventDetailPanel({
                         <div className="min-w-0">
                           <p className="text-[12px] font-medium truncate">
                             미배정
-                            {isCurrentlyUnassigned && <span className="ml-1 text-[10px] text-[var(--brand)]">현재</span>}
+                            {isCurrentlyUnassigned && <span className="ml-1 text-[12px] text-[var(--brand)]">현재</span>}
                           </p>
-                          <p className="text-[10px] text-stone-400 truncate">담당자 없음</p>
+                          <p className="text-[12px] text-stone-400 truncate">담당자 없음</p>
                         </div>
                       </button>
                     );
@@ -340,9 +340,9 @@ export function EventDetailPanel({
                         <div className="min-w-0">
                           <p className="text-[12px] font-medium truncate">
                             {c.name}
-                            {isCurrent && <span className="ml-1 text-[10px] text-[var(--brand)]">현재</span>}
+                            {isCurrent && <span className="ml-1 text-[12px] text-[var(--brand)]">현재</span>}
                           </p>
-                          {c.phone && <p className="text-[10px] text-stone-400 truncate">{c.phone}</p>}
+                          {c.phone && <p className="text-[12px] text-stone-400 truncate">{c.phone}</p>}
                         </div>
                       </button>
                     );
@@ -376,7 +376,7 @@ export function EventDetailPanel({
                     <CheckCircle size={14} />
                     {completingCleaning ? '처리 중...' : '정비 완료'}
                     {selectedEvent.channelId === 'beds24' && !completingCleaning && (
-                      <span className="text-[10px] font-normal text-white/70 ml-1">· 게스트 알림</span>
+                      <span className="text-[12px] font-normal text-white/70 ml-1">· 게스트 알림</span>
                     )}
                   </button>
                 ) : (
@@ -408,12 +408,12 @@ export function EventDetailPanel({
                           todo.done ? 'bg-[var(--brand-tint)] border-[var(--brand)]/40' : 'border-stone-300 hover:border-[var(--brand)]'
                         }`}
                       >
-                        {todo.done && <span className="text-[var(--brand-dark)] text-[10px]">✓</span>}
+                        {todo.done && <span className="text-[var(--brand-dark)] text-[12px]">✓</span>}
                       </button>
                       <span className={`text-[13px] flex-1 ${todo.done ? 'text-stone-400 line-through' : 'text-stone-800'}`}>{todo.text}</span>
                       <button
                         onClick={() => onDeleteSupply(todo.id)}
-                        className="opacity-0 group-hover:opacity-100 text-stone-400 hover:text-rose-600 transition-all shrink-0"
+                        className="text-stone-400 hover:text-rose-600 transition-all shrink-0"
                       >
                         <Trash2 size={12} />
                       </button>
@@ -470,7 +470,7 @@ export function EventDetailPanel({
                         {showDate && (
                           <div className="flex items-center gap-2 py-2">
                             <div className="flex-1 h-px bg-stone-200" />
-                            <span className="text-[10px] text-stone-400">{msgDate}</span>
+                            <span className="text-[12px] text-stone-400">{msgDate}</span>
                             <div className="flex-1 h-px bg-stone-200" />
                           </div>
                         )}
@@ -485,14 +485,14 @@ export function EventDetailPanel({
                             }`}
                           >
                             {isBeds24 && (
-                              <p className={`text-[10px] font-medium mb-0.5 ${
+                              <p className={`text-[12px] font-medium mb-0.5 ${
                                 isHost ? 'text-white/70' : 'text-[var(--brand-dark)]'
                               }`}>
                                 Beds24 · {msg.beds24MessageType || msg.sender}
                               </p>
                             )}
                             <p className="whitespace-pre-wrap break-words">{msg.text}</p>
-                            <p className={`text-[10px] mt-1 ${isHost ? 'text-white/70' : 'text-stone-400'}`}>
+                            <p className={`text-[12px] mt-1 ${isHost ? 'text-white/70' : 'text-stone-400'}`}>
                               {new Date(msg.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
                             </p>
                           </div>

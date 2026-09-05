@@ -157,7 +157,7 @@ export function Sidebar() {
         />
         <span>{link.label}</span>
         {link.href === '/admin/messages' && unreadCount > 0 && (
-          <span className="ml-auto min-w-[20px] h-[18px] px-1.5 bg-[var(--brand)] flex items-center justify-center text-[10px] font-semibold text-white tabular-nums">
+          <span className="ml-auto min-w-[20px] h-[18px] px-1.5 bg-[var(--brand)] flex items-center justify-center text-[12px] font-semibold text-white tabular-nums">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -168,12 +168,12 @@ export function Sidebar() {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex w-60 bg-white text-stone-900 min-h-screen flex-col border-r border-stone-200">
+      <aside className="hidden md:flex w-60 bg-white text-stone-900 min-h-dvh flex-col border-r border-stone-200">
         <div className="px-7 pt-8 pb-7 flex flex-col gap-3">
           <Link href="/admin" aria-label="void anchae 관리자 홈" className="inline-flex">
             <Logo width={148} variant="black" priority />
           </Link>
-          <Link href="/" className="text-[11px] uppercase tracking-[0.2em] text-stone-500 hover:text-stone-900 transition-colors">
+          <Link href="/" className="text-[13px] uppercase tracking-[0.2em] text-stone-500 hover:text-stone-900 transition-colors">
             예약 포털 →
           </Link>
         </div>
@@ -183,7 +183,7 @@ export function Sidebar() {
           <div className="mb-4 px-3">
             <div className="flex items-center gap-2 bg-[var(--brand-tint)] border border-[var(--brand)]/20 px-3 py-2.5">
               {mode === 'tour' ? <Compass size={14} className="text-[var(--brand)]" /> : <HomeIcon size={14} className="text-[var(--brand)]" />}
-              <span className="text-[11px] uppercase tracking-widest font-semibold text-[var(--brand-dark)]">
+              <span className="text-[13px] uppercase tracking-widest font-semibold text-[var(--brand-dark)]">
                 {modeLabel}
               </span>
             </div>
@@ -199,7 +199,7 @@ export function Sidebar() {
 
           {visible.bottom.length > 0 && (
             <div className="mt-5">
-              <p className="px-4 mb-1.5 text-[10px] uppercase tracking-[0.22em] text-stone-400">
+              <p className="px-4 mb-1.5 text-[12px] uppercase tracking-[0.22em] text-stone-400">
                 시스템
               </p>
               <div className="space-y-px">{visible.bottom.map(renderLink)}</div>
@@ -208,10 +208,10 @@ export function Sidebar() {
         </nav>
 
         <div className="px-5 py-5 border-t border-stone-200">
-          <p className="text-[11px] text-stone-500 truncate mb-2">{user?.email}</p>
+          <p className="text-[13px] text-stone-500 truncate mb-2">{user?.email}</p>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 text-stone-500 hover:text-stone-900 transition-colors text-[11px] uppercase tracking-widest"
+            className="flex items-center gap-2 text-stone-500 hover:text-stone-900 transition-colors text-[13px] uppercase tracking-widest"
           >
             <LogOut size={13} />
             로그아웃
@@ -237,7 +237,7 @@ export function Sidebar() {
                 <Icon size={21} strokeWidth={isActive ? 2 : 1.7} className={isActive ? 'text-[var(--brand)]' : ''} />
                 <span className="t-micro leading-none">{link.mobileLabel ?? link.label}</span>
                 {link.href === '/admin/messages' && unreadCount > 0 && (
-                  <span className="absolute top-1.5 left-1/2 ml-2 min-w-[18px] h-[18px] px-1 bg-[var(--brand)] flex items-center justify-center text-[9px] font-semibold text-white tabular-nums">
+                  <span className="absolute top-1.5 left-1/2 ml-2 min-w-[18px] h-[18px] px-1 bg-[var(--brand)] flex items-center justify-center text-[11px] font-semibold text-white tabular-nums">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
@@ -255,7 +255,7 @@ export function Sidebar() {
               >
                 {(moreOpen || isMoreActive) && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[2px] bg-[var(--brand)]" />}
                 {moreOpen ? <X size={21} strokeWidth={1.7} /> : <MoreHorizontal size={21} strokeWidth={1.7} />}
-                <span className="text-[10.5px] leading-none">더보기</span>
+                <span className="text-[12px] leading-none">더보기</span>
               </button>
 
               {moreOpen && (

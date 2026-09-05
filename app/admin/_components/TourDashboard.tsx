@@ -66,7 +66,7 @@ function StatusPill({ status }: { status: string }) {
   const cls = STATUS_BADGE[status] ?? 'bg-stone-100 text-stone-700 ring-stone-300';
   const label = STATUS_LABEL[status] ?? status;
   return (
-    <span className={`inline-flex items-center px-2 py-1 ring-1 text-[10px] leading-none uppercase tracking-widest ${cls}`}>
+    <span className={`inline-flex items-center px-2 py-1 ring-1 text-[12px] leading-none uppercase tracking-widest ${cls}`}>
       {label}
     </span>
   );
@@ -105,7 +105,7 @@ export default function TourDashboard() {
     <div className="max-w-3xl mx-auto space-y-8 sm:space-y-10">
       <header className="flex items-end justify-between gap-4">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">투어 호스팅</p>
+          <p className="text-[13px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">투어 호스팅</p>
           <h1 className="text-2xl sm:text-3xl font-semibold text-stone-900 tracking-tight">
             {format(new Date(), 'M월 d일 EEEE', { locale: ko })}
           </h1>
@@ -153,7 +153,7 @@ export default function TourDashboard() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-2xl font-semibold text-stone-900 tabular-nums leading-none">{item.value}</p>
-                    <p className="text-[11px] uppercase tracking-widest text-stone-500 mt-1.5">{item.label}</p>
+                    <p className="text-[13px] uppercase tracking-widest text-stone-500 mt-1.5">{item.label}</p>
                   </div>
                 </Link>
               ) : (
@@ -163,7 +163,7 @@ export default function TourDashboard() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-2xl font-semibold text-stone-300 tabular-nums leading-none">0</p>
-                    <p className="text-[11px] uppercase tracking-widest text-stone-400 mt-1.5">{item.label}</p>
+                    <p className="text-[13px] uppercase tracking-widest text-stone-400 mt-1.5">{item.label}</p>
                   </div>
                 </div>
               );
@@ -172,26 +172,26 @@ export default function TourDashboard() {
 
           {/* Today summary bar */}
           <div className="border-t border-b border-stone-200 py-3 flex items-center gap-x-5 sm:gap-x-7 gap-y-1.5 flex-wrap">
-            <span className="text-[10px] uppercase tracking-[0.25em] text-stone-400">오늘</span>
+            <span className="text-[12px] uppercase tracking-[0.25em] text-stone-400">오늘</span>
             <span className="flex items-baseline gap-1.5">
               <span className={`text-lg font-semibold tabular-nums ${data.todaySchedules.length > 0 ? 'text-stone-900' : 'text-stone-300'}`}>
                 {data.todaySchedules.length}
               </span>
-              <span className="text-[11px] uppercase tracking-widest text-stone-500">슬롯</span>
+              <span className="text-[13px] uppercase tracking-widest text-stone-500">슬롯</span>
             </span>
             <span className="text-stone-300">/</span>
             <span className="flex items-baseline gap-1.5">
               <span className={`text-lg font-semibold tabular-nums ${todayPeople > 0 ? 'text-stone-900' : 'text-stone-300'}`}>
                 {todayPeople}
               </span>
-              <span className="text-[11px] uppercase tracking-widest text-stone-500">예약 인원</span>
+              <span className="text-[13px] uppercase tracking-widest text-stone-500">예약 인원</span>
             </span>
             <span className="text-stone-300">/</span>
             <span className="flex items-baseline gap-1.5">
               <span className={`text-lg font-semibold tabular-nums ${todayCapacity > 0 ? 'text-stone-900' : 'text-stone-300'}`}>
                 {todayCapacity}
               </span>
-              <span className="text-[11px] uppercase tracking-widest text-stone-500">총 정원</span>
+              <span className="text-[13px] uppercase tracking-widest text-stone-500">총 정원</span>
             </span>
           </div>
 
@@ -203,7 +203,7 @@ export default function TourDashboard() {
                   <p className="text-base sm:text-lg text-stone-900 font-semibold tracking-tight">오늘의 투어</p>
                   <p className="text-xs text-stone-500 mt-0.5">{format(new Date(), 'M월 d일 (EEE)', { locale: ko })}</p>
                 </div>
-                <span className="ml-auto text-[10px] uppercase tracking-widest text-[var(--brand)] bg-[var(--brand-tint)] px-2.5 py-1 font-semibold">오늘</span>
+                <span className="ml-auto text-[12px] uppercase tracking-widest text-[var(--brand)] bg-[var(--brand-tint)] px-2.5 py-1 font-semibold">오늘</span>
               </div>
               <div className="divide-y divide-stone-200">
                 {data.todaySchedules.map(s => (

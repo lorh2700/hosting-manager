@@ -349,14 +349,14 @@ export default function CalendarPage() {
     }));
   }, [events, activeChannels, channels]);
 
-  if (loading) return <div className="text-center py-24 text-stone-500 font-light tracking-widest text-[11px]">불러오는 중...</div>;
-  if (!property) return <div className="text-center py-24 text-stone-500 font-light tracking-widest text-[11px]">숙소를 찾을 수 없습니다</div>;
+  if (loading) return <div className="text-center py-24 text-stone-500 font-light tracking-widest text-[13px]">불러오는 중...</div>;
+  if (!property) return <div className="text-center py-24 text-stone-500 font-light tracking-widest text-[13px]">숙소를 찾을 수 없습니다</div>;
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       <header className="flex flex-col gap-5 md:flex-row md:justify-between md:items-start pb-6 border-b border-stone-200">
         <div>
-          <Link href="/admin/properties" className="inline-flex items-center gap-1.5 text-stone-400 hover:text-stone-900 text-[10px] tracking-widest font-medium mb-5 transition-colors">
+          <Link href="/admin/properties" className="inline-flex items-center gap-1.5 text-stone-400 hover:text-stone-900 text-[12px] tracking-widest font-medium mb-5 transition-colors">
             <ArrowLeft size={12} /> 숙소 목록
           </Link>
           <h1 className="text-3xl font-light tracking-tight text-stone-900">{property.name}</h1>
@@ -366,14 +366,14 @@ export default function CalendarPage() {
           <Link
             href={`/book/${id}`}
             target="_blank"
-            className="border border-stone-200 text-stone-700 px-4 py-2 text-[11px] tracking-widest font-medium flex items-center gap-2 hover:bg-stone-100 hover:text-stone-900 transition-colors"
+            className="border border-stone-200 text-stone-700 px-4 py-2 text-[13px] tracking-widest font-medium flex items-center gap-2 hover:bg-stone-100 hover:text-stone-900 transition-colors"
           >
             예약 페이지 보기
           </Link>
           <button
             onClick={handleSync}
             disabled={syncing}
-            className="border border-stone-200 text-stone-700 px-4 py-2 text-[11px] tracking-widest font-medium flex items-center gap-2 hover:bg-stone-100 hover:text-stone-900 transition-colors disabled:opacity-40"
+            className="border border-stone-200 text-stone-700 px-4 py-2 text-[13px] tracking-widest font-medium flex items-center gap-2 hover:bg-stone-100 hover:text-stone-900 transition-colors disabled:opacity-40"
           >
             <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
             {syncing ? '동기화 중...' : '동기화'}
@@ -381,7 +381,7 @@ export default function CalendarPage() {
           <button
             onClick={() => setCreateOpen(true)}
             title="직접 예약 등록 (Beds24)"
-            className="bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white px-4 py-2 text-[11px] tracking-widest font-semibold uppercase flex items-center gap-2 transition-colors"
+            className="bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white px-4 py-2 text-[13px] tracking-widest font-semibold uppercase flex items-center gap-2 transition-colors"
           >
             <CalendarPlus size={13} />
             예약 등록
@@ -390,7 +390,7 @@ export default function CalendarPage() {
             <button
               onClick={() => setMaintenanceOpen(true)}
               title="객실정비 차단 등록 (Beds24 블랙아웃)"
-              className="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 text-[11px] tracking-widest font-semibold uppercase flex items-center gap-2 transition-colors"
+              className="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 text-[13px] tracking-widest font-semibold uppercase flex items-center gap-2 transition-colors"
             >
               <Wrench size={13} />
               객실정비
@@ -409,7 +409,7 @@ export default function CalendarPage() {
           <Link
             key={tab.href}
             href={tab.href}
-            className={`flex-1 text-center px-4 py-2 text-[11px] tracking-widest font-medium transition-colors ${
+            className={`flex-1 text-center px-4 py-2 text-[13px] tracking-widest font-medium transition-colors ${
               tab.active ? 'bg-[var(--brand)] text-white' : 'text-stone-500 hover:text-stone-700'
             }`}
           >
@@ -424,20 +424,20 @@ export default function CalendarPage() {
             <div className="flex items-center justify-center w-7 h-7 bg-red-100">
               <AlertTriangle size={14} className="text-red-600" strokeWidth={2} />
             </div>
-            <span className="text-[11px] font-semibold tracking-widest text-red-600 uppercase">
+            <span className="text-[13px] font-semibold tracking-widest text-red-600 uppercase">
               더블부킹 경고
             </span>
-            <span className="ml-auto text-[10px] font-mono bg-red-100 text-red-700 px-2 py-0.5">
+            <span className="ml-auto text-[12px] font-mono bg-red-100 text-red-700 px-2 py-0.5">
               {groupedConflicts.length}건
             </span>
           </div>
           <div className="divide-y divide-red-100">
             {groupedConflicts.map((c, idx) => (
               <div key={idx} className="flex items-center justify-between px-5 py-3 gap-4">
-                <span className="text-[11px] font-mono text-red-600/80 tabular-nums">{c.dateRange}</span>
+                <span className="text-[13px] font-mono text-red-600/80 tabular-nums">{c.dateRange}</span>
                 <div className="flex items-center gap-1.5 flex-wrap justify-end">
                   {c.channels.map((ch) => (
-                    <span key={ch} className="text-[10px] tracking-wide bg-red-50 border border-red-200 text-red-700 px-2 py-0.5">
+                    <span key={ch} className="text-[12px] tracking-wide bg-red-50 border border-red-200 text-red-700 px-2 py-0.5">
                       {ch}
                     </span>
                   ))}
@@ -453,7 +453,7 @@ export default function CalendarPage() {
           <div className="bg-white border border-stone-200 overflow-hidden">
             <div className="px-4 py-3 border-b border-stone-200 flex items-center gap-2">
               <CalendarIcon size={13} className="text-stone-400" />
-              <span className="text-[10px] font-semibold tracking-widest text-stone-500 uppercase">채널 필터</span>
+              <span className="text-[12px] font-semibold tracking-widest text-stone-500 uppercase">채널 필터</span>
             </div>
             <div className="p-3 space-y-1">
               {/* Direct */}
@@ -465,7 +465,7 @@ export default function CalendarPage() {
                   className="w-3.5 h-3.5 accent-[var(--brand)]"
                 />
                 <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: getChannelColor('Direct') }} />
-                <span className="text-[11px] font-light text-stone-700 group-hover:text-stone-900 transition-colors">직접 예약</span>
+                <span className="text-[13px] font-light text-stone-700 group-hover:text-stone-900 transition-colors">직접 예약</span>
               </label>
 
               {/* Beds24 */}
@@ -479,11 +479,11 @@ export default function CalendarPage() {
                       className="w-3.5 h-3.5 accent-[var(--brand)]"
                     />
                     <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: beds24SyncError ? '#ef4444' : '#0ea5e9' }} />
-                    <span className="text-[11px] font-light text-stone-700 group-hover:text-stone-900 transition-colors">Beds24</span>
-                    {beds24SyncError && <span className="ml-auto text-[9px] text-red-600">오류</span>}
+                    <span className="text-[13px] font-light text-stone-700 group-hover:text-stone-900 transition-colors">Beds24</span>
+                    {beds24SyncError && <span className="ml-auto text-[11px] text-red-600">오류</span>}
                   </label>
                   {beds24SyncError && (
-                    <p className="text-[10px] text-red-600/80 px-2 pb-1 leading-relaxed">
+                    <p className="text-[12px] text-red-600/80 px-2 pb-1 leading-relaxed">
                       {beds24SyncError.includes('BEDS24_REFRESH_TOKEN') ? '토큰 미설정' : beds24SyncError}
                     </p>
                   )}
@@ -494,12 +494,12 @@ export default function CalendarPage() {
               {property?.beds24PropId ? (
                 channels.length > 0 && (
                   <div className="mt-2 pt-2 border-t border-stone-200">
-                    <p className="text-[10px] text-stone-300 tracking-wide px-2 pb-1">iCal (Beds24로 통합)</p>
+                    <p className="text-[12px] text-stone-300 tracking-wide px-2 pb-1">iCal (Beds24로 통합)</p>
                     {channels.map((channel) => (
                       <div key={channel.id} className="flex items-center gap-3 px-2 py-1.5 opacity-30">
                         <div className="w-3.5 h-3.5" />
                         <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: getChannelColor(channel.id) }} />
-                        <span className="text-[11px] font-light text-stone-500 line-through">{channel.id}</span>
+                        <span className="text-[13px] font-light text-stone-500 line-through">{channel.id}</span>
                       </div>
                     ))}
                   </div>
@@ -514,7 +514,7 @@ export default function CalendarPage() {
                       className="w-3.5 h-3.5 accent-[var(--brand)]"
                     />
                     <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: getChannelColor(channel.id) }} />
-                    <span className="text-[11px] font-light text-stone-700 group-hover:text-stone-900 transition-colors">{channel.id}</span>
+                    <span className="text-[13px] font-light text-stone-700 group-hover:text-stone-900 transition-colors">{channel.id}</span>
                   </label>
                 ))
               )}
@@ -523,9 +523,9 @@ export default function CalendarPage() {
 
           <div className="bg-white border border-stone-200 overflow-hidden">
             <div className="px-4 py-3 border-b border-stone-200">
-              <span className="text-[10px] font-semibold tracking-widest text-stone-500 uppercase">범례</span>
+              <span className="text-[12px] font-semibold tracking-widest text-stone-500 uppercase">범례</span>
             </div>
-            <div className="p-3 space-y-1 text-[11px] font-light">
+            <div className="p-3 space-y-1 text-[13px] font-light">
               {(property?.beds24PropId ? [
                 { color: '#ff5a5f', label: 'Airbnb' },
                 { color: '#003580', label: 'Booking.com' },
@@ -580,7 +580,7 @@ export default function CalendarPage() {
                 </div>
                 <div className="min-w-0">
                   <p className="font-medium text-stone-900 text-sm truncate">{selectedEvent.title}</p>
-                  <p className="text-[10px] text-stone-500 tracking-wide mt-0.5">
+                  <p className="text-[12px] text-stone-500 tracking-wide mt-0.5">
                     {selectedEvent.channelName}{selectedEvent.type === 'block' ? (selectedEvent.source === 'maintenance' ? ' · 정비 중' : ' · 차단됨') : ''}
                   </p>
                 </div>
@@ -593,13 +593,13 @@ export default function CalendarPage() {
             <div className="px-5 pb-5 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-stone-50 p-3">
-                  <p className="text-[9px] tracking-widest text-stone-400 uppercase mb-1.5">체크인</p>
+                  <p className="text-[11px] tracking-widest text-stone-400 uppercase mb-1.5">체크인</p>
                   <p className="text-sm font-medium text-stone-900 tabular-nums">
                     {selectedEvent.start?.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' })}
                   </p>
                 </div>
                 <div className="bg-stone-50 p-3">
-                  <p className="text-[9px] tracking-widest text-stone-400 uppercase mb-1.5">체크아웃</p>
+                  <p className="text-[11px] tracking-widest text-stone-400 uppercase mb-1.5">체크아웃</p>
                   <p className="text-sm font-medium text-stone-900 tabular-nums">
                     {selectedEvent.end?.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' })}
                   </p>
@@ -608,7 +608,7 @@ export default function CalendarPage() {
 
               {selectedEvent.description && (
                 <div className="bg-stone-50 p-3 max-h-40 overflow-y-auto">
-                  <p className="text-[9px] tracking-widest text-stone-400 uppercase mb-2">상세 정보</p>
+                  <p className="text-[11px] tracking-widest text-stone-400 uppercase mb-2">상세 정보</p>
                   <p className="text-xs text-stone-700 whitespace-pre-wrap leading-relaxed font-light">
                     {selectedEvent.description}
                   </p>
@@ -619,7 +619,7 @@ export default function CalendarPage() {
                 <button
                   onClick={handleReleaseMaintenance}
                   disabled={releasingMaintenance}
-                  className="w-full flex items-center justify-center gap-2 border border-slate-300 text-slate-700 hover:bg-slate-50 py-2.5 text-[11px] tracking-widest transition-colors disabled:opacity-40"
+                  className="w-full flex items-center justify-center gap-2 border border-slate-300 text-slate-700 hover:bg-slate-50 py-2.5 text-[13px] tracking-widest transition-colors disabled:opacity-40"
                 >
                   <Wrench size={13} />
                   {releasingMaintenance ? '해제 중...' : '정비 해제 (Beds24 차단 취소)'}
@@ -629,7 +629,7 @@ export default function CalendarPage() {
               {selectedEvent.eventId && selectedEvent.type !== 'block' && (
                 <button
                   onClick={() => router.push(`/admin/messages?eventId=${selectedEvent.eventId}&guestName=${encodeURIComponent(selectedEvent.title)}&propertyId=${id}`)}
-                  className="w-full flex items-center justify-center gap-2 border border-stone-200 text-stone-700 hover:text-stone-900 hover:border-stone-300 py-2.5 text-[11px] tracking-widest transition-colors"
+                  className="w-full flex items-center justify-center gap-2 border border-stone-200 text-stone-700 hover:text-stone-900 hover:border-stone-300 py-2.5 text-[13px] tracking-widest transition-colors"
                 >
                   <MessageSquare size={13} />
                   게스트 메시지

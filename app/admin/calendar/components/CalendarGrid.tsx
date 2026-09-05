@@ -37,7 +37,7 @@ function CleanBadge({ evt }: { evt: ProcessedEvent }) {
     const isDone = evt.status === 'done';
     return (
       <span
-        className={`mx-1 text-[9px] leading-none px-1.5 py-1 font-semibold shrink-0 whitespace-nowrap inline-flex items-center gap-1 ${
+        className={`mx-1 text-[11px] leading-none px-1.5 py-1 font-semibold shrink-0 whitespace-nowrap inline-flex items-center gap-1 ${
           isDone
             ? 'bg-emerald-500 text-white ring-1 ring-emerald-600/30'
             : 'bg-white text-stone-800 ring-1 ring-stone-300'
@@ -49,7 +49,7 @@ function CleanBadge({ evt }: { evt: ProcessedEvent }) {
     );
   }
   return (
-    <span className="mx-1 text-[9px] leading-none px-1.5 py-1 font-semibold shrink-0 whitespace-nowrap bg-white text-amber-700 ring-1 ring-amber-400">
+    <span className="mx-1 text-[11px] leading-none px-1.5 py-1 font-semibold shrink-0 whitespace-nowrap bg-white text-amber-700 ring-1 ring-amber-400">
       미배정
     </span>
   );
@@ -66,7 +66,7 @@ function eventBg(evt: ProcessedEvent): React.CSSProperties {
 
 function BlockLabel({ evt }: { evt: ProcessedEvent }) {
   return (
-    <span className="mx-1 text-[9px] leading-none px-1.5 py-1 font-semibold shrink-0 whitespace-nowrap bg-white/90 text-slate-700 ring-1 ring-slate-300">
+    <span className="mx-1 text-[11px] leading-none px-1.5 py-1 font-semibold shrink-0 whitespace-nowrap bg-white/90 text-slate-700 ring-1 ring-slate-300">
       {evt.source === 'maintenance' ? '정비' : '차단'}
     </span>
   );
@@ -112,7 +112,7 @@ function DayCell({ day, di, viewDate, today, activeProperties, eventsByProp }: {
                 'bg-amber-500'
               }`}
             />
-            <span className={`text-[9px] tabular-nums font-medium tracking-tight hidden sm:inline ${
+            <span className={`text-[11px] tabular-nums font-medium tracking-tight hidden sm:inline ${
               allAvailable ? 'text-emerald-700' :
               noneAvailable ? 'text-rose-600' :
               'text-amber-700'
@@ -152,7 +152,7 @@ function PropertyLaneCell({ day, di, prop, weekStartStr, today, viewDate, events
         style={eventBg(midEvent)}
       >
         {showLabel && (
-          <span className="px-2 text-[11px] font-semibold text-white truncate leading-none drop-shadow-sm">
+          <span className="px-2 text-[13px] font-semibold text-white truncate leading-none drop-shadow-sm">
             {midEvent.title}
           </span>
         )}
@@ -176,7 +176,7 @@ function PropertyLaneCell({ day, di, prop, weekStartStr, today, viewDate, events
           onClick={() => openModal(checkinEvent)}
           style={{ width: '50%', ...eventBg(checkinEvent), borderRadius: 0 }}
         >
-          <span className="px-1.5 text-[11px] font-semibold text-white truncate leading-none drop-shadow-sm">
+          <span className="px-1.5 text-[13px] font-semibold text-white truncate leading-none drop-shadow-sm">
             {checkinEvent.title}
           </span>
         </div>
@@ -209,7 +209,7 @@ function PropertyLaneCell({ day, di, prop, weekStartStr, today, viewDate, events
           onClick={() => openModal(checkinEvent)}
           style={{ width: '50%', ...eventBg(checkinEvent), borderRadius: 0 }}
         >
-          <span className="px-2 text-[11px] font-semibold text-white truncate leading-none drop-shadow-sm">
+          <span className="px-2 text-[13px] font-semibold text-white truncate leading-none drop-shadow-sm">
             {checkinEvent.title}
           </span>
         </div>
@@ -278,7 +278,7 @@ export function CalendarGrid({ weeks, viewDate, today, activeProperties, eventsB
                         title={prop.name}
                       >
                         <span className="w-2 h-2 rounded-full shrink-0 ring-2" style={{ backgroundColor: prop.color, '--tw-ring-color': hexToRgba(prop.color, 0.2) } as React.CSSProperties} />
-                        <span className="text-[11px] text-stone-700 font-medium truncate">
+                        <span className="text-[13px] text-stone-700 font-medium truncate">
                           {prop.name}
                         </span>
                       </div>

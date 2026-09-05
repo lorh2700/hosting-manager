@@ -30,7 +30,7 @@ export function PropertyFilter({ properties, activeProps, toggleProp }: Property
         })}
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-stone-500">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-stone-500">
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-emerald-500" />
           전체 예약 가능

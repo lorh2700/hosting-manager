@@ -7,7 +7,7 @@ import { ko } from 'date-fns/locale';
 import { AlertTriangle, Plus, Send } from 'lucide-react';
 import type { CleaningIssue, IssueCategory, IssueUrgency } from '@/lib/types';
 import { ISSUE_STATUS_CONFIG, ISSUE_CATEGORY_LABELS, URGENCY_LABELS } from '@/lib/constants';
-import { toast } from '@/components/ui';
+import { toast, SkeletonList } from '@/components/ui';
 
 const CATEGORIES: { value: IssueCategory; label: string }[] = (
   Object.entries(ISSUE_CATEGORY_LABELS) as [IssueCategory, string][]
@@ -109,23 +109,19 @@ export default function CleanerIssuesPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="w-8 h-8 border-t-2 border-white rounded-full animate-spin" />
-      </div>
-    );
+    return <SkeletonList count={3} rows={2} />;
   }
 
   return (
     <div className="space-y-8">
       <header className="border-b border-stone-200 pb-6 mt-4 flex items-end justify-between">
         <div>
-          <p className="text-[10px] tracking-[0.3em] text-stone-500 mb-2">이슈 관리</p>
+          <p className="text-[12px] tracking-[0.3em] text-stone-500 mb-2">이슈 관리</p>
           <h1 className="text-2xl font-light tracking-tight text-stone-900">이슈 등록</h1>
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="border border-stone-300 text-stone-900 px-4 py-2.5 text-[10px] uppercase tracking-widest font-semibold hover:bg-stone-50 transition-colors flex items-center gap-1.5"
+          className="border border-stone-300 text-stone-900 px-4 py-2.5 text-[12px] uppercase tracking-widest font-semibold hover:bg-stone-50 transition-colors flex items-center gap-1.5"
         >
           <Plus size={14} /> 새 이슈
         </button>
@@ -134,9 +130,9 @@ export default function CleanerIssuesPage() {
       {/* New Issue Form */}
       {showForm && (
         <div className="border border-stone-200 bg-white p-5 space-y-4">
-          <p className="text-[10px] uppercase tracking-widest text-stone-500 font-semibold">새 이슈 등록</p>
+          <p className="text-[12px] uppercase tracking-widest text-stone-500 font-semibold">새 이슈 등록</p>
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-stone-400 mb-1.5">숙소</label>
+            <label className="block text-[12px] uppercase tracking-widest text-stone-400 mb-1.5">숙소</label>
             <select
               value={selectedProperty}
               onChange={e => setSelectedProperty(e.target.value)}
@@ -147,7 +143,7 @@ export default function CleanerIssuesPage() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-stone-400 mb-1.5">카테고리</label>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-400 mb-1.5">카테고리</label>
               <select
                 value={category}
                 onChange={e => setCategory(e.target.value as IssueCategory)}
@@ -157,7 +153,7 @@ export default function CleanerIssuesPage() {
               </select>
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-stone-400 mb-1.5">긴급도</label>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-400 mb-1.5">긴급도</label>
               <select
                 value={urgency}
                 onChange={e => setUrgency(e.target.value as IssueUrgency)}
@@ -168,7 +164,7 @@ export default function CleanerIssuesPage() {
             </div>
           </div>
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-stone-400 mb-1.5">제목</label>
+            <label className="block text-[12px] uppercase tracking-widest text-stone-400 mb-1.5">제목</label>
             <input
               type="text"
               value={title}
@@ -178,7 +174,7 @@ export default function CleanerIssuesPage() {
             />
           </div>
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-stone-400 mb-1.5">상세 설명</label>
+            <label className="block text-[12px] uppercase tracking-widest text-stone-400 mb-1.5">상세 설명</label>
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
@@ -190,7 +186,7 @@ export default function CleanerIssuesPage() {
           <button
             onClick={handleSubmit}
             disabled={submitting || !title.trim()}
-            className="w-full bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white py-3 text-[11px] uppercase tracking-widest font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white py-3 text-[13px] uppercase tracking-widest font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {submitting ? (
               <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
@@ -216,12 +212,12 @@ export default function CleanerIssuesPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-[10px] px-1.5 py-0.5 tracking-wider ${st.bg} ${st.color}`}>{st.label}</span>
-                      <span className="text-[10px] text-stone-300 tracking-wider">
+                      <span className={`text-[12px] px-1.5 py-0.5 tracking-wider ${st.bg} ${st.color}`}>{st.label}</span>
+                      <span className="text-[12px] text-stone-300 tracking-wider">
                         {CATEGORIES.find(c => c.value === issue.category)?.label}
                       </span>
                       {issue.urgency === 'urgent' && (
-                        <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 tracking-wider">긴급</span>
+                        <span className="text-[12px] bg-red-500/20 text-red-400 px-1.5 py-0.5 tracking-wider">긴급</span>
                       )}
                     </div>
                     <p className="text-stone-900 font-medium text-sm">{issue.title}</p>
@@ -233,7 +229,7 @@ export default function CleanerIssuesPage() {
                       <p className="text-green-400/60 text-xs mt-2">처리 내용: {issue.resolvedNote}</p>
                     )}
                   </div>
-                  <p className="text-stone-900/20 text-[10px] shrink-0">
+                  <p className="text-stone-900/20 text-[12px] shrink-0">
                     {format(parseISO(issue.createdAt), 'M/d', { locale: ko })}
                   </p>
                 </div>

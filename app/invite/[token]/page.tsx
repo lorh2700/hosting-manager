@@ -138,7 +138,7 @@ export default function InvitePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#050505]">
+      <div className="min-h-dvh flex items-center justify-center bg-[#050505]">
         <div className="w-8 h-8 border-t-2 border-white rounded-full animate-spin" />
       </div>
     );
@@ -146,7 +146,7 @@ export default function InvitePage() {
 
   if (error && !invitation) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#050505] p-4 font-sans">
+      <div className="min-h-dvh flex flex-col items-center justify-center bg-[#050505] p-4 font-sans">
         <div className="bg-[#111] p-10 border border-red-500/30 max-w-md w-full text-center">
           <h1 className="text-xl font-light tracking-widest text-white mb-4 uppercase">초대 오류</h1>
           <p className="text-white/50 text-sm font-light">{error}</p>
@@ -162,7 +162,7 @@ export default function InvitePage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#050505] p-4 font-sans">
+    <div className="min-h-dvh flex flex-col items-center justify-center bg-[#050505] p-4 font-sans">
       <div className="bg-[#111] p-10 border border-white/10 max-w-md w-full">
         <h1 className="text-2xl font-light tracking-widest text-white mb-2 uppercase">초대 수락</h1>
         <p className="text-white/50 mb-2 text-sm font-light tracking-wide">
@@ -175,7 +175,7 @@ export default function InvitePage() {
 
         <form onSubmit={handleAccept} className="space-y-4">
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">비밀번호</label>
+            <label className="block text-[12px] uppercase tracking-widest text-white/40 mb-2">비밀번호</label>
             <input
               type="password"
               value={password}
@@ -187,7 +187,7 @@ export default function InvitePage() {
             />
           </div>
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-2">비밀번호 확인</label>
+            <label className="block text-[12px] uppercase tracking-widest text-white/40 mb-2">비밀번호 확인</label>
             <input
               type="password"
               value={confirmPassword}
@@ -203,7 +203,7 @@ export default function InvitePage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full bg-white text-black py-4 text-[11px] uppercase tracking-widest font-semibold hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 mt-2"
+            className="w-full bg-white text-black py-4 text-[13px] uppercase tracking-widest font-semibold hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 mt-2"
           >
             {isSubmitting ? (
               <>

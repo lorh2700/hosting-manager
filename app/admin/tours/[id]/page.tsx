@@ -353,13 +353,13 @@ export default function TourDetailPage() {
       </Link>
 
       <header className="border-b border-stone-200 pb-6 sm:pb-7">
-        <p className="text-[11px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">투어 호스팅</p>
+        <p className="text-[13px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">투어 호스팅</p>
         <div className="flex items-center justify-between gap-4 mb-3">
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-900">{tour.title}</h1>
           <button
             type="button"
             onClick={() => update('isActive', !tour.isActive)}
-            className={`text-[10px] uppercase tracking-widest px-3 py-1.5 border transition-colors ${
+            className={`text-[12px] uppercase tracking-widest px-3 py-1.5 border transition-colors ${
               tour.isActive
                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
                 : 'bg-stone-100 text-stone-500 border-stone-200 hover:bg-stone-200'
@@ -387,7 +387,7 @@ export default function TourDetailPage() {
           className="bg-white border border-stone-200 hover:border-[var(--brand)] p-5 flex items-center justify-between group transition-colors"
         >
           <div>
-            <p className="text-[10px] uppercase tracking-widest text-stone-500 mb-1">관리</p>
+            <p className="text-[12px] uppercase tracking-widest text-stone-500 mb-1">관리</p>
             <p className="text-sm font-medium text-stone-900">일정 · 재고</p>
           </div>
           <CalendarDays size={20} className="text-stone-400 group-hover:text-[var(--brand)]" />
@@ -397,7 +397,7 @@ export default function TourDetailPage() {
           className="bg-white border border-stone-200 hover:border-[var(--brand)] p-5 flex items-center justify-between group transition-colors"
         >
           <div>
-            <p className="text-[10px] uppercase tracking-widest text-stone-500 mb-1">관리</p>
+            <p className="text-[12px] uppercase tracking-widest text-stone-500 mb-1">관리</p>
             <p className="text-sm font-medium text-stone-900">예약 내역</p>
           </div>
           <BookOpen size={20} className="text-stone-400 group-hover:text-[var(--brand)]" />
@@ -408,7 +408,7 @@ export default function TourDetailPage() {
       <div className="bg-white border border-stone-200 p-6 sm:p-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm tracking-widest font-medium text-stone-900">사진</h2>
-          <span className="text-[10px] text-stone-400">{tour.images.length}장</span>
+          <span className="text-[12px] text-stone-400">{tour.images.length}장</span>
         </div>
 
         {tour.images.length > 0 && (
@@ -419,7 +419,7 @@ export default function TourDetailPage() {
                 <button
                   type="button"
                   onClick={() => handleRemoveImage(url)}
-                  className="absolute top-1 right-1 w-7 h-7 bg-black/60 hover:bg-red-600 text-white flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
+                  className="absolute top-1 right-1 w-7 h-7 bg-black/60 hover:bg-red-600 text-white flex items-center justify-center transition-colors"
                   title="삭제"
                 >
                   <X size={14} />
@@ -460,9 +460,9 @@ export default function TourDetailPage() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-sm tracking-widest font-medium text-stone-900">코스 옵션</h2>
-            <p className="text-[11px] text-stone-500 mt-1">시간별로 가격을 다르게 등록하세요. (예: 30분 / 1시간 / 2시간)</p>
+            <p className="text-[13px] text-stone-500 mt-1">시간별로 가격을 다르게 등록하세요. (예: 30분 / 1시간 / 2시간)</p>
           </div>
-          <span className="text-[10px] text-stone-400">{tour.durationOptions.length}개</span>
+          <span className="text-[12px] text-stone-400">{tour.durationOptions.length}개</span>
         </div>
 
         <div className="space-y-2 mb-5">
@@ -499,7 +499,7 @@ export default function TourDetailPage() {
                   type="button"
                   onClick={() => handleUpdateOption(opt)}
                   disabled={savingOptionId === opt.id}
-                  className="text-[10px] uppercase tracking-widest px-3 py-1.5 bg-stone-100 hover:bg-[var(--brand)] hover:text-white text-stone-700 transition-colors disabled:opacity-50"
+                  className="text-[12px] uppercase tracking-widest px-3 py-1.5 bg-stone-100 hover:bg-[var(--brand)] hover:text-white text-stone-700 transition-colors disabled:opacity-50"
                 >
                   저장
                 </button>
@@ -547,7 +547,7 @@ export default function TourDetailPage() {
             type="button"
             onClick={handleAddOption}
             disabled={!newOption.durationMin || !newOption.price || savingOptionId === 'new'}
-            className="ml-auto text-[10px] uppercase tracking-widest px-4 py-2 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white transition-colors disabled:opacity-50 inline-flex items-center gap-1"
+            className="ml-auto text-[12px] uppercase tracking-widest px-4 py-2 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white transition-colors disabled:opacity-50 inline-flex items-center gap-1"
           >
             <Plus size={12} /> 추가
           </button>
@@ -559,9 +559,9 @@ export default function TourDetailPage() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-sm tracking-widest font-medium text-stone-900">티켓 종류</h2>
-            <p className="text-[11px] text-stone-500 mt-1">한 예약에 여러 명이 섞일 수 있을 때 사용 (예: 성인 + 어린이 + 영유아)</p>
+            <p className="text-[13px] text-stone-500 mt-1">한 예약에 여러 명이 섞일 수 있을 때 사용 (예: 성인 + 어린이 + 영유아)</p>
           </div>
-          <span className="text-[10px] text-stone-400">{tour.ticketTiers.length}개</span>
+          <span className="text-[12px] text-stone-400">{tour.ticketTiers.length}개</span>
         </div>
 
         <div className="space-y-2 mb-5">
@@ -597,7 +597,7 @@ export default function TourDetailPage() {
                   type="button"
                   onClick={() => handleUpdateTier(tier)}
                   disabled={savingTierId === tier.id}
-                  className="text-[10px] uppercase tracking-widest px-3 py-1.5 bg-stone-100 hover:bg-[var(--brand)] hover:text-white text-stone-700 transition-colors disabled:opacity-50"
+                  className="text-[12px] uppercase tracking-widest px-3 py-1.5 bg-stone-100 hover:bg-[var(--brand)] hover:text-white text-stone-700 transition-colors disabled:opacity-50"
                 >
                   저장
                 </button>
@@ -643,7 +643,7 @@ export default function TourDetailPage() {
             type="button"
             onClick={handleAddTier}
             disabled={!newTier.label.trim() || newTier.price === '' || savingTierId === 'new'}
-            className="ml-auto text-[10px] uppercase tracking-widest px-4 py-2 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white transition-colors disabled:opacity-50 inline-flex items-center gap-1"
+            className="ml-auto text-[12px] uppercase tracking-widest px-4 py-2 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white transition-colors disabled:opacity-50 inline-flex items-center gap-1"
           >
             <Plus size={12} /> 추가
           </button>
@@ -653,7 +653,7 @@ export default function TourDetailPage() {
       {/* Basic info */}
       <div className="bg-white border border-stone-200 p-6 sm:p-8 space-y-5">
         <div>
-          <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">투어명</label>
+          <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">투어명</label>
           <input
             type="text"
             value={tour.title}
@@ -663,19 +663,19 @@ export default function TourDetailPage() {
         </div>
 
         <div>
-          <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">슬러그(URL)</label>
+          <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">슬러그(URL)</label>
           <input
             type="text"
             value={tour.slug}
             onChange={e => update('slug', e.target.value)}
             className="w-full bg-white border border-stone-200 px-4 py-3 text-sm font-mono text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors"
           />
-          <p className="text-[10px] text-stone-400 mt-1.5">/tours/{tour.slug}</p>
+          <p className="text-[12px] text-stone-400 mt-1.5">/tours/{tour.slug}</p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">운영업체</label>
+            <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">운영업체</label>
             <select
               value={tour.operatorId ?? ''}
               onChange={e => update('operatorId', e.target.value || null)}
@@ -686,7 +686,7 @@ export default function TourDetailPage() {
             </select>
           </div>
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">카테고리</label>
+            <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">카테고리</label>
             <select
               value={tour.category ?? ''}
               onChange={e => update('category', e.target.value || null)}
@@ -698,18 +698,18 @@ export default function TourDetailPage() {
         </div>
 
         <div>
-          <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">기본 정원</label>
+          <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">기본 정원</label>
           <input
             type="number"
             value={tour.maxGroupSize ?? ''}
             onChange={e => update('maxGroupSize', e.target.value ? Number(e.target.value) : null)}
             className="w-32 bg-white border border-stone-200 px-3 py-2.5 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors"
           />
-          <p className="text-[10px] text-stone-400 mt-1.5">새 슬롯 생성 시 기본값으로 사용됩니다.</p>
+          <p className="text-[12px] text-stone-400 mt-1.5">새 슬롯 생성 시 기본값으로 사용됩니다.</p>
         </div>
 
         <div>
-          <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">모임장소</label>
+          <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">모임장소</label>
           <input
             type="text"
             value={tour.meetingPoint ?? ''}
@@ -719,7 +719,7 @@ export default function TourDetailPage() {
         </div>
 
         <div>
-          <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">설명</label>
+          <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">설명</label>
           <textarea
             value={tour.description ?? ''}
             onChange={e => update('description', e.target.value || null)}
@@ -731,14 +731,14 @@ export default function TourDetailPage() {
         <div className="flex justify-between gap-3 pt-3 border-t border-stone-200">
           <button
             onClick={handleDelete}
-            className="flex items-center gap-2 text-stone-400 hover:text-red-600 px-3 py-2 text-[10px] tracking-widest font-semibold uppercase transition-colors"
+            className="flex items-center gap-2 text-stone-400 hover:text-red-600 px-3 py-2 text-[12px] tracking-widest font-semibold uppercase transition-colors"
           >
             <Trash2 size={13} /> 삭제
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-2 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white px-5 py-2.5 text-[10px] tracking-widest font-semibold uppercase transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white px-5 py-2.5 text-[12px] tracking-widest font-semibold uppercase transition-colors disabled:opacity-50"
           >
             <Save size={13} />
             {saving ? '저장 중...' : '저장'}

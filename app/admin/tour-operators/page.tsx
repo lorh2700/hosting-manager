@@ -119,7 +119,7 @@ export default function TourOperatorsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <div className="w-8 h-8 border-t-2 border-[var(--brand)] rounded-full animate-spin"></div>
       </div>
     );
@@ -128,7 +128,7 @@ export default function TourOperatorsPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-8 sm:space-y-12">
       <header className="border-b border-stone-200 pb-6 sm:pb-7">
-        <p className="text-[11px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">투어 호스팅</p>
+        <p className="text-[13px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">투어 호스팅</p>
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-900">투어 운영업체</h1>
         <p className="text-stone-500 mt-2 text-sm">
           예약이 들어왔을 때 알림을 보낼 운영업체를 등록합니다.
@@ -142,7 +142,7 @@ export default function TourOperatorsPage() {
 
           <div className="space-y-4 mb-8">
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">업체명 *</label>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">업체명 *</label>
               <input
                 type="text"
                 value={newName}
@@ -152,7 +152,7 @@ export default function TourOperatorsPage() {
               />
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">담당자 연락처</label>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">담당자 연락처</label>
               <input
                 type="tel"
                 value={newPhone}
@@ -162,7 +162,7 @@ export default function TourOperatorsPage() {
               />
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">이메일</label>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">이메일</label>
               <input
                 type="email"
                 value={newEmail}
@@ -176,7 +176,7 @@ export default function TourOperatorsPage() {
           <button
             onClick={handleAdd}
             disabled={adding || !newName.trim()}
-            className={`w-full py-4 text-[11px] tracking-widest font-semibold uppercase flex items-center justify-center gap-2 transition-colors ${
+            className={`w-full py-4 text-[13px] tracking-widest font-semibold uppercase flex items-center justify-center gap-2 transition-colors ${
               newName.trim() ? 'bg-[var(--brand)] text-white hover:bg-[var(--brand-dark)]' : 'bg-stone-100 text-stone-400 cursor-not-allowed'
             }`}
           >
@@ -203,7 +203,7 @@ export default function TourOperatorsPage() {
               <div key={op.id} className="bg-white border border-stone-200 p-5 sm:p-6 group hover:border-stone-300 transition-colors">
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">업체명</label>
+                    <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">업체명</label>
                     <input
                       type="text"
                       value={op.name}
@@ -214,7 +214,7 @@ export default function TourOperatorsPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">담당자명</label>
+                      <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">담당자명</label>
                       <input
                         type="text"
                         value={op.contactName ?? ''}
@@ -223,7 +223,7 @@ export default function TourOperatorsPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2 flex items-center gap-1.5">
+                      <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2 flex items-center gap-1.5">
                         <Phone size={11} /> 연락처
                       </label>
                       <input
@@ -236,7 +236,7 @@ export default function TourOperatorsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2 flex items-center gap-1.5">
+                    <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2 flex items-center gap-1.5">
                       <Mail size={11} /> 이메일
                     </label>
                     <input
@@ -248,7 +248,7 @@ export default function TourOperatorsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2 flex items-center gap-1.5">
+                    <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2 flex items-center gap-1.5">
                       <MessageCircle size={11} /> 알림 수단
                     </label>
                     <div className="flex flex-wrap gap-2">
@@ -270,7 +270,7 @@ export default function TourOperatorsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">메모</label>
+                    <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">메모</label>
                     <textarea
                       value={op.notes ?? ''}
                       onChange={e => updateLocal(op.id, 'notes', e.target.value || null)}
@@ -279,7 +279,7 @@ export default function TourOperatorsPage() {
                     />
                   </div>
 
-                  <p className="text-[10px] text-stone-400 tracking-wide">
+                  <p className="text-[12px] text-stone-400 tracking-wide">
                     연결된 투어 {op.tourCount}건
                   </p>
                 </div>
@@ -295,7 +295,7 @@ export default function TourOperatorsPage() {
                   <button
                     onClick={() => handleUpdate(op)}
                     disabled={saving === op.id}
-                    className="flex items-center gap-2 bg-stone-100 hover:bg-[var(--brand)] hover:text-white text-stone-900 px-4 py-2 text-[10px] tracking-widest font-semibold uppercase transition-colors disabled:opacity-50"
+                    className="flex items-center gap-2 bg-stone-100 hover:bg-[var(--brand)] hover:text-white text-stone-900 px-4 py-2 text-[12px] tracking-widest font-semibold uppercase transition-colors disabled:opacity-50"
                   >
                     <Save size={13} />
                     {saving === op.id ? '저장 중...' : '저장'}

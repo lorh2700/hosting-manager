@@ -6,7 +6,7 @@ import {
   KeyRound, ShieldCheck, Building2, Bell, BellOff, Mail, PauseCircle, PlayCircle,
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
-import { toast, confirmDialog } from '@/components/ui';
+import { toast, confirmDialog, SkeletonList } from '@/components/ui';
 
 /**
  * 청소 담당자 관리 — 담당자의 정체성은 프로필이고, 로그인은 선택이다.
@@ -42,7 +42,7 @@ function last4(phone: string | null | undefined): string | null {
 
 const inputCls = 'w-full bg-white border border-stone-200 px-4 py-2.5 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors';
 const smallBtn = 'text-xs text-stone-700 hover:text-stone-900 flex items-center gap-2 border border-stone-200 hover:border-stone-300 px-3 py-1.5 transition-colors disabled:opacity-50';
-const labelCls = 'block text-[10px] uppercase tracking-widest text-stone-500 mb-2';
+const labelCls = 'block text-[12px] uppercase tracking-widest text-stone-500 mb-2';
 
 export default function CleanersPage() {
   const { user } = useAuth();
@@ -230,17 +230,13 @@ export default function CleanersPage() {
   const publicUrl = (token: string | null) => (token ? `${origin}/c/${token}` : '');
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-t-2 border-[var(--brand)] rounded-full animate-spin"></div>
-      </div>
-    );
+    return <SkeletonList count={3} rows={2} />;
   }
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 sm:space-y-10">
       <header className="border-b border-stone-200 pb-6 sm:pb-7">
-        <p className="text-[11px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">숙박 호스팅</p>
+        <p className="text-[13px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">숙박 호스팅</p>
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-900">청소 담당자 관리</h1>
         <p className="text-stone-500 mt-2 text-sm">
           프로필을 만들고, 필요하면 앱 로그인이나 공개 링크로 일정을 공유하세요. 배정 지점은 화면·청소 신청·알림에 모두 적용됩니다.
@@ -274,14 +270,14 @@ export default function CleanersPage() {
                 placeholder="010-0000-0000"
                 className={inputCls}
               />
-              <p className="text-[10px] text-stone-400 mt-1.5">알림톡 수신과 앱 로그인에 쓰입니다. 로그인 계정은 프로필을 만든 뒤 따로 켭니다.</p>
+              <p className="text-[12px] text-stone-400 mt-1.5">알림톡 수신과 앱 로그인에 쓰입니다. 로그인 계정은 프로필을 만든 뒤 따로 켭니다.</p>
             </div>
           </div>
 
           <button
             onClick={handleAdd}
             disabled={adding || !newName.trim()}
-            className={`w-full py-4 text-[11px] tracking-widest font-semibold uppercase flex items-center justify-center gap-2 transition-colors ${
+            className={`w-full py-4 text-[13px] tracking-widest font-semibold uppercase flex items-center justify-center gap-2 transition-colors ${
               newName.trim() ? 'bg-[var(--brand)] text-white hover:bg-[var(--brand-dark)]' : 'bg-stone-100 text-stone-400 cursor-not-allowed'
             }`}
           >
@@ -481,7 +477,7 @@ export default function CleanersPage() {
                               );
                             })}
                           </div>
-                          <p className="text-[10px] text-stone-400 mt-2 tracking-wide">
+                          <p className="text-[12px] text-stone-400 mt-2 tracking-wide">
                             {cleaner.assignedPropertyIds?.length
                               ? `${cleaner.assignedPropertyIds.length}개 지점의 일정만 보이고, 그 지점의 청소만 신청·알림 받습니다.`
                               : '지정 없음 — 모든 지점의 일정을 보고 신청·알림 받습니다.'}
@@ -493,7 +489,7 @@ export default function CleanersPage() {
                     {/* 4. 알림 */}
                     <div className="border-t border-stone-100 pt-4 flex items-center justify-between gap-4">
                       <div>
-                        <p className="text-[10px] uppercase tracking-widest text-stone-500">신규 청소 오픈 알림톡</p>
+                        <p className="text-[12px] uppercase tracking-widest text-stone-500">신규 청소 오픈 알림톡</p>
                         <p className="text-xs text-stone-500 mt-1">
                           {cleaner.notifyNewOpen ? '새 청소가 열리면 알림톡을 받습니다.' : '받지 않습니다. (호스트 본인 프로필 등)'}
                         </p>
@@ -522,7 +518,7 @@ export default function CleanersPage() {
                     <button
                       onClick={() => handleSaveProfile(cleaner)}
                       disabled={isBusy}
-                      className="flex items-center gap-2 bg-stone-100 hover:bg-[var(--brand)] hover:text-white text-stone-900 px-4 py-2 text-[10px] tracking-widest font-semibold uppercase transition-colors disabled:opacity-50"
+                      className="flex items-center gap-2 bg-stone-100 hover:bg-[var(--brand)] hover:text-white text-stone-900 px-4 py-2 text-[12px] tracking-widest font-semibold uppercase transition-colors disabled:opacity-50"
                     >
                       <Save size={13} />
                       {isBusy ? '저장 중...' : '프로필 저장'}

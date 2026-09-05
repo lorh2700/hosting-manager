@@ -18,6 +18,7 @@ import {
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, CalendarDays, CheckCircle2, Clock } from 'lucide-react';
+import { SkeletonList } from '@/components/ui';
 
 interface CleaningRow {
   id: string;
@@ -120,17 +121,13 @@ export default function CleanerCalendarPage() {
   const selected = selectedDate ? cleaningsByDate.get(selectedDate) ?? [] : [];
 
   if (loading) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="w-7 h-7 border-2 border-stone-200 border-t-[var(--brand)] rounded-full animate-spin" />
-      </div>
-    );
+    return <SkeletonList count={3} rows={2} />;
   }
 
   return (
     <div className="space-y-6">
       <header className="border-b border-stone-200 pb-6 sm:pb-7">
-        <p className="text-[11px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">청소 담당자</p>
+        <p className="text-[13px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">청소 담당자</p>
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-900">캘린더</h1>
         <p className="text-stone-500 mt-2 text-sm">월별 청소 일정을 한눈에 확인할 수 있습니다.</p>
       </header>
@@ -158,7 +155,7 @@ export default function CleanerCalendarPage() {
 
       {/* Calendar */}
       <div className="bg-white border border-stone-200">
-        <div className="grid grid-cols-7 text-[10px] uppercase tracking-widest text-stone-500 border-b border-stone-200">
+        <div className="grid grid-cols-7 text-[12px] uppercase tracking-widest text-stone-500 border-b border-stone-200">
           {WEEKDAYS.map(d => (
             <div key={d} className={`px-2 py-3 text-center ${d === '토' ? 'text-sky-600' : d === '일' ? 'text-rose-600' : ''}`}>
               {d}
@@ -210,13 +207,13 @@ export default function CleanerCalendarPage() {
                         ? '미배정'
                         : (c.cleanerName ?? '담당자');
                     return (
-                      <div key={c.id} className={`text-[10px] ${cls} px-1.5 py-0.5 truncate tracking-wide`} title={`${c.propertyName} · ${label}`}>
+                      <div key={c.id} className={`text-[12px] ${cls} px-1.5 py-0.5 truncate tracking-wide`} title={`${c.propertyName} · ${label}`}>
                         {label}
                       </div>
                     );
                   })}
                   {hidden > 0 && (
-                    <div className="text-[10px] text-stone-500 px-1.5 truncate">
+                    <div className="text-[12px] text-stone-500 px-1.5 truncate">
                       +{hidden}건
                     </div>
                   )}
@@ -262,7 +259,7 @@ export default function CleanerCalendarPage() {
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-stone-900 font-medium">{c.propertyName}</p>
-                      <p className="text-[11px] text-stone-500 mt-0.5">
+                      <p className="text-[13px] text-stone-500 mt-0.5">
                         {isMine
                           ? <span className="text-[var(--brand-dark)] font-medium">내가 배정됨</span>
                           : isOpen

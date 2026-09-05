@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { Link2, Plus, RefreshCw, Trash2, CheckCircle2, XCircle, Clock, AlertTriangle } from 'lucide-react';
 import type { IntegrationProvider, IntegrationType, IntegrationStatus } from '@/lib/types';
-import { toast, confirmDialog } from '@/components/ui';
+import { toast, confirmDialog, SkeletonList } from '@/components/ui';
 
 interface IntegrationRecord {
   id: string;
@@ -230,25 +230,21 @@ export default function IntegrationsPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-t-2 border-[var(--brand)] rounded-full animate-spin" />
-      </div>
-    );
+    return <SkeletonList count={3} rows={2} />;
   }
 
   return (
     <div className="max-w-5xl mx-auto space-y-12">
       <header className="border-b border-stone-200 pb-8 flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-end">
         <div>
-          <p className="text-[10px] tracking-[0.3em] text-stone-500 mb-4">채널</p>
+          <p className="text-[12px] tracking-[0.3em] text-stone-500 mb-4">채널</p>
           <h1 className="text-3xl md:text-4xl font-light tracking-tight text-stone-900">연동 관리</h1>
           <p className="text-stone-500 mt-4 text-sm font-light tracking-wide">OTA 채널 연동 및 동기화 상태를 관리합니다.</p>
         </div>
         <div className="flex gap-3">
           <button
             onClick={() => setShowAddForm(!showAddForm)}
-            className="flex items-center gap-2 bg-stone-100 text-stone-900 px-4 py-2.5 text-[11px] uppercase tracking-widest font-semibold hover:bg-stone-200 transition-colors"
+            className="flex items-center gap-2 bg-stone-100 text-stone-900 px-4 py-2.5 text-[13px] uppercase tracking-widest font-semibold hover:bg-stone-200 transition-colors"
           >
             <Plus size={14} />
             연동 추가
@@ -256,7 +252,7 @@ export default function IntegrationsPage() {
           <button
             onClick={handleSyncAll}
             disabled={syncing}
-            className="flex items-center gap-2 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white px-6 py-2.5 text-[11px] uppercase tracking-widest font-semibold transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white px-6 py-2.5 text-[13px] uppercase tracking-widest font-semibold transition-colors disabled:opacity-50"
           >
             <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
             {syncing ? '동기화 중...' : '전체 동기화'}
@@ -270,7 +266,7 @@ export default function IntegrationsPage() {
           <h2 className="text-sm font-medium text-stone-900 mb-4">새 연동 추가</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">숙소</label>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">숙소</label>
               <select
                 value={newPropertyId}
                 onChange={e => setNewPropertyId(e.target.value)}
@@ -282,7 +278,7 @@ export default function IntegrationsPage() {
               </select>
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">채널</label>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">채널</label>
               <select
                 value={newProvider}
                 onChange={e => setNewProvider(e.target.value as IntegrationProvider)}
@@ -294,7 +290,7 @@ export default function IntegrationsPage() {
               </select>
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">연동 유형</label>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">연동 유형</label>
               <select
                 value={newType}
                 onChange={e => setNewType(e.target.value as IntegrationType)}
@@ -306,7 +302,7 @@ export default function IntegrationsPage() {
             </div>
           </div>
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">iCal Import URL</label>
+            <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">iCal Import URL</label>
             <input
               type="url"
               value={newImportUrl}
@@ -316,13 +312,13 @@ export default function IntegrationsPage() {
             />
           </div>
           <div className="flex justify-end gap-3">
-            <button type="button" onClick={() => setShowAddForm(false)} className="px-4 py-2 text-[10px] text-stone-500 hover:text-stone-900">
+            <button type="button" onClick={() => setShowAddForm(false)} className="px-4 py-2 text-[12px] text-stone-500 hover:text-stone-900">
               취소
             </button>
             <button
               type="submit"
               disabled={adding}
-              className="bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white px-6 py-2 text-[10px] tracking-widest font-semibold uppercase disabled:opacity-50"
+              className="bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white px-6 py-2 text-[12px] tracking-widest font-semibold uppercase disabled:opacity-50"
             >
               {adding ? '추가 중...' : '추가'}
             </button>
@@ -381,7 +377,7 @@ export default function IntegrationsPage() {
                   </button>
                   <button
                     onClick={() => handleToggleStatus(integ)}
-                    className={`px-3 py-1 text-[9px] tracking-widest border transition-colors ${
+                    className={`px-3 py-1 text-[11px] tracking-widest border transition-colors ${
                       integ.status === 'active'
                         ? 'border-emerald-300 text-emerald-600 hover:bg-emerald-50'
                         : 'border-stone-200 text-stone-500 hover:bg-stone-100'
@@ -406,7 +402,7 @@ export default function IntegrationsPage() {
       {/* Sync Logs */}
       {syncLogs.length > 0 && (
         <div>
-          <h2 className="text-[10px] uppercase tracking-widest text-stone-500 mb-4">최근 동기화 이력</h2>
+          <h2 className="text-[12px] uppercase tracking-widest text-stone-500 mb-4">최근 동기화 이력</h2>
           <div className="bg-white border border-stone-200 overflow-hidden">
             <div className="divide-y divide-stone-100">
               {syncLogs.slice(0, 20).map(log => (

@@ -5,7 +5,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { BookOpen, X, CheckCircle2, Clock, Filter, Plus, Loader2 } from 'lucide-react';
-import { toast } from '@/components/ui';
+import { toast, SkeletonList } from '@/components/ui';
 
 interface PropertyInfo {
   id: string;
@@ -393,11 +393,7 @@ export default function BookingsPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-7 h-7 border-2 border-stone-200 border-t-[var(--brand)] rounded-full animate-spin"></div>
-      </div>
-    );
+    return <SkeletonList count={3} rows={2} />;
   }
 
   const inputCls = 'w-full bg-white border border-stone-200 text-stone-900 text-sm px-4 py-3 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors placeholder:text-stone-400';
@@ -407,7 +403,7 @@ export default function BookingsPage() {
     <div className="max-w-6xl mx-auto space-y-8 sm:space-y-10">
       <header className="border-b border-stone-200 pb-6 sm:pb-7 flex flex-col sm:flex-row gap-4 sm:items-end sm:justify-between">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">예약</p>
+          <p className="text-[13px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">예약</p>
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-900">예약 관리</h1>
           <p className="text-stone-500 mt-2 text-sm">직접 예약과 OTA 채널 예약을 통합 관리하세요.</p>
         </div>
@@ -519,10 +515,10 @@ export default function BookingsPage() {
                         {booking.email && <p className="text-xs text-stone-500 mt-0.5 truncate">{booking.email}</p>}
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <span className={`inline-flex items-center px-2 py-0.5 text-[11px] font-medium border ${getSourceBadgeClass(booking.source)}`}>
+                        <span className={`inline-flex items-center px-2 py-0.5 text-[13px] font-medium border ${getSourceBadgeClass(booking.source)}`}>
                           {getSourceLabel(booking.source)}
                         </span>
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap ${statusBadgeClass[booking.status]}`}>
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[13px] font-medium whitespace-nowrap ${statusBadgeClass[booking.status]}`}>
                           <StatusIcon status={booking.status} />
                           {statusLabel[booking.status]}
                         </span>
@@ -574,11 +570,11 @@ export default function BookingsPage() {
 
                     <p className="text-sm text-stone-700">{booking.guests}명</p>
 
-                    <span className={`inline-flex items-center px-2 py-0.5 text-[11px] font-medium w-fit border ${getSourceBadgeClass(booking.source)}`}>
+                    <span className={`inline-flex items-center px-2 py-0.5 text-[13px] font-medium w-fit border ${getSourceBadgeClass(booking.source)}`}>
                       {getSourceLabel(booking.source)}
                     </span>
 
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium w-fit ${statusBadgeClass[booking.status]}`}>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[13px] font-medium w-fit ${statusBadgeClass[booking.status]}`}>
                       <StatusIcon status={booking.status} />
                       {statusLabel[booking.status]}
                     </span>

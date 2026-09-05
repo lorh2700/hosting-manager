@@ -85,7 +85,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50">
+      <div className="min-h-dvh flex items-center justify-center bg-stone-50">
         <div className="w-7 h-7 border-2 border-stone-200 border-t-[var(--brand)] rounded-full animate-spin" />
       </div>
     );
@@ -93,7 +93,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
 
   if (!user) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 p-5 font-sans">
+      <div className="min-h-dvh flex flex-col items-center justify-center bg-stone-50 p-5 font-sans">
         <Link
           href="/"
           aria-label="void anchae 홈으로"
@@ -102,13 +102,13 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
           <Logo width={200} variant="black" priority />
         </Link>
         <div className="bg-white p-8 sm:p-10 border border-stone-200 max-w-md w-full">
-          <p className="text-[10px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">Cleaner</p>
+          <p className="text-[12px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">Cleaner</p>
           <h1 className="text-xl font-semibold text-stone-900 mb-1.5">청소 담당자 로그인</h1>
           <p className="text-stone-500 mb-7 text-sm">청소 일정을 확인하려면 로그인하세요.</p>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-stone-600 mb-2">이메일</label>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-600 mb-2">이메일</label>
               <input
                 type="email"
                 value={email}
@@ -120,7 +120,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
               />
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-stone-600 mb-2">비밀번호</label>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-600 mb-2">비밀번호</label>
               <input
                 type="password"
                 value={password}
@@ -163,7 +163,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
   );
 
   return (
-    <div className="min-h-screen bg-stone-50 font-sans text-stone-900 selection:bg-[var(--brand)]/20">
+    <div className="min-h-dvh bg-stone-50 font-sans text-stone-900 selection:bg-[var(--brand)]/20">
       <header className="bg-white border-b border-stone-200 px-5 py-4 flex items-center justify-between">
         <Link href="/cleaner" className="inline-flex items-center hover:opacity-80 transition-opacity" aria-label="void anchae 청소 홈">
           <Logo width={120} variant="black" priority />
@@ -174,7 +174,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
           )}
           <button
             onClick={handleLogout}
-            className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-stone-500 hover:text-stone-900 transition-colors"
+            className="flex items-center gap-1.5 text-[13px] uppercase tracking-widest text-stone-500 hover:text-stone-900 transition-colors"
             aria-label="로그아웃"
           >
             <LogOut size={13} />
@@ -203,7 +203,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
               >
                 {isActive && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[2px] bg-[var(--brand)]" />}
                 <Icon size={20} strokeWidth={isActive ? 2 : 1.7} className={isActive ? 'text-[var(--brand)]' : ''} />
-                <span className="text-[10.5px] leading-none">{item.label}</span>
+                <span className="text-[12px] leading-none">{item.label}</span>
               </Link>
             );
           })}
@@ -219,7 +219,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
               >
                 {(moreOpen || isMoreActive) && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[2px] bg-[var(--brand)]" />}
                 <MoreHorizontal size={20} strokeWidth={moreOpen || isMoreActive ? 2 : 1.7} className={moreOpen || isMoreActive ? 'text-[var(--brand)]' : ''} />
-                <span className="text-[10.5px] leading-none">더보기</span>
+                <span className="text-[12px] leading-none">더보기</span>
               </button>
 
               {moreOpen && (

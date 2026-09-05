@@ -78,12 +78,12 @@ export default async function CleanerPublicCalendar({ params, searchParams }: Pa
     .slice(0, 10);
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-sans">
+    <div className="min-h-dvh bg-[#050505] text-white font-sans">
       <header className="border-b border-white/10 px-5 sm:px-8 py-4 flex items-center justify-between">
         <span className="text-sm tracking-[0.2em] font-medium">void anchae</span>
         <Link
           href="/cleaner"
-          className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-white/60 hover:text-white transition-colors border border-white/10 hover:border-white/30 px-3 py-2"
+          className="flex items-center gap-2 text-[13px] uppercase tracking-widest text-white/60 hover:text-white transition-colors border border-white/10 hover:border-white/30 px-3 py-2"
         >
           <LogIn size={13} />
           로그인
@@ -92,7 +92,7 @@ export default async function CleanerPublicCalendar({ params, searchParams }: Pa
 
       <main className="max-w-3xl mx-auto px-5 sm:px-8 py-8 sm:py-12">
         <div className="mb-8">
-          <p className="text-[10px] tracking-[0.3em] text-white/50 mb-2">청소 일정</p>
+          <p className="text-[12px] tracking-[0.3em] text-white/50 mb-2">청소 일정</p>
           <h1 className="text-2xl sm:text-3xl font-light tracking-tight">{cleaner.name} 님</h1>
         </div>
 
@@ -118,7 +118,7 @@ export default async function CleanerPublicCalendar({ params, searchParams }: Pa
 
         <div className="grid grid-cols-7 gap-px bg-white/5 border border-white/10">
           {['월', '화', '수', '목', '금', '토', '일'].map(d => (
-            <div key={d} className="bg-[#050505] py-2 text-center text-[10px] uppercase tracking-widest text-white/40">
+            <div key={d} className="bg-[#050505] py-2 text-center text-[12px] uppercase tracking-widest text-white/40">
               {d}
             </div>
           ))}
@@ -135,7 +135,7 @@ export default async function CleanerPublicCalendar({ params, searchParams }: Pa
                 }`}
               >
                 <div
-                  className={`text-[11px] sm:text-xs ${
+                  className={`text-[13px] sm:text-xs ${
                     isToday ? 'text-white font-semibold' : 'text-white/60'
                   } ${isToday ? 'w-5 h-5 rounded-full bg-white text-black flex items-center justify-center' : ''}`}
                 >
@@ -144,7 +144,7 @@ export default async function CleanerPublicCalendar({ params, searchParams }: Pa
                 {items.map(item => (
                   <div
                     key={item.id}
-                    className={`text-[10px] sm:text-[11px] leading-tight px-1.5 py-1 border-l-2 truncate ${
+                    className={`text-[12px] sm:text-[13px] leading-tight px-1.5 py-1 border-l-2 truncate ${
                       item.status === 'done'
                         ? 'bg-emerald-500/10 border-emerald-400/60 text-emerald-200/80'
                         : 'bg-white/5 border-white/40 text-white/80'
@@ -161,7 +161,7 @@ export default async function CleanerPublicCalendar({ params, searchParams }: Pa
 
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <CopyIcalButton token={token} />
-          <span className="text-[11px] text-white/40">
+          <span className="text-[13px] text-white/40">
             캘린더 앱에서 자동 동기화되며, 배정 변경 시 자동 반영됩니다.
           </span>
         </div>
@@ -184,12 +184,12 @@ export default async function CleanerPublicCalendar({ params, searchParams }: Pa
                   >
                     <div>
                       <p className="text-sm">{item.property?.name ?? '숙소'}</p>
-                      <p className="text-[11px] text-white/50 mt-0.5">
+                      <p className="text-[13px] text-white/50 mt-0.5">
                         {format(d, 'M월 d일 (EEE)', { locale: ko })}
                       </p>
                     </div>
                     <span
-                      className={`text-[10px] uppercase tracking-widest px-2 py-1 ${
+                      className={`text-[12px] uppercase tracking-widest px-2 py-1 ${
                         item.status === 'done'
                           ? 'bg-emerald-500/10 text-emerald-300'
                           : 'bg-white/5 text-white/60'
@@ -204,7 +204,7 @@ export default async function CleanerPublicCalendar({ params, searchParams }: Pa
           )}
         </section>
 
-        <p className="mt-12 text-[11px] text-white/30 leading-relaxed">
+        <p className="mt-12 text-[13px] text-white/30 leading-relaxed">
           수정·완료 처리·이슈 신고 등은 상단 <span className="text-white/60">로그인</span> 버튼을 눌러 진행해 주세요.
         </p>
       </main>

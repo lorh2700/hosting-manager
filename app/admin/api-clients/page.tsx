@@ -141,7 +141,7 @@ export default function ApiClientsPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <header>
-        <p className="text-[11px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">Integrations</p>
+        <p className="text-[13px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">Integrations</p>
         <h1 className="text-2xl sm:text-3xl font-semibold text-stone-900 tracking-tight">API 클라이언트</h1>
         <p className="text-stone-500 text-sm mt-2">
           외부 파트너사 (스테이폴리오 등) 가 v1 API 를 호출할 때 사용할 키 관리.
@@ -179,7 +179,7 @@ export default function ApiClientsPage() {
               >
                 {copied ? <><Check size={14} /> 복사됨</> : <><Copy size={14} /> 클립보드로 복사</>}
               </button>
-              <p className="text-[11px] text-stone-500 mt-3">
+              <p className="text-[13px] text-stone-500 mt-3">
                 파트너사에 <code className="bg-stone-100 px-1">Authorization: Bearer {newKey.plaintextKey.slice(0, 12)}…</code> 형식으로 전달하라고 안내하세요.
               </p>
             </div>
@@ -200,7 +200,7 @@ export default function ApiClientsPage() {
           <h2 className="text-base font-semibold text-stone-900">새 API 키 발급</h2>
 
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-stone-600 mb-2">파트너사 이름</label>
+            <label className="block text-[12px] uppercase tracking-widest text-stone-600 mb-2">파트너사 이름</label>
             <input
               type="text"
               value={name}
@@ -211,7 +211,7 @@ export default function ApiClientsPage() {
           </div>
 
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-stone-600 mb-2">스코프 (권한)</label>
+            <label className="block text-[12px] uppercase tracking-widest text-stone-600 mb-2">스코프 (권한)</label>
             <div className="grid grid-cols-2 gap-2">
               {ALLOWED_SCOPES.map(s => (
                 <button
@@ -224,18 +224,18 @@ export default function ApiClientsPage() {
                       : 'bg-white border-stone-300 text-stone-600 hover:border-stone-400'
                   }`}
                 >
-                  <span className="block font-mono text-[10px]">{s.key}</span>
-                  <span className="block text-[11px] mt-0.5">{s.label}</span>
+                  <span className="block font-mono text-[12px]">{s.key}</span>
+                  <span className="block text-[13px] mt-0.5">{s.label}</span>
                 </button>
               ))}
             </div>
           </div>
 
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-stone-600 mb-2">
+            <label className="block text-[12px] uppercase tracking-widest text-stone-600 mb-2">
               지점 제한
             </label>
-            <p className="text-[11px] text-stone-500 mb-2 leading-relaxed">
+            <p className="text-[13px] text-stone-500 mb-2 leading-relaxed">
               <strong>아무것도 선택하지 않으면 모든 지점 접근 가능</strong> — 대부분의 경우 비워두세요.
               특정 지점만 노출하려는 경우에만 선택. ({propertyIds.length === 0
                 ? `현재: 모든 지점 (${properties.length}개) 접근 가능`
@@ -260,7 +260,7 @@ export default function ApiClientsPage() {
           </div>
 
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-stone-600 mb-2">만료일 (선택)</label>
+            <label className="block text-[12px] uppercase tracking-widest text-stone-600 mb-2">만료일 (선택)</label>
             <input
               type="date"
               value={expiresAt}
@@ -312,17 +312,17 @@ export default function ApiClientsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-semibold text-stone-900">{c.name}</p>
-                      <span className={`inline-flex items-center px-2 py-0.5 text-[10px] uppercase tracking-widest ${stateCls}`}>
+                      <span className={`inline-flex items-center px-2 py-0.5 text-[12px] uppercase tracking-widest ${stateCls}`}>
                         {stateLabel}
                       </span>
                     </div>
                     <p className="text-xs text-stone-500 mt-0.5 font-mono">{c.keyPrefix}…</p>
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {c.scopes.map(s => (
-                        <span key={s} className="text-[10px] bg-stone-100 px-1.5 py-0.5 font-mono">{s}</span>
+                        <span key={s} className="text-[12px] bg-stone-100 px-1.5 py-0.5 font-mono">{s}</span>
                       ))}
                     </div>
-                    <p className="text-[11px] text-stone-500 mt-1.5">
+                    <p className="text-[13px] text-stone-500 mt-1.5">
                       <strong>지점:</strong>{' '}
                       {c.propertyIds.length === 0
                         ? <span className="text-emerald-700">모든 지점</span>
@@ -330,7 +330,7 @@ export default function ApiClientsPage() {
                             .map((id) => properties.find((p) => p.id === id)?.name ?? id.slice(0, 8))
                             .join(', ')}
                     </p>
-                    <p className="text-[11px] text-stone-400 mt-1">
+                    <p className="text-[13px] text-stone-400 mt-1">
                       마지막 사용 {fmtDate(c.lastUsedAt)} · 발급 {fmtDate(c.createdAt)}
                       {c.expiresAt && ` · 만료 ${fmtDate(c.expiresAt)}`}
                     </p>

@@ -95,7 +95,7 @@ export default function ToursPage() {
     <div className="max-w-5xl mx-auto space-y-8 sm:space-y-10">
       <header className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-end border-b border-stone-200 pb-6 sm:pb-7">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">투어 호스팅</p>
+          <p className="text-[13px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">투어 호스팅</p>
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-900">투어 상품</h1>
           <p className="text-stone-500 mt-2 text-sm">북촌 주변 투어 상품을 등록하고 일정·재고를 관리합니다.</p>
         </div>
@@ -144,7 +144,7 @@ export default function ToursPage() {
                 {tour.operator?.name ?? '업체 미지정'}
                 {tour.basePrice ? ` · ${tour.basePrice.toLocaleString()}원` : ''}
               </p>
-              <div className="mt-auto flex items-center justify-between text-[11px] text-stone-400 tracking-wide">
+              <div className="mt-auto flex items-center justify-between text-[13px] text-stone-400 tracking-wide">
                 <span>일정 {tour.scheduleCount} · 예약 {tour.bookingCount}</span>
                 <span className={tour.isActive ? 'text-emerald-600' : 'text-stone-400'}>
                   {tour.isActive ? '판매중' : '비활성'}
@@ -162,7 +162,7 @@ export default function ToursPage() {
             <p className="text-stone-500 text-sm mb-5">기본 정보를 입력하세요. 일정·재고는 다음 화면에서 설정합니다.</p>
             <div className="space-y-4">
               <div>
-                <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">투어명 *</label>
+                <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">투어명 *</label>
                 <input
                   type="text"
                   value={form.title}
@@ -173,7 +173,7 @@ export default function ToursPage() {
                 />
               </div>
               <div>
-                <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">운영업체</label>
+                <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">운영업체</label>
                 <select
                   value={form.operatorId}
                   onChange={e => setForm({ ...form, operatorId: e.target.value })}
@@ -185,7 +185,7 @@ export default function ToursPage() {
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">가격(원)</label>
+                  <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">가격(원)</label>
                   <input
                     type="number"
                     value={form.basePrice}
@@ -195,7 +195,7 @@ export default function ToursPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">정원</label>
+                  <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">정원</label>
                   <input
                     type="number"
                     value={form.maxGroupSize}
@@ -205,7 +205,7 @@ export default function ToursPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">시간(분)</label>
+                  <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">시간(분)</label>
                   <input
                     type="number"
                     value={form.durationMin}
@@ -216,7 +216,7 @@ export default function ToursPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">모임장소</label>
+                <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">모임장소</label>
                 <input
                   type="text"
                   value={form.meetingPoint}
@@ -226,7 +226,7 @@ export default function ToursPage() {
                 />
               </div>
               <div>
-                <label className="block text-[10px] uppercase tracking-widest text-stone-500 mb-2">설명</label>
+                <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">설명</label>
                 <textarea
                   value={form.description}
                   onChange={e => setForm({ ...form, description: e.target.value })}

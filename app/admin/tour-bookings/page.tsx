@@ -128,7 +128,7 @@ function TourBookingsContent() {
     <div className="max-w-5xl mx-auto space-y-6">
       <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 border-b border-stone-200 pb-6 sm:pb-7">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">투어 호스팅</p>
+          <p className="text-[13px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">투어 호스팅</p>
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-900">투어 예약 관리</h1>
           <p className="text-stone-500 mt-2 text-sm">예약 상태를 변경하고 운영업체에 전달하세요.</p>
         </div>
@@ -201,7 +201,7 @@ function TourBookingsContent() {
                     )}
                   </p>
                 </div>
-                <span className={`text-[10px] uppercase tracking-widest px-2.5 py-1 border ${STATUS_BADGE[b.status] ?? 'border-stone-200 text-stone-600'}`}>
+                <span className={`text-[12px] uppercase tracking-widest px-2.5 py-1 border ${STATUS_BADGE[b.status] ?? 'border-stone-200 text-stone-600'}`}>
                   {STATUS_LABEL[b.status] ?? b.status}
                 </span>
               </div>

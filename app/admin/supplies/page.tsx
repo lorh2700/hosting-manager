@@ -76,7 +76,7 @@ export default function AdminSuppliesPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6 sm:space-y-8">
       <header className="border-b border-stone-200 pb-5 sm:pb-6">
-        <p className="text-[10px] tracking-[0.3em] text-stone-500 mb-3">관리</p>
+        <p className="text-[12px] tracking-[0.3em] text-stone-500 mb-3">관리</p>
         <h1 className="text-2xl sm:text-3xl font-light tracking-tight text-stone-900">비품 요청 관리</h1>
         {pendingCount > 0 && (
           <p className="text-amber-600 text-sm mt-2">{pendingCount}건의 새 요청</p>
@@ -91,7 +91,7 @@ export default function AdminSuppliesPage() {
           <button
             key={f.key}
             onClick={() => setFilter(f.key as typeof filter)}
-            className={`px-4 py-2.5 text-[11px] uppercase tracking-widest font-semibold transition-colors ${
+            className={`px-4 py-2.5 text-[13px] uppercase tracking-widest font-semibold transition-colors ${
               filter === f.key ? 'bg-[var(--brand)] text-white' : 'border border-stone-200 text-stone-500 hover:text-stone-900'
             }`}
           >
@@ -114,15 +114,15 @@ export default function AdminSuppliesPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <span className={`text-[10px] px-1.5 py-0.5 tracking-wider ${st.bg} ${st.color}`}>{st.label}</span>
+                      <span className={`text-[12px] px-1.5 py-0.5 tracking-wider ${st.bg} ${st.color}`}>{st.label}</span>
                       {req.urgency === 'urgent' && (
-                        <span className="text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 tracking-wider">긴급</span>
+                        <span className="text-[12px] bg-red-50 text-red-600 px-1.5 py-0.5 tracking-wider">긴급</span>
                       )}
                     </div>
                     <p className="text-stone-900 font-medium text-sm">{req.propertyName}</p>
                     <p className="text-stone-500 text-xs mt-0.5">요청자: {req.requestedByName}</p>
                   </div>
-                  <p className="text-stone-300 text-[10px] shrink-0">
+                  <p className="text-stone-300 text-[12px] shrink-0">
                     {format(parseISO(req.createdAt), 'M/d HH:mm', { locale: ko })}
                   </p>
                 </div>
@@ -155,14 +155,14 @@ export default function AdminSuppliesPage() {
                       <button
                         onClick={() => handleAction(req.id, 'approved')}
                         disabled={updating === req.id}
-                        className="flex-1 sm:flex-initial bg-green-50 text-green-700 px-4 py-2.5 text-[11px] uppercase tracking-widest font-semibold hover:bg-green-100 active:scale-[0.98] transition-all flex items-center justify-center gap-1"
+                        className="flex-1 sm:flex-initial bg-green-50 text-green-700 px-4 py-2.5 text-[13px] uppercase tracking-widest font-semibold hover:bg-green-100 active:scale-[0.98] transition-all flex items-center justify-center gap-1"
                       >
                         <Check size={13} /> 승인
                       </button>
                       <button
                         onClick={() => handleAction(req.id, 'rejected')}
                         disabled={updating === req.id}
-                        className="flex-1 sm:flex-initial bg-red-50 text-red-600 px-4 py-2.5 text-[11px] uppercase tracking-widest font-semibold hover:bg-red-100 active:scale-[0.98] transition-all flex items-center justify-center gap-1"
+                        className="flex-1 sm:flex-initial bg-red-50 text-red-600 px-4 py-2.5 text-[13px] uppercase tracking-widest font-semibold hover:bg-red-100 active:scale-[0.98] transition-all flex items-center justify-center gap-1"
                       >
                         <X size={13} /> 거절
                       </button>
@@ -174,7 +174,7 @@ export default function AdminSuppliesPage() {
                     <button
                       onClick={() => handleAction(req.id, 'completed')}
                       disabled={updating === req.id}
-                      className="w-full border border-green-300 text-green-700 py-2 text-[10px] uppercase tracking-widest font-semibold hover:bg-green-50 transition-colors"
+                      className="w-full border border-green-300 text-green-700 py-2 text-[12px] uppercase tracking-widest font-semibold hover:bg-green-50 transition-colors"
                     >
                       {updating === req.id ? '처리 중...' : '비품 지급 완료'}
                     </button>

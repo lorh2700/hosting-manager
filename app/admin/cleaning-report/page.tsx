@@ -23,6 +23,7 @@ import {
   Download,
   ChevronDown,
 } from 'lucide-react';
+import { SkeletonList } from '@/components/ui';
 
 interface Cleaning {
   id: string;
@@ -105,7 +106,7 @@ function CalendarMonth({
         {WEEKDAYS.map((d, i) => (
           <div
             key={d}
-            className={`text-[10px] font-medium pb-2 text-center ${
+            className={`text-[12px] font-medium pb-2 text-center ${
               i === 0 ? 'text-rose-400' : i === 6 ? 'text-[var(--brand)]' : 'text-stone-400'
             }`}
           >
@@ -321,11 +322,7 @@ export default function CleaningReportPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-6 h-6 border-t-2 border-[var(--brand)] rounded-full animate-spin" />
-      </div>
-    );
+    return <SkeletonList count={3} rows={2} />;
   }
 
   return (
@@ -337,7 +334,7 @@ export default function CleaningReportPage() {
           {/* Header */}
           <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 pb-6 border-b border-stone-200/70">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.25em] text-[var(--brand)] mb-3 font-semibold">REPORT</p>
+              <p className="text-[13px] uppercase tracking-[0.25em] text-[var(--brand)] mb-3 font-semibold">REPORT</p>
               <h1 className="text-2xl sm:text-3xl font-bold text-stone-900 tracking-tight">청소 완료 보고서</h1>
               <p className="text-stone-500 mt-2 text-sm">매월 25일 마감 · 담당자별 수행 내역</p>
             </div>
@@ -388,7 +385,7 @@ export default function CleaningReportPage() {
                 cleaningsByDate={cleaningsByDate}
               />
             </div>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4 px-1 text-[11px] text-stone-500">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4 px-1 text-[13px] text-stone-500">
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-[var(--brand)]" />
                 완료
@@ -412,19 +409,19 @@ export default function CleaningReportPage() {
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-white border border-stone-100 p-4 sm:p-5 text-center">
               <p className="text-2xl sm:text-3xl font-bold text-[var(--brand)] mb-1 tabular-nums">{totalDone}</p>
-              <p className="text-[11px] sm:text-xs text-stone-500 tracking-wide">완료</p>
+              <p className="text-[13px] sm:text-xs text-stone-500 tracking-wide">완료</p>
             </div>
             <div className="bg-white border border-stone-100 p-4 sm:p-5 text-center">
               <p className={`text-2xl sm:text-3xl font-bold mb-1 tabular-nums ${(totalAll - totalDone) > 0 ? 'text-amber-500' : 'text-stone-300'}`}>
                 {totalAll - totalDone}
               </p>
-              <p className="text-[11px] sm:text-xs text-stone-500 tracking-wide">대기</p>
+              <p className="text-[13px] sm:text-xs text-stone-500 tracking-wide">대기</p>
             </div>
             <div className="bg-white border border-stone-100 p-4 sm:p-5 text-center">
               <p className={`text-2xl sm:text-3xl font-bold mb-1 tabular-nums ${unassigned > 0 ? 'text-rose-500' : 'text-stone-300'}`}>
                 {unassigned}
               </p>
-              <p className="text-[11px] sm:text-xs text-stone-500 tracking-wide">미배정</p>
+              <p className="text-[13px] sm:text-xs text-stone-500 tracking-wide">미배정</p>
             </div>
           </div>
 
@@ -432,7 +429,7 @@ export default function CleaningReportPage() {
           <div className="bg-white border border-stone-100 p-5 sm:p-6">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-sm font-bold text-stone-900 tracking-tight">정산 기간별 추이</h3>
-              <span className="text-[11px] text-stone-400">최근 6개 정산</span>
+              <span className="text-[13px] text-stone-400">최근 6개 정산</span>
             </div>
             <div className="flex items-end gap-2 sm:gap-3 h-28">
               {periodTrend.map(m => {
@@ -451,7 +448,7 @@ export default function CleaningReportPage() {
                         style={{ height: `${Math.max(height, 4)}%` }}
                       />
                     </div>
-                    <span className={`text-[10px] sm:text-[11px] ${isCurrent ? 'text-stone-900 font-semibold' : 'text-stone-400'}`}>
+                    <span className={`text-[12px] sm:text-[13px] ${isCurrent ? 'text-stone-900 font-semibold' : 'text-stone-400'}`}>
                       {m.label}
                     </span>
                   </div>
@@ -464,7 +461,7 @@ export default function CleaningReportPage() {
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-bold text-stone-900 tracking-tight">담당자별 현황</h3>
-              <span className="text-[11px] text-stone-400">담당자를 누르면 수행 날짜가 펼쳐집니다</span>
+              <span className="text-[13px] text-stone-400">담당자를 누르면 수행 날짜가 펼쳐집니다</span>
             </div>
 
             {stats.length === 0 ? (
@@ -505,7 +502,7 @@ export default function CleaningReportPage() {
                                   style={{ width: `${completionRate}%` }}
                                 />
                               </div>
-                              <span className="text-[11px] text-stone-500 tabular-nums">{completionRate}%</span>
+                              <span className="text-[13px] text-stone-500 tabular-nums">{completionRate}%</span>
                             </div>
                           ) : (
                             <p className="text-xs text-stone-400 mt-0.5">이번 정산 기간 배정 없음</p>
@@ -529,7 +526,7 @@ export default function CleaningReportPage() {
 
                       {isExpanded && stat.details.length > 0 && (
                         <div className="bg-stone-50/70 px-4 sm:px-5 py-4 border-t border-stone-100">
-                          <p className="text-[10px] tracking-[0.2em] text-[var(--brand)] mb-3 font-semibold">수행 날짜</p>
+                          <p className="text-[12px] tracking-[0.2em] text-[var(--brand)] mb-3 font-semibold">수행 날짜</p>
                           <ul className="space-y-1.5">
                             {stat.details.map(d => {
                               const dateObj = parseISO(d.date);
@@ -545,7 +542,7 @@ export default function CleaningReportPage() {
                                     <span className="text-stone-500 truncate">{d.propertyName}</span>
                                   </div>
                                   <span
-                                    className={`inline-flex items-center px-2 py-1 ring-1 shrink-0 text-[10px] leading-none uppercase tracking-widest ${
+                                    className={`inline-flex items-center px-2 py-1 ring-1 shrink-0 text-[12px] leading-none uppercase tracking-widest ${
                                       isDone
                                         ? 'bg-emerald-50 text-emerald-800 ring-emerald-200'
                                         : 'bg-amber-50 text-amber-800 ring-amber-200'

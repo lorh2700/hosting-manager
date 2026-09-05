@@ -78,7 +78,7 @@ export default function PropertyCalendar({ events, onEventClick }: Props) {
         });
       }}
       eventContent={(eventInfo) => (
-        <div className="p-1.5 overflow-hidden text-[10px] tracking-wider truncate">
+        <div className="p-1.5 overflow-hidden text-[12px] tracking-wider truncate">
           <div className="font-semibold">{eventInfo.event.title}</div>
           <div className="opacity-70 font-light">
             {eventInfo.event.extendedProps.type === 'block'

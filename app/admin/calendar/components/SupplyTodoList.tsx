@@ -41,11 +41,11 @@ export function SupplyTodoList({ allSupplyTodos, onToggle, onDelete }: SupplyTod
                   />
                   <div className="flex-1 min-w-0">
                     <p className="text-[13px] text-stone-800">{todo.text}</p>
-                    <p className="text-[11px] text-stone-400 mt-0.5">{todo.date}</p>
+                    <p className="text-[13px] text-stone-400 mt-0.5">{todo.date}</p>
                   </div>
                   <button
                     onClick={() => onDelete(todo.id, false)}
-                    className="opacity-0 group-hover:opacity-100 text-stone-400 hover:text-rose-600 transition-all shrink-0"
+                    className="text-stone-400 hover:text-rose-600 transition-all shrink-0"
                   >
                     <Trash2 size={12} />
                   </button>
@@ -69,15 +69,15 @@ export function SupplyTodoList({ allSupplyTodos, onToggle, onDelete }: SupplyTod
                   onClick={() => onToggle(todo.id, false, false)}
                   className="w-4 h-4 bg-[var(--brand-tint)] border border-[var(--brand)]/40 flex items-center justify-center shrink-0 transition-colors"
                 >
-                  <span className="text-[var(--brand-dark)] text-[10px]">✓</span>
+                  <span className="text-[var(--brand-dark)] text-[12px]">✓</span>
                 </button>
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] text-stone-400 line-through">{todo.text}</p>
-                  <p className="text-[11px] text-stone-300 mt-0.5">{todo.propertyName} · {todo.date}</p>
+                  <p className="text-[13px] text-stone-300 mt-0.5">{todo.propertyName} · {todo.date}</p>
                 </div>
                 <button
                   onClick={() => onDelete(todo.id, false)}
-                  className="opacity-0 group-hover:opacity-100 text-stone-400 hover:text-rose-600 transition-all shrink-0"
+                  className="text-stone-400 hover:text-rose-600 transition-all shrink-0"
                 >
                   <Trash2 size={12} />
                 </button>
