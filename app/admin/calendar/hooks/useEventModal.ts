@@ -26,6 +26,7 @@ export function useEventModal({
   const [cleanerSaving, setCleanerSaving] = useState(false);
   const [completingCleaning, setCompletingCleaning] = useState(false);
   const [savingTags, setSavingTags] = useState(false);
+  const [releasingMaintenance, setReleasingMaintenance] = useState(false);
 
   // Supply state
   const [supplyTodos, setSupplyTodos] = useState<SupplyTodo[]>([]);
@@ -112,15 +113,24 @@ export function useEventModal({
         c.id === selectedEvent.cleaningId ? { ...c, status: 'done' as const } : c
       ));
       if (selectedEvent.channelId === 'beds24' && user) {
+        // 정비 완료 저장은 유지하되, 게스트 메시지 전송 결과는 반드시 알려준다.
+        // (예전에는 실패를 조용히 삼켜 Beds24 한도 초과로 메시지가 안 나가도 성공처럼 보였다.)
         try {
-          await fetch('/api/beds24/messages/send', {
+          const res = await fetch('/api/beds24/messages/send', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               eventId: selectedEvent.eventId, propertyId: selectedEvent.propertyId,
               text: getRoomReadyMessage(properties, selectedEvent.propertyId),
             }),
           });
-        } catch { /* 메시지 전송 실패해도 정비 완료는 유지 */ }
+          const data = await res.json().catch(() => null);
+          if (!res.ok || data?.deliveryStatus !== 'sent') {
+            const reason = data?.beds24Error || data?.error || `HTTP ${res.status}`;
+            alert(`정비 완료는 저장됐지만 게스트 메시지 전송에 실패했습니다.\n사유: ${reason}\n\n잠시 후 메시지 화면에서 다시 보내주세요.`);
+          }
+        } catch {
+          alert('정비 완료는 저장됐지만 게스트 메시지 전송 요청에 실패했습니다.\n잠시 후 메시지 화면에서 다시 보내주세요.');
+        }
       }
       setSelectedEvent(prev => prev ? { ...prev, status: 'done' } : null);
     } catch (err) { console.error(err); alert('정비 완료 처리에 실패했습니다.'); }
@@ -222,8 +232,14 @@ export function useEventModal({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '전송 실패');
+      if (data.deliveryStatus === 'failed') {
+        throw new Error(data.beds24Error || 'Beds24 전송 실패');
+      }
       setNewMessage('');
-    } catch { alert('메시지 전송에 실패했습니다.'); }
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : '';
+      alert(`메시지 전송에 실패했습니다.${reason ? `\n사유: ${reason}` : ''}`);
+    }
     finally { setSendingMessage(false); }
   };
 
@@ -260,10 +276,31 @@ export function useEventModal({
     }
   };
 
+  // 객실정비 해제 — Beds24 블랙아웃을 취소하고 로컬 이벤트를 지운다.
+  const handleReleaseMaintenance = async () => {
+    if (!selectedEvent || selectedEvent.source !== 'maintenance' || releasingMaintenance) return;
+    const ok = window.confirm(
+      `${selectedEvent.propertyName} ${selectedEvent.start} ~ ${selectedEvent.end} 객실정비를 해제할까요?\nBeds24 차단도 함께 풀려 예약을 받을 수 있게 됩니다.`,
+    );
+    if (!ok) return;
+    setReleasingMaintenance(true);
+    try {
+      const res = await fetch(`/api/beds24/maintenance?eventId=${selectedEvent.eventId}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      setEvents(prev => prev.filter(e => e.id !== selectedEvent.eventId));
+      setSelectedEvent(null);
+    } catch (err) {
+      alert(`정비 해제에 실패했습니다.\n${err instanceof Error ? err.message : ''}`);
+    } finally {
+      setReleasingMaintenance(false);
+    }
+  };
+
   return {
     selectedEvent, selectedCleaner, setSelectedCleaner,
     cleanerSaving, completingCleaning,
-    savingTags,
+    savingTags, releasingMaintenance, handleReleaseMaintenance,
     supplyTodos, newSupply, setNewSupply,
     modalMessages, newMessage, setNewMessage,
     sendingMessage, loadingMessages, syncingMessages,

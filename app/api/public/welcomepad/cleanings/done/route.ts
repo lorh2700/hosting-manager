@@ -92,6 +92,8 @@ export async function POST(req: Request) {
           completedAt: now,
           completionNote,
           assignmentType: 'direct',
+          // 패드에서 만든 행 — 예약 취소 정리(origin='auto') 대상이 아니다.
+          origin: 'manual',
         },
       });
 

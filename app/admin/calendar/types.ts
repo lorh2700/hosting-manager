@@ -141,6 +141,8 @@ export function getChannelLabel(
   if (channelId === 'direct') return '직접예약';
   if (channelId === 'beds24') {
     const s = (source || '').toLowerCase();
+    if (s === 'maintenance') return '객실정비';
+    if (s === 'manual-block') return 'Beds24 차단';
     if (s.includes('airbnb')) return 'Airbnb';
     if (s.includes('booking')) return 'Booking.com';
     if (s.includes('agoda')) return 'Agoda';

@@ -44,7 +44,9 @@ export const TEMPLATES = {
   CLEANING_ASSIGNED: process.env.SOLAPI_TPL_CLEANING_ASSIGNED ?? '',
   CLEANING_ASSIGNED_BULK: process.env.SOLAPI_TPL_CLEANING_ASSIGNED_BULK ?? '',
   CLEANING_OPEN_NEW: process.env.SOLAPI_TPL_CLEANING_OPEN_NEW ?? '',
-  CLEANING_CANCELLED: process.env.SOLAPI_TPL_CLEANING_CANCELLED ?? '',
+  // 청소 일정 취소 알림 (배정 삭제·예약 취소·다른 담당자 배정·배정 해제).
+  // 승인된 템플릿 코드를 기본값으로 두고, 바꿀 때는 env 로 덮어쓴다.
+  CLEANING_CANCELLED: process.env.SOLAPI_TPL_CLEANING_CANCELLED ?? 'KA01TP2604271450581856f06opPxqMq',
   CLEANING_APPLICATION_NEW: process.env.SOLAPI_TPL_CLEANING_APPLICATION_NEW ?? '',
   TOUR_BOOKING_NEW: process.env.SOLAPI_TPL_TOUR_BOOKING_NEW ?? '',
   // Host notification — falls back to TOUR_BOOKING_NEW if a dedicated
@@ -260,32 +262,70 @@ export async function notifyCleaningAssigned(opts: {
   });
 }
 
+export type CleaningCancelReason = 'deleted' | 'reassigned' | 'unassigned';
+
+const CANCEL_REASON_TEXT: Record<CleaningCancelReason, string> = {
+  deleted: '예약 취소 등으로 청소 일정이 삭제되었습니다.',
+  reassigned: '해당 청소가 다른 담당자에게 배정되었습니다.',
+  unassigned: '해당 청소의 배정이 해제되었습니다.',
+};
+
 /**
  * Notify a cleaner that a previously-assigned cleaning has been cancelled
- * (deleted, or reassigned to someone else).
+ * (deleted, reassigned to someone else, or unassigned).
+ *
+ * 알림톡(템플릿 CLEANING_CANCELLED)을 먼저 보내고, 수신자가 카카오 미등록이면
+ * SOLAPI 가 같은 요청 안의 smsText 로 자동 대체한다. 요청 자체가 거부되면
+ * (템플릿 변수 불일치 등) 일반 문자로 한 번 더 보내 알림이 누락되지 않게 한다.
  */
 export async function notifyCleaningCancelled(opts: {
   cleanerPhone: string | null;
   cleanerName: string;
   propertyName: string;
   date: string;
-  reason?: 'deleted' | 'reassigned';
+  reason?: CleaningCancelReason;
 }): Promise<NotifyResult | null> {
   if (!opts.cleanerPhone) return null;
-  if (!TEMPLATES.CLEANING_CANCELLED) {
-    console.warn('[notify] SOLAPI_TPL_CLEANING_CANCELLED not set; skipping cancel notify');
-    return null;
-  }
+
+  const reason = opts.reason ?? 'deleted';
+  const dateKo = formatDateKo(opts.date);
+  const smsText =
+    `[void anchae] 청소 일정 취소\n` +
+    `${opts.cleanerName}님, ${opts.propertyName} ${dateKo} 청소가 취소되었습니다.\n` +
+    `${CANCEL_REASON_TEXT[reason]}`;
 
   const notifier = getNotifier();
-  return notifier.sendAlimtalk({
+
+  if (!TEMPLATES.CLEANING_CANCELLED) {
+    console.warn('[notify] SOLAPI_TPL_CLEANING_CANCELLED not set; sending plain SMS instead');
+    return notifier.sendSms({ to: opts.cleanerPhone, text: smsText }).catch(err => {
+      console.error('[notify] cleaning cancel SMS failed', err);
+      return null;
+    });
+  }
+
+  const result = await notifier.sendAlimtalk({
     to: opts.cleanerPhone,
     templateId: TEMPLATES.CLEANING_CANCELLED,
     variables: {
       청소업자명: opts.cleanerName,
       숙소명: opts.propertyName,
-      청소일: formatDateKo(opts.date),
+      청소일: dateKo,
     },
+    smsText,
+  }).catch(err => {
+    console.error('[notify] cleaning cancel alimtalk threw', err);
+    return { ok: false, provider: 'unknown', error: String(err) } as NotifyResult;
+  });
+
+  if (result.ok) return result;
+
+  console.warn('[notify] cleaning cancel alimtalk rejected; falling back to SMS', {
+    to: opts.cleanerPhone, date: opts.date, reason, error: result.error,
+  });
+  return notifier.sendSms({ to: opts.cleanerPhone, text: smsText }).catch(err => {
+    console.error('[notify] cleaning cancel SMS fallback failed', err);
+    return result;
   });
 }
 

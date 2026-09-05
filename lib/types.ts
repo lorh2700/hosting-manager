@@ -170,7 +170,9 @@ export interface Cleaning {
   reportedBy?: string;
   hasIssue?: boolean;
   isOpen?: boolean;
-  assignmentType?: 'direct' | 'applied';
+  assignmentType?: 'direct' | 'applied' | 'external';
+  /** 'auto' = 예약 체크아웃에서 자동 생성(예약 취소 시 정리됨), 'manual' = 관리자/패드, 'external' = 파트너 API */
+  origin?: 'auto' | 'manual' | 'external';
   createdAt: string;
   updatedAt?: string;
 }

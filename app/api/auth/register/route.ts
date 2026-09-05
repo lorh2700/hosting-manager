@@ -3,13 +3,26 @@ import { randomBytes } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { signToken, setSessionCookie } from '@/lib/auth';
+import { rateLimit, clientIp } from '@/lib/rateLimit';
 
 export async function POST(req: Request) {
   try {
+    // 공개 경로 — 스크립트로 계정을 무더기로 만드는 것을 막는다.
+    const rl = rateLimit(`register:${clientIp(req)}`, 5, 60 * 60 * 1000);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfterSec) } },
+      );
+    }
+
     const { email, password, displayName } = await req.json();
 
     if (!email || !password) {
       return NextResponse.json({ error: '이메일과 비밀번호를 입력해주세요.' }, { status: 400 });
+    }
+    if (typeof password !== 'string' || password.length < 6) {
+      return NextResponse.json({ error: '비밀번호는 6자 이상이어야 합니다.' }, { status: 400 });
     }
 
     const existing = await prisma.user.findUnique({ where: { email } });

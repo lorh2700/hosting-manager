@@ -87,40 +87,13 @@ export function useCalendarData() {
             .catch(err => console.error('Failed to load supply todos', err));
           return;
         } else {
-          const res = await fetch('/api/public/calendar');
-          if (!res.ok) throw new Error('Failed to fetch');
-          const data = await res.json();
-
-          const props: Property[] = (data.properties ?? []).map((p: Record<string, unknown>, i: number) => ({
-            id: p.id as string, name: p.name as string, color: PROPERTY_COLORS[i % PROPERTY_COLORS.length],
-            doorPassword: p.doorPassword as string | undefined, addressUrl: p.addressUrl as string | undefined,
-            roomReadyMessage: p.roomReadyMessage as string | undefined,
-          }));
-          setProperties(props);
-          setActiveProps(new Set(props.filter(p => !DISABLED_PROPERTY_NAMES.includes(p.name)).map(p => p.id)));
-          setChannelMap(data.channelMap ?? {});
-
-          const allEvents: RawEvent[] = [...(data.events ?? [])];
-          (data.bookings ?? []).forEach((bk: { id: string; propertyId: string; name: string; email: string; guests: number; checkIn: string; checkOut: string }) => {
-            allEvents.push({
-              id: bk.id, propertyId: bk.propertyId, channelId: 'direct', source: 'direct',
-              title: `${bk.name} 예약`, start: bk.checkIn, end: bk.checkOut, type: 'reservation',
-              description: `게스트: ${bk.name}\n연락처: ${bk.email}\n인원: ${bk.guests}명`,
-              tags: [], originalUid: null,
-            });
-          });
-          setEvents(allEvents);
-          setCleanings(data.cleanings ?? []);
-          setCleaners(data.cleaners ?? []);
-
-          const supplyData = data.supplyTodos ?? [];
-          const propsNameMap = new Map(props.map(p => [p.id, p.name]));
-          setAllSupplyTodos(supplyData.map((d: Record<string, unknown>) => ({
-            id: d.id as string, propertyId: d.propertyId as string,
-            propertyName: propsNameMap.get(d.propertyId as string) || '',
-            date: d.date as string, text: d.text as string,
-            done: (d.done as boolean) ?? false, createdAt: (d.createdAt as string) ?? '',
-          })));
+          // 관리자 캘린더는 로그인 뒤에만 열린다. 예전의 비로그인 폴백(/api/public/calendar)은
+          // 인증 없이 전 숙소의 도어락·게스트 연락처를 노출해 제거했다.
+          setProperties([]);
+          setEvents([]);
+          setCleanings([]);
+          setCleaners([]);
+          setAllSupplyTodos([]);
         }
       } catch (err) {
         console.error('Failed to load calendar data', err);
@@ -192,7 +165,12 @@ export function useCalendarData() {
     });
     return filtered.map(e => {
       const prop = propertiesMap.get(e.propertyId);
-      const color = prop?.color ?? '#6366f1';
+      // 객실정비는 진한 회색, 그 밖의 Beds24 차단은 연한 회색 — 예약(숙소 색)과 한눈에 구분.
+      const color = e.source === 'maintenance'
+        ? '#64748b'
+        : e.type === 'block'
+        ? '#94a3b8'
+        : (prop?.color ?? '#6366f1');
       const end = e.end.substring(0, 10);
       // Blocks don't get cleaning slots
       const cleaning = e.type === 'block' ? undefined : cleaningsIndex.get(`${e.propertyId}_${end}`);

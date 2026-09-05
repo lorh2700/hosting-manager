@@ -7,6 +7,7 @@ import {
   zodIssuesToDetails,
 } from '@/lib/v1-schemas';
 import { deriveExternalSource } from '../route';
+import { notifyCleaningCancelled, type CleaningCancelReason } from '@/lib/notify';
 
 async function findCleaning(id: string, auth: { propertyIds: string[] }) {
   return prisma.cleaning.findFirst({
@@ -83,13 +84,55 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       ? { completedAt: null }
       : {};
 
+  // 내부 청소매니저가 배정돼 있었는데 파트너가 담당자를 바꾸거나 해제하면 취소 알림.
+  const previous = 'cleanerId' in data ? await loadCleanerNotifyInfo(id) : null;
+
   const updated = await prisma.cleaning.update({
     where: { id },
     data: { ...data, ...completedAtUpdate },
     include: { cleaner: { select: { name: true, phone: true } } },
   });
 
+  if (previous?.cleanerId && previous.cleanerId !== updated.cleanerId) {
+    await sendCancelNotice(previous, updated.cleanerId ? 'reassigned' : 'unassigned');
+  }
+
   return NextResponse.json(serializeCleaning(updated));
+}
+
+type CleanerNotifyInfo = {
+  cleanerId: string | null;
+  date: string;
+  cleaner: { name: string; phone: string | null } | null;
+  property: { name: string } | null;
+};
+
+async function loadCleanerNotifyInfo(cleaningId: string): Promise<CleanerNotifyInfo | null> {
+  return prisma.cleaning.findUnique({
+    where: { id: cleaningId },
+    select: {
+      cleanerId: true,
+      date: true,
+      cleaner: { select: { name: true, phone: true } },
+      property: { select: { name: true } },
+    },
+  });
+}
+
+async function sendCancelNotice(info: CleanerNotifyInfo, reason: CleaningCancelReason) {
+  if (!info.cleanerId || !info.cleaner?.phone) return;
+  try {
+    const result = await notifyCleaningCancelled({
+      cleanerPhone: info.cleaner.phone,
+      cleanerName: info.cleaner.name,
+      propertyName: info.property?.name ?? '숙소',
+      date: info.date,
+      reason,
+    });
+    if (result && !result.ok) console.error('[v1/cleanings] cancel notify failed:', result.error);
+  } catch (e) {
+    console.error('[v1/cleanings] cancel notify error:', e);
+  }
 }
 
 // DELETE /api/v1/cleanings/{id}
@@ -110,6 +153,9 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }
     );
   }
 
+  // 삭제 전에 담당자 정보를 확보해 두고, 삭제 후 취소 알림.
+  const info = await loadCleanerNotifyInfo(id);
   await prisma.cleaning.delete({ where: { id } });
+  if (info) await sendCancelNotice(info, 'deleted');
   return NextResponse.json({ ok: true });
 }

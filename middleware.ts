@@ -17,9 +17,13 @@ const PUBLIC_PATHS = [
   '/api/auth/logout',
   '/api/public',
   '/api/setup',
+  // 아래 세 경로는 크론(x-cron-secret)이 쿠키 없이 호출한다. 라우트 안에서
+  // 비밀키 또는 세션을 직접 검사하므로 미들웨어만 통과시킨다.
   '/api/sync',
   '/api/beds24/sync-all',
   '/api/beds24/messages',
+  // OTA 가 가져가는 iCal 내보내기 — 채널별 토큰 URL 로만 접근 가능.
+  '/api/export/',
   '/book',
   '/_next',
   '/favicon.ico',
@@ -33,8 +37,8 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Allow static files
-  if (pathname.includes('.')) {
+  // Allow static files — 페이지 경로에만 해당. API 경로는 점(.)이 있어도 인증 대상.
+  if (!pathname.startsWith('/api/') && pathname.includes('.')) {
     return NextResponse.next();
   }
 

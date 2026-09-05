@@ -156,6 +156,8 @@ export async function POST(req: Request) {
       supplies: data.supplies ?? null,
       notes: data.notes ?? null,
       assignmentType: 'external',
+      // 파트너가 push 한 청소 — 예약 취소 정리(origin='auto') 대상이 아니다.
+      origin: 'external',
     },
     include: { cleaner: { select: { name: true, phone: true } } },
   });

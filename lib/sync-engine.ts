@@ -1,7 +1,69 @@
+import { createHash } from 'crypto';
 import { prisma } from '@/lib/prisma';
-import { getBeds24Token, BEDS24_BASE_URL, BEDS24_REFRESH_TOKEN } from '@/lib/beds24';
-import { notifyNewOpenCleanings } from '@/lib/notify';
-import { v4 as uuidv4 } from 'uuid';
+import { beds24Get, beds24WithRetry, describeBeds24Error, BEDS24_REFRESH_TOKEN } from '@/lib/beds24';
+import { notifyNewOpenCleanings, notifyCleaningCancelled } from '@/lib/notify';
+import { todayKst, addMonthsToDateStr } from '@/lib/dates';
+import { isMaintenanceNotes, maintenanceReasonFromNotes, MAINTENANCE_TITLE } from '@/lib/beds24-booking';
+
+// ─── 동기화 정책 상수 ────────────────────────────────────────────────────────
+
+// Beds24 조회 창 (체크아웃 기준). 웰컴패드 재방문 판정이 지난 1년 이력을 쓰므로
+// 13개월을 되돌아본다. 창 밖의 로컬 이벤트는 삭제 대상에서 제외되어 이력이 보존된다.
+const BEDS24_LOOKBACK_MONTHS = 13;
+const BEDS24_LOOKAHEAD_MONTHS = 12;
+
+// 대량 삭제 안전장치: 원본이 0건을 돌려주거나, 한 번에 창 안 이벤트의 절반 넘게
+// (최소 10건) 사라지는 경우는 원본 오류일 가능성이 높으므로 삭제를 건너뛴다.
+const MASS_REMOVAL_MIN = 10;
+const MASS_REMOVAL_RATIO = 0.5;
+
+function shouldSkipRemoval(fetched: number, existing: number, stale: number): string | null {
+  if (stale === 0) return null;
+  if (fetched === 0 && existing > 0) return 'source returned zero bookings while local events exist';
+  if (stale >= MASS_REMOVAL_MIN && stale > existing * MASS_REMOVAL_RATIO) {
+    return `mass removal guard tripped (${stale} of ${existing})`;
+  }
+  return null;
+}
+
+interface SyncEventRow {
+  propertyId: string;
+  channelId: string;
+  originalUid: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+  type: 'block' | 'reservation';
+  source: string;
+  description: string;
+  tags?: string[];
+  guestEmail?: string | null;
+  guestPhone?: string | null;
+  numAdults?: number | null;
+  numChildren?: number | null;
+}
+
+// 동시에 도는 동기화(크론 + 화면 수동 버튼)가 같은 예약을 먼저 만들었으면
+// 유니크 제약(P2002)으로 전체 동기화가 실패하는 대신 갱신으로 대체한다.
+async function createEventTolerant(row: SyncEventRow): Promise<'created' | 'updated'> {
+  try {
+    await prisma.event.create({ data: row });
+    return 'created';
+  } catch (e) {
+    const code = (e as { code?: string })?.code;
+    if (code !== 'P2002') throw e;
+    const { propertyId, channelId, originalUid, ...rest } = row;
+    await prisma.event.updateMany({ where: { propertyId, channelId, originalUid }, data: rest });
+    return 'updated';
+  }
+}
+
+// UID 가 없는 iCal 이벤트는 내용 기반의 결정적 uid 를 쓴다. 무작위 uuid 를 쓰면
+// 매 동기화마다 새 이벤트가 생기고 이전 것이 삭제되는 출렁임이 생긴다.
+function derivedUid(e: { start?: string; end?: string; summary?: string }): string {
+  const hash = createHash('sha1').update(`${e.start ?? ''}|${e.end ?? ''}|${e.summary ?? ''}`).digest('hex');
+  return `derived-${hash.slice(0, 24)}`;
+}
 
 // ─── iCal Parsing ───────────────────────────────────────────────────────────
 
@@ -157,7 +219,7 @@ export async function syncICalChannel(
   for (const event of parsedEvents) {
     if (!event.start || !event.end) continue;
 
-    const uid = event.uid || uuidv4();
+    const uid = event.uid || derivedUid(event);
     seenUids.add(uid);
 
     const summary = event.summary ?? '';
@@ -180,26 +242,30 @@ export async function syncICalChannel(
         result.eventsUpdated++;
       }
     } else {
-      await prisma.event.create({
-        data: {
-          propertyId,
-          channelId,
-          title,
-          startDate,
-          endDate,
-          type: eventType,
-          source: provider,
-          originalUid: uid,
-          description: event.description || '',
-        },
+      const outcome = await createEventTolerant({
+        propertyId,
+        channelId,
+        title,
+        startDate,
+        endDate,
+        type: eventType,
+        source: provider,
+        originalUid: uid,
+        description: event.description || '',
       });
-      result.eventsCreated++;
+      if (outcome === 'created') result.eventsCreated++;
+      else result.eventsUpdated++;
     }
   }
 
-  // Remove events that no longer exist in the iCal feed
-  for (const [uid, existing] of existingByUid) {
-    if (!seenUids.has(uid)) {
+  // Remove events that no longer exist in the iCal feed.
+  // 안전장치: 피드가 비어 있거나 한꺼번에 대량으로 사라지면(피드 오류 가능성) 삭제를 건너뛴다.
+  const staleIcal = Array.from(existingByUid.entries()).filter(([uid]) => !seenUids.has(uid));
+  const icalGuard = shouldSkipRemoval(parsedEvents.length, existingByUid.size, staleIcal.length);
+  if (icalGuard) {
+    console.warn(`[sync] iCal ${provider}/${channelId} for ${propertyId}: ${icalGuard} — skipping removal of ${staleIcal.length} events`);
+  } else {
+    for (const [, existing] of staleIcal) {
       await prisma.event.delete({ where: { id: existing.id } });
       result.eventsRemoved++;
     }
@@ -221,15 +287,6 @@ export async function syncICalChannel(
   return result;
 }
 
-/**
- * Guarantee a Cleaning row exists for every reservation checkout date on a
- * property. New cleanings are created as open (isOpen=true, no cleaner) so
- * they surface on the cleaner schedule for application. Existing cleanings
- * are untouched — assignment state, status, and notes are preserved.
- *
- * Returns the dates of cleanings actually created, so callers can notify
- * cleaners about freshly-opened slots.
- */
 /**
  * Drop any inquiry-type events that overlap a confirmed reservation on
  * the same property. When a guest's request-to-book turns into an actual
@@ -275,6 +332,21 @@ export async function cleanupSupersededInquiries(propertyId: string): Promise<nu
   return removed.count;
 }
 
+/**
+ * 예약 체크아웃 날짜마다 Cleaning 행이 있도록 보장하고, 예약이 사라진 자동 생성
+ * 청소를 정리한다.
+ *
+ *  - 생성: 새 청소는 origin='auto', isOpen=true(미배정) 로 만들어 청소매니저
+ *    신청 화면에 노출된다.
+ *  - 정리 1: origin='auto' 인데 그 날짜에 확정 예약(type='reservation')이 더 이상
+ *    없는 청소(예약 취소·날짜 변경)는 배정 여부와 관계없이 삭제한다. 오늘 이후의
+ *    미완료 건만 대상이며, 배정돼 있던 청소매니저에게는 취소 문자를 보낸다.
+ *    관리자/웰컴패드가 만든 'manual', 파트너 API 의 'external' 은 건드리지 않는다.
+ *  - 정리 2: 같은 날짜에 배정된 행이 있는데 남아 있는 미배정 자동 생성 행(유령)은
+ *    신청이 붙어 있지 않으면 제거한다.
+ *
+ * 실제로 새로 만든 청소 날짜 목록을 돌려준다 (신규 오픈 알림용).
+ */
 export async function ensureCleaningsForProperty(propertyId: string): Promise<string[]> {
   // Only confirmed reservations should drive cleanings. Inquiry-type events
   // (Beds24 status='request'/'inquiry') are stored as type='block' and do
@@ -288,35 +360,68 @@ export async function ensureCleaningsForProperty(propertyId: string): Promise<st
   for (const e of reservations) {
     if (e.endDate) checkoutDates.add(e.endDate);
   }
+  const checkoutList = Array.from(checkoutDates);
+  const today = todayKst();
 
-  // Cleanup: any unassigned cleaning whose date NO LONGER has a confirmed
-  // reservation behind it should be removed. This handles the case where
-  // an event was previously imported as a reservation and later downgraded
-  // (e.g., the underlying booking became an inquiry, was cancelled, or the
-  // dates shifted). Assigned cleanings are preserved — admin work matters.
+  // ── 정리 1: 예약이 사라진 자동 생성 청소 ──
   const orphans = await prisma.cleaning.findMany({
     where: {
       propertyId,
-      cleanerId: null,
-      date: { notIn: Array.from(checkoutDates) },
+      origin: 'auto',
+      status: { not: 'done' },
+      date: { gte: today, notIn: checkoutList },
     },
-    select: { id: true, date: true },
+    select: {
+      id: true,
+      date: true,
+      cleanerId: true,
+      cleaner: { select: { name: true, phone: true } },
+      property: { select: { name: true } },
+    },
   });
   if (orphans.length > 0) {
     await prisma.cleaning.deleteMany({
       where: { id: { in: orphans.map(o => o.id) } },
     });
+    console.log(`[sync] removed ${orphans.length} orphan cleaning(s) for ${propertyId}: ${orphans.map(o => o.date).join(', ')}`);
+    for (const o of orphans) {
+      if (!o.cleanerId || !o.cleaner?.phone) continue;
+      await notifyCleaningCancelled({
+        cleanerPhone: o.cleaner.phone,
+        cleanerName: o.cleaner.name,
+        propertyName: o.property?.name ?? '숙소',
+        date: o.date,
+        reason: 'deleted',
+      }).catch(err => console.error('[sync] cleaning cancel notify failed:', err));
+    }
+  }
+
+  // ── 정리 2: 배정 건과 같은 날짜에 남은 미배정 자동 생성 행(유령) ──
+  const ghostCandidates = await prisma.cleaning.findMany({
+    where: { propertyId, origin: 'auto', cleanerId: null, date: { gte: today } },
+    select: { id: true, date: true, _count: { select: { applications: true } } },
+  });
+  if (ghostCandidates.length > 0) {
+    const assigned = await prisma.cleaning.findMany({
+      where: { propertyId, date: { in: ghostCandidates.map(g => g.date) }, cleanerId: { not: null } },
+      select: { date: true },
+    });
+    const assignedDates = new Set(assigned.map(a => a.date));
+    const ghosts = ghostCandidates.filter(g => assignedDates.has(g.date) && g._count.applications === 0);
+    if (ghosts.length > 0) {
+      await prisma.cleaning.deleteMany({ where: { id: { in: ghosts.map(g => g.id) } } });
+    }
   }
 
   if (checkoutDates.size === 0) return [];
 
   const existing = await prisma.cleaning.findMany({
-    where: { propertyId, date: { in: Array.from(checkoutDates) } },
+    where: { propertyId, date: { in: checkoutList } },
     select: { date: true },
   });
   const existingDates = new Set(existing.map(c => c.date));
 
-  const toCreate = Array.from(checkoutDates).filter(d => !existingDates.has(d));
+  const toCreate = checkoutList.filter(d => !existingDates.has(d));
   if (toCreate.length === 0) return [];
 
   await prisma.cleaning.createMany({
@@ -325,6 +430,7 @@ export async function ensureCleaningsForProperty(propertyId: string): Promise<st
       date,
       status: 'pending',
       isOpen: true,
+      origin: 'auto',
     })),
   });
 
@@ -352,43 +458,46 @@ export async function syncBeds24Property(
     return { total: 0, eventsCreated: 0, eventsUpdated: 0, eventsRemoved: 0, error: 'BEDS24_REFRESH_TOKEN is not configured' };
   }
 
-  const token = await getBeds24Token();
-
-  const today = new Date();
-  const from = new Date(today);
-  from.setMonth(from.getMonth() - 1);
-  const to = new Date(today);
-  to.setFullYear(to.getFullYear() + 1);
-
-  const fromStr = from.toISOString().split('T')[0];
-  const toStr = to.toISOString().split('T')[0];
+  // 조회 창 (체크아웃 기준). 창 밖의 로컬 이벤트는 아래 삭제 단계에서 제외된다.
+  const today = todayKst();
+  const fromStr = addMonthsToDateStr(today, -BEDS24_LOOKBACK_MONTHS);
+  const toStr = addMonthsToDateStr(today, BEDS24_LOOKAHEAD_MONTHS);
 
   let allBookings: Record<string, unknown>[] = [];
   let page = 1;
   let hasMore = true;
 
   while (hasMore) {
-    const params = new URLSearchParams({
-      propertyId: String(beds24PropId),
-      departureFrom: fromStr,
-      departureTo: toStr,
-      page: String(page),
-    });
-
-    const response = await fetch(`${BEDS24_BASE_URL}/bookings?${params}`, {
-      headers: { 'token': token },
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      return { total: 0, eventsCreated: 0, eventsUpdated: 0, eventsRemoved: 0, error: `Beds24 API 오류: ${response.status} ${errText}` };
+    let data: {
+      success?: boolean;
+      error?: string;
+      data?: Record<string, unknown>[];
+      pages?: { nextPageExists?: boolean };
+    };
+    try {
+      // beds24Get: 토큰 캐시·401 시 갱신·타임아웃 포함. 일시 오류는 1회 재시도.
+      data = await beds24WithRetry(
+        `sync bookings ${beds24PropId} p${page}`,
+        () => beds24Get('/bookings', {
+          propertyId: String(beds24PropId),
+          departureFrom: fromStr,
+          departureTo: toStr,
+          page: String(page),
+        }, { timeoutMs: 15_000 }),
+        { attempts: 2, baseDelayMs: 1000 },
+      );
+    } catch (e) {
+      return { total: 0, eventsCreated: 0, eventsUpdated: 0, eventsRemoved: 0, error: `Beds24 API 오류: ${describeBeds24Error(e)}` };
     }
 
-    const data = await response.json();
-    const bookings: Record<string, unknown>[] = data.data || [];
+    if (data?.success === false) {
+      return { total: 0, eventsCreated: 0, eventsUpdated: 0, eventsRemoved: 0, error: `Beds24 API 오류: ${data.error ?? 'success=false'}` };
+    }
+
+    const bookings: Record<string, unknown>[] = Array.isArray(data?.data) ? data.data : [];
     allBookings = allBookings.concat(bookings);
 
-    if (data.pages?.nextPageExists && bookings.length > 0) {
+    if (data?.pages?.nextPageExists && bookings.length > 0) {
       page++;
     } else {
       hasMore = false;
@@ -412,12 +521,23 @@ export async function syncBeds24Property(
     .filter((b) => b.status !== 'cancelled' && b.arrival && b.departure)
     .map((b) => {
       const isBlack = b.status === 'black';
+      // 블랙아웃 중 메모가 '객실정비'로 시작하면 유지보수 차단 — 어디서 만들었든 같은 규칙.
+      const isMaintenance = isBlack && isMaintenanceNotes(b.notes);
       const isInquiry = isRequestStatus(b.status);
-      const guestName = [b.firstName, b.lastName].filter(Boolean).join(' ')
-        || (isBlack ? '차단' : isInquiry ? '문의 대기' : '게스트');
-      const channelSource = isBlack ? 'manual-block' : ((b.channel as string) || (b.referer as string) || 'Beds24');
+      const guestName = isMaintenance
+        ? MAINTENANCE_TITLE
+        : ([b.firstName, b.lastName].filter(Boolean).join(' ')
+          || (isBlack ? '차단' : isInquiry ? '문의 대기' : '게스트'));
+      const channelSource = isBlack
+        ? (isMaintenance ? 'maintenance' : 'manual-block')
+        : ((b.channel as string) || (b.referer as string) || 'Beds24');
 
-      const descriptionParts = isBlack
+      const descriptionParts = isMaintenance
+        ? [
+            `사유: ${maintenanceReasonFromNotes(b.notes) || '(미입력)'}`,
+            `채널: 객실정비`,
+          ].join('\n')
+        : isBlack
         ? [
             b.notes ? `${b.notes}` : '',
             `채널: Beds24 차단`,
@@ -451,7 +571,7 @@ export async function syncBeds24Property(
         // Inquiries block the dates but aren't "예약" — using 'block' type
         // hides them from check-in/dashboard reservation lists.
         type: ((isBlack || isInquiry) ? 'block' : 'reservation') as 'block' | 'reservation',
-        tags: isInquiry ? ['inquiry'] : [],
+        tags: isInquiry ? ['inquiry'] : isMaintenance ? ['maintenance'] : [],
         originalUid: String(b.id),
         description: descriptionParts,
         // Promote contact + party size to structured columns so downstream
@@ -474,8 +594,9 @@ export async function syncBeds24Property(
     });
 
     if (!existing) {
-      await prisma.event.create({ data: event });
-      eventsCreated++;
+      const outcome = await createEventTolerant(event);
+      if (outcome === 'created') eventsCreated++;
+      else eventsUpdated++;
     } else {
       // Detect any meaningful change including type transitions (e.g.
       // an inquiry that gets accepted moves from block → reservation).
@@ -516,15 +637,21 @@ export async function syncBeds24Property(
     }
   }
 
-  // Remove events that no longer exist in Beds24
+  // Remove events that no longer exist in Beds24 — 조회 창 안의 이벤트만 대상.
+  // 창 밖(13개월 넘은 이력, 1년 넘게 남은 예약)은 건드리지 않아 과거 예약·메시지
+  // 스레드·웰컴패드 재방문 이력이 보존된다.
   let eventsRemoved = 0;
-  const existingEvents = await prisma.event.findMany({
-    where: { propertyId, channelId: 'beds24' },
+  const existingInWindow = await prisma.event.findMany({
+    where: { propertyId, channelId: 'beds24', endDate: { gte: fromStr, lte: toStr } },
+    select: { id: true, originalUid: true },
   });
-
-  for (const existing of existingEvents) {
-    if (existing.originalUid && !incomingUids.has(existing.originalUid)) {
-      await prisma.event.delete({ where: { id: existing.id } });
+  const staleEvents = existingInWindow.filter(e => e.originalUid && !incomingUids.has(e.originalUid));
+  const removalGuard = shouldSkipRemoval(allBookings.length, existingInWindow.length, staleEvents.length);
+  if (removalGuard) {
+    console.warn(`[sync] beds24 ${beds24PropId} for ${propertyId}: ${removalGuard} — skipping removal of ${staleEvents.length} events`);
+  } else {
+    for (const stale of staleEvents) {
+      await prisma.event.delete({ where: { id: stale.id } });
       eventsRemoved++;
     }
   }

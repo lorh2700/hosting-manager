@@ -4,9 +4,10 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useParams, usePathname, useRouter } from 'next/navigation';
-import { ArrowLeft, RefreshCw, Calendar as CalendarIcon, X, AlertTriangle, MessageSquare, CalendarPlus } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Calendar as CalendarIcon, X, AlertTriangle, MessageSquare, CalendarPlus, Wrench } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { CreateReservationModal } from '@/app/admin/calendar/components/CreateReservationModal';
+import { CreateMaintenanceModal } from '@/app/admin/calendar/components/CreateMaintenanceModal';
 
 // FullCalendar bundle (~250KB) is lazy-loaded so the page shell paints first.
 const PropertyCalendar = dynamic(() => import('./_components/PropertyCalendar'), {
@@ -22,6 +23,7 @@ interface Property {
   timezone: string;
   ownerId: string;
   beds24PropId?: string;
+  beds24RoomId?: string;
 }
 
 interface ReservationEvent {
@@ -50,6 +52,8 @@ export default function CalendarPage() {
   const [activeChannels, setActiveChannels] = useState<string[]>(['direct']);
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [maintenanceOpen, setMaintenanceOpen] = useState(false);
+  const [releasingMaintenance, setReleasingMaintenance] = useState(false);
 
   const fetchEvents = useCallback(async () => {
     if (!user) return;
@@ -192,10 +196,29 @@ export default function CalendarPage() {
   const isStayfolioChannel = (channelId: string) =>
     channelId.toLowerCase() === 'stayfolio' || channelId === '스테이폴리오';
 
+  // 객실정비 해제 — Beds24 블랙아웃 취소 + 로컬 이벤트 삭제.
+  const handleReleaseMaintenance = async () => {
+    if (!selectedEvent?.eventId || releasingMaintenance) return;
+    if (!window.confirm('객실정비를 해제할까요?\nBeds24 차단도 함께 풀려 예약을 다시 받을 수 있게 됩니다.')) return;
+    setReleasingMaintenance(true);
+    try {
+      const res = await fetch(`/api/beds24/maintenance?eventId=${selectedEvent.eventId}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      setSelectedEvent(null);
+      fetchEvents();
+    } catch (err) {
+      alert(`정비 해제에 실패했습니다.\n${err instanceof Error ? err.message : ''}`);
+    } finally {
+      setReleasingMaintenance(false);
+    }
+  };
+
   const filterValidEvents = (evts: ReservationEvent[]) =>
     evts.filter(e => {
       if (!activeChannels.includes(e.channelId)) return false;
-      if (e.type === 'block') return false;
+      // Beds24 차단(객실정비 포함)은 표시, OTA iCal 차단은 숨김 (통합 캘린더와 같은 규칙)
+      if (e.type === 'block' && e.channelId !== 'beds24') return false;
       if (isStayfolioChannel(e.channelId)) {
         const diffMs = new Date(e.end.substring(0, 10)).getTime() - new Date(e.start.substring(0, 10)).getTime();
         if (diffMs <= 24 * 60 * 60 * 1000) return false;
@@ -205,6 +228,8 @@ export default function CalendarPage() {
 
   const getSourceColor = (source: string): string => {
     const s = source.toLowerCase();
+    if (s === 'maintenance') return '#64748b';
+    if (s === 'manual-block') return '#94a3b8';
     if (s.includes('airbnb')) return '#ff5a5f';
     if (s.includes('booking')) return '#003580';
     if (s.includes('expedia')) return '#f4b400';
@@ -230,6 +255,8 @@ export default function CalendarPage() {
 
   const getSourceLabel = (source: string): string => {
     const s = source.toLowerCase();
+    if (s === 'maintenance') return '객실정비';
+    if (s === 'manual-block') return 'Beds24 차단';
     if (s.includes('airbnb')) return 'Airbnb';
     if (s.includes('booking')) return 'Booking.com';
     if (s.includes('expedia')) return 'Expedia';
@@ -268,6 +295,7 @@ export default function CalendarPage() {
           channelName,
           eventId: e.id,
           description: e.description,
+          source: e.source,
         },
       };
     }), [events, activeChannels, channels]);
@@ -357,6 +385,16 @@ export default function CalendarPage() {
             <CalendarPlus size={13} />
             예약 등록
           </button>
+          {property?.beds24RoomId && (
+            <button
+              onClick={() => setMaintenanceOpen(true)}
+              title="객실정비 차단 등록 (Beds24 블랙아웃)"
+              className="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 text-[11px] tracking-widest font-semibold uppercase flex items-center gap-2 transition-colors"
+            >
+              <Wrench size={13} />
+              객실정비
+            </button>
+          )}
         </div>
       </header>
 
@@ -506,6 +544,10 @@ export default function CalendarPage() {
                 </div>
               ))}
               <div className="flex items-center gap-3 px-2 py-1.5">
+                <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-slate-500" />
+                <span className="text-stone-500">객실정비</span>
+              </div>
+              <div className="flex items-center gap-3 px-2 py-1.5">
                 <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-slate-400" />
                 <span className="text-stone-500">차단 날짜</span>
               </div>
@@ -538,7 +580,7 @@ export default function CalendarPage() {
                 <div className="min-w-0">
                   <p className="font-medium text-stone-900 text-sm truncate">{selectedEvent.title}</p>
                   <p className="text-[10px] text-stone-500 tracking-wide mt-0.5">
-                    {selectedEvent.channelName}{selectedEvent.type === 'block' ? ' · 차단됨' : ''}
+                    {selectedEvent.channelName}{selectedEvent.type === 'block' ? (selectedEvent.source === 'maintenance' ? ' · 정비 중' : ' · 차단됨') : ''}
                   </p>
                 </div>
               </div>
@@ -572,7 +614,18 @@ export default function CalendarPage() {
                 </div>
               )}
 
-              {selectedEvent.eventId && (
+              {selectedEvent.type === 'block' && selectedEvent.source === 'maintenance' && (
+                <button
+                  onClick={handleReleaseMaintenance}
+                  disabled={releasingMaintenance}
+                  className="w-full flex items-center justify-center gap-2 border border-slate-300 text-slate-700 hover:bg-slate-50 py-2.5 text-[11px] tracking-widest transition-colors disabled:opacity-40"
+                >
+                  <Wrench size={13} />
+                  {releasingMaintenance ? '해제 중...' : '정비 해제 (Beds24 차단 취소)'}
+                </button>
+              )}
+
+              {selectedEvent.eventId && selectedEvent.type !== 'block' && (
                 <button
                   onClick={() => router.push(`/admin/messages?eventId=${selectedEvent.eventId}&guestName=${encodeURIComponent(selectedEvent.title)}&propertyId=${id}`)}
                   className="w-full flex items-center justify-center gap-2 border border-stone-200 text-stone-700 hover:text-stone-900 hover:border-stone-300 py-2.5 text-[11px] tracking-widest transition-colors"
@@ -593,6 +646,18 @@ export default function CalendarPage() {
           onClose={() => setCreateOpen(false)}
           onCreated={() => {
             setCreateOpen(false);
+            fetchEvents();
+          }}
+        />
+      )}
+
+      {maintenanceOpen && property && (
+        <CreateMaintenanceModal
+          properties={[{ id: property.id, name: property.name }]}
+          defaultPropertyId={property.id}
+          onClose={() => setMaintenanceOpen(false)}
+          onCreated={() => {
+            setMaintenanceOpen(false);
             fetchEvents();
           }}
         />

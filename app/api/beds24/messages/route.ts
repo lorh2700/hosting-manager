@@ -1,19 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { beds24Get, getBeds24Token, BEDS24_BASE_URL } from '@/lib/beds24';
+import { beds24Get, describeBeds24Error } from '@/lib/beds24';
 import { prisma } from '@/lib/prisma';
-import { verifySession } from '@/lib/auth';
+import { verifySession, getSessionWithUser, getVisiblePropertyIds } from '@/lib/auth';
 
 /**
  * GET /api/beds24/messages?bookingId=123
  *   → Fetch messages for a specific Beds24 booking
  *
- * POST /api/beds24/messages (body: { propertyIds: string[] })
- *   → Sync all Beds24 messages for given properties into DB
+ * POST /api/beds24/messages (body: { propertyIds?: string[], maxAgeDays?: number })
+ *   → Sync recent Beds24 messages for given properties into DB
+ *
+ * 크레딧 주의: Beds24 는 계정당 5분에 100크레딧, 호출 1건 = 1크레딧이다.
+ * 예전 구현은 예약마다 한 번씩(140건+) 조회해 실행할 때마다 창 전체를 소진했고,
+ * 그 5분 동안 예약 동기화·게스트 메시지 발송까지 전부 429 로 막혔다.
+ * 지금은 숙소 단위로 `propertyId + maxAge` 한 번에 받는다 — 숙소당 1크레딧.
  */
 
 interface Beds24Message {
   id?: number;
   bookingId: number;
+  propertyId?: number;
+  roomId?: number;
   message: string;
   source?: string;
   time?: string;
@@ -25,8 +32,8 @@ interface Beds24Message {
 
 // GET: fetch messages for a single booking from Beds24
 export async function GET(req: NextRequest) {
-  const session = await verifySession(req);
-  if (!session) {
+  const auth = await getSessionWithUser(req);
+  if (!auth) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -35,12 +42,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'bookingId is required' }, { status: 400 });
   }
 
+  // 그 Beds24 예약이 볼 수 있는 숙소에 속하는지 확인 (관리자는 전체).
+  if (!auth.isAdmin) {
+    const owners = await prisma.event.findMany({
+      where: { channelId: 'beds24', originalUid: bookingId },
+      select: { propertyId: true },
+    });
+    const visible = await getVisiblePropertyIds(auth, owners.map(o => o.propertyId));
+    if (owners.length === 0 || !visible || visible.length === 0) {
+      return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
+    }
+  }
+
   try {
     const data = await beds24Get('/bookings/messages', { bookingId });
     const messages = Array.isArray(data) ? data : (data?.data && Array.isArray(data.data) ? data.data : []);
     return NextResponse.json({ messages });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
+    const message = describeBeds24Error(err);
     console.error('Beds24 messages fetch error:', message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
@@ -54,30 +73,50 @@ async function authorize(req: NextRequest): Promise<boolean> {
   return !!session;
 }
 
-// POST: sync Beds24 messages into DB for all bookings of given properties
-// Body: { propertyIds?: string[] } — if omitted, defaults to all properties with a Beds24 id
+// 크론은 15분마다 돈다. 3일치를 보면 크론이 몇 번 실패해도 빠짐없이 복구된다.
+const DEFAULT_MAX_AGE_DAYS = 3;
+const MAX_PAGES = 20;
+
+// 숙소 한 곳의 최근 maxAge 일치 메시지를 페이지 단위로 모두 가져온다 (페이지 1건 = 1크레딧).
+async function fetchPropertyMessages(beds24PropId: string, maxAgeDays: number): Promise<Beds24Message[]> {
+  const out: Beds24Message[] = [];
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const data = await beds24Get('/bookings/messages', {
+      propertyId: beds24PropId,
+      maxAge: String(maxAgeDays),
+      page: String(page),
+    }, { timeoutMs: 15_000 });
+    const list: Beds24Message[] = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+    out.push(...list);
+    if (!data?.pages?.nextPageExists || list.length === 0) break;
+  }
+  return out;
+}
+
+// POST: sync recent Beds24 messages into DB for the given properties
 export async function POST(req: NextRequest) {
   if (!(await authorize(req))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
-    const body = await req.json().catch(() => ({})) as { propertyIds?: string[] };
-    let propertyIds = body.propertyIds;
-    if (!propertyIds?.length) {
-      const all = await prisma.property.findMany({
-        where: { beds24PropId: { not: null } },
-        select: { id: true },
-      });
-      propertyIds = all.map(p => p.id);
-    }
-    if (!propertyIds.length) {
+    const body = await req.json().catch(() => ({})) as { propertyIds?: string[]; maxAgeDays?: number };
+    const maxAgeDays = Math.min(90, Math.max(1, Number(body.maxAgeDays) || DEFAULT_MAX_AGE_DAYS));
+
+    const properties = await prisma.property.findMany({
+      where: body.propertyIds?.length
+        ? { id: { in: body.propertyIds }, beds24PropId: { not: null } }
+        : { beds24PropId: { not: null } },
+      select: { id: true, name: true, beds24PropId: true },
+    });
+    if (properties.length === 0) {
       return NextResponse.json({ synced: 0, message: 'No Beds24-linked properties' });
     }
+    const propertyIds = properties.map(p => p.id);
 
-    // 1. Find all events from Beds24
+    // 1. Beds24 booking id → local event (메시지를 붙일 대상)
     const events = await prisma.event.findMany({
-      where: { propertyId: { in: propertyIds }, type: 'reservation' },
+      where: { propertyId: { in: propertyIds }, channelId: 'beds24', type: 'reservation' },
       select: { id: true, propertyId: true, title: true, originalUid: true },
     });
 
@@ -92,38 +131,32 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (eventsByBeds24Id.size === 0) {
-      return NextResponse.json({ synced: 0, message: 'No Beds24 events found' });
+    // 2. 숙소 단위로 최근 메시지 조회 — 숙소 하나가 실패해도 나머지는 계속.
+    const errors: Array<{ propertyId: string; error: string }> = [];
+    const byBooking = new Map<string, Beds24Message[]>();
+    for (const p of properties) {
+      try {
+        const list = await fetchPropertyMessages(p.beds24PropId!, maxAgeDays);
+        for (const m of list) {
+          const key = String(m.bookingId);
+          if (!byBooking.has(key)) byBooking.set(key, []);
+          byBooking.get(key)!.push(m);
+        }
+      } catch (e) {
+        const error = describeBeds24Error(e);
+        console.error(`[beds24/messages] fetch failed for ${p.name}:`, error);
+        errors.push({ propertyId: p.id, error });
+      }
     }
 
-    // 2. Fetch messages from Beds24 in parallel batches
+    // 로컬에 예약이 없는 booking 의 메시지는 붙일 곳이 없으므로 건너뛴다.
+    const bookingsWithMessages = Array.from(byBooking.entries())
+      .filter(([beds24Id, messages]) => eventsByBeds24Id.has(beds24Id) && messages.length > 0)
+      .map(([beds24Id, messages]) => ({ beds24Id, messages }));
+
     let totalSynced = 0;
-    const beds24BookingIds = Array.from(eventsByBeds24Id.keys());
-    const token = await getBeds24Token();
-    const BATCH_SIZE = 10;
 
-    for (let i = 0; i < beds24BookingIds.length; i += BATCH_SIZE) {
-      const batch = beds24BookingIds.slice(i, i + BATCH_SIZE);
-
-      const results = await Promise.allSettled(
-        batch.map(async (beds24Id) => {
-          const res = await fetch(`${BEDS24_BASE_URL}/bookings/messages?bookingId=${beds24Id}`, {
-            headers: { token },
-          });
-          if (!res.ok) return { beds24Id, messages: [] as Beds24Message[] };
-          const raw = await res.json();
-          const messages: Beds24Message[] = Array.isArray(raw) ? raw : (raw?.data && Array.isArray(raw.data) ? raw.data : []);
-          return { beds24Id, messages };
-        })
-      );
-
-      const bookingsWithMessages = results
-        .filter((r): r is PromiseFulfilledResult<{ beds24Id: string; messages: Beds24Message[] }> =>
-          r.status === 'fulfilled' && r.value.messages.length > 0)
-        .map(r => r.value);
-
-      if (bookingsWithMessages.length === 0) continue;
-
+    if (bookingsWithMessages.length > 0) {
       // Load existing messages for dedup. Pull all messages on these events
       // (not just source=beds24) so locally-saved host sends can be matched
       // against their Beds24 echo and merged instead of duplicated.
@@ -266,9 +299,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ synced: totalSynced, bookingsChecked: beds24BookingIds.length });
+    return NextResponse.json({
+      synced: totalSynced,
+      propertiesChecked: properties.length,
+      bookingsWithMessages: bookingsWithMessages.length,
+      maxAgeDays,
+      errors,
+    });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
+    const message = describeBeds24Error(err);
     console.error('Beds24 messages sync error:', message);
     return NextResponse.json({ error: message }, { status: 500 });
   }

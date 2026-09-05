@@ -18,6 +18,7 @@ interface CalendarEvent {
     channelName: string;
     eventId: string;
     description?: string;
+    source?: string;
   };
 }
 
@@ -30,11 +31,16 @@ export interface PropertyCalendarSelected {
   description?: string;
   color: string;
   eventId: string;
+  source?: string;
 }
 
 interface Props {
   events: CalendarEvent[];
   onEventClick: (event: PropertyCalendarSelected) => void;
+}
+
+function blockLabel(source?: string) {
+  return source === 'maintenance' ? '정비' : '차단';
 }
 
 export default function PropertyCalendar({ events, onEventClick }: Props) {
@@ -68,13 +74,16 @@ export default function PropertyCalendar({ events, onEventClick }: Props) {
           description: info.event.extendedProps.description,
           color: info.event.backgroundColor,
           eventId: info.event.extendedProps.eventId,
+          source: info.event.extendedProps.source,
         });
       }}
       eventContent={(eventInfo) => (
         <div className="p-1.5 overflow-hidden text-[10px] tracking-wider truncate">
           <div className="font-semibold">{eventInfo.event.title}</div>
           <div className="opacity-70 font-light">
-            {eventInfo.event.extendedProps.type === 'block' ? '차단' : '예약'}
+            {eventInfo.event.extendedProps.type === 'block'
+              ? blockLabel(eventInfo.event.extendedProps.source)
+              : '예약'}
           </div>
         </div>
       )}

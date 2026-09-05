@@ -55,6 +55,23 @@ function CleanBadge({ evt }: { evt: ProcessedEvent }) {
   );
 }
 
+// 차단(객실정비 포함)은 빗금으로 그려 예약과 구분한다.
+function eventBg(evt: ProcessedEvent): React.CSSProperties {
+  if (evt.type !== 'block') return { backgroundColor: evt.color };
+  return {
+    backgroundColor: evt.color,
+    backgroundImage: 'repeating-linear-gradient(135deg, rgba(255,255,255,0.28) 0 5px, transparent 5px 12px)',
+  };
+}
+
+function BlockLabel({ evt }: { evt: ProcessedEvent }) {
+  return (
+    <span className="mx-1 text-[9px] leading-none px-1.5 py-1 font-semibold shrink-0 whitespace-nowrap bg-white/90 text-slate-700 ring-1 ring-slate-300">
+      {evt.source === 'maintenance' ? '정비' : '차단'}
+    </span>
+  );
+}
+
 function GridLine({ show }: { show: boolean }) {
   if (!show) return null;
   return <span className="absolute right-0 top-0 w-px h-full bg-black/15 z-10 pointer-events-none" />;
@@ -132,7 +149,7 @@ function PropertyLaneCell({ day, di, prop, weekStartStr, today, viewDate, events
     return (
       <div className={`relative h-full cursor-pointer hover:brightness-110 transition-all flex items-center overflow-hidden ${todayRing}`}
         onClick={() => openModal(midEvent)}
-        style={{ backgroundColor: midEvent.color }}
+        style={eventBg(midEvent)}
       >
         {showLabel && (
           <span className="px-2 text-[11px] font-semibold text-white truncate leading-none drop-shadow-sm">
@@ -150,14 +167,14 @@ function PropertyLaneCell({ day, di, prop, weekStartStr, today, viewDate, events
       <div className={`relative h-full flex ${todayRing}`} style={{ gap: '2px' }}>
         <div className="h-full cursor-pointer hover:brightness-110 transition-all flex items-center overflow-hidden"
           onClick={() => openModal(checkoutEvent)}
-          style={{ width: '50%', backgroundColor: checkoutEvent.color, borderRadius: 0, opacity: 0.85,
-            outline: !checkoutEvent.cleanerId ? '2px dashed rgba(245,158,11,0.85)' : 'none', outlineOffset: '-2px' }}
+          style={{ width: '50%', ...eventBg(checkoutEvent), borderRadius: 0, opacity: 0.85,
+            outline: checkoutEvent.type !== 'block' && !checkoutEvent.cleanerId ? '2px dashed rgba(245,158,11,0.85)' : 'none', outlineOffset: '-2px' }}
         >
-          <CleanBadge evt={checkoutEvent} />
+          {checkoutEvent.type === 'block' ? <BlockLabel evt={checkoutEvent} /> : <CleanBadge evt={checkoutEvent} />}
         </div>
         <div className="h-full cursor-pointer hover:brightness-110 transition-all flex items-center overflow-hidden"
           onClick={() => openModal(checkinEvent)}
-          style={{ width: '50%', backgroundColor: checkinEvent.color, borderRadius: 0 }}
+          style={{ width: '50%', ...eventBg(checkinEvent), borderRadius: 0 }}
         >
           <span className="px-1.5 text-[11px] font-semibold text-white truncate leading-none drop-shadow-sm">
             {checkinEvent.title}
@@ -174,10 +191,10 @@ function PropertyLaneCell({ day, di, prop, weekStartStr, today, viewDate, events
       <div className={`relative h-full flex items-center ${todayRing}`} style={{ backgroundColor: emptyBg }}>
         <div className="h-full cursor-pointer hover:brightness-110 transition-all flex items-center overflow-hidden"
           onClick={() => openModal(checkoutEvent)}
-          style={{ width: '50%', backgroundColor: checkoutEvent.color, borderRadius: 0, opacity: 0.85,
-            outline: !checkoutEvent.cleanerId ? '2px dashed rgba(245,158,11,0.85)' : 'none', outlineOffset: '-2px' }}
+          style={{ width: '50%', ...eventBg(checkoutEvent), borderRadius: 0, opacity: 0.85,
+            outline: checkoutEvent.type !== 'block' && !checkoutEvent.cleanerId ? '2px dashed rgba(245,158,11,0.85)' : 'none', outlineOffset: '-2px' }}
         >
-          <CleanBadge evt={checkoutEvent} />
+          {checkoutEvent.type === 'block' ? <BlockLabel evt={checkoutEvent} /> : <CleanBadge evt={checkoutEvent} />}
         </div>
         <GridLine show={showGridLine} />
       </div>
@@ -190,7 +207,7 @@ function PropertyLaneCell({ day, di, prop, weekStartStr, today, viewDate, events
       <div className={`relative h-full flex items-center justify-end ${todayRing}`} style={{ backgroundColor: emptyBg }}>
         <div className="h-full cursor-pointer hover:brightness-110 transition-all flex items-center overflow-hidden"
           onClick={() => openModal(checkinEvent)}
-          style={{ width: '50%', backgroundColor: checkinEvent.color, borderRadius: 0 }}
+          style={{ width: '50%', ...eventBg(checkinEvent), borderRadius: 0 }}
         >
           <span className="px-2 text-[11px] font-semibold text-white truncate leading-none drop-shadow-sm">
             {checkinEvent.title}

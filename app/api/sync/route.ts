@@ -1,16 +1,30 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { syncICalChannel, syncBeds24Property, logSync } from '@/lib/sync-engine';
+import { getSessionWithUser, canManageProperty } from '@/lib/auth';
 
 export async function POST(req: Request) {
   let propertyId: string | undefined;
   let triggeredBy: string | undefined;
   try {
     const body = await req.json();
-    propertyId = body.propertyId;
-    triggeredBy = body.triggeredBy;
+    propertyId = typeof body.propertyId === 'string' ? body.propertyId : undefined;
+    triggeredBy = typeof body.triggeredBy === 'string' ? body.triggeredBy : undefined;
   } catch {
     // body may be empty (e.g. dashboard sync button)
+  }
+
+  // 권한: 크론(x-cron-secret) 또는 로그인 세션. 특정 숙소만 동기화하면 그 숙소의
+  // 관리 권한, 전체 동기화는 관리자만. (이전에는 완전 공개 경로였다.)
+  const cronSecret = process.env.CRON_SECRET;
+  const cronHeader = req.headers.get('x-cron-secret');
+  const viaCron = !!cronHeader && !!cronSecret && cronHeader === cronSecret;
+  if (!viaCron) {
+    const auth = await getSessionWithUser(req);
+    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const allowed = propertyId ? canManageProperty(auth, propertyId) : auth.isAdmin;
+    if (!allowed) return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
+    triggeredBy = triggeredBy ?? auth.user.email;
   }
 
   try {

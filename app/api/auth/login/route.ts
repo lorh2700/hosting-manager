@@ -3,9 +3,19 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { signToken, setSessionCookie } from '@/lib/auth';
 import { phoneToSyntheticEmail } from '@/lib/phone';
+import { rateLimit, clientIp } from '@/lib/rateLimit';
 
 export async function POST(req: Request) {
   try {
+    // 청소매니저 계정은 전화번호 뒤 4자리가 비밀번호라 무차별 대입에 특히 약하다.
+    const rl = rateLimit(`login:${clientIp(req)}`, 10, 10 * 60 * 1000);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: '로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.' },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfterSec) } },
+      );
+    }
+
     const { email, phone, password } = await req.json();
 
     if (!password || (!email && !phone)) {

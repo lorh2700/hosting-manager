@@ -20,9 +20,13 @@ export async function GET(req: Request) {
     const propertyId = searchParams.get('propertyId');
 
     let integrations;
+    const isAdmin = ['super_admin', 'admin'].includes(user.role);
     if (propertyId) {
+      // 담당 숙소가 아니면 연동 설정(iCal URL 등)을 볼 수 없다.
+      const allowed = isAdmin || user.properties.some(p => p.propertyId === propertyId);
+      if (!allowed) return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
       integrations = await prisma.integration.findMany({ where: { propertyId } });
-    } else if (['super_admin', 'admin'].includes(user.role)) {
+    } else if (isAdmin) {
       integrations = await prisma.integration.findMany();
     } else {
       const propIds = user.properties.map(p => p.propertyId);

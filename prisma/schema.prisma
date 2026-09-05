@@ -212,11 +212,14 @@ model Booking {
   status     String   @default("pending") // pending, confirmed, cancelled
   message    String?
   source     String   @default("direct")
+  // 예약관리 페이지에서 Beds24 로 만든 예약의 Beds24 booking id — 취소 시 Beds24 에도 반영하기 위해 보관.
+  channelBookingRef String? @map("channel_booking_ref")
   createdAt  DateTime @default(now()) @map("created_at")
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@index([propertyId, status])
+  @@index([channelBookingRef])
   @@index([propertyId, status, checkOut])
   @@map("bookings")
 }
@@ -279,6 +282,10 @@ model Cleaning {
   externalId           String? @map("external_id")
   externalCleanerName  String? @map("external_cleaner_name")
   externalCleanerPhone String? @map("external_cleaner_phone")
+  // 생성 출처. 예약 체크아웃에서 자동 생성된 청소('auto')만 예약이 사라지면
+  // 같이 정리된다. 관리자/웰컴패드가 만든 'manual', 파트너 API 의 'external' 은
+  // 동기화가 건드리지 않는다.
+  origin         String    @default("auto")
   createdAt      DateTime  @default(now()) @map("created_at")
 
   property     Property              @relation(fields: [propertyId], references: [id], onDelete: Cascade)
@@ -289,6 +296,7 @@ model Cleaning {
   @@unique([externalSource, externalId])
   @@index([propertyId, date])
   @@index([cleanerId])
+  @@index([propertyId, origin, date])
   @@map("cleanings")
 }
 

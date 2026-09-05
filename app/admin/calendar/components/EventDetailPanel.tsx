@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, X, Save, Trash2, Send, CheckCircle, RefreshCw, Tag as TagIcon, Plus, Ban } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Save, Trash2, Send, CheckCircle, RefreshCw, Tag as TagIcon, Plus, Ban, Wrench } from 'lucide-react';
 import type { SelectedEvent, ProcessedEvent, Cleaner, SupplyTodo, ModalMessage } from '../types';
 
 interface EventDetailPanelProps {
@@ -35,6 +35,8 @@ interface EventDetailPanelProps {
   onSendMessage: () => void;
   onSyncMessages: () => void;
   onUpdateTags: (tags: string[]) => Promise<void> | void;
+  onReleaseMaintenance?: () => void;
+  releasingMaintenance?: boolean;
   openModal: (e: ProcessedEvent) => void;
 }
 
@@ -54,9 +56,11 @@ export function EventDetailPanel({
   onClose, onSaveCleaner, onDeleteCleaner, onCompleteCleaning,
   onAddSupply, onToggleSupply, onDeleteSupply,
   onSendMessage, onSyncMessages, onUpdateTags, openModal,
+  onReleaseMaintenance, releasingMaintenance,
 }: EventDetailPanelProps) {
   const [newTag, setNewTag] = useState('');
   const isBlock = selectedEvent.type === 'block';
+  const isMaintenance = isBlock && selectedEvent.source === 'maintenance';
 
   const addTag = async (raw: string) => {
     const t = raw.trim();
@@ -138,7 +142,11 @@ export function EventDetailPanel({
             <div className="min-w-0">
               <p className="text-xs text-stone-500 font-medium">{selectedEvent.propertyName}</p>
               <div className="flex items-center gap-2 mt-1">
-                {isBlock && (
+                {isMaintenance ? (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold bg-slate-100 text-slate-700">
+                    <Wrench size={10} /> 객실정비
+                  </span>
+                ) : isBlock && (
                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold bg-rose-50 text-rose-600">
                     <Ban size={10} /> 차단
                   </span>
@@ -180,11 +188,28 @@ export function EventDetailPanel({
           </div>
           {filteredDescription && (
             <div className="pt-2.5 mt-1 border-t border-stone-200">
-              <p className="text-xs text-stone-500 mb-1.5">{isBlock ? '차단 메모' : '예약 메모'}</p>
+              <p className="text-xs text-stone-500 mb-1.5">{isMaintenance ? '정비 내용' : isBlock ? '차단 메모' : '예약 메모'}</p>
               <p className="text-stone-700 text-xs whitespace-pre-line leading-relaxed">{filteredDescription}</p>
             </div>
           )}
         </div>
+
+        {/* 객실정비 해제 */}
+        {isMaintenance && onReleaseMaintenance && (
+          <div className="border-t border-stone-200 pt-5 space-y-2">
+            <p className="text-xs text-stone-500 leading-relaxed">
+              정비 기간에는 청소가 열리지 않고 담당자·빨래 업체에도 전달되지 않습니다. 정비가 끝나 예약을 다시 받으려면 해제하세요.
+            </p>
+            <button
+              onClick={onReleaseMaintenance}
+              disabled={!!releasingMaintenance}
+              className="w-full flex items-center justify-center gap-2 border border-slate-300 text-slate-700 hover:bg-slate-50 py-2.5 text-[11px] tracking-widest font-medium transition-colors disabled:opacity-40"
+            >
+              <Wrench size={13} />
+              {releasingMaintenance ? '해제 중...' : '정비 해제 (Beds24 차단 취소)'}
+            </button>
+          </div>
+        )}
 
         {/* Tags */}
         <div className="border-t border-stone-200 pt-5 space-y-2.5">

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionWithUser } from '@/lib/auth';
-import { notifyCleaningAssigned, notifyCleaningCancelled } from '@/lib/notify';
+import { notifyCleaningAssigned, notifyCleaningCancelled, type CleaningCancelReason } from '@/lib/notify';
 
 async function notifyAssignmentByCleaningId(cleaningId: string) {
   try {
@@ -37,7 +37,7 @@ async function notifyCancellationToCleaner(opts: {
   cleanerId: string;
   propertyId: string;
   date: string;
-  reason: 'deleted' | 'reassigned';
+  reason: CleaningCancelReason;
 }) {
   try {
     const [cleaner, property] = await Promise.all([
@@ -69,6 +69,42 @@ async function notifyCancellationToCleaner(opts: {
 
 function forbidden() {
   return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
+}
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+type CleaningUpdate = {
+  cleanerId?: string | null;
+  status?: string;
+  supplies?: string | null;
+  notes?: string | null;
+  completionNote?: string | null;
+  completedAt?: Date | null;
+  hasIssue?: boolean;
+  isOpen?: boolean;
+  date?: string;
+};
+
+// PUT body 에서 허용 필드만 골라 담는다 (origin/externalSource 등은 바꿀 수 없다).
+function pickCleaningUpdateFields(body: Record<string, unknown>): CleaningUpdate {
+  const data: CleaningUpdate = {};
+  if ('cleanerId' in body) {
+    data.cleanerId = typeof body.cleanerId === 'string' && body.cleanerId ? body.cleanerId : null;
+  }
+  if (body.status === 'pending' || body.status === 'done') data.status = body.status;
+  if (typeof body.supplies === 'string' || body.supplies === null) data.supplies = body.supplies as string | null;
+  if (typeof body.notes === 'string' || body.notes === null) data.notes = body.notes as string | null;
+  if (typeof body.completionNote === 'string' || body.completionNote === null) {
+    data.completionNote = body.completionNote as string | null;
+  }
+  if (body.completedAt === null) data.completedAt = null;
+  else if (typeof body.completedAt === 'string' && !Number.isNaN(Date.parse(body.completedAt))) {
+    data.completedAt = new Date(body.completedAt);
+  }
+  if (typeof body.hasIssue === 'boolean') data.hasIssue = body.hasIssue;
+  if (typeof body.isOpen === 'boolean') data.isOpen = body.isOpen;
+  if (typeof body.date === 'string' && DATE_RE.test(body.date)) data.date = body.date;
+  return data;
 }
 
 export async function GET(req: Request) {
@@ -212,12 +248,27 @@ export async function POST(req: Request) {
       return forbidden();
     }
 
-    // Assigning a cleaner directly closes the open-application slot.
-    if (body.cleanerId && body.isOpen !== false) {
-      body.isOpen = false;
+    if (!DATE_RE.test(String(body.date))) {
+      return NextResponse.json({ error: 'date는 YYYY-MM-DD 형식이어야 합니다.' }, { status: 400 });
     }
 
-    const cleaning = await prisma.cleaning.create({ data: body });
+    // body 를 그대로 저장하지 않는다 — 허용 필드만.
+    const cleanerId = typeof body.cleanerId === 'string' && body.cleanerId ? body.cleanerId : null;
+    const cleaning = await prisma.cleaning.create({
+      data: {
+        propertyId: String(body.propertyId),
+        date: String(body.date),
+        cleanerId,
+        status: body.status === 'done' ? 'done' : 'pending',
+        supplies: typeof body.supplies === 'string' ? body.supplies : null,
+        notes: typeof body.notes === 'string' ? body.notes : null,
+        // Assigning a cleaner directly closes the open-application slot.
+        isOpen: cleanerId ? false : (typeof body.isOpen === 'boolean' ? body.isOpen : false),
+        assignmentType: 'direct',
+        // 관리자가 직접 만든 청소 — 예약 취소 정리(origin='auto') 대상이 아니다.
+        origin: 'manual',
+      },
+    });
 
     if (cleaning.cleanerId) {
       await notifyAssignmentByCleaningId(cleaning.id);
@@ -235,11 +286,14 @@ export async function PUT(req: Request) {
     const auth = await getSessionWithUser(req);
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const body = await req.json();
-    const { id, ...data } = body;
+    const body = (await req.json()) as Record<string, unknown>;
+    const id = typeof body.id === 'string' ? body.id : null;
     if (!id) return NextResponse.json({ error: 'id는 필수입니다.' }, { status: 400 });
 
-    if ('cleanerId' in data && data.cleanerId === '') data.cleanerId = null;
+    const data = pickCleaningUpdateFields(body);
+    if (Object.keys(data).length === 0) {
+      return NextResponse.json({ error: '업데이트할 필드가 없습니다.' }, { status: 400 });
+    }
 
     // Whenever a cleaner is being assigned, the slot is no longer "open
     // for application". Conversely, clearing the cleaner doesn't auto-open
@@ -267,7 +321,7 @@ export async function PUT(req: Request) {
         cleanerId: before.cleanerId,
         propertyId: before.propertyId,
         date: before.date,
-        reason: 'reassigned',
+        reason: cleaning.cleanerId ? 'reassigned' : 'unassigned',
       });
     }
     if (cleanerChanged && cleaning.cleanerId) {

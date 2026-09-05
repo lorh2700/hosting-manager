@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionWithUser } from '@/lib/auth';
+import { kstYearMonth, monthRange } from '@/lib/dates';
 
 export async function GET(req: Request) {
   const t0 = Date.now();
@@ -21,11 +22,10 @@ export async function GET(req: Request) {
     const monthsBack = Number.isFinite(monthsBackParam) && monthsBackParam >= 0 ? monthsBackParam : 1;
     const monthsForward = Number.isFinite(monthsForwardParam) && monthsForwardParam > 0 ? monthsForwardParam : 2;
 
-    const now = new Date();
-    const rangeFrom = new Date(now.getFullYear(), now.getMonth() - monthsBack, 1)
-      .toISOString().split('T')[0];
-    const rangeTo = new Date(now.getFullYear(), now.getMonth() + monthsForward + 1, 0)
-      .toISOString().split('T')[0];
+    // 서버(UTC)가 아니라 한국 시간 기준 월로 계산 — 매월 1일 새벽에 창이 한 달 밀리던 문제.
+    const { year, month } = kstYearMonth();
+    const rangeFrom = monthRange(year, month - monthsBack).first;
+    const rangeTo = monthRange(year, month + monthsForward).last;
 
     const tProps = Date.now();
     const properties = await prisma.property.findMany({

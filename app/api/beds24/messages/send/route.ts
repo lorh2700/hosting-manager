@@ -1,43 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { beds24Post } from '@/lib/beds24';
 import { prisma } from '@/lib/prisma';
-import { verifySession } from '@/lib/auth';
+import { getSessionWithUser, canManageProperty } from '@/lib/auth';
 
 /**
  * POST /api/beds24/messages/send
  * Send a message to a guest via Beds24, and save a copy to DB.
  * For direct bookings (no Beds24 ID), saves as local memo only.
+ * 권한: 그 예약이 속한 숙소를 관리하는 호스트/관리자만.
  */
 export async function POST(req: NextRequest) {
-  const session = await verifySession(req);
-  if (!session) {
+  const auth = await getSessionWithUser(req);
+  if (!auth) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
-    const { eventId, propertyId, text } = await req.json() as {
+    const { eventId, text } = await req.json() as {
       eventId: string;
-      propertyId: string;
+      propertyId?: string;
       text: string;
     };
 
-    if (!eventId || !propertyId || !text?.trim()) {
-      return NextResponse.json({ error: 'eventId, propertyId, and text are required' }, { status: 400 });
+    if (!eventId || !text?.trim()) {
+      return NextResponse.json({ error: 'eventId and text are required' }, { status: 400 });
     }
 
-    // Look up the event to find Beds24 booking ID
+    // Look up the event to find Beds24 booking ID. propertyId 는 body 가 아니라
+    // 예약 레코드에서 가져온다 (권한 검사 우회 방지).
     const event = await prisma.event.findUnique({ where: { id: eventId } });
+    let propertyId: string | null = null;
     let beds24BookingId: string | null = null;
     let guestName = '게스트';
 
     if (event) {
+      propertyId = event.propertyId;
       beds24BookingId = event.originalUid || null;
       guestName = (event.title || '게스트').replace(/ 예약$/, '');
     } else {
       const booking = await prisma.booking.findUnique({ where: { id: eventId } });
       if (booking) {
+        propertyId = booking.propertyId;
         guestName = booking.name || '게스트';
       }
+    }
+
+    if (!propertyId) {
+      return NextResponse.json({ error: '예약을 찾을 수 없습니다.' }, { status: 404 });
+    }
+    if (!canManageProperty(auth, propertyId)) {
+      return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 
     let deliveryStatus: 'sent' | 'failed' | 'local_only' = 'local_only';

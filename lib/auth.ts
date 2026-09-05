@@ -87,8 +87,8 @@ export async function getSession(): Promise<{ user: SessionUser; profile: Sessio
   };
 }
 
-/** Verify session from request (for API route protection) */
-export async function verifySession(req: Request): Promise<{ userId: string; email: string } | null> {
+/** 요청의 쿠키 또는 Bearer 헤더에서 JWT payload 만 꺼낸다 (DB 조회 없음). */
+async function readTokenPayload(req: Request): Promise<{ userId: string; email: string } | null> {
   // Try cookie first
   const cookieHeader = req.headers.get('cookie') || '';
   const match = cookieHeader.match(new RegExp(`${COOKIE_NAME}=([^;]+)`));
@@ -104,6 +104,24 @@ export async function verifySession(req: Request): Promise<{ userId: string; ema
   }
 
   return verifyToken(token);
+}
+
+/**
+ * Verify session from request (for API route protection).
+ *
+ * 승인 대기(pending_invite)·정지(suspended) 계정은 유효한 토큰이 있어도 API 를
+ * 쓸 수 없다. 화면의 "승인 대기" 안내는 getSession() 경유라 영향받지 않는다.
+ */
+export async function verifySession(req: Request): Promise<{ userId: string; email: string } | null> {
+  const payload = await readTokenPayload(req);
+  if (!payload) return null;
+
+  const user = await prisma.user.findUnique({
+    where: { id: payload.userId },
+    select: { status: true },
+  });
+  if (!user || user.status !== 'active') return null;
+  return payload;
 }
 
 /**
@@ -188,9 +206,13 @@ export async function authorizeTourBooking(
   return b.tour.ownerId === userId ? data : null;
 }
 
-/** Verify session AND load user + propertyIds in one step (eliminates duplicate DB queries) */
-export async function getSessionWithUser(req: Request) {
-  const session = await verifySession(req);
+/**
+ * Verify session AND load user + propertyIds in one step (eliminates duplicate DB queries).
+ * 기본적으로 active 계정만 통과. allowInactive 는 승인 대기 화면처럼 계정 상태 자체를
+ * 보여줘야 하는 극소수 경로에서만 쓴다.
+ */
+export async function getSessionWithUser(req: Request, opts: { allowInactive?: boolean } = {}) {
+  const session = await readTokenPayload(req);
   if (!session) return null;
 
   const user = await prisma.user.findUnique({
@@ -198,6 +220,7 @@ export async function getSessionWithUser(req: Request) {
     include: { properties: { select: { propertyId: true } } },
   });
   if (!user) return null;
+  if (!opts.allowInactive && user.status !== 'active') return null;
 
   const isAdmin = ['super_admin', 'admin'].includes(user.role);
 
@@ -209,4 +232,64 @@ export async function getSessionWithUser(req: Request) {
       ? null // null = all properties (caller should query without filter)
       : user.properties.map(p => p.propertyId),
   };
+}
+
+export type SessionAuth = NonNullable<Awaited<ReturnType<typeof getSessionWithUser>>>;
+
+/**
+ * 쓰기 권한: 관리자이거나, 그 숙소가 담당 숙소(UserProperty)에 포함된 호스트.
+ * 청소매니저는 담당 숙소가 있어도 예약/숙소 데이터를 수정할 수 없다.
+ */
+export function canManageProperty(auth: SessionAuth, propertyId: string): boolean {
+  if (auth.isAdmin) return true;
+  if (auth.user.role === 'cleaner') return false;
+  return (auth.propertyIds ?? []).includes(propertyId);
+}
+
+/** 관리자 또는 숙소 소유자(ownerId)만 — 숙소 삭제처럼 되돌리기 어려운 작업용. */
+export async function isPropertyOwnerOrAdmin(auth: SessionAuth, propertyId: string): Promise<boolean> {
+  if (auth.isAdmin) return true;
+  const p = await prisma.property.findUnique({ where: { id: propertyId }, select: { ownerId: true } });
+  return !!p && p.ownerId === auth.session.userId;
+}
+
+/**
+ * 읽기 범위: 관리자는 전체(null), 청소매니저는 자기 호스트의 모든 숙소
+ * (/api/cleanings 와 같은 규칙), 그 외는 담당 숙소.
+ * 요청이 propertyIds 를 지정하면 그 교집합만 돌려준다.
+ */
+export async function getVisiblePropertyIds(
+  auth: SessionAuth,
+  requested?: string[] | null,
+): Promise<string[] | null> {
+  let visible: string[] | null;
+
+  if (auth.isAdmin) {
+    visible = null;
+  } else {
+    const scoped = auth.propertyIds ?? [];
+    let myCleaner = await prisma.cleaner.findUnique({
+      where: { userId: auth.session.userId },
+      select: { ownerId: true },
+    });
+    if (!myCleaner && auth.user.phone) {
+      myCleaner = await prisma.cleaner.findFirst({
+        where: { phone: auth.user.phone },
+        select: { ownerId: true },
+      });
+    }
+    if (myCleaner) {
+      const owned = await prisma.property.findMany({
+        where: { ownerId: myCleaner.ownerId },
+        select: { id: true },
+      });
+      visible = Array.from(new Set([...owned.map(p => p.id), ...scoped]));
+    } else {
+      visible = scoped;
+    }
+  }
+
+  if (!requested?.length) return visible;
+  if (visible === null) return requested;
+  return requested.filter(id => visible!.includes(id));
 }

@@ -1,25 +1,33 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionWithUser } from '@/lib/auth';
-import { beds24Post, beds24Put, BEDS24_REFRESH_TOKEN } from '@/lib/beds24';
+import { ensureCleaningsForProperty } from '@/lib/sync-engine';
+import { describeBeds24Error, BEDS24_REFRESH_TOKEN } from '@/lib/beds24';
+import { registerBeds24BookingVerified, cancelBeds24Booking, ROUTE_BUDGET_MS } from '@/lib/beds24-register';
+
+const LOG = '[beds24/reservations]';
 
 function forbidden() {
   return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
 }
 
 /**
- * Register a direct reservation through Beds24 so the dates are marked as
- * booked across all connected channels.
+ * 직접 예약 등록. 플랫폼 저장은 Beds24 등록이 "확인된 뒤에만" 한다 (lib/beds24-register 참조).
  *
  * Body: {
  *   propertyId, startDate (arrival), endDate (departure),
- *   name, email?, phone?, numAdult?, numChild?, notes?, tags?
+ *   name, email?, phone?, numAdult?, numChild?, notes?, tags?,
+ *   beds24BookingId?  — 이전 시도에서 Beds24 등록까지는 됐지만 확인/저장에 실패한 경우.
  * }
+ * 실패 응답에 pendingBeds24BookingId 가 있으면 Beds24 에는 예약이 있고 플랫폼에는 아직 없다는 뜻.
+ * clearPending 이 true 면 클라이언트는 보관 중인 pending id 를 버려야 한다.
  */
 export async function POST(req: Request) {
   if (!BEDS24_REFRESH_TOKEN) {
     return NextResponse.json({ error: 'BEDS24_REFRESH_TOKEN이 설정되지 않았습니다.' }, { status: 500 });
   }
+  const deadlineAt = Date.now() + ROUTE_BUDGET_MS;
+
   try {
     const auth = await getSessionWithUser(req);
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -28,6 +36,7 @@ export async function POST(req: Request) {
     const {
       propertyId, startDate, endDate,
       name, email, phone, numAdult, numChild, notes, tags,
+      beds24BookingId: providedBookingId,
     } = body;
 
     if (!propertyId || !startDate || !endDate || !name) {
@@ -64,35 +73,30 @@ export async function POST(req: Request) {
           .slice(0, 20)
       : [];
 
-    const beds24Response = await beds24Post('/bookings', [{
+    const arrival = String(startDate);
+    const departure = String(endDate);
+
+    const outcome = await registerBeds24BookingVerified({
+      kind: 'reservation',
       roomId: Number(property.beds24RoomId),
-      arrival: startDate,
-      departure: endDate,
+      arrival,
+      departure,
       firstName: firstName || trimmedName,
       lastName: lastName || '',
       email: trimmedEmail,
       phone: trimmedPhone,
       numAdult: adults,
       numChild: children,
-      status: 'confirmed',
       notes: trimmedNotes,
-    }]);
+      providedBookingId,
+      deadlineAt,
+      logPrefix: LOG,
+    });
+    if (!outcome.ok) return NextResponse.json(outcome.body, { status: outcome.status });
 
-    const created = Array.isArray(beds24Response) ? beds24Response[0] : beds24Response;
-    const beds24BookingId =
-      created?.new?.id ??
-      created?.id ??
-      created?.bookingId ??
-      null;
+    const { bookingId, origin } = outcome;
 
-    if (!beds24BookingId) {
-      console.error('[beds24/reservations] Beds24 did not return booking id:', JSON.stringify(beds24Response).slice(0, 500));
-      return NextResponse.json({
-        error: 'Beds24에서 예약 생성에 실패했습니다.',
-        beds24Response,
-      }, { status: 502 });
-    }
-
+    // ── 플랫폼 저장 (Beds24 확인 완료 후에만) ──
     const descriptionParts = [
       `게스트: ${trimmedName}`,
       trimmedEmail ? `이메일: ${trimmedEmail}` : '',
@@ -102,33 +106,52 @@ export async function POST(req: Request) {
       trimmedNotes ? `메모: ${trimmedNotes}` : '',
     ].filter(Boolean).join('\n');
 
-    const event = await prisma.event.create({
-      data: {
-        propertyId,
-        channelId: 'beds24',
-        source: 'manual-reservation',
-        title: trimmedName,
-        startDate,
-        endDate,
-        type: 'reservation',
-        originalUid: String(beds24BookingId),
-        description: descriptionParts,
-        tags: sanitizedTags,
-        guestEmail: trimmedEmail || null,
-        guestPhone: trimmedPhone || null,
-        numAdults: adults,
-        numChildren: children,
-      },
-    });
+    const eventData = {
+      source: 'manual-reservation',
+      title: trimmedName,
+      startDate: arrival,
+      endDate: departure,
+      type: 'reservation',
+      description: descriptionParts,
+      tags: sanitizedTags,
+      guestEmail: trimmedEmail || null,
+      guestPhone: trimmedPhone || null,
+      numAdults: adults,
+      numChildren: children,
+    };
 
+    let event: { id: string };
+    try {
+      // 동기화 크론이 먼저 같은 Beds24 예약을 가져왔을 수도 있으므로 upsert.
+      event = await prisma.event.upsert({
+        where: {
+          propertyId_channelId_originalUid: { propertyId, channelId: 'beds24', originalUid: String(bookingId) },
+        },
+        create: { propertyId, channelId: 'beds24', originalUid: String(bookingId), ...eventData },
+        update: eventData,
+        select: { id: true },
+      });
+    } catch (e) {
+      console.error(`${LOG} local save failed for Beds24 booking #${bookingId}:`, e);
+      return NextResponse.json({
+        error: `Beds24 예약(#${bookingId}) 등록은 확인되었지만 플랫폼 저장에 실패했습니다. 잠시 후 'Beds24 확인 후 등록'을 눌러주세요.`,
+        stage: 'local',
+        pendingBeds24BookingId: String(bookingId),
+      }, { status: 500 });
+    }
+
+    console.log(`${LOG} registered event ${event.id} for Beds24 booking #${bookingId} (${origin})`);
     return NextResponse.json({
       success: true,
       eventId: event.id,
-      beds24BookingId: String(beds24BookingId),
+      beds24BookingId: String(bookingId),
+      verified: true,
+      origin,
+      beds24Status: outcome.booking.status ?? null,
     }, { status: 201 });
   } catch (error) {
-    console.error('[beds24/reservations] POST error:', error);
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    console.error(`${LOG} POST error:`, error);
+    return NextResponse.json({ error: describeBeds24Error(error) }, { status: 500 });
   }
 }
 
@@ -162,14 +185,11 @@ export async function DELETE(req: Request) {
 
     if (event.originalUid) {
       try {
-        await beds24Put('/bookings', [{
-          id: Number(event.originalUid),
-          status: 'cancelled',
-        }]);
+        await cancelBeds24Booking(event.originalUid);
       } catch (e) {
-        console.error('[beds24/reservations] Beds24 cancel failed:', e);
+        console.error(`${LOG} Beds24 cancel failed:`, e);
         return NextResponse.json({
-          error: 'Beds24에서 예약 취소에 실패했습니다. 네트워크 또는 권한을 확인하세요.',
+          error: `Beds24에서 예약 취소에 실패했습니다 (${describeBeds24Error(e)}). 네트워크 또는 권한을 확인하세요.`,
           detail: String(e),
         }, { status: 502 });
       }
@@ -177,9 +197,14 @@ export async function DELETE(req: Request) {
 
     await prisma.event.delete({ where: { id: eventId } });
 
+    // 취소된 예약의 자동 생성 청소를 바로 정리 (다음 동기화까지 기다리지 않도록).
+    await ensureCleaningsForProperty(event.propertyId).catch(err => {
+      console.error(`${LOG} cleaning cleanup after cancel failed:`, err);
+    });
+
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[beds24/reservations] DELETE error:', error);
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    console.error(`${LOG} DELETE error:`, error);
+    return NextResponse.json({ error: describeBeds24Error(error) }, { status: 500 });
   }
 }

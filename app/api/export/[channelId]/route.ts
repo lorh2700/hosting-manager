@@ -49,10 +49,10 @@ export async function GET(
 
     // Build ICS events
     const icsEvents: ics.EventAttributes[] = [
+      // description 은 내보내지 않는다 — 게스트 이메일·연락처가 다른 채널로 흘러간다.
       ...events.map((e, i) => ({
         uid: e.id || `event-${i}`,
         title: e.title || undefined,
-        description: e.description || undefined,
         start: dateToIcsTuple(e.startDate),
         end: dateToIcsTuple(e.endDate),
       })),
