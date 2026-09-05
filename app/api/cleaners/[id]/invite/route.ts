@@ -1,78 +1,40 @@
-import { NextResponse } from 'next/server';
+import { randomBytes } from 'crypto';
 import { prisma } from '@/lib/prisma';
-import { getSessionWithUser } from '@/lib/auth';
+import { withAuth, created, fail, readJson, str } from '@/lib/core/http';
+
+type Params = { id: string };
 
 function generateToken(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let result = '';
-  for (let i = 0; i < 32; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
+  return randomBytes(24).toString('base64url');
 }
 
-export async function POST(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const auth = await getSessionWithUser(req);
-    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    if (!auth.isAdmin) {
-      return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
-    }
+/** 청소 담당자에게 포털 계정 초대 링크 발급 (관리자). */
+export const POST = withAuth<Params>('cleaners/invite', async (req, { auth, params }) => {
+  const body = await readJson(req);
+  const email = str(body, 'email', { required: true, max: 200 })!.trim();
+  const propertyIds = Array.isArray(body.propertyIds)
+    ? (body.propertyIds as unknown[]).filter((p): p is string => typeof p === 'string')
+    : [];
 
-    const { id } = await params;
-    const body = await req.json();
-    const { email, propertyIds } = body as { email: string; propertyIds?: string[] };
+  const cleaner = await prisma.cleaner.findUnique({ where: { id: params.id }, select: { id: true, userId: true, ownerId: true } });
+  if (!cleaner) throw fail(404, '청소 담당자를 찾을 수 없습니다.');
+  if (cleaner.userId) throw fail(409, '이미 포털 계정과 연결된 담당자입니다.');
 
-    if (!email) {
-      return NextResponse.json({ error: '이메일은 필수입니다.' }, { status: 400 });
-    }
+  if (await prisma.user.findUnique({ where: { email } })) throw fail(409, '이미 가입된 이메일입니다.');
+  if (await prisma.invitation.findFirst({ where: { email, status: 'pending' } })) throw fail(409, '이미 대기중인 초대가 있습니다.');
 
-    const cleaner = await prisma.cleaner.findUnique({
-      where: { id },
-      select: { id: true, userId: true, ownerId: true },
-    });
-    if (!cleaner) {
-      return NextResponse.json({ error: '청소 담당자를 찾을 수 없습니다.' }, { status: 404 });
-    }
-    if (cleaner.userId) {
-      return NextResponse.json({ error: '이미 포털 계정과 연결된 담당자입니다.' }, { status: 409 });
-    }
+  const invitation = await prisma.invitation.create({
+    data: {
+      email,
+      role: 'cleaner',
+      propertyIds,
+      invitedBy: auth.session.userId,
+      cleanerId: cleaner.id,
+      status: 'pending',
+      token: generateToken(),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    },
+  });
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) {
-      return NextResponse.json({ error: '이미 가입된 이메일입니다.' }, { status: 409 });
-    }
-
-    const existingInvite = await prisma.invitation.findFirst({
-      where: { email, status: 'pending' },
-    });
-    if (existingInvite) {
-      return NextResponse.json({ error: '이미 대기중인 초대가 있습니다.' }, { status: 409 });
-    }
-
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    const invitation = await prisma.invitation.create({
-      data: {
-        email,
-        role: 'cleaner',
-        propertyIds: propertyIds ?? [],
-        invitedBy: auth.session.userId,
-        cleanerId: cleaner.id,
-        status: 'pending',
-        token: generateToken(),
-        expiresAt,
-      },
-    });
-
-    return NextResponse.json(
-      { ...invitation, inviteLink: `/invite/${invitation.token}` },
-      { status: 201 }
-    );
-  } catch (e) {
-    console.error('[cleaners/invite] POST error:', e);
-    return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
-  }
-}
+  return created({ ...invitation, inviteLink: `/invite/${invitation.token}` });
+}, { admin: true });

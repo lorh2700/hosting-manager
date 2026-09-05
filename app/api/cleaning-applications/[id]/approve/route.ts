@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSessionWithUser } from '@/lib/auth';
+import { withAuth, ok, fail, MESSAGES, requireManage } from '@/lib/core/http';
+
+type Params = { id: string };
 
 /**
  * Approve a cleaning application.
@@ -10,88 +11,40 @@ import { getSessionWithUser } from '@/lib/auth';
  *   2. Marks the application as approved
  *   3. Assigns the cleaner to the cleaning + closes it (isOpen=false)
  *   4. Auto-rejects every other pending application for the same cleaning
- *
- * Doing this server-side avoids the FK-violation bug that happens when
- * the client mistakenly passes User.id directly as Cleaning.cleanerId.
  */
-export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const auth = await getSessionWithUser(req);
-    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+export const POST = withAuth<Params>('cleaning-applications/approve', async (_req, { auth, params }) => {
+  const application = await prisma.cleaningApplication.findUnique({
+    where: { id: params.id },
+    select: { id: true, applicantId: true, cleaningId: true, propertyId: true, status: true },
+  });
+  if (!application) throw fail(404, MESSAGES.notFound);
+  requireManage(auth, application.propertyId);
 
-    const { id } = await params;
-
-    const application = await prisma.cleaningApplication.findUnique({
-      where: { id },
-      select: { id: true, applicantId: true, cleaningId: true, propertyId: true, status: true },
-    });
-    if (!application) return NextResponse.json({ error: 'not found' }, { status: 404 });
-
-    // Owner-or-admin check (host can approve only their property's apps)
-    if (!auth.isAdmin && !(auth.propertyIds ?? []).includes(application.propertyId)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    if (application.status !== 'pending') {
-      return NextResponse.json(
-        { error: `이미 처리된 신청입니다. (현재 상태: ${application.status})` },
-        { status: 409 },
-      );
-    }
-
-    // Resolve User.id → Cleaner.id
-    const cleaner = await prisma.cleaner.findUnique({
-      where: { userId: application.applicantId },
-      select: { id: true, name: true },
-    });
-    if (!cleaner) {
-      return NextResponse.json(
-        { error: '신청자의 청소 담당자 프로필이 없습니다. 먼저 청소 담당자로 등록해주세요.' },
-        { status: 422 },
-      );
-    }
-
-    const now = new Date();
-
-    await prisma.$transaction([
-      prisma.cleaningApplication.update({
-        where: { id: application.id },
-        data: {
-          status: 'approved',
-          processedBy: auth.session.userId,
-          processedAt: now,
-        },
-      }),
-      prisma.cleaning.update({
-        where: { id: application.cleaningId },
-        data: {
-          cleanerId: cleaner.id,
-          isOpen: false,
-          assignmentType: 'applied',
-        },
-      }),
-      prisma.cleaningApplication.updateMany({
-        where: {
-          cleaningId: application.cleaningId,
-          id: { not: application.id },
-          status: 'pending',
-        },
-        data: {
-          status: 'rejected',
-          rejectedReason: '다른 담당자가 배정되었습니다',
-          processedBy: auth.session.userId,
-          processedAt: now,
-        },
-      }),
-    ]);
-
-    return NextResponse.json({
-      success: true,
-      cleanerId: cleaner.id,
-      cleanerName: cleaner.name,
-    });
-  } catch (e) {
-    console.error('[cleaning-applications/:id/approve] POST error:', e);
-    return NextResponse.json({ error: '승인 처리에 실패했습니다.' }, { status: 500 });
+  if (application.status !== 'pending') {
+    throw fail(409, `이미 처리된 신청입니다. (현재 상태: ${application.status})`);
   }
-}
+
+  const cleaner = await prisma.cleaner.findUnique({
+    where: { userId: application.applicantId },
+    select: { id: true, name: true },
+  });
+  if (!cleaner) throw fail(422, '신청자의 청소 담당자 프로필이 없습니다. 먼저 청소 담당자로 등록해주세요.');
+
+  const now = new Date();
+  await prisma.$transaction([
+    prisma.cleaningApplication.update({
+      where: { id: application.id },
+      data: { status: 'approved', processedBy: auth.session.userId, processedAt: now },
+    }),
+    prisma.cleaning.update({
+      where: { id: application.cleaningId },
+      data: { cleanerId: cleaner.id, isOpen: false, assignmentType: 'applied' },
+    }),
+    prisma.cleaningApplication.updateMany({
+      where: { cleaningId: application.cleaningId, id: { not: application.id }, status: 'pending' },
+      data: { status: 'rejected', rejectedReason: '다른 담당자가 배정되었습니다', processedBy: auth.session.userId, processedAt: now },
+    }),
+  ]);
+
+  return ok({ success: true, cleanerId: cleaner.id, cleanerName: cleaner.name });
+});

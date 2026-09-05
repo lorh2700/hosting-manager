@@ -1,159 +1,65 @@
-import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifySession } from '@/lib/auth';
+import { withAuth, ok, created, fail, MESSAGES, requireOwnerOrAdmin, requireVisible, readJson, str, int, query, requireQuery } from '@/lib/core/http';
 import type { IntegrationProvider, IntegrationType } from '@/lib/types';
 
-export async function GET(req: Request) {
-  try {
-    const session = await verifySession(req);
-    if (!session) {
-      return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: session.userId },
-      include: { properties: true },
-    });
-    if (!user) return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
-
-    const { searchParams } = new URL(req.url);
-    const propertyId = searchParams.get('propertyId');
-
-    let integrations;
-    const isAdmin = ['super_admin', 'admin'].includes(user.role);
-    if (propertyId) {
-      // 담당 숙소가 아니면 연동 설정(iCal URL 등)을 볼 수 없다.
-      const allowed = isAdmin || user.properties.some(p => p.propertyId === propertyId);
-      if (!allowed) return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
-      integrations = await prisma.integration.findMany({ where: { propertyId } });
-    } else if (isAdmin) {
-      integrations = await prisma.integration.findMany();
-    } else {
-      const propIds = user.properties.map(p => p.propertyId);
-      if (propIds.length === 0) return NextResponse.json([]);
-      integrations = await prisma.integration.findMany({ where: { propertyId: { in: propIds } } });
-    }
-
-    return NextResponse.json(integrations);
-  } catch (e) {
-    console.error('[integrations] GET error:', e);
-    return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
+export const GET = withAuth('integrations', async (req, { auth }) => {
+  const propertyId = query(req, 'propertyId');
+  if (propertyId) {
+    // 담당 숙소가 아니면 연동 설정(iCal URL 등)을 볼 수 없다.
+    await requireVisible(auth, propertyId);
+    return ok(await prisma.integration.findMany({ where: { propertyId } }));
   }
-}
+  if (auth.isAdmin) return ok(await prisma.integration.findMany());
+  const propIds = auth.propertyIds ?? [];
+  if (propIds.length === 0) return ok([]);
+  return ok(await prisma.integration.findMany({ where: { propertyId: { in: propIds } } }));
+});
 
-export async function POST(req: Request) {
-  try {
-    const session = await verifySession(req);
-    if (!session) {
-      return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
-    }
+// 연동 생성·수정·삭제는 숙소 소유자 또는 관리자만 (iCal URL 이 예약 데이터 원본이므로).
+export const POST = withAuth('integrations', async (req, { auth }) => {
+  const body = await readJson(req);
+  const propertyId = str(body, 'propertyId', { required: true })!;
+  const provider = str(body, 'provider', { required: true, max: 50 })! as IntegrationProvider;
+  const type = str(body, 'type', { required: true, max: 30 })! as IntegrationType;
 
-    const body = await req.json();
-    const { propertyId, provider, type, config, syncIntervalMinutes } = body as {
-      propertyId: string;
-      provider: IntegrationProvider;
-      type: IntegrationType;
-      config: Record<string, string>;
-      syncIntervalMinutes?: number;
-    };
+  const property = await prisma.property.findUnique({ where: { id: propertyId }, select: { id: true } });
+  if (!property) throw fail(404, '숙소를 찾을 수 없습니다.');
+  await requireOwnerOrAdmin(auth, propertyId);
 
-    if (!propertyId || !provider || !type) {
-      return NextResponse.json({ error: 'propertyId, provider, type은 필수입니다.' }, { status: 400 });
-    }
+  const integration = await prisma.integration.create({
+    data: {
+      propertyId,
+      provider,
+      type,
+      config: (body.config as Record<string, string> | undefined) ?? {},
+      status: 'active',
+      syncIntervalMinutes: int(body, 'syncIntervalMinutes', { min: 1, max: 1440 }) ?? 15,
+    },
+  });
+  return created(integration);
+});
 
-    const property = await prisma.property.findUnique({ where: { id: propertyId } });
-    if (!property) {
-      return NextResponse.json({ error: '숙소를 찾을 수 없습니다.' }, { status: 404 });
-    }
+const UPDATABLE = ['config', 'status', 'syncIntervalMinutes', 'lastSyncAt', 'lastSyncStatus', 'lastErrorMessage'];
 
-    const user = await prisma.user.findUnique({ where: { id: session.userId } });
-    if (!user || (!['super_admin', 'admin'].includes(user.role) && property.ownerId !== session.userId)) {
-      return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
-    }
+export const PUT = withAuth('integrations', async (req, { auth }) => {
+  const body = await readJson(req);
+  const id = str(body, 'id', { required: true })!;
+  const integ = await prisma.integration.findUnique({ where: { id }, select: { propertyId: true } });
+  if (!integ) throw fail(404, '연동을 찾을 수 없습니다.');
+  await requireOwnerOrAdmin(auth, integ.propertyId);
 
-    const integration = await prisma.integration.create({
-      data: {
-        propertyId,
-        provider,
-        type,
-        config: config ?? {},
-        status: 'active',
-        syncIntervalMinutes: syncIntervalMinutes ?? 15,
-      },
-    });
+  const data: Record<string, unknown> = {};
+  for (const key of UPDATABLE) if (key in body) data[key] = body[key];
+  if (Object.keys(data).length === 0) throw fail(400, MESSAGES.noFields);
+  return ok(await prisma.integration.update({ where: { id }, data }));
+});
 
-    return NextResponse.json(integration, { status: 201 });
-  } catch (e) {
-    console.error('[integrations] POST error:', e);
-    return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
-  }
-}
+export const DELETE = withAuth('integrations', async (req, { auth }) => {
+  const id = requireQuery(req, 'id');
+  const integ = await prisma.integration.findUnique({ where: { id }, select: { propertyId: true } });
+  if (!integ) throw fail(404, '연동을 찾을 수 없습니다.');
+  await requireOwnerOrAdmin(auth, integ.propertyId);
 
-export async function PUT(req: Request) {
-  try {
-    const session = await verifySession(req);
-    if (!session) {
-      return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
-    }
-
-    const body = await req.json();
-    const { id, ...updates } = body;
-
-    if (!id) {
-      return NextResponse.json({ error: 'id는 필수입니다.' }, { status: 400 });
-    }
-
-    const integ = await prisma.integration.findUnique({ where: { id }, include: { property: true } });
-    if (!integ) {
-      return NextResponse.json({ error: '연동을 찾을 수 없습니다.' }, { status: 404 });
-    }
-
-    const user = await prisma.user.findUnique({ where: { id: session.userId } });
-    if (!user || (!['super_admin', 'admin'].includes(user.role) && integ.property.ownerId !== session.userId)) {
-      return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
-    }
-
-    const allowedFields = ['config', 'status', 'syncIntervalMinutes', 'lastSyncAt', 'lastSyncStatus', 'lastErrorMessage'];
-    const safeUpdates: Record<string, unknown> = {};
-    for (const key of allowedFields) {
-      if (key in updates) safeUpdates[key] = updates[key];
-    }
-
-    const updated = await prisma.integration.update({ where: { id }, data: safeUpdates });
-    return NextResponse.json(updated);
-  } catch (e) {
-    console.error('[integrations] PUT error:', e);
-    return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
-  }
-}
-
-export async function DELETE(req: Request) {
-  try {
-    const session = await verifySession(req);
-    if (!session) {
-      return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
-    }
-
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
-    if (!id) {
-      return NextResponse.json({ error: 'id는 필수입니다.' }, { status: 400 });
-    }
-
-    const integ = await prisma.integration.findUnique({ where: { id }, include: { property: true } });
-    if (!integ) {
-      return NextResponse.json({ error: '연동을 찾을 수 없습니다.' }, { status: 404 });
-    }
-
-    const user = await prisma.user.findUnique({ where: { id: session.userId } });
-    if (!user || (!['super_admin', 'admin'].includes(user.role) && integ.property.ownerId !== session.userId)) {
-      return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
-    }
-
-    await prisma.integration.delete({ where: { id } });
-    return NextResponse.json({ success: true });
-  } catch (e) {
-    console.error('[integrations] DELETE error:', e);
-    return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
-  }
-}
+  await prisma.integration.delete({ where: { id } });
+  return ok({ success: true });
+});
