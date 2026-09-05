@@ -9,7 +9,9 @@ if (!process.env.JWT_SECRET) {
 }
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 const COOKIE_NAME = 'va_session';
-const TOKEN_EXPIRY = '7d';
+// 모바일에서 주로 쓰므로 재로그인 부담을 줄이기 위해 30일. 정지·삭제된 계정은 토큰이 남아도 verifySession 에서 막힌다.
+const SESSION_DAYS = 30;
+const TOKEN_EXPIRY = `${SESSION_DAYS}d`;
 
 export interface SessionUser {
   id: string;
@@ -51,7 +53,7 @@ export async function setSessionCookie(token: string) {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: 7 * 24 * 60 * 60, // 7 days
+    maxAge: SESSION_DAYS * 24 * 60 * 60,
   });
 }
 
