@@ -421,7 +421,9 @@ export async function ensureCleaningsForProperty(propertyId: string): Promise<st
   });
   const existingDates = new Set(existing.map(c => c.date));
 
-  const toCreate = checkoutList.filter(d => !existingDates.has(d));
+  // 오늘 이후 체크아웃만 청소를 만든다. 과거 예약이 다시 들어와도(예: 보관 기간 확대,
+  // 이력 재동기화) 지난 날짜에 청소를 만들거나 "신규 오픈" 알림을 보내면 안 된다.
+  const toCreate = checkoutList.filter(d => d >= today && !existingDates.has(d));
   if (toCreate.length === 0) return [];
 
   await prisma.cleaning.createMany({
