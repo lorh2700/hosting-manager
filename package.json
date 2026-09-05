@@ -7,6 +7,7 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint .",
+    "test": "node --experimental-strip-types --no-warnings --import ./tests/register.mjs --test \"tests/**/*.test.ts\"",
     "clean": "next clean",
     "optimize-images": "node scripts/optimize-images.mjs",
     "seed": "node scripts/seed-properties.mjs"
