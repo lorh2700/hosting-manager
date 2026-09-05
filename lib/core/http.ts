@@ -43,8 +43,9 @@ export function fail(status: number, message: string, extra?: Record<string, unk
   return new HttpError(status, message, extra);
 }
 
+// extra 가 error 키를 담고 있어도 message 가 우선하도록 error 를 마지막에 둔다.
 export const errorResponse = (status: number, message: string, extra?: Record<string, unknown>) =>
-  NextResponse.json({ error: message, ...(extra ?? {}) }, { status });
+  NextResponse.json({ ...(extra ?? {}), error: message }, { status });
 
 export const ok = (body: unknown, status = 200) => NextResponse.json(body, { status });
 export const created = (body: unknown) => NextResponse.json(body, { status: 201 });

@@ -1,77 +1,37 @@
-import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { syncBeds24Property } from '@/lib/sync-engine';
-import { getSessionWithUser } from '@/lib/auth';
+import { withErrors, ok, fail, MESSAGES, cronOrSession } from '@/lib/core/http';
 
 export const maxDuration = 60;
 
-type AuthResult =
-  | { ok: true }
-  | { ok: false; reason: string };
+// 모든 Beds24 연동 숙소를 순서대로 동기화한다. 권한: 크론(x-cron-secret) 또는 관리자 세션.
+export const POST = withErrors('beds24/sync-all', async (req) => {
+  const auth = await cronOrSession(req);
+  if (auth && !auth.isAdmin) throw fail(403, MESSAGES.forbidden);
 
-async function authorize(req: Request): Promise<AuthResult> {
-  const cronSecret = process.env.CRON_SECRET;
-  const header = req.headers.get('x-cron-secret');
-  if (header) {
-    if (!cronSecret) return { ok: false, reason: 'header_present_but_env_missing' };
-    if (header === cronSecret) return { ok: true };
-    return { ok: false, reason: 'header_mismatch' };
-  }
-  const auth = await getSessionWithUser(req);
-  if (auth?.isAdmin) return { ok: true };
-  return { ok: false, reason: 'no_header_and_no_admin_session' };
-}
+  const properties = await prisma.property.findMany({
+    where: { beds24PropId: { not: null } },
+    select: { id: true, name: true, beds24PropId: true },
+  });
 
-export async function POST(req: Request) {
-  try {
-    const authResult = await authorize(req);
-    if (!authResult.ok) {
-      return NextResponse.json({ error: 'Unauthorized', reason: authResult.reason }, { status: 401 });
-    }
+  const results = [];
+  let totalCreated = 0;
+  let totalUpdated = 0;
+  let totalRemoved = 0;
 
-    const properties = await prisma.property.findMany({
-      where: { beds24PropId: { not: null } },
-      select: { id: true, name: true, beds24PropId: true },
+  for (const p of properties) {
+    if (!p.beds24PropId) continue;
+    const started = Date.now();
+    const r = await syncBeds24Property(p.id, p.beds24PropId);
+    totalCreated += r.eventsCreated;
+    totalUpdated += r.eventsUpdated;
+    totalRemoved += r.eventsRemoved;
+    results.push({
+      propertyId: p.id, propertyName: p.name, total: r.total,
+      eventsCreated: r.eventsCreated, eventsUpdated: r.eventsUpdated, eventsRemoved: r.eventsRemoved,
+      durationMs: Date.now() - started, error: r.error,
     });
-
-    const results = [];
-    let totalCreated = 0;
-    let totalUpdated = 0;
-    let totalRemoved = 0;
-
-    for (const p of properties) {
-      if (!p.beds24PropId) continue;
-      const started = Date.now();
-      const r = await syncBeds24Property(p.id, p.beds24PropId);
-      const durationMs = Date.now() - started;
-
-      totalCreated += r.eventsCreated;
-      totalUpdated += r.eventsUpdated;
-      totalRemoved += r.eventsRemoved;
-
-      results.push({
-        propertyId: p.id,
-        propertyName: p.name,
-        total: r.total,
-        eventsCreated: r.eventsCreated,
-        eventsUpdated: r.eventsUpdated,
-        eventsRemoved: r.eventsRemoved,
-        durationMs,
-        error: r.error,
-      });
-    }
-
-    return NextResponse.json({
-      success: true,
-      propertiesSynced: results.length,
-      totalCreated,
-      totalUpdated,
-      totalRemoved,
-      results,
-    });
-  } catch (err) {
-    console.error('Beds24 sync-all error:', err);
-    const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: 'Internal error', message }, { status: 500 });
   }
-}
+
+  return ok({ success: true, propertiesSynced: results.length, totalCreated, totalUpdated, totalRemoved, results });
+});

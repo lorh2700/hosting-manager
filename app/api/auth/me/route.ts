@@ -1,19 +1,10 @@
-import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
+import { withErrors, ok, errorResponse } from '@/lib/core/http';
 
-export async function GET() {
-  try {
-    const session = await getSession();
-
-    if (!session) {
-      return NextResponse.json({ user: null, profile: null }, { status: 401 });
-    }
-
-    return NextResponse.json(session);
-  } catch (err) {
-    console.error('Auth me API error:', err);
-    const message = err instanceof Error ? err.message : String(err);
-    const code = (err as { code?: string })?.code;
-    return NextResponse.json({ error: 'Internal error', message, code }, { status: 500 });
-  }
-}
+// 현재 세션의 사용자·프로필. 승인 대기 계정도 자기 상태를 볼 수 있어야 하므로
+// (승인 대기 화면) 상태 검사가 없는 getSession() 을 쓴다.
+export const GET = withErrors('auth/me', async () => {
+  const session = await getSession();
+  if (!session) return errorResponse(401, 'Unauthorized', { user: null, profile: null });
+  return ok(session);
+});

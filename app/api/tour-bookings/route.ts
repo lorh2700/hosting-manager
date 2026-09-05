@@ -1,234 +1,145 @@
-import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSessionWithUser, authorizeTour, authorizeTourBooking, authorizeTourSchedule } from '@/lib/auth';
+import { authorizeTourBooking, authorizeTourSchedule } from '@/lib/auth';
 import { notifyTourHostOfBooking, notifyTourGuestOfBooking } from '@/lib/notify';
+import { withAuth, ok, created, fail, MESSAGES, readJson, str, query } from '@/lib/core/http';
 
-export async function GET(req: Request) {
-  try {
-    const auth = await getSessionWithUser(req);
-    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+export const GET = withAuth('tour-bookings', async (req, { auth }) => {
+  const tourId = query(req, 'tourId');
+  const status = query(req, 'status');
+  const bookings = await prisma.tourBooking.findMany({
+    where: {
+      ...(auth.isAdmin ? {} : { tour: { ownerId: auth.session.userId } }),
+      ...(tourId ? { tourId } : {}),
+      ...(status ? { status } : {}),
+    },
+    orderBy: { createdAt: 'desc' },
+    include: {
+      tour: { select: { id: true, title: true, operator: { select: { id: true, name: true, contactPhone: true, email: true } } } },
+      schedule: { select: { date: true, startTime: true } },
+      durationOption: { select: { id: true, label: true, durationMin: true, price: true } },
+    },
+  });
 
-    const { searchParams } = new URL(req.url);
-    const tourId = searchParams.get('tourId');
-    const status = searchParams.get('status');
+  return ok(bookings.map(b => ({
+    id: b.id, tourId: b.tourId, scheduleId: b.scheduleId,
+    name: b.name, phone: b.phone, email: b.email, guests: b.guests, durationMin: b.durationMin,
+    unitPrice: b.unitPrice ? Number(b.unitPrice) : null,
+    totalPrice: b.totalPrice ? Number(b.totalPrice) : null,
+    status: b.status, forwardedAt: b.forwardedAt, message: b.message, source: b.source, createdAt: b.createdAt,
+    tour: { id: b.tour.id, title: b.tour.title, operator: b.tour.operator },
+    schedule: b.schedule,
+    durationOption: b.durationOption
+      ? { id: b.durationOption.id, label: b.durationOption.label, durationMin: b.durationOption.durationMin, price: Number(b.durationOption.price) }
+      : null,
+  })));
+});
 
-    const ownerFilter = auth.isAdmin ? {} : { tour: { ownerId: auth.session.userId } };
+export const POST = withAuth('tour-bookings', async (req, { auth }) => {
+  const body = await readJson(req);
+  const scheduleId = str(body, 'scheduleId');
+  const name = str(body, 'name');
+  const guestCount = Math.max(1, Number(body.guests) || 0);
+  if (!scheduleId || !name || !body.guests) throw fail(400, '이름, 슬롯, 인원은 필수입니다.');
 
-    const bookings = await prisma.tourBooking.findMany({
-      where: {
-        ...ownerFilter,
-        ...(tourId ? { tourId } : {}),
-        ...(status ? { status } : {}),
-      },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        tour: {
-          select: {
-            id: true, title: true,
-            operator: { select: { id: true, name: true, contactPhone: true, email: true } },
-          },
-        },
-        schedule: { select: { date: true, startTime: true } },
-        durationOption: { select: { id: true, label: true, durationMin: true, price: true } },
-      },
+  // Verify the admin owns the tour behind this schedule.
+  if (!(await authorizeTourSchedule(scheduleId, auth.session.userId, { isAdmin: auth.isAdmin }))) throw fail(403, MESSAGES.forbidden);
+
+  const trimmedPhone = (str(body, 'phone') ?? '').trim();
+  const durationOptionId = str(body, 'durationOptionId');
+
+  const result = await prisma.$transaction(async (tx) => {
+    const schedule = await tx.tourSchedule.findUnique({
+      where: { id: scheduleId },
+      include: { tour: { include: { operator: true, durationOptions: true, owner: { select: { id: true, displayName: true, email: true, phone: true } } } } },
     });
-
-    return NextResponse.json(
-      bookings.map(b => ({
-        id: b.id,
-        tourId: b.tourId,
-        scheduleId: b.scheduleId,
-        name: b.name,
-        phone: b.phone,
-        email: b.email,
-        guests: b.guests,
-        durationMin: b.durationMin,
-        unitPrice: b.unitPrice ? Number(b.unitPrice) : null,
-        totalPrice: b.totalPrice ? Number(b.totalPrice) : null,
-        status: b.status,
-        forwardedAt: b.forwardedAt,
-        message: b.message,
-        source: b.source,
-        createdAt: b.createdAt,
-        tour: {
-          id: b.tour.id,
-          title: b.tour.title,
-          operator: b.tour.operator,
-        },
-        schedule: b.schedule,
-        durationOption: b.durationOption ? {
-          id: b.durationOption.id,
-          label: b.durationOption.label,
-          durationMin: b.durationOption.durationMin,
-          price: Number(b.durationOption.price),
-        } : null,
-      })),
-    );
-  } catch (e) {
-    console.error('[tour-bookings] GET error:', e);
-    return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
-  }
-}
-
-export async function POST(req: Request) {
-  try {
-    const auth = await getSessionWithUser(req);
-    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-    const body = await req.json();
-    const { scheduleId, durationOptionId, name, phone, email, guests, message, bookingId } = body;
-    if (!scheduleId || !name || !guests) {
-      return NextResponse.json({ error: '이름, 슬롯, 인원은 필수입니다.' }, { status: 400 });
+    if (!schedule) return { ok: false as const, error:'슬롯을 찾을 수 없습니다.', status: 404 } as const;
+    if (schedule.capacity - schedule.bookedCount < guestCount) {
+      return { ok: false as const, error:`남은 자리는 ${schedule.capacity - schedule.bookedCount}명입니다.`, status: 409 } as const;
     }
 
-    // Verify the admin owns the tour behind this schedule.
-    const sched = await authorizeTourSchedule(scheduleId, auth.session.userId, { isAdmin: auth.isAdmin });
-    if (!sched) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    const durationOption = durationOptionId ? (schedule.tour.durationOptions.find(o => o.id === durationOptionId) ?? null) : null;
 
-    const trimmedPhone = typeof phone === 'string' ? phone.trim() : '';
-    const guestCount = Math.max(1, Number(guests) || 1);
-
-    const result = await prisma.$transaction(async (tx) => {
-      const schedule = await tx.tourSchedule.findUnique({
-        where: { id: scheduleId },
-        include: {
-          tour: {
-            include: {
-              operator: true,
-              durationOptions: true,
-              owner: { select: { id: true, displayName: true, email: true, phone: true } },
-            },
-          },
-        },
-      });
-      if (!schedule) return { error: '슬롯을 찾을 수 없습니다.' as const, status: 404 };
-      if (schedule.capacity - schedule.bookedCount < guestCount) {
-        return { error: `남은 자리는 ${schedule.capacity - schedule.bookedCount}명입니다.` as const, status: 409 };
-      }
-
-      let durationOption = null as null | (typeof schedule.tour.durationOptions)[number];
-      if (durationOptionId) {
-        durationOption = schedule.tour.durationOptions.find(o => o.id === durationOptionId) ?? null;
-      }
-
-      const updated = await tx.tourSchedule.updateMany({
-        where: { id: scheduleId, bookedCount: { lte: schedule.capacity - guestCount } },
-        data: { bookedCount: { increment: guestCount } },
-      });
-      if (updated.count === 0) {
-        return { error: '동시 예약이 발생했습니다. 다시 시도해주세요.' as const, status: 409 };
-      }
-
-      const unitPrice = durationOption
-        ? Number(durationOption.price)
-        : schedule.tour.basePrice ? Number(schedule.tour.basePrice) : null;
-      const durationMin = durationOption?.durationMin ?? schedule.tour.durationMin ?? null;
-      const totalPrice = unitPrice !== null ? unitPrice * guestCount : null;
-
-      const booking = await tx.tourBooking.create({
-        data: {
-          tourId: schedule.tourId,
-          scheduleId: schedule.id,
-          durationOptionId: durationOption?.id ?? null,
-          durationMin,
-          unitPrice,
-          bookingId: bookingId || null,
-          name,
-          phone: trimmedPhone,
-          email: email || null,
-          guests: guestCount,
-          totalPrice,
-          message: message || null,
-          status: 'pending',
-          source: 'admin',
-        },
-      });
-      return { ok: true as const, booking, schedule, tour: schedule.tour };
+    const updated = await tx.tourSchedule.updateMany({
+      where: { id: scheduleId, bookedCount: { lte: schedule.capacity - guestCount } },
+      data: { bookedCount: { increment: guestCount } },
     });
+    if (updated.count === 0) return { ok: false as const, error:'동시 예약이 발생했습니다. 다시 시도해주세요.', status: 409 } as const;
 
-    if ('error' in result) {
-      return NextResponse.json({ error: result.error }, { status: result.status });
-    }
+    const unitPrice = durationOption ? Number(durationOption.price) : schedule.tour.basePrice ? Number(schedule.tour.basePrice) : null;
+    const durationMin = durationOption?.durationMin ?? schedule.tour.durationMin ?? null;
+    const totalPrice = unitPrice !== null ? unitPrice * guestCount : null;
 
-    const commonNotifyOpts = {
-      tourTitle: result.tour.title,
-      guestName: name,
-      guests: guestCount,
-      date: result.schedule.date,
-      startTime: result.schedule.startTime,
-      durationMin: result.booking.durationMin,
-      totalPrice: result.booking.totalPrice ? Number(result.booking.totalPrice) : null,
-      meetingPoint: result.tour.meetingPoint,
-      bookingId: result.booking.id,
-    };
+    const booking = await tx.tourBooking.create({
+      data: {
+        tourId: schedule.tourId,
+        scheduleId: schedule.id,
+        durationOptionId: durationOption?.id ?? null,
+        durationMin,
+        unitPrice,
+        bookingId: str(body, 'bookingId') || null,
+        name,
+        phone: trimmedPhone,
+        email: str(body, 'email') || null,
+        guests: guestCount,
+        totalPrice,
+        message: str(body, 'message') || null,
+        status: 'pending',
+        source: 'admin',
+      },
+    });
+    return { ok: true as const, booking, schedule, tour: schedule.tour };
+  });
 
-    notifyTourHostOfBooking({
-      ...commonNotifyOpts,
-      guestPhone: trimmedPhone || null,
-      hostPhone: result.tour.owner.phone,
-      hostName: result.tour.owner.displayName ?? result.tour.owner.email,
-    }).catch(err => console.error('[tour-bookings] host notify failed:', err));
+  if (!result.ok) throw fail(result.status, result.error);
 
-    notifyTourGuestOfBooking({
-      ...commonNotifyOpts,
-      guestPhone: trimmedPhone || null,
-    }).catch(err => console.error('[tour-bookings] guest notify failed:', err));
+  const commonNotifyOpts = {
+    tourTitle: result.tour.title,
+    guestName: name,
+    guests: guestCount,
+    date: result.schedule.date,
+    startTime: result.schedule.startTime,
+    durationMin: result.booking.durationMin,
+    totalPrice: result.booking.totalPrice ? Number(result.booking.totalPrice) : null,
+    meetingPoint: result.tour.meetingPoint,
+    bookingId: result.booking.id,
+  };
+  notifyTourHostOfBooking({
+    ...commonNotifyOpts, guestPhone: trimmedPhone || null,
+    hostPhone: result.tour.owner.phone, hostName: result.tour.owner.displayName ?? result.tour.owner.email,
+  }).catch(err => console.error('[tour-bookings] host notify failed:', err));
+  notifyTourGuestOfBooking({ ...commonNotifyOpts, guestPhone: trimmedPhone || null })
+    .catch(err => console.error('[tour-bookings] guest notify failed:', err));
 
-    return NextResponse.json(result.booking, { status: 201 });
-  } catch (e) {
-    console.error('[tour-bookings] POST error:', e);
-    return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
-  }
-}
+  return created(result.booking);
+});
 
 const BOOKING_STATUSES = ['pending', 'forwarded', 'confirmed', 'cancelled', 'completed'] as const;
 const BOOKING_WRITABLE_FIELDS = ['name', 'phone', 'email', 'message'] as const;
 
-export async function PUT(req: Request) {
-  try {
-    const auth = await getSessionWithUser(req);
-    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+export const PUT = withAuth('tour-bookings', async (req, { auth }) => {
+  const body = await readJson(req);
+  const id = str(body, 'id', { required: true })!;
+  const before = await authorizeTourBooking(id, auth.session.userId, { isAdmin: auth.isAdmin });
+  if (!before) throw fail(403, MESSAGES.forbidden);
 
-    const body = await req.json() as Record<string, unknown>;
-    const id = typeof body.id === 'string' ? body.id : null;
-    if (!id) return NextResponse.json({ error: 'id는 필수입니다.' }, { status: 400 });
+  const status = str(body, 'status');
+  if (status !== undefined && !(BOOKING_STATUSES as readonly string[]).includes(status)) throw fail(400, '잘못된 status 값입니다.');
 
-    const before = await authorizeTourBooking(id, auth.session.userId, { isAdmin: auth.isAdmin });
-    if (!before) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-
-    const status = typeof body.status === 'string' ? body.status : undefined;
-    if (status !== undefined && !(BOOKING_STATUSES as readonly string[]).includes(status)) {
-      return NextResponse.json({ error: '잘못된 status 값입니다.' }, { status: 400 });
+  // Cancellation: free up the inventory.
+  if (status === 'cancelled') {
+    if (before.status !== 'cancelled') {
+      await prisma.$transaction([
+        prisma.tourBooking.update({ where: { id }, data: { status: 'cancelled' } }),
+        prisma.tourSchedule.update({ where: { id: before.scheduleId }, data: { bookedCount: { decrement: before.guests } } }),
+      ]);
     }
-
-    // Cancellation: free up the inventory.
-    if (status === 'cancelled') {
-      if (before.status !== 'cancelled') {
-        await prisma.$transaction([
-          prisma.tourBooking.update({ where: { id }, data: { status: 'cancelled' } }),
-          prisma.tourSchedule.update({
-            where: { id: before.scheduleId },
-            data: { bookedCount: { decrement: before.guests } },
-          }),
-        ]);
-      }
-      return NextResponse.json({ success: true });
-    }
-
-    // Allow only specific fields — never tourId/scheduleId/guests/totalPrice/etc.
-    const data: Record<string, unknown> = {};
-    for (const key of BOOKING_WRITABLE_FIELDS) {
-      if (key in body) data[key] = body[key];
-    }
-    if (status) data.status = status;
-
-    const updated = await prisma.tourBooking.update({
-      where: { id },
-      data: data as Parameters<typeof prisma.tourBooking.update>[0]['data'],
-    });
-    return NextResponse.json(updated);
-  } catch (e) {
-    console.error('[tour-bookings] PUT error:', e);
-    return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
+    return ok({ success: true });
   }
-}
+
+  // Allow only specific fields — never tourId/scheduleId/guests/totalPrice/etc.
+  const data: Record<string, unknown> = {};
+  for (const key of BOOKING_WRITABLE_FIELDS) if (key in body) data[key] = body[key];
+  if (status) data.status = status;
+
+  return ok(await prisma.tourBooking.update({ where: { id }, data: data as Parameters<typeof prisma.tourBooking.update>[0]['data'] }));
+});

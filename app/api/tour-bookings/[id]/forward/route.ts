@@ -1,60 +1,41 @@
-import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSessionWithUser, authorizeTourBooking } from '@/lib/auth';
+import { authorizeTourBooking } from '@/lib/auth';
 import { notifyTourOperatorOfBooking, notifyTourHostOfBooking } from '@/lib/notify';
+import { withAuth, ok, fail, MESSAGES } from '@/lib/core/http';
 
-export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const auth = await getSessionWithUser(req);
-    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+type Params = { id: string };
 
-    const { id } = await params;
-    const owned = await authorizeTourBooking(id, auth.session.userId, { isAdmin: auth.isAdmin });
-    if (!owned) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    const booking = await prisma.tourBooking.findUnique({
-      where: { id },
-      include: {
-        tour: {
-          include: {
-            operator: true,
-            owner: { select: { id: true, displayName: true, email: true, phone: true } },
-          },
-        },
-        schedule: true,
-      },
-    });
-    if (!booking) return NextResponse.json({ error: 'not found' }, { status: 404 });
+// 예약을 운영업체에 전달(알림)하고 상태를 forwarded 로 바꾼다.
+export const POST = withAuth<Params>('tour-bookings/forward', async (_req, { auth, params }) => {
+  if (!(await authorizeTourBooking(params.id, auth.session.userId, { isAdmin: auth.isAdmin }))) throw fail(403, MESSAGES.forbidden);
 
-    const commonNotifyOpts = {
-      tourTitle: booking.tour.title,
-      guestName: booking.name,
-      guestPhone: booking.phone,
-      guests: booking.guests,
-      date: booking.schedule.date,
-      startTime: booking.schedule.startTime,
-      durationMin: booking.durationMin,
-      totalPrice: booking.totalPrice ? Number(booking.totalPrice) : null,
-      meetingPoint: booking.tour.meetingPoint,
-      bookingId: booking.id,
-    };
+  const booking = await prisma.tourBooking.findUnique({
+    where: { id: params.id },
+    include: {
+      tour: { include: { operator: true, owner: { select: { id: true, displayName: true, email: true, phone: true } } } },
+      schedule: true,
+    },
+  });
+  if (!booking) throw fail(404, MESSAGES.notFound);
 
-    await Promise.all([
-      notifyTourOperatorOfBooking({ ...commonNotifyOpts, operator: booking.tour.operator }),
-      notifyTourHostOfBooking({
-        ...commonNotifyOpts,
-        hostPhone: booking.tour.owner.phone,
-        hostName: booking.tour.owner.displayName ?? booking.tour.owner.email,
-      }),
-    ]);
+  const commonNotifyOpts = {
+    tourTitle: booking.tour.title,
+    guestName: booking.name,
+    guestPhone: booking.phone,
+    guests: booking.guests,
+    date: booking.schedule.date,
+    startTime: booking.schedule.startTime,
+    durationMin: booking.durationMin,
+    totalPrice: booking.totalPrice ? Number(booking.totalPrice) : null,
+    meetingPoint: booking.tour.meetingPoint,
+    bookingId: booking.id,
+  };
 
-    await prisma.tourBooking.update({
-      where: { id },
-      data: { status: 'forwarded', forwardedAt: new Date() },
-    });
+  await Promise.all([
+    notifyTourOperatorOfBooking({ ...commonNotifyOpts, operator: booking.tour.operator }),
+    notifyTourHostOfBooking({ ...commonNotifyOpts, hostPhone: booking.tour.owner.phone, hostName: booking.tour.owner.displayName ?? booking.tour.owner.email }),
+  ]);
 
-    return NextResponse.json({ success: true });
-  } catch (e) {
-    console.error('[tour-bookings/:id/forward] POST error:', e);
-    return NextResponse.json({ error: '서버 오류가 발생했습니다.' }, { status: 500 });
-  }
-}
+  await prisma.tourBooking.update({ where: { id: params.id }, data: { status: 'forwarded', forwardedAt: new Date() } });
+  return ok({ success: true });
+});

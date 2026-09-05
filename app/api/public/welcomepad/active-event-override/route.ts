@@ -1,98 +1,42 @@
-import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { withErrors, ok, fail, readJson } from '@/lib/core/http';
+import { todayKst } from '@/lib/dates';
 
-// Public-but-API-key-gated endpoint that lets the welcome-pad admin UI
-// override two fields on the property's currently-active reservation:
-//   • welcomeMessage   — host-edited welcome text (NULL = use Property.roomReadyMessage / default)
-//   • manualReturning  — force returning/new override (NULL = let auto-match decide)
-//
-// Auth: x-api-key header (env: WELCOMEPAD_API_KEY) — same secret as /checkins.
-// Body: { propertyKey: 'anon', welcomeMessage?: string|null, manualReturning?: boolean|null }
-//
-// "Active reservation" = today's beds24 reservation for this property
-// (startDate <= today <= endDate). If multiple, prefer ongoing stay (endDate > today)
-// over today's checkout — same priority as /checkins.
+// 웰컴패드 관리 화면이 오늘 활성 예약의 두 필드를 덮어쓴다:
+//   • welcomeMessage  — 호스트가 편집한 환영문구 (NULL = 기본값)
+//   • manualReturning — 재방문 수동 판정 (NULL = 자동 매칭)
+// Auth: x-api-key (env WELCOMEPAD_API_KEY) — /checkins 와 같은 비밀키.
+type Body = { propertyKey?: string; welcomeMessage?: string | null; manualReturning?: boolean | null };
 
-type Body = {
-  propertyKey?: string;
-  welcomeMessage?: string | null;
-  manualReturning?: boolean | null;
-};
-
-export async function POST(req: Request) {
+export const POST = withErrors('welcomepad/active-event-override', async (req) => {
   const expectedKey = process.env.WELCOMEPAD_API_KEY;
-  if (!expectedKey) {
-    return NextResponse.json({ error: 'WELCOMEPAD_API_KEY not configured' }, { status: 500 });
-  }
-  if (req.headers.get('x-api-key') !== expectedKey) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  if (!expectedKey) throw fail(500, 'WELCOMEPAD_API_KEY not configured');
+  if (req.headers.get('x-api-key') !== expectedKey) throw fail(401, 'Unauthorized');
 
-  let body: Body;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
-  }
-
+  const body = await readJson<Body>(req);
   const propertyKey = (body.propertyKey || '').trim();
-  if (!propertyKey) {
-    return NextResponse.json({ error: 'propertyKey is required' }, { status: 400 });
-  }
-  // 두 필드 모두 비어있으면 호출 자체가 의미 없음
-  if (!('welcomeMessage' in body) && !('manualReturning' in body)) {
-    return NextResponse.json({ error: 'welcomeMessage or manualReturning is required' }, { status: 400 });
-  }
-  if ('manualReturning' in body
-      && body.manualReturning !== null
-      && typeof body.manualReturning !== 'boolean') {
-    return NextResponse.json({ error: 'manualReturning must be boolean or null' }, { status: 400 });
-  }
-  if ('welcomeMessage' in body
-      && body.welcomeMessage !== null
-      && typeof body.welcomeMessage !== 'string') {
-    return NextResponse.json({ error: 'welcomeMessage must be string or null' }, { status: 400 });
-  }
+  if (!propertyKey) throw fail(400, 'propertyKey is required');
+  if (!('welcomeMessage' in body) && !('manualReturning' in body)) throw fail(400, 'welcomeMessage or manualReturning is required');
+  if ('manualReturning' in body && body.manualReturning !== null && typeof body.manualReturning !== 'boolean') throw fail(400, 'manualReturning must be boolean or null');
+  if ('welcomeMessage' in body && body.welcomeMessage !== null && typeof body.welcomeMessage !== 'string') throw fail(400, 'welcomeMessage must be string or null');
 
-  const property = await prisma.property.findUnique({
-    where: { welcomepadKey: propertyKey },
-    select: { id: true },
-  });
-  if (!property) {
-    return NextResponse.json({ error: `propertyKey '${propertyKey}' not found` }, { status: 404 });
-  }
+  const property = await prisma.property.findUnique({ where: { welcomepadKey: propertyKey }, select: { id: true } });
+  if (!property) throw fail(404, `propertyKey '${propertyKey}' not found`);
 
-  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' });
+  const today = todayKst();
   const candidates = await prisma.event.findMany({
-    where: {
-      propertyId: property.id,
-      channelId: 'beds24',
-      type: 'reservation',
-      startDate: { lte: today },
-      endDate: { gte: today },
-    },
+    where: { propertyId: property.id, channelId: 'beds24', type: 'reservation', startDate: { lte: today }, endDate: { gte: today } },
     select: { id: true, startDate: true, endDate: true },
   });
-  if (candidates.length === 0) {
-    return NextResponse.json({ error: 'No active reservation for today' }, { status: 404 });
-  }
+  if (candidates.length === 0) throw fail(404, 'No active reservation for today');
   // Prefer ongoing (endDate > today) over today's checkout, same as /checkins.
-  candidates.sort((a, b) => {
-    const aOngoing = a.endDate > today ? 1 : 0;
-    const bOngoing = b.endDate > today ? 1 : 0;
-    return bOngoing - aOngoing;
-  });
+  candidates.sort((a, b) => (b.endDate > today ? 1 : 0) - (a.endDate > today ? 1 : 0));
   const activeEventId = candidates[0].id;
 
-  // Build patch — only include keys the caller actually sent (so partial updates work).
   const patch: { welcomeMessage?: string | null; manualReturning?: boolean | null } = {};
-  if ('welcomeMessage' in body)  patch.welcomeMessage  = body.welcomeMessage ?? null;
+  if ('welcomeMessage' in body) patch.welcomeMessage = body.welcomeMessage ?? null;
   if ('manualReturning' in body) patch.manualReturning = body.manualReturning ?? null;
 
-  await prisma.event.update({
-    where: { id: activeEventId },
-    data: patch,
-  });
-
-  return NextResponse.json({ ok: true, eventId: activeEventId, applied: patch });
-}
+  await prisma.event.update({ where: { id: activeEventId }, data: patch });
+  return ok({ ok: true, eventId: activeEventId, applied: patch });
+});
