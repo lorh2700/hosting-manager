@@ -6,6 +6,7 @@ import {
   KeyRound, ShieldCheck, Building2, Bell, BellOff, Mail, PauseCircle, PlayCircle,
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
+import { toast, confirmDialog } from '@/components/ui';
 
 /**
  * 청소 담당자 관리 — 담당자의 정체성은 프로필이고, 로그인은 선택이다.
@@ -87,14 +88,14 @@ export default function CleanersPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(data.error || failMsg);
+        toast.info(data.error || failMsg);
         return null;
       }
       setCleaners(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
       return data as Cleaner;
     } catch (err) {
       console.error(err);
-      alert(failMsg);
+      toast.info(failMsg);
       return null;
     } finally {
       setBusy(null);
@@ -112,7 +113,7 @@ export default function CleanersPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(data.error || '담당자 추가에 실패했습니다.');
+        toast.error(data.error || '담당자 추가에 실패했습니다.');
         return;
       }
       setNewName('');
@@ -120,7 +121,7 @@ export default function CleanersPage() {
       await fetchCleaners();
     } catch (err) {
       console.error(err);
-      alert('담당자 추가에 실패했습니다.');
+      toast.error('담당자 추가에 실패했습니다.');
     } finally {
       setAdding(false);
     }
@@ -131,7 +132,7 @@ export default function CleanersPage() {
 
   const handleDelete = async (cleaner: Cleaner) => {
     const extra = cleaner.login ? '\n연결된 앱 로그인 계정도 함께 삭제됩니다.' : '';
-    if (!confirm(`${cleaner.name} 담당자를 삭제하시겠습니까?${extra}`)) return;
+    if (!(await confirmDialog(`${cleaner.name} 담당자를 삭제하시겠습니까?${extra}`))) return;
     setBusy(cleaner.id);
     try {
       const res = await fetch(`/api/cleaners?id=${cleaner.id}`, { method: 'DELETE' });
@@ -139,7 +140,7 @@ export default function CleanersPage() {
       setCleaners(prev => prev.filter(c => c.id !== cleaner.id));
     } catch (err) {
       console.error(err);
-      alert('삭제에 실패했습니다.');
+      toast.error('삭제에 실패했습니다.');
     } finally {
       setBusy(null);
     }
@@ -162,7 +163,7 @@ export default function CleanersPage() {
       }
     } catch (err) {
       console.error(err);
-      alert(err instanceof Error ? err.message : '지점 배정에 실패했습니다.');
+      toast.error(err instanceof Error ? err.message : '지점 배정에 실패했습니다.');
       patchLocal(cleaner.id, { assignedPropertyIds: current });
     } finally {
       setBusy(null);
@@ -173,19 +174,19 @@ export default function CleanersPage() {
     const msg = cleaner.login
       ? '비밀번호를 전화번호 뒷 4자리로 초기화하시겠습니까?'
       : '전화번호로 로그인하는 앱 계정을 만드시겠습니까? (비밀번호: 전화번호 뒷 4자리)';
-    if (!confirm(msg)) return;
+    if (!(await confirmDialog(msg))) return;
     setBusy(cleaner.id);
     try {
       const res = await fetch(`/api/cleaners/${cleaner.id}/reset-password`, { method: 'POST' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(data.error || '처리에 실패했습니다.');
+        toast.error(data.error || '처리에 실패했습니다.');
         return;
       }
       await fetchCleaners();
     } catch (err) {
       console.error(err);
-      alert('처리에 실패했습니다.');
+      toast.error('처리에 실패했습니다.');
     } finally {
       setBusy(null);
     }
@@ -203,13 +204,13 @@ export default function CleanersPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(data.error || '초대에 실패했습니다.');
+        toast.error(data.error || '초대에 실패했습니다.');
         return;
       }
       patchLocal(cleaner.id, { pendingInvitation: { id: data.id, email: data.email, token: data.token, expiresAt: data.expiresAt } });
     } catch (err) {
       console.error(err);
-      alert('초대에 실패했습니다.');
+      toast.error('초대에 실패했습니다.');
     } finally {
       setBusy(null);
     }
@@ -221,7 +222,7 @@ export default function CleanersPage() {
       setCopied(key);
       setTimeout(() => setCopied(prev => (prev === key ? null : prev)), 2000);
     } catch {
-      alert('복사에 실패했습니다.');
+      toast.error('복사에 실패했습니다.');
     }
   };
 
@@ -427,7 +428,11 @@ export default function CleanersPage() {
                             {copied === `link-${cleaner.id}` ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
                           </button>
                           <button
-                            onClick={() => confirm('공개 링크를 재발급하시겠습니까? 기존 링크는 사용할 수 없게 됩니다.') && putCleaner(cleaner.id, { regenerateToken: true }, '링크 재발급에 실패했습니다.')}
+                            onClick={async () => {
+                              if (await confirmDialog({ title: '공개 링크 재발급', message: '기존 링크는 사용할 수 없게 됩니다.', confirmLabel: '재발급', danger: true })) {
+                                putCleaner(cleaner.id, { regenerateToken: true }, '링크 재발급에 실패했습니다.');
+                              }
+                            }}
                             disabled={isBusy}
                             className="p-2.5 border border-stone-200 text-stone-500 hover:text-stone-900 hover:border-stone-300 transition-colors disabled:opacity-50"
                             title="링크 재발급"

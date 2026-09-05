@@ -7,6 +7,7 @@ import {
   type RawEvent,
   getChannelLabel, getRoomReadyMessage,
 } from '../types';
+import { toast, confirmDialog } from '@/components/ui';
 
 interface UseEventModalParams {
   user: { id: string; email: string } | null;
@@ -84,20 +85,20 @@ export function useEventModal({
         }]);
       }
       setSelectedEvent(null);
-    } catch (err) { console.error(err); alert('저장에 실패했습니다.'); }
+    } catch (err) { console.error(err); toast.error('저장에 실패했습니다.'); }
     finally { setCleanerSaving(false); }
   };
 
   const handleDeleteCleaner = async () => {
     if (!selectedEvent?.cleaningId) return;
-    if (!confirm('청소 담당자 배정을 삭제하시겠습니까?')) return;
+    if (!(await confirmDialog('청소 담당자 배정을 삭제하시겠습니까?'))) return;
     setCleanerSaving(true);
     try {
       await fetch(`/api/cleanings?id=${selectedEvent.cleaningId}`, { method: 'DELETE' });
       setCleanings(prev => prev.filter(c => c.id !== selectedEvent.cleaningId));
       setSelectedEvent(prev => prev ? { ...prev, cleaningId: null, cleanerId: null, cleanerName: null, supplies: null, status: null } : null);
       setSelectedCleaner('');
-    } catch (err) { console.error(err); alert('삭제에 실패했습니다.'); }
+    } catch (err) { console.error(err); toast.error('삭제에 실패했습니다.'); }
     finally { setCleanerSaving(false); }
   };
 
@@ -126,14 +127,14 @@ export function useEventModal({
           const data = await res.json().catch(() => null);
           if (!res.ok || data?.deliveryStatus !== 'sent') {
             const reason = data?.beds24Error || data?.error || `HTTP ${res.status}`;
-            alert(`정비 완료는 저장됐지만 게스트 메시지 전송에 실패했습니다.\n사유: ${reason}\n\n잠시 후 메시지 화면에서 다시 보내주세요.`);
+            toast.error(`정비 완료는 저장됐지만 게스트 메시지 전송에 실패했습니다.\n사유: ${reason}\n\n잠시 후 메시지 화면에서 다시 보내주세요.`);
           }
         } catch {
-          alert('정비 완료는 저장됐지만 게스트 메시지 전송 요청에 실패했습니다.\n잠시 후 메시지 화면에서 다시 보내주세요.');
+          toast.error('정비 완료는 저장됐지만 게스트 메시지 전송 요청에 실패했습니다.\n잠시 후 메시지 화면에서 다시 보내주세요.');
         }
       }
       setSelectedEvent(prev => prev ? { ...prev, status: 'done' } : null);
-    } catch (err) { console.error(err); alert('정비 완료 처리에 실패했습니다.'); }
+    } catch (err) { console.error(err); toast.error('정비 완료 처리에 실패했습니다.'); }
     finally { setCompletingCleaning(false); }
   };
 
@@ -155,7 +156,7 @@ export function useEventModal({
         propertyName: selectedEvent.propertyName, date: checkoutDate, createdAt: now,
       }]);
       setNewSupply('');
-    } catch (err) { console.error(err); alert('비품 추가에 실패했습니다.'); }
+    } catch (err) { console.error(err); toast.error('비품 추가에 실패했습니다.'); }
   };
 
   const handleToggleSupply = async (todoId: string, done: boolean, updateLocal = true) => {
@@ -171,7 +172,7 @@ export function useEventModal({
       await fetch(`/api/supply-todos?id=${todoId}`, { method: 'DELETE' });
       if (updateLocal) setSupplyTodos(prev => prev.filter(t => t.id !== todoId));
       setAllSupplyTodos(prev => prev.filter(t => t.id !== todoId));
-    } catch (err) { console.error(err); alert('삭제에 실패했습니다.'); }
+    } catch (err) { console.error(err); toast.error('삭제에 실패했습니다.'); }
   };
 
   // Load supply TODOs when modal opens
@@ -238,7 +239,7 @@ export function useEventModal({
       setNewMessage('');
     } catch (err) {
       const reason = err instanceof Error ? err.message : '';
-      alert(`메시지 전송에 실패했습니다.${reason ? `\n사유: ${reason}` : ''}`);
+      toast.error(`메시지 전송에 실패했습니다.${reason ? `\n사유: ${reason}` : ''}`);
     }
     finally { setSendingMessage(false); }
   };
@@ -270,7 +271,7 @@ export function useEventModal({
       setEvents(prev => prev.map(e => e.id === selectedEvent.eventId ? { ...e, tags: saved } : e));
     } catch (err) {
       console.error(err);
-      alert('태그 저장에 실패했습니다.');
+      toast.error('태그 저장에 실패했습니다.');
     } finally {
       setSavingTags(false);
     }
@@ -279,7 +280,7 @@ export function useEventModal({
   // 객실정비 해제 — Beds24 블랙아웃을 취소하고 로컬 이벤트를 지운다.
   const handleReleaseMaintenance = async () => {
     if (!selectedEvent || selectedEvent.source !== 'maintenance' || releasingMaintenance) return;
-    const ok = window.confirm(
+    const ok = await confirmDialog(
       `${selectedEvent.propertyName} ${selectedEvent.start} ~ ${selectedEvent.end} 객실정비를 해제할까요?\nBeds24 차단도 함께 풀려 예약을 받을 수 있게 됩니다.`,
     );
     if (!ok) return;
@@ -291,7 +292,7 @@ export function useEventModal({
       setEvents(prev => prev.filter(e => e.id !== selectedEvent.eventId));
       setSelectedEvent(null);
     } catch (err) {
-      alert(`정비 해제에 실패했습니다.\n${err instanceof Error ? err.message : ''}`);
+      toast.error(`정비 해제에 실패했습니다.\n${err instanceof Error ? err.message : ''}`);
     } finally {
       setReleasingMaintenance(false);
     }

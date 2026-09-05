@@ -7,6 +7,7 @@ import { ko } from 'date-fns/locale';
 import { CalendarDays, Check, X, Plus, Users } from 'lucide-react';
 import type { CleaningApplication, Cleaning } from '@/lib/types';
 import { fetchPropertyNames, enrichWithPropertyName, apiPut, apiPost } from '@/lib/api-client';
+import { toast } from '@/components/ui';
 
 interface EnrichedApplication extends CleaningApplication {
   propertyName: string;
@@ -99,7 +100,7 @@ export default function AdminCleaningRequestsPage() {
       await loadData();
     } catch (err) {
       console.error(err);
-      alert(err instanceof Error ? err.message : '승인 처리에 실패했습니다.');
+      toast.error(err instanceof Error ? err.message : '승인 처리에 실패했습니다.');
     } finally {
       setUpdating(null);
     }
@@ -119,7 +120,7 @@ export default function AdminCleaningRequestsPage() {
       await loadData();
     } catch (err) {
       console.error(err);
-      alert('거절 처리에 실패했습니다.');
+      toast.error('거절 처리에 실패했습니다.');
     } finally {
       setUpdating(null);
     }
@@ -144,7 +145,7 @@ export default function AdminCleaningRequestsPage() {
       await loadData();
     } catch (err) {
       console.error(err);
-      alert('일정 생성에 실패했습니다.');
+      toast.error('일정 생성에 실패했습니다.');
     } finally {
       setCreating(false);
     }

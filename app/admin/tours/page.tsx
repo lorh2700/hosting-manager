@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Compass, Plus, ChevronRight, Loader2, Briefcase } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
+import { toast } from '@/components/ui';
 
 interface TourListItem {
   id: string;
@@ -84,7 +85,7 @@ export default function ToursPage() {
       await fetchData();
     } catch (err) {
       console.error(err);
-      alert('투어 추가에 실패했습니다.');
+      toast.error('투어 추가에 실패했습니다.');
     } finally {
       setAdding(false);
     }

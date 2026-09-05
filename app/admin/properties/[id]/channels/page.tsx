@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { ArrowLeft, Save, Link as LinkIcon, CheckCircle2, XCircle, Copy, Trash2 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
+import { toast, confirmDialog } from '@/components/ui';
 
 interface Property {
   id: string;
@@ -70,7 +71,7 @@ export default function ChannelsPage() {
 
   const handleAddChannel = async () => {
     if (!newChannelName.trim() || !newChannelImportUrl.trim()) {
-      alert('채널 이름과 링크를 모두 입력해주세요.');
+      toast.info('채널 이름과 링크를 모두 입력해주세요.');
       return;
     }
     setSaving(true);
@@ -92,10 +93,10 @@ export default function ChannelsPage() {
       await fetchChannels();
       setNewChannelName('');
       setNewChannelImportUrl('');
-      alert('채널이 추가되었습니다.');
+      toast.success('채널이 추가되었습니다.');
     } catch (error) {
       console.error('Failed to add channel', error);
-      alert('채널 추가에 실패했습니다');
+      toast.error('채널 추가에 실패했습니다');
     } finally {
       setSaving(false);
     }
@@ -115,17 +116,17 @@ export default function ChannelsPage() {
         body: JSON.stringify(updates),
       });
       await fetchChannels();
-      alert('채널 설정이 저장되었습니다.');
+      toast.success('채널 설정이 저장되었습니다.');
     } catch (error) {
       console.error('Failed to save channels', error);
-      alert('채널 저장에 실패했습니다');
+      toast.error('채널 저장에 실패했습니다');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDeleteChannel = async (channelName: string) => {
-    if (!confirm(`"${channelName}" 채널을 삭제하시겠습니까?`)) return;
+    if (!(await confirmDialog(`"${channelName}" 채널을 삭제하시겠습니까?`))) return;
     try {
       await fetch(`/api/properties/${id}`, {
         method: 'PUT',
@@ -137,7 +138,7 @@ export default function ChannelsPage() {
       setChannels((prev) => prev.filter(c => c.id !== channelName));
     } catch (error) {
       console.error('Failed to delete channel', error);
-      alert('채널 삭제에 실패했습니다');
+      toast.error('채널 삭제에 실패했습니다');
     }
   };
 
@@ -287,7 +288,7 @@ export default function ChannelsPage() {
                         onClick={() => {
                           const url = `${window.location.origin}${channel.exportUrl}`;
                           navigator.clipboard.writeText(url);
-                          alert('클립보드에 복사되었습니다!');
+                          toast.success('클립보드에 복사되었습니다!');
                         }}
                         className="p-3 text-stone-500 hover:text-stone-900 hover:bg-stone-100 transition-colors shrink-0 border border-stone-200"
                         title="URL 복사"

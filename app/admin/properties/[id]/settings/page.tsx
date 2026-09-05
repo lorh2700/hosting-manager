@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { ArrowLeft, Save, Trash2, Copy, Check, Link as LinkIcon } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
+import { toast } from '@/components/ui';
 
 interface Property {
   id: string;
@@ -96,10 +97,10 @@ export default function PropertySettingsPage() {
         }),
       });
       if (!res.ok) throw new Error('Failed to save');
-      alert('숙소 설정이 저장되었습니다.');
+      toast.success('숙소 설정이 저장되었습니다.');
     } catch (error) {
       console.error('Error saving property', error);
-      alert('저장에 실패했습니다.');
+      toast.error('저장에 실패했습니다.');
     } finally {
       setSaving(false);
     }
@@ -118,7 +119,7 @@ export default function PropertySettingsPage() {
       router.push('/admin/properties');
     } catch (error) {
       console.error('Error deleting property', error);
-      alert('삭제에 실패했습니다.');
+      toast.error('삭제에 실패했습니다.');
       setDeleting(false);
       setDeleteConfirm(false);
     }

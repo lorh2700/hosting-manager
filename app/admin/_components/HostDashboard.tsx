@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRefetchOnReturn } from '@/lib/hooks/useRefetchOnReturn';
 import {
   ArrowRight,
   ArrowDownRight,
@@ -124,35 +125,23 @@ export default function HostDashboard() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const { user, profile } = useAuth();
   const isAdmin = profile?.role === 'admin';
+  // 탭에 돌아오면 조용히 다시 불러온다 (스켈레톤 없이 값만 갱신).
+  const [reloadKey, setReloadKey] = useState(0);
+  useRefetchOnReturn(() => setReloadKey(k => k + 1));
 
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
     const load = async () => {
       try {
-        // Cleaner list is only needed for the "월별 미배정 청소" panel which
-        // sits below the fold. Fetch it in parallel but don't block initial
-        // paint on it — the dashboard data is the user-visible critical path.
-        if (isAdmin) {
-          fetch('/api/cleaners')
-            .then(r => (r.ok ? r.json() : []))
-            .then(list => {
-              if (cancelled) return;
-              setCleaners(
-                (Array.isArray(list) ? list : []).map((c: { id: string; name: string }) => ({
-                  id: c.id, name: c.name,
-                })),
-              );
-            })
-            .catch(err => console.error('Failed to load cleaners', err));
-        }
-
         const res = await fetch('/api/dashboard');
         if (cancelled) return;
         if (!res.ok) { setLoading(false); return; }
         const data = await res.json();
         if (cancelled) return;
 
+        // 담당자 목록은 대시보드 응답(cleanersMap)에 이미 들어 있다 — 별도 호출 없음.
+        setCleaners(Object.entries((data.cleanersMap ?? {}) as Record<string, string>).map(([id, name]) => ({ id, name })));
         setTotalProperties(data.properties);
         setUnreadMessages(data.unreadMessages);
         setPendingSupplies(data.pendingSupplies);
@@ -240,7 +229,7 @@ export default function HostDashboard() {
     };
     load();
     return () => { cancelled = true; };
-  }, [user, isAdmin]);
+  }, [user, isAdmin, reloadKey]);
 
   const handleAssign = async (item: UnassignedCheckout) => {
     const cleanerId = assignSelection[item.key];

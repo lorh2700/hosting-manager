@@ -5,6 +5,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { Save, UserCog, UserPlus, Copy, Check, Ban, ShieldCheck, Trash2, Clock, XCircle } from 'lucide-react';
 import type { UserRole, UserStatus } from '@/lib/types';
 import { ROLE_LABELS, ROLE_DESCRIPTIONS, STAFF_ROLES, USER_STATUS_LABELS as STATUS_LABELS } from '@/lib/constants';
+import { toast, confirmDialog } from '@/components/ui';
 
 /**
  * 유저 관리 — 관리자·매니저 계정만 다룬다.
@@ -174,14 +175,14 @@ export default function UsersPage() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data.error || '저장에 실패했습니다.');
+        toast.error(data.error || '저장에 실패했습니다.');
         return false;
       }
       updateLocal(record.id, patch);
       return true;
     } catch (err) {
       console.error(err);
-      alert('저장에 실패했습니다.');
+      toast.error('저장에 실패했습니다.');
       return false;
     } finally {
       setBusy(null);
@@ -190,23 +191,23 @@ export default function UsersPage() {
 
   const handleDelete = async (record: UserRecord, verb = '삭제') => {
     if (record.id === user?.id) {
-      alert('자기 자신은 삭제할 수 없습니다.');
+      toast.error('자기 자신은 삭제할 수 없습니다.');
       return;
     }
     const label = record.displayName || record.email;
-    if (!confirm(`${label} 계정을 ${verb}하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+    if (!(await confirmDialog(`${label} 계정을 ${verb}하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`))) return;
     setBusy(record.id);
     try {
       const res = await fetch(`/api/users/${record.id}`, { method: 'DELETE' });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data.error || `${verb}에 실패했습니다.`);
+        toast.error(data.error || `${verb}에 실패했습니다.`);
         return;
       }
       setUsers(prev => prev.filter(u => u.id !== record.id));
     } catch (err) {
       console.error(err);
-      alert(`${verb}에 실패했습니다.`);
+      toast.error(`${verb}에 실패했습니다.`);
     } finally {
       setBusy(null);
     }
@@ -228,7 +229,7 @@ export default function UsersPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || '초대에 실패했습니다.');
+        toast.error(data.error || '초대에 실패했습니다.');
         return;
       }
       setInvitations(prev => [...prev, {
@@ -245,7 +246,7 @@ export default function UsersPage() {
       setShowInviteForm(false);
     } catch (err) {
       console.error(err);
-      alert('초대에 실패했습니다.');
+      toast.error('초대에 실패했습니다.');
     } finally {
       setInviting(false);
     }
@@ -476,7 +477,11 @@ export default function UsersPage() {
                     {record.id !== user?.id && (
                       record.status === 'active' ? (
                         <button
-                          onClick={() => confirm(`${record.displayName || record.email} 계정을 비활성화하시겠습니까?`) && saveUser(record, { status: 'suspended' })}
+                          onClick={async () => {
+                            if (await confirmDialog({ title: '계정 비활성화', message: `${record.displayName || record.email} 계정을 비활성화합니다. 다시 활성화할 때까지 로그인할 수 없습니다.`, confirmLabel: '비활성화', danger: true })) {
+                              saveUser(record, { status: 'suspended' });
+                            }
+                          }}
                           disabled={busy === record.id}
                           className="flex items-center gap-1 text-[10px] tracking-widest text-red-600/80 border border-red-200 px-3 py-1.5 hover:bg-red-50 transition-colors disabled:opacity-50"
                           title="비활성화"

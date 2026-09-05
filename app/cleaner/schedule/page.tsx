@@ -19,6 +19,7 @@ import {
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { CalendarDays, Hand, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { toast } from '@/components/ui';
 
 interface OpenCleaning {
   id: string;
@@ -149,11 +150,11 @@ export default function CleanerSchedulePage() {
 
       setShowApplyForm(null);
       setApplyNote('');
-      alert('배정이 완료되었습니다.');
+      toast.success('배정이 완료되었습니다.');
       await loadData();
     } catch (err) {
       console.error(err);
-      alert(err instanceof Error ? err.message : '신청에 실패했습니다.');
+      toast.error(err instanceof Error ? err.message : '신청에 실패했습니다.');
     } finally {
       setApplying(null);
     }

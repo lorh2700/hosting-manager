@@ -5,6 +5,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { BookOpen, X, CheckCircle2, Clock, Filter, Plus, Loader2 } from 'lucide-react';
+import { toast } from '@/components/ui';
 
 interface PropertyInfo {
   id: string;
@@ -222,7 +223,7 @@ export default function BookingsPage() {
       );
     } catch (err) {
       console.error('Failed to cancel booking:', err);
-      alert('예약 취소에 실패했습니다.');
+      toast.error('예약 취소에 실패했습니다.');
     } finally {
       setCancellingId(null);
       setConfirmCancelBooking(null);

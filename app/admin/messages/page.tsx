@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { MessageSquare, Send, ChevronRight, RefreshCw, Loader2 } from 'lucide-react';
 import WelcomepadChatPanel from './WelcomepadChatPanel';
+import { SkeletonList, Skeleton } from '@/components/ui';
 
 const PAGE_SIZE = 20;
 
@@ -350,8 +351,8 @@ function MessagesContent() {
           </div>
           <div className="flex-1 overflow-y-auto">
             {loading ? (
-              <div className="flex items-center justify-center h-24">
-                <Loader2 size={16} className="animate-spin text-[var(--brand)]" />
+              <div className="p-3">
+                <SkeletonList count={5} rows={1} />
               </div>
             ) : conversations.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-32 gap-2 text-stone-400">
@@ -552,8 +553,9 @@ function MessagesContent() {
 export default function MessagesPage() {
   return (
     <Suspense fallback={
-      <div className="flex items-center justify-center py-24">
-        <Loader2 size={20} className="animate-spin text-[var(--brand)]" />
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-32" />
+        <SkeletonList count={5} rows={1} />
       </div>
     }>
       <MessagesContent />

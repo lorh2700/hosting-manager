@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Briefcase, Plus, Trash2, Save, Phone, Mail, MessageCircle } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
+import { toast, confirmDialog } from '@/components/ui';
 
 interface TourOperator {
   id: string;
@@ -69,7 +70,7 @@ export default function TourOperatorsPage() {
       await fetchOperators();
     } catch (err) {
       console.error(err);
-      alert('업체 추가에 실패했습니다.');
+      toast.error('업체 추가에 실패했습니다.');
     } finally {
       setAdding(false);
     }
@@ -94,21 +95,21 @@ export default function TourOperatorsPage() {
       if (!res.ok) throw new Error('Failed');
     } catch (err) {
       console.error(err);
-      alert('수정에 실패했습니다.');
+      toast.error('수정에 실패했습니다.');
     } finally {
       setSaving(null);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('이 업체를 삭제하시겠습니까? 연결된 투어 상품은 운영업체 미지정 상태가 됩니다.')) return;
+    if (!(await confirmDialog('이 업체를 삭제하시겠습니까? 연결된 투어 상품은 운영업체 미지정 상태가 됩니다.'))) return;
     try {
       const res = await fetch(`/api/tour-operators?id=${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed');
       setOperators(prev => prev.filter(o => o.id !== id));
     } catch (err) {
       console.error(err);
-      alert('삭제에 실패했습니다.');
+      toast.error('삭제에 실패했습니다.');
     }
   };
 

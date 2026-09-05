@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { Link2, Plus, RefreshCw, Trash2, CheckCircle2, XCircle, Clock, AlertTriangle } from 'lucide-react';
 import type { IntegrationProvider, IntegrationType, IntegrationStatus } from '@/lib/types';
+import { toast, confirmDialog } from '@/components/ui';
 
 interface IntegrationRecord {
   id: string;
@@ -120,15 +121,15 @@ export default function IntegrationsPage() {
       });
       const data = await res.json();
       if (data.success) {
-        alert(`동기화 완료: ${data.summary.eventsCreated}건 생성, ${data.summary.eventsUpdated}건 업데이트, ${data.summary.eventsRemoved}건 삭제`);
+        toast.success(`동기화 완료: ${data.summary.eventsCreated}건 생성, ${data.summary.eventsUpdated}건 업데이트, ${data.summary.eventsRemoved}건 삭제`);
         // Reload
         window.location.reload();
       } else {
-        alert('동기화 실패: ' + (data.error || '알 수 없는 오류'));
+        toast.error('동기화 실패: ' + (data.error || '알 수 없는 오류'));
       }
     } catch (err) {
       console.error(err);
-      alert('동기화 중 오류가 발생했습니다.');
+      toast.error('동기화 중 오류가 발생했습니다.');
     } finally {
       setSyncing(false);
     }
@@ -147,7 +148,7 @@ export default function IntegrationsPage() {
       if (data.success) {
         const detail = data.details?.find((d: { integrationId: string }) => d.integrationId === integration.id);
         if (detail) {
-          alert(`${PROVIDER_LABELS[integration.provider]} 동기화 완료: ${detail.result.eventsCreated}건 생성, ${detail.result.eventsUpdated}건 업데이트`);
+          toast.success(`${PROVIDER_LABELS[integration.provider]} 동기화 완료: ${detail.result.eventsCreated}건 생성, ${detail.result.eventsUpdated}건 업데이트`);
         }
         window.location.reload();
       }
@@ -192,14 +193,14 @@ export default function IntegrationsPage() {
       setNewImportUrl('');
     } catch (err) {
       console.error(err);
-      alert('추가에 실패했습니다.');
+      toast.error('추가에 실패했습니다.');
     } finally {
       setAdding(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('이 연동을 삭제하시겠습니까?')) return;
+    if (!(await confirmDialog('이 연동을 삭제하시겠습니까?'))) return;
     try {
       const res = await fetch(`/api/integrations?id=${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete');

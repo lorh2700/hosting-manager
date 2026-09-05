@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { Copy, Check, Ban, KeyRound, Plus, X } from 'lucide-react';
+import { toast, confirmDialog } from '@/components/ui';
 
 interface ApiClientRecord {
   id: string;
@@ -113,12 +114,12 @@ export default function ApiClientsPage() {
   };
 
   const revoke = async (id: string) => {
-    if (!confirm('이 API 키를 회수합니다. 사용 중인 파트너의 호출이 즉시 차단됩니다. 계속할까요?')) return;
+    if (!(await confirmDialog('이 API 키를 회수합니다. 사용 중인 파트너의 호출이 즉시 차단됩니다. 계속할까요?'))) return;
     const res = await fetch(`/api/admin/api-clients/${id}`, { method: 'DELETE' });
     if (res.ok) {
       setClients(prev => prev.map(c => c.id === id ? { ...c, revokedAt: new Date().toISOString() } : c));
     } else {
-      alert('회수 실패');
+      toast.error('회수 실패');
     }
   };
 

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Save, Trash2, CalendarDays, BookOpen, Loader2, ExternalLink, Plus, X, Upload, ImagePlus } from 'lucide-react';
+import { toast, confirmDialog } from '@/components/ui';
 
 interface OperatorOption { id: string; name: string }
 
@@ -133,24 +134,24 @@ export default function TourDetailPage() {
       router.push('/admin/tours');
     } catch (err) {
       console.error(err);
-      alert(err instanceof Error ? err.message : '저장에 실패했습니다.');
+      toast.error(err instanceof Error ? err.message : '저장에 실패했습니다.');
       setSaving(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm('이 투어를 삭제하시겠습니까?')) return;
+    if (!(await confirmDialog('이 투어를 삭제하시겠습니까?'))) return;
     try {
       const res = await fetch(`/api/tours?id=${id}`, { method: 'DELETE' });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data.error || '삭제에 실패했습니다.');
+        toast.error(data.error || '삭제에 실패했습니다.');
         return;
       }
       router.push('/admin/tours');
     } catch (err) {
       console.error(err);
-      alert('삭제에 실패했습니다.');
+      toast.error('삭제에 실패했습니다.');
     }
   };
 
@@ -170,7 +171,7 @@ export default function TourDetailPage() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data.error || '코스 추가에 실패했습니다.');
+        toast.error(data.error || '코스 추가에 실패했습니다.');
         return;
       }
       setNewOption({ label: '', durationMin: '60', price: '' });
@@ -200,11 +201,11 @@ export default function TourDetailPage() {
   };
 
   const handleDeleteOption = async (optionId: string) => {
-    if (!confirm('이 코스 옵션을 삭제하시겠습니까?')) return;
+    if (!(await confirmDialog('이 코스 옵션을 삭제하시겠습니까?'))) return;
     const res = await fetch(`/api/tours/${id}/duration-options?optionId=${optionId}`, { method: 'DELETE' });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      alert(data.error || '삭제에 실패했습니다.');
+      toast.error(data.error || '삭제에 실패했습니다.');
       return;
     }
     await loadTour();
@@ -234,7 +235,7 @@ export default function TourDetailPage() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data.error || '티켓 추가에 실패했습니다.');
+        toast.error(data.error || '티켓 추가에 실패했습니다.');
         return;
       }
       setNewTier({ label: '', price: '', notes: '' });
@@ -264,11 +265,11 @@ export default function TourDetailPage() {
   };
 
   const handleDeleteTier = async (tierId: string) => {
-    if (!confirm('이 티켓 종류를 삭제하시겠습니까?')) return;
+    if (!(await confirmDialog('이 티켓 종류를 삭제하시겠습니까?'))) return;
     const res = await fetch(`/api/tours/${id}/ticket-tiers?tierId=${tierId}`, { method: 'DELETE' });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      alert(data.error || '삭제에 실패했습니다.');
+      toast.error(data.error || '삭제에 실패했습니다.');
       return;
     }
     await loadTour();
@@ -320,7 +321,7 @@ export default function TourDetailPage() {
 
   const handleRemoveImage = async (url: string) => {
     if (!tour) return;
-    if (!confirm('이 사진을 제거하시겠습니까? 파일 자체는 스토리지에 남습니다.')) return;
+    if (!(await confirmDialog('이 사진을 제거하시겠습니까? 파일 자체는 스토리지에 남습니다.'))) return;
     const nextImages = tour.images.filter(u => u !== url);
     await fetch('/api/tours', {
       method: 'PUT',

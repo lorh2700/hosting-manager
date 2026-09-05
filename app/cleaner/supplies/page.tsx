@@ -7,6 +7,7 @@ import { ko } from 'date-fns/locale';
 import { Package, Plus, Trash2, Send } from 'lucide-react';
 import type { SupplyRequest, SupplyItem, IssueUrgency } from '@/lib/types';
 import { SUPPLY_STATUS_CONFIG, URGENCY_LABELS } from '@/lib/constants';
+import { toast } from '@/components/ui';
 
 const URGENCY: { value: IssueUrgency; label: string }[] = (
   Object.entries(URGENCY_LABELS) as [IssueUrgency, { label: string }][]
@@ -75,7 +76,7 @@ export default function CleanerSuppliesPage() {
   const handleSubmit = async () => {
     if (!user || !profile || !selectedProperty) return;
     const validItems = items.filter(i => i.name.trim());
-    if (validItems.length === 0) { alert('품목을 입력해주세요.'); return; }
+    if (validItems.length === 0) { toast.info('품목을 입력해주세요.'); return; }
     setSubmitting(true);
     try {
       const res = await fetch('/api/supply-requests', {
@@ -98,7 +99,7 @@ export default function CleanerSuppliesPage() {
       await loadData();
     } catch (err) {
       console.error(err);
-      alert('요청 등록에 실패했습니다.');
+      toast.error('요청 등록에 실패했습니다.');
     } finally {
       setSubmitting(false);
     }

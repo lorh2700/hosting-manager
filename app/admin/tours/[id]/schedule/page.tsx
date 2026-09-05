@@ -11,6 +11,7 @@ import type { DateSelectArg, EventClickArg } from '@fullcalendar/core';
 import { ChevronLeft, Plus, Loader2, Trash2, X, CalendarDays, Users, Clock } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { toast, confirmDialog } from '@/components/ui';
 
 interface Schedule {
   id: string;
@@ -164,7 +165,7 @@ export default function TourSchedulePage() {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      alert(data.error || '슬롯 추가에 실패했습니다.');
+      toast.error(data.error || '슬롯 추가에 실패했습니다.');
       return;
     }
     setCreateDraft(null);
@@ -173,11 +174,11 @@ export default function TourSchedulePage() {
 
   const handleDeleteSlot = async () => {
     if (!selectedSlot) return;
-    if (!confirm('이 슬롯을 삭제하시겠습니까?')) return;
+    if (!(await confirmDialog('이 슬롯을 삭제하시겠습니까?'))) return;
     const res = await fetch(`/api/tours/${id}/schedule?scheduleId=${selectedSlot.id}`, { method: 'DELETE' });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      alert(data.error || '삭제에 실패했습니다.');
+      toast.error(data.error || '삭제에 실패했습니다.');
       return;
     }
     setSchedules(prev => prev.filter(s => s.id !== selectedSlot.id));
@@ -471,7 +472,7 @@ function BulkAddModal({
       const start = parseISO(from);
       const end = parseISO(to);
       if (end < start) {
-        alert('종료일이 시작일보다 빠릅니다.');
+        toast.info('종료일이 시작일보다 빠릅니다.');
         return;
       }
       const slots: { date: string; startTime: string; capacity: number }[] = [];
@@ -482,7 +483,7 @@ function BulkAddModal({
         times.filter(t => t).forEach(t => slots.push({ date: dateStr, startTime: t, capacity: cap }));
       }
       if (slots.length === 0) {
-        alert('생성할 슬롯이 없습니다.');
+        toast.error('생성할 슬롯이 없습니다.');
         return;
       }
       const res = await fetch(`/api/tours/${tourId}/schedule`, {
@@ -492,10 +493,10 @@ function BulkAddModal({
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || '실패');
+        toast.error(data.error || '실패');
         return;
       }
-      alert(`${data.created}개의 슬롯이 추가되었습니다.`);
+      toast.success(`${data.created}개의 슬롯이 추가되었습니다.`);
       onDone();
     } finally {
       setSubmitting(false);

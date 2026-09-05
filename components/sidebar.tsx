@@ -29,12 +29,17 @@ import { useAdminMode, clearAdminMode } from '@/lib/adminMode';
 interface NavItem {
   href: string;
   label: string;
+  /** 하단 탭에 쓰는 짧은 이름 */
+  mobileLabel?: string;
   icon: typeof Home;
   roles: string[];
 }
 
+// 폰 하단 탭: 매일 쓰는 네 가지. 나머지는 더보기. (숙박 모드)
+const MOBILE_PRIMARY = ['/admin', '/admin/calendar', '/admin/messages', '/admin/cleaning-requests'];
+
 const COMMON_TOP: NavItem[] = [
-  { href: '/admin', label: '대시보드', icon: Home, roles: ['admin', 'manager'] },
+  { href: '/admin', label: '대시보드', mobileLabel: '오늘', icon: Home, roles: ['admin', 'manager'] },
 ];
 
 const HOST_LINKS: NavItem[] = [
@@ -43,7 +48,7 @@ const HOST_LINKS: NavItem[] = [
   { href: '/admin/bookings', label: '예약', icon: BookOpen, roles: ['admin', 'manager'] },
   { href: '/admin/messages', label: '메시지', icon: MessageSquare, roles: ['admin', 'manager'] },
   { href: '/admin/cleaners', label: '청소 담당자', icon: Users, roles: ['admin', 'manager'] },
-  { href: '/admin/cleaning-requests', label: '청소 신청 관리', icon: Hand, roles: ['admin', 'manager'] },
+  { href: '/admin/cleaning-requests', label: '청소 신청 관리', mobileLabel: '청소', icon: Hand, roles: ['admin', 'manager'] },
   { href: '/admin/cleaning-report', label: '청소 보고서', icon: FileBarChart, roles: ['admin', 'manager'] },
 ];
 
@@ -119,8 +124,11 @@ export function Sidebar() {
   }, [role, mode]);
 
   const flatLinks = [...visible.top, ...visible.middle, ...visible.bottom];
-  const mobileMainLinks = flatLinks.slice(0, MOBILE_PRIMARY_COUNT);
-  const mobileMoreLinks = flatLinks.slice(MOBILE_PRIMARY_COUNT);
+  // 숙박 모드는 정해진 네 탭, 투어 모드는 앞에서 네 개.
+  const mobileMainLinks = mode === 'host'
+    ? MOBILE_PRIMARY.map(href => flatLinks.find(l => l.href === href)).filter((l): l is NavItem => !!l)
+    : flatLinks.slice(0, MOBILE_PRIMARY_COUNT);
+  const mobileMoreLinks = flatLinks.filter(l => !mobileMainLinks.includes(l));
   const isMoreActive = mobileMoreLinks.some(link => pathname === link.href || (link.href !== '/admin' && pathname.startsWith(link.href)));
 
   const handleLogout = async () => {
@@ -227,7 +235,7 @@ export function Sidebar() {
               >
                 {isActive && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[2px] bg-[var(--brand)]" />}
                 <Icon size={21} strokeWidth={isActive ? 2 : 1.7} className={isActive ? 'text-[var(--brand)]' : ''} />
-                <span className="text-[10.5px] leading-none">{link.label}</span>
+                <span className="t-micro leading-none">{link.mobileLabel ?? link.label}</span>
                 {link.href === '/admin/messages' && unreadCount > 0 && (
                   <span className="absolute top-1.5 left-1/2 ml-2 min-w-[18px] h-[18px] px-1 bg-[var(--brand)] flex items-center justify-center text-[9px] font-semibold text-white tabular-nums">
                     {unreadCount > 9 ? '9+' : unreadCount}

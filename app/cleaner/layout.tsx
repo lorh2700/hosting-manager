@@ -13,15 +13,19 @@ import {
   LogOut,
   Calendar as CalendarIcon,
   Hand,
+  Settings,
+  MoreHorizontal,
 } from 'lucide-react';
 
+// 하단 탭 4개 = 매일 쓰는 것. 나머지는 더보기.
 const NAV_ITEMS = [
   { href: '/cleaner', label: '오늘', icon: ClipboardList },
-  { href: '/cleaner/calendar', label: '캘린더', icon: CalendarIcon },
   { href: '/cleaner/schedule', label: '신청', icon: Hand },
   { href: '/cleaner/issues', label: '이슈', icon: AlertTriangle },
-  { href: '/cleaner/supplies', label: '비품', icon: Package },
   { href: '/cleaner/history', label: '기록', icon: History },
+  { href: '/cleaner/calendar', label: '캘린더', icon: CalendarIcon },
+  { href: '/cleaner/supplies', label: '비품', icon: Package },
+  { href: '/cleaner/settings', label: '설정', icon: Settings },
 ];
 
 const MOBILE_PRIMARY_COUNT = 4;
@@ -214,7 +218,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
                 }`}
               >
                 {(moreOpen || isMoreActive) && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[2px] bg-[var(--brand)]" />}
-                <Package size={20} strokeWidth={moreOpen || isMoreActive ? 2 : 1.7} className={moreOpen || isMoreActive ? 'text-[var(--brand)]' : ''} />
+                <MoreHorizontal size={20} strokeWidth={moreOpen || isMoreActive ? 2 : 1.7} className={moreOpen || isMoreActive ? 'text-[var(--brand)]' : ''} />
                 <span className="text-[10.5px] leading-none">더보기</span>
               </button>
 

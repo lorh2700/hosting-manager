@@ -7,6 +7,7 @@ import { ko } from 'date-fns/locale';
 import { AlertTriangle, Plus, Send } from 'lucide-react';
 import type { CleaningIssue, IssueCategory, IssueUrgency } from '@/lib/types';
 import { ISSUE_STATUS_CONFIG, ISSUE_CATEGORY_LABELS, URGENCY_LABELS } from '@/lib/constants';
+import { toast } from '@/components/ui';
 
 const CATEGORIES: { value: IssueCategory; label: string }[] = (
   Object.entries(ISSUE_CATEGORY_LABELS) as [IssueCategory, string][]
@@ -101,7 +102,7 @@ export default function CleanerIssuesPage() {
       await loadData();
     } catch (err) {
       console.error(err);
-      alert('이슈 등록에 실패했습니다.');
+      toast.error('이슈 등록에 실패했습니다.');
     } finally {
       setSubmitting(false);
     }

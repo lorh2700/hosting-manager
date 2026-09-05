@@ -7,6 +7,7 @@ import { BookOpen, Loader2, RefreshCw, X, Phone, Mail, MessageSquare, CheckCircl
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useAuth } from '@/components/AuthProvider';
+import { toast, confirmDialog } from '@/components/ui';
 
 interface TourBooking {
   id: string;
@@ -98,14 +99,14 @@ function TourBookingsContent() {
       await fetchBookings();
     } catch (err) {
       console.error(err);
-      alert('재전달에 실패했습니다.');
+      toast.error('재전달에 실패했습니다.');
     } finally {
       setForwarding(null);
     }
   };
 
   const handleStatusChange = async (id: string, status: string) => {
-    if (status === 'cancelled' && !confirm('이 예약을 취소하시겠습니까? 슬롯 정원이 회복됩니다.')) return;
+    if (status === 'cancelled' && !(await confirmDialog({ title: '예약 취소', message: '이 예약을 취소합니다. 슬롯 정원이 회복됩니다.', confirmLabel: '취소하기', danger: true }))) return;
     setUpdating(id);
     try {
       const res = await fetch('/api/tour-bookings', {
@@ -117,7 +118,7 @@ function TourBookingsContent() {
       await fetchBookings();
     } catch (err) {
       console.error(err);
-      alert('상태 변경에 실패했습니다.');
+      toast.error('상태 변경에 실패했습니다.');
     } finally {
       setUpdating(null);
     }

@@ -8,6 +8,7 @@ import { ArrowLeft, RefreshCw, Calendar as CalendarIcon, X, AlertTriangle, Messa
 import { useAuth } from '@/components/AuthProvider';
 import { CreateReservationModal } from '@/app/admin/calendar/components/CreateReservationModal';
 import { CreateMaintenanceModal } from '@/app/admin/calendar/components/CreateMaintenanceModal';
+import { toast, confirmDialog } from '@/components/ui';
 
 // FullCalendar bundle (~250KB) is lazy-loaded so the page shell paints first.
 const PropertyCalendar = dynamic(() => import('./_components/PropertyCalendar'), {
@@ -149,7 +150,7 @@ export default function CalendarPage() {
         // iCal channel sync
         const activeChs = channels.filter(c => c.isActive && c.importUrl);
         if (activeChs.length === 0) {
-          alert('동기화할 채널이 없습니다.');
+          toast.error('동기화할 채널이 없습니다.');
           return;
         }
         const response = await fetch('/api/sync', {
@@ -159,7 +160,7 @@ export default function CalendarPage() {
         });
         const result = await response.json();
         if (!result.success || !result.events?.length) {
-          alert('가져온 예약 데이터가 없습니다. 채널 URL을 확인해주세요.');
+          toast.error('가져온 예약 데이터가 없습니다. 채널 URL을 확인해주세요.');
           return;
         }
       }
@@ -167,7 +168,7 @@ export default function CalendarPage() {
       await fetchEvents();
     } catch (error) {
       console.error('Sync failed', error);
-      alert(`동기화에 실패했습니다: ${error instanceof Error ? error.message : String(error)}`);
+      toast.error(`동기화에 실패했습니다: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setSyncing(false);
     }
@@ -199,7 +200,7 @@ export default function CalendarPage() {
   // 객실정비 해제 — Beds24 블랙아웃 취소 + 로컬 이벤트 삭제.
   const handleReleaseMaintenance = async () => {
     if (!selectedEvent?.eventId || releasingMaintenance) return;
-    if (!window.confirm('객실정비를 해제할까요?\nBeds24 차단도 함께 풀려 예약을 다시 받을 수 있게 됩니다.')) return;
+    if (!(await confirmDialog('객실정비를 해제할까요?\nBeds24 차단도 함께 풀려 예약을 다시 받을 수 있게 됩니다.'))) return;
     setReleasingMaintenance(true);
     try {
       const res = await fetch(`/api/beds24/maintenance?eventId=${selectedEvent.eventId}`, { method: 'DELETE' });
@@ -208,7 +209,7 @@ export default function CalendarPage() {
       setSelectedEvent(null);
       fetchEvents();
     } catch (err) {
-      alert(`정비 해제에 실패했습니다.\n${err instanceof Error ? err.message : ''}`);
+      toast.error(`정비 해제에 실패했습니다.\n${err instanceof Error ? err.message : ''}`);
     } finally {
       setReleasingMaintenance(false);
     }

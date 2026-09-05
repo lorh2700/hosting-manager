@@ -1,14 +1,16 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { format, parseISO, isToday, isTomorrow, isPast, differenceInCalendarDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import {
   CheckCircle2, Clock, CalendarDays, AlertTriangle, ChevronDown, ChevronUp, Send,
-  Copy, Check, Link as LinkIcon, MessageSquare, ArrowDownRight, ArrowUpRight, X, Loader2, Brush,
+  MessageSquare, ArrowDownRight, ArrowUpRight, X, Loader2, Brush,
 } from 'lucide-react';
 import type { IssueCategory, IssueUrgency } from '@/lib/types';
+import { toast, Skeleton, SkeletonCard, PullToRefresh } from '@/components/ui';
+import { useRefetchOnReturn } from '@/lib/hooks/useRefetchOnReturn';
 
 interface CleaningTask {
   cleaningId: string;
@@ -77,8 +79,6 @@ export default function CleanerPage() {
   const [todayCleanings, setTodayCleanings] = useState<CleaningEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
-  const [icalToken, setIcalToken] = useState<string | null>(null);
-  const [copiedIcal, setCopiedIcal] = useState(false);
 
   // chat dialog
   const [chatGuest, setChatGuest] = useState<Reservation | null>(null);
@@ -106,139 +106,23 @@ export default function CleanerPage() {
   const loadTasks = async () => {
     if (!user || !profile) return;
     try {
-      const today = format(new Date(), 'yyyy-MM-dd');
-
-      // Fetch properties first
-      const propsRes = await fetch('/api/properties');
-      const propsData = await propsRes.json();
-      const propNames: Record<string, string> = {};
-      const propertyIds: string[] = [];
-      for (const p of propsData) {
-        propNames[p.id] = p.name;
-        propertyIds.push(p.id);
-      }
-      if (propertyIds.length === 0) { setLoading(false); return; }
-
-      const propIdsParam = propertyIds.join(',');
-
-      // Parallel fetches
-      const [meRes, cleaningsRes, cleanersRes, bookingsRes, eventsRes] = await Promise.all([
-        fetch('/api/cleaners/me'),
-        fetch(`/api/cleanings?propertyIds=${propIdsParam}`),
-        fetch('/api/cleaners'),
-        fetch(`/api/bookings?propertyIds=${propIdsParam}&status=confirmed`),
-        fetch(`/api/events?propertyIds=${propIdsParam}`),
-      ]);
-
-      const meData = meRes.ok ? await meRes.json() : { cleaner: null };
-      const myCleanerId: string | null = meData?.cleaner?.id ?? null;
-      setIcalToken((meData?.cleaner?.publicToken as string | undefined) ?? null);
-
-      const cleaningsData = cleaningsRes.ok ? await cleaningsRes.json() : [];
-      const cleanersList = cleanersRes.ok ? await cleanersRes.json() : [];
-      const bookingsData = bookingsRes.ok ? await bookingsRes.json() : [];
-      const eventsData = eventsRes.ok ? await eventsRes.json() : [];
-
-      const cleanersMap: Record<string, string> = {};
-      for (const c of cleanersList as Array<{ id: string; name: string }>) {
-        cleanersMap[c.id] = c.name;
-      }
-
-      // Build guest name lookup keyed by propertyId+date for cleaning matching
-      const guestByKey: Record<string, string> = {};
-      for (const b of bookingsData) {
-        guestByKey[`${b.propertyId}_${b.checkOut}`] = b.name;
-      }
-
-      // ── My cleaning task list (existing logic) ───────────────────────
-      const filteredCleanings = profile.role === 'admin'
-        ? cleaningsData
-        : myCleanerId
-          ? cleaningsData.filter((c: { cleanerId?: string }) => c.cleanerId === myCleanerId)
-          : [];
-
-      const result: CleaningTask[] = filteredCleanings.map((c: Record<string, unknown>) => ({
-        cleaningId: c.id as string,
-        propertyId: c.propertyId as string,
-        propertyName: propNames[c.propertyId as string] ?? '알 수 없는 숙소',
-        date: c.date as string,
-        guestName: guestByKey[`${c.propertyId}_${c.date}`] ?? '',
-        supplies: (c.supplies as string) ?? '',
-        status: (c.status as string) ?? 'pending',
-        completionNote: c.completionNote as string | undefined,
-        completedAt: c.completedAt as string | undefined,
-        hasIssue: c.hasIssue as boolean | undefined,
-      })).sort((a: CleaningTask, b: CleaningTask) => a.date.localeCompare(b.date));
-      setTasks(result);
-
-      // ── All cleanings on today (for "오늘의 운영" section) ─────────────
-      const todayCleaningsAll: CleaningEntry[] = (cleaningsData as Array<Record<string, unknown>>)
-        .filter(c => c.date === today)
-        .map(c => {
-          const cleanerId = (c.cleanerId as string) || null;
-          // Prefer the included cleaner.name (covers other-owner cleaners);
-          // fall back to cleanersMap (only same-owner colleagues).
-          const includedCleaner = c.cleaner as { name?: string } | null | undefined;
-          const cleanerName = cleanerId
-            ? (includedCleaner?.name ?? cleanersMap[cleanerId] ?? null)
-            : null;
-          return {
-            id: c.id as string,
-            propertyId: c.propertyId as string,
-            propertyName: propNames[c.propertyId as string] ?? '알 수 없는 숙소',
-            date: c.date as string,
-            cleanerId,
-            cleanerName,
-            status: ((c.status as string) === 'done' ? 'done' : 'pending') as 'done' | 'pending',
-            isMine: !!myCleanerId && cleanerId === myCleanerId,
-          };
-        })
-        .sort((a, b) => a.propertyName.localeCompare(b.propertyName));
-      setTodayCleanings(todayCleaningsAll);
-
-      // ── Today's check-ins / check-outs (events + bookings) ───────────
-      const eventReservations: Reservation[] = (eventsData as Array<Record<string, unknown>>)
-        .filter(e => e.type === 'reservation')
-        .map(e => ({
-          id: e.id as string,
-          propertyId: e.propertyId as string,
-          propertyName: propNames[e.propertyId as string] ?? '알 수 없는 숙소',
-          title: ((e.title as string) || '').replace(/ 예약$/, ''),
-          start: (e.startDate || e.start) as string,
-          end: (e.endDate || e.end) as string,
-          source: (e.source as string) || null,
-          dataSource: 'event',
-        }));
-      const bookingReservations: Reservation[] = (bookingsData as Array<Record<string, unknown>>)
-        .map(b => ({
-          id: b.id as string,
-          propertyId: b.propertyId as string,
-          propertyName: propNames[b.propertyId as string] ?? '알 수 없는 숙소',
-          title: (b.name as string) || '',
-          start: b.checkIn as string,
-          end: b.checkOut as string,
-          phone: b.phone as string | undefined,
-          email: b.email as string | undefined,
-          guests: b.guests as number | undefined,
-          source: (b.source as string) || 'direct',
-          dataSource: 'booking',
-        }));
-      const allReservations = [...eventReservations, ...bookingReservations];
-      const seen = new Set<string>();
-      const uniqRes = allReservations.filter(r => {
-        const key = `${r.propertyId}_${r.start}_${r.end}`;
-        if (seen.has(key)) return false;
-        seen.add(key); return true;
-      });
-
-      setTodayCheckins(uniqRes.filter(r => r.start === today));
-      setTodayCheckouts(uniqRes.filter(r => r.end === today));
+      // 화면 전용 API 한 번. 이전에는 6번 호출(기간 제한 없음)에 9초까지 걸렸다.
+      const res = await fetch('/api/cleaner/today');
+      if (!res.ok) throw new Error(`today ${res.status}`);
+      const data = await res.json();
+      setTasks(((data.tasks ?? []) as CleaningTask[]).slice().sort((a, b) => a.date.localeCompare(b.date)));
+      setTodayCleanings((data.todayCleanings ?? []) as CleaningEntry[]);
+      setTodayCheckins((data.checkins ?? []) as Reservation[]);
+      setTodayCheckouts((data.checkouts ?? []) as Reservation[]);
     } catch (err) {
       console.error(err);
+      toast.error('오늘 일정을 불러오지 못했습니다. 아래로 당겨 다시 시도해 주세요.');
     } finally {
       setLoading(false);
     }
   };
+  // 탭에 돌아오면(몇 시간 뒤 다시 열었을 때) 최신으로.
+  useRefetchOnReturn(loadTasks);
 
   const openChat = async (reservation: Reservation) => {
     setChatGuest(reservation);
@@ -290,7 +174,7 @@ export default function CleanerPage() {
   const handleComplete = async (task: CleaningTask) => {
     if (!user) return;
     if (!canCompleteNow(task)) {
-      alert(completeDisabledReason(task));
+      toast.info(completeDisabledReason(task));
       return;
     }
     setCompleting(task.cleaningId);
@@ -314,9 +198,10 @@ export default function CleanerPage() {
       ));
       setCompletionNote('');
       setExpandedTask(null);
+      toast.success('청소 완료로 기록했습니다.');
     } catch (err) {
       console.error(err);
-      alert('완료 처리에 실패했습니다.');
+      toast.error('완료 처리에 실패했습니다.');
     } finally {
       setCompleting(null);
     }
@@ -360,19 +245,26 @@ export default function CleanerPage() {
       setIssueDesc('');
       setIssueCategory('other');
       setIssueUrgency('normal');
-      alert('이슈가 등록되었습니다.');
+      toast.success('이슈를 등록했습니다.');
     } catch (err) {
       console.error(err);
-      alert('이슈 등록에 실패했습니다.');
+      toast.error('이슈 등록에 실패했습니다.');
     } finally {
       setSubmittingIssue(false);
     }
   };
 
   if (loading) {
+    // 전체 화면 스피너 대신 화면 골격을 먼저 보여준다.
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="w-8 h-8 border-t-2 border-[var(--brand)] rounded-full animate-spin" />
+      <div className="space-y-8">
+        <header className="border-b border-stone-200 pb-6 mt-4">
+          <p className="t-label text-[var(--brand)] mb-2">청소 담당자</p>
+          <h1 className="t-display text-stone-900">{format(new Date(), 'M월 d일 EEEE', { locale: ko })}</h1>
+          <Skeleton className="h-4 w-40 mt-3" />
+        </header>
+        <SkeletonCard rows={3} />
+        <SkeletonCard rows={2} />
       </div>
     );
   }
@@ -615,25 +507,6 @@ export default function CleanerPage() {
     );
   };
 
-  const icalHttpUrl = icalToken && typeof window !== 'undefined'
-    ? `${window.location.origin}/c/${icalToken}/ical.ics`
-    : '';
-  // webcal:// triggers most calendar apps' "subscribe" flow on click.
-  const icalSubscribeUrl = icalHttpUrl
-    ? icalHttpUrl.replace(/^https?:/, 'webcal:')
-    : '';
-
-  const handleCopyIcal = async () => {
-    if (!icalHttpUrl) return;
-    try {
-      await navigator.clipboard.writeText(icalHttpUrl);
-      setCopiedIcal(true);
-      setTimeout(() => setCopiedIcal(false), 2000);
-    } catch {
-      // ignore
-    }
-  };
-
   const channelLabel = (source?: string | null): string | null => {
     if (!source) return null;
     const s = source.toLowerCase();
@@ -649,13 +522,14 @@ export default function CleanerPage() {
   };
 
   return (
-    <div className="space-y-10">
+    <PullToRefresh onRefresh={loadTasks}>
+    <div className="space-y-10 pb-nav">
       <header className="border-b border-stone-200 pb-6 sm:pb-7 mt-4">
-        <p className="text-[11px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">청소 담당자</p>
-        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-900">
+        <p className="t-label text-[var(--brand)] mb-2">청소 담당자</p>
+        <h1 className="t-display text-stone-900">
           {format(new Date(), 'M월 d일 EEEE', { locale: ko })}
         </h1>
-        <p className="text-stone-500 mt-2 text-sm">오늘의 운영을 한눈에 확인하세요.</p>
+        <p className="text-stone-500 mt-2 t-caption">오늘의 운영을 한눈에 확인하세요. 아래로 당기면 새로고침됩니다.</p>
       </header>
 
       {/* ── 오늘의 운영 ── */}
@@ -785,52 +659,6 @@ export default function CleanerPage() {
         </section>
       )}
 
-      {icalToken && (
-        <section className="border border-stone-200 bg-white p-5 space-y-3">
-          <div className="flex items-center gap-2">
-            <CalendarDays size={14} className="text-stone-500" />
-            <h2 className="text-[11px] uppercase tracking-widest text-stone-600 font-medium">캘린더 연동</h2>
-          </div>
-          <p className="text-xs text-stone-500 leading-relaxed">
-            아래 링크를 본인의 캘린더 앱(구글, 애플, 네이버)에 추가하면 배정된 청소 일정이 자동으로 동기화됩니다.
-          </p>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <a
-              href={icalSubscribeUrl}
-              className="inline-flex items-center gap-1.5 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white px-4 py-2.5 text-[11px] uppercase tracking-widest font-semibold transition-colors"
-            >
-              <LinkIcon size={12} /> 캘린더에 추가
-            </a>
-            <button
-              type="button"
-              onClick={handleCopyIcal}
-              className="inline-flex items-center gap-1.5 border border-stone-300 text-stone-700 hover:text-stone-900 hover:border-stone-400 px-4 py-2.5 text-[11px] uppercase tracking-widest font-semibold transition-colors"
-            >
-              {copiedIcal ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
-              {copiedIcal ? '복사됨' : '주소 복사'}
-            </button>
-          </div>
-
-          <input
-            type="text"
-            readOnly
-            value={icalHttpUrl}
-            onFocus={e => e.currentTarget.select()}
-            className="w-full bg-stone-50 border border-stone-200 px-3 py-2 text-[11px] text-stone-700 font-mono focus:outline-none focus:border-stone-400 truncate"
-          />
-
-          <details className="text-[11px] text-stone-500">
-            <summary className="cursor-pointer hover:text-stone-700 transition-colors">앱별 추가 방법</summary>
-            <div className="mt-2 space-y-1.5 pl-3 leading-relaxed">
-              <p><span className="text-stone-700">구글 캘린더</span> — 다른 캘린더 + → URL로 추가 → 위 주소 붙여넣기</p>
-              <p><span className="text-stone-700">애플(iPhone) 캘린더</span> — "캘린더에 추가" 버튼 누르고 안내대로 진행</p>
-              <p><span className="text-stone-700">네이버 캘린더</span> — 설정 → 외부 캘린더 → URL 추가</p>
-            </div>
-          </details>
-        </section>
-      )}
-
       {tasks.length === 0 ? (
         <div className="flex flex-col items-center text-stone-400 py-16">
           <CalendarDays size={32} className="mb-4 opacity-50" />
@@ -951,5 +779,6 @@ export default function CleanerPage() {
         </div>
       )}
     </div>
+    </PullToRefresh>
   );
 }
