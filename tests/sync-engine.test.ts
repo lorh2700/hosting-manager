@@ -55,6 +55,15 @@ test('예약이 사라진 자동 생성 청소는 배정돼 있어도 삭제하�
   assert.equal(notifyCalls.cancelled[0].reason, 'deleted');
 });
 
+test('지난 체크아웃 날짜에는 청소를 만들지도, 신규 오픈 알림을 보내지도 않는다', async () => {
+  db.event = [reservation('past', d(-40), d(-38)), reservation('future', d(2), d(4))];
+  db.cleaning = [];
+  const created = await ensureCleaningsForProperty(P);
+  assert.deepEqual(created, [d(4)]);
+  assert.ok(!db.cleaning.some(c => c.date === d(-38)), '과거 날짜 청소는 생성하지 않음');
+  assert.ok(db.cleaning.some(c => c.date === d(4)));
+});
+
 test('배정 건과 같은 날짜의 미배정 유령 행은 신청이 없을 때만 삭제', async () => {
   db.event = [reservation('r1', d(1), d(3)), reservation('r2', d(3), d(4))];
   db.cleaning = [

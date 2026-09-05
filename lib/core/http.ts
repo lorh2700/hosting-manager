@@ -115,6 +115,21 @@ export function withErrors<P = Record<string, never>>(
   };
 }
 
+/** 크론이 x-cron-secret 으로 호출했는지. 비밀키가 설정돼 있고 일치할 때만 true. */
+export function isCronRequest(req: Request): boolean {
+  const secret = process.env.CRON_SECRET;
+  const header = req.headers.get('x-cron-secret');
+  return !!header && !!secret && header === secret;
+}
+
+/** 크론 비밀키 또는 로그인 세션 중 하나. 둘 다 없으면 401. 세션이면 auth 를 돌려준다. */
+export async function cronOrSession(req: Request): Promise<SessionAuth | null> {
+  if (isCronRequest(req)) return null;
+  const auth = await getSessionWithUser(req);
+  if (!auth) throw fail(401, MESSAGES.unauthorized);
+  return auth;
+}
+
 // ── 권한 ───────────────────────────────────────────────────────────────────
 
 /** 쓰기 권한(관리자 또는 담당 호스트)이 없으면 403. */
