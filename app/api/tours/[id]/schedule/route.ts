@@ -35,7 +35,7 @@ export const POST = withAuth<Params>('tours/schedule', async (req, { auth, param
   return created({ created: result.count });
 });
 
-export const PUT = withAuth('tours/schedule', async (req, { auth }) => {
+export const PUT = withAuth<Params>('tours/schedule', async (req, { auth }) => {
   const body = await readJson(req);
   const scheduleId = str(body, 'scheduleId', { required: true })!;
   if (!(await authorizeTourSchedule(scheduleId, auth.session.userId, { isAdmin: auth.isAdmin }))) throw fail(403, MESSAGES.forbidden);
@@ -51,7 +51,7 @@ export const PUT = withAuth('tours/schedule', async (req, { auth }) => {
   return ok(await prisma.tourSchedule.update({ where: { id: scheduleId }, data }));
 });
 
-export const DELETE = withAuth('tours/schedule', async (req, { auth }) => {
+export const DELETE = withAuth<Params>('tours/schedule', async (req, { auth }) => {
   const scheduleId = requireQuery(req, 'scheduleId');
   if (!(await authorizeTourSchedule(scheduleId, auth.session.userId, { isAdmin: auth.isAdmin }))) throw fail(403, MESSAGES.forbidden);
 

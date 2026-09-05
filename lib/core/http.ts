@@ -10,13 +10,8 @@
  * 문구·상태코드는 여기에서만 정의한다 (라우트마다 다시 쓰지 않는다).
  */
 import { NextResponse } from 'next/server';
-import {
-  getSessionWithUser,
-  canManageProperty,
-  getVisiblePropertyIds,
-  isPropertyOwnerOrAdmin,
-  type SessionAuth,
-} from '@/lib/auth';
+import { getSessionWithUser, type SessionAuth } from '@/lib/auth';
+import { canManageProperty, getVisiblePropertyIds, isPropertyOwnerOrAdmin } from '@/lib/access';
 
 export const MESSAGES = {
   unauthorized: 'Unauthorized',
@@ -61,13 +56,19 @@ export interface AuthedContext<P> {
 export type AuthedHandler<P> = (req: Request, ctx: AuthedContext<P>) => Promise<Response>;
 
 export interface WithAuthOptions {
-  /** 관리자(super_admin/admin)만 허용 */
+  /** 관리자(admin)만 허용 */
   admin?: boolean;
   /** 승인 대기·정지 계정도 통과 (계정 상태 화면 등 극소수 경로) */
   allowInactive?: boolean;
 }
 
 type RouteContext<P> = { params: Promise<P> };
+
+/**
+ * Next 가 내보내는 라우트 핸들러 시그니처. 두 번째 인자는 타입상 필수여야 `next build` 의
+ * 라우트 타입 검사(.next/types)를 통과한다. 실행 시에는 없이 호출돼도(테스트) 동작한다.
+ */
+export type RouteHandler<P> = (req: Request, ctx: RouteContext<P>) => Promise<Response>;
 
 /**
  * 인증이 필요한 라우트 핸들러를 감싼다.
@@ -78,15 +79,15 @@ export function withAuth<P = Record<string, never>>(
   name: string,
   handler: AuthedHandler<P>,
   opts: WithAuthOptions = {},
-) {
+): RouteHandler<P> {
   const log: RouteLog = (msg, extra) =>
     extra === undefined ? console.log(`[${name}] ${msg}`) : console.log(`[${name}] ${msg}`, extra);
 
-  return async (req: Request, routeCtx?: RouteContext<P>): Promise<Response> => {
+  const fn = async (req: Request, routeCtx?: RouteContext<P>): Promise<Response> => {
     try {
       const auth = await getSessionWithUser(req, { allowInactive: opts.allowInactive });
       if (!auth) return errorResponse(401, MESSAGES.unauthorized);
-      if (opts.admin && !auth.isAdmin) return errorResponse(403, MESSAGES.forbidden);
+      if (opts.admin && auth.role !== 'admin') return errorResponse(403, MESSAGES.forbidden);
       const params = routeCtx ? await routeCtx.params : ({} as P);
       return await handler(req, { auth, params, log });
     } catch (e) {
@@ -95,16 +96,17 @@ export function withAuth<P = Record<string, never>>(
       return errorResponse(500, MESSAGES.server);
     }
   };
+  return fn as RouteHandler<P>;
 }
 
 /** 인증 없는 라우트(공개·비밀키 검사 자체 수행)도 같은 예외 변환을 쓰도록 하는 래퍼. */
 export function withErrors<P = Record<string, never>>(
   name: string,
   handler: (req: Request, ctx: { params: P; log: RouteLog }) => Promise<Response>,
-) {
+): RouteHandler<P> {
   const log: RouteLog = (msg, extra) =>
     extra === undefined ? console.log(`[${name}] ${msg}`) : console.log(`[${name}] ${msg}`, extra);
-  return async (req: Request, routeCtx?: RouteContext<P>): Promise<Response> => {
+  const fn = async (req: Request, routeCtx?: RouteContext<P>): Promise<Response> => {
     try {
       const params = routeCtx ? await routeCtx.params : ({} as P);
       return await handler(req, { params, log });
@@ -114,6 +116,7 @@ export function withErrors<P = Record<string, never>>(
       return errorResponse(500, MESSAGES.server);
     }
   };
+  return fn as RouteHandler<P>;
 }
 
 /** 크론이 x-cron-secret 으로 호출했는지. 비밀키가 설정돼 있고 일치할 때만 true. */
@@ -133,7 +136,7 @@ export async function cronOrSession(req: Request): Promise<SessionAuth | null> {
 
 // ── 권한 ───────────────────────────────────────────────────────────────────
 
-/** 쓰기 권한(관리자 또는 담당 호스트)이 없으면 403. */
+/** 쓰기 권한(관리자 또는 배정 매니저)이 없으면 403. */
 export function requireManage(auth: SessionAuth, propertyId: string): void {
   if (!canManageProperty(auth, propertyId)) throw fail(403, MESSAGES.forbidden);
 }

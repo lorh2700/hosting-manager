@@ -7,10 +7,10 @@ export const GET = withAuth('messages', async (req, { auth }) => {
   const where: Record<string, unknown> = {};
   if (eventId) where.eventId = eventId;
 
-  if (auth.isAdmin) {
+  if (auth.role === 'admin') {
     if (requested) where.propertyId = { in: requested };
-  } else if (auth.user.role === 'cleaner') {
-    // 청소매니저는 자기가 배정된 청소가 있는 숙소의 메시지만 본다.
+  } else if (auth.role === 'cleaner') {
+    // 청소담당자는 자기가 배정된 청소가 있는 숙소의 메시지만 본다 (배정 지점보다 좁은 규칙).
     const myCleaner = await prisma.cleaner.findUnique({ where: { userId: auth.session.userId }, select: { id: true } });
     if (!myCleaner) return ok([]);
     const myCleanings = await prisma.cleaning.findMany({

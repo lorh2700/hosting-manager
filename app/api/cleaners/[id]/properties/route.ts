@@ -1,22 +1,23 @@
 import { prisma } from '@/lib/prisma';
-import { withAuth, ok, fail, readJson } from '@/lib/core/http';
+import { canManageCleaner } from '@/lib/access';
+import { withAuth, ok, fail, MESSAGES, readJson } from '@/lib/core/http';
 
 type Params = { id: string };
 
 /**
- * Set the list of property IDs a cleaner is scoped to.
- * Empty array = no scope (cleaner sees all open cleanings).
- * Backed by the UserProperty table on the cleaner's linked user.
+ * 담당자의 배정 지점(CleanerProperty)을 통째로 바꾼다.
+ * 빈 배열 = 배정 없음 → 소유 호스트의 모든 숙소를 본다.
+ * 로그인 계정 유무와 무관하게 동작한다 (공개 링크만 쓰는 담당자도 배정 가능).
  */
-export const PUT = withAuth<Params>('cleaners/properties', async (req, { params }) => {
+export const PUT = withAuth<Params>('cleaners/properties', async (req, { auth, params }) => {
   const body = await readJson(req);
-  const propertyIds: string[] = Array.isArray(body.propertyIds)
-    ? (body.propertyIds as unknown[]).filter((p): p is string => typeof p === 'string')
+  const propertyIds = Array.isArray(body.propertyIds)
+    ? [...new Set((body.propertyIds as unknown[]).filter((p): p is string => typeof p === 'string' && p.length > 0))]
     : [];
 
-  const cleaner = await prisma.cleaner.findUnique({ where: { id: params.id }, select: { id: true, userId: true } });
+  const cleaner = await prisma.cleaner.findUnique({ where: { id: params.id }, select: { id: true, ownerId: true } });
   if (!cleaner) throw fail(404, '청소 담당자를 찾을 수 없습니다.');
-  if (!cleaner.userId) throw fail(400, '로그인 계정이 없는 담당자는 지점을 지정할 수 없습니다. 먼저 계정을 만들어 주세요.');
+  if (!canManageCleaner(auth, cleaner)) throw fail(403, MESSAGES.forbidden);
 
   if (propertyIds.length > 0) {
     const existing = await prisma.property.findMany({ where: { id: { in: propertyIds } }, select: { id: true } });
@@ -24,14 +25,14 @@ export const PUT = withAuth<Params>('cleaners/properties', async (req, { params 
   }
 
   await prisma.$transaction([
-    prisma.userProperty.deleteMany({ where: { userId: cleaner.userId } }),
+    prisma.cleanerProperty.deleteMany({ where: { cleanerId: cleaner.id } }),
     ...(propertyIds.length
-      ? [prisma.userProperty.createMany({
-          data: propertyIds.map(pid => ({ userId: cleaner.userId!, propertyId: pid })),
+      ? [prisma.cleanerProperty.createMany({
+          data: propertyIds.map(pid => ({ cleanerId: cleaner.id, propertyId: pid })),
           skipDuplicates: true,
         })]
       : []),
   ]);
 
   return ok({ propertyIds });
-}, { admin: true });
+});

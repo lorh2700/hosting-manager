@@ -1,40 +1,16 @@
 import { prisma } from '@/lib/prisma';
-import { withAuth, ok, created, readJson, str, int } from '@/lib/core/http';
+import { withAuth, ok, created, fail, MESSAGES, visibleScope, readJson, str, int } from '@/lib/core/http';
 
+/** 읽기 범위 한 규칙: 관리자 전체, 매니저 배정 숙소, 청소담당자 배정 지점(없으면 호스트 숙소 전부). */
 export const GET = withAuth('properties', async (_req, { auth }) => {
-  if (auth.isAdmin) return ok(await prisma.property.findMany({ orderBy: { createdAt: 'desc' } }));
-
-  // Resolve a Cleaner record using userId, then phone. Treat the user as a cleaner
-  // if EITHER role='cleaner' OR a Cleaner row exists (legacy accounts with a mis-set role).
-  let myCleaner = await prisma.cleaner.findUnique({ where: { userId: auth.session.userId }, select: { ownerId: true } });
-  if (!myCleaner && auth.user.phone) {
-    myCleaner = await prisma.cleaner.findFirst({ where: { phone: auth.user.phone }, select: { ownerId: true } });
-  }
-  const isCleaner = auth.user.role === 'cleaner' || !!myCleaner;
-  const userPropScope = auth.propertyIds ?? [];
-
-  if (isCleaner) {
-    if (myCleaner) {
-      // Primary: every property of the cleaner's host.
-      const ownerProps = await prisma.property.findMany({ where: { ownerId: myCleaner.ownerId }, orderBy: { createdAt: 'desc' } });
-      if (ownerProps.length > 0) return ok(ownerProps);
-      // Fallback: Cleaner.ownerId points to a host with no properties → UserProperty scope.
-      if (userPropScope.length > 0) {
-        return ok(await prisma.property.findMany({ where: { id: { in: userPropScope } }, orderBy: { createdAt: 'desc' } }));
-      }
-    }
-    // No Cleaner row at all → scope if any, else every property so the cleaner pages have data.
-    if (userPropScope.length > 0) {
-      return ok(await prisma.property.findMany({ where: { id: { in: userPropScope } }, orderBy: { createdAt: 'desc' } }));
-    }
-    return ok(await prisma.property.findMany({ orderBy: { createdAt: 'desc' } }));
-  }
-
-  if (userPropScope.length === 0) return ok([]);
-  return ok(await prisma.property.findMany({ where: { id: { in: userPropScope } }, orderBy: { createdAt: 'desc' } }));
+  const visible = await visibleScope(auth);
+  if (visible === null) return ok(await prisma.property.findMany({ orderBy: { createdAt: 'desc' } }));
+  if (visible.length === 0) return ok([]);
+  return ok(await prisma.property.findMany({ where: { id: { in: visible } }, orderBy: { createdAt: 'desc' } }));
 });
 
 export const POST = withAuth('properties', async (req, { auth }) => {
+  if (auth.role === 'cleaner') throw fail(403, MESSAGES.forbidden);
   const body = await readJson(req);
   const name = str(body, 'name', { required: true, max: 100 })!.trim();
 
@@ -54,6 +30,7 @@ export const POST = withAuth('properties', async (req, { auth }) => {
     },
   });
 
+  // 매니저가 만든 숙소는 자기 배정 목록에 바로 들어간다 (관리자는 전체 접근이라 불필요하지만 무해).
   await prisma.userProperty.create({ data: { userId: auth.session.userId, propertyId: property.id } });
   return created(property);
 });

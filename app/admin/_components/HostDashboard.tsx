@@ -123,7 +123,7 @@ export default function HostDashboard() {
   const [guestMessages, setGuestMessages] = useState<GuestMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const { user, profile } = useAuth();
-  const isAdmin = profile?.role === 'super_admin' || profile?.role === 'admin';
+  const isAdmin = profile?.role === 'admin';
 
   useEffect(() => {
     if (!user) return;

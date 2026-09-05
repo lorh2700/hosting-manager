@@ -87,6 +87,7 @@ export function makeRequest(body: unknown, url = 'http://localhost/api/test'): R
 }
 
 /** NextResponse 스텁 결과를 검사용 형태로. */
-export async function callRoute(fn: (req: Request) => Promise<unknown>, req: Request): Promise<{ status: number; body: any }> {
+// 라우트 핸들러는 타입상 (req, ctx) 두 인자지만 정적 라우트는 ctx 없이 호출해도 동작한다.
+export async function callRoute(fn: (req: Request, ctx?: any) => Promise<unknown>, req: Request): Promise<{ status: number; body: any }> {
   return (await fn(req)) as { status: number; body: any };
 }

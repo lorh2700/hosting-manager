@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { signToken, setSessionCookie } from '@/lib/auth';
+import { normalizeRole } from '@/lib/access';
 import { phoneToSyntheticEmail } from '@/lib/phone';
 import { rateLimit, clientIp } from '@/lib/rateLimit';
 import { withErrors, ok, fail, readJson, str } from '@/lib/core/http';
@@ -30,7 +31,7 @@ export const POST = withErrors('auth/login', async (req) => {
   return ok({
     user: { id: user.id, email: user.email },
     profile: {
-      role: user.role,
+      role: normalizeRole(user.role),
       propertyIds: user.properties.map((p) => p.propertyId),
       displayName: user.displayName || user.email,
       phone: user.phone,

@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { notifyHostOfCleaningApplication } from '@/lib/notify';
 import {
   withAuth, ok, created, fail, MESSAGES,
-  readJson, str, idList, query,
+  requireVisible, visibleScope, readJson, str, idList, query,
 } from '@/lib/core/http';
 
 const STATUSES = ['pending', 'approved', 'rejected'];
@@ -11,18 +11,16 @@ export const GET = withAuth('cleaning-applications', async (req, { auth }) => {
   const requested = idList(req, 'propertyIds');
   const where: Record<string, unknown> = {};
 
-  if (auth.isAdmin) {
-    if (requested) where.propertyId = { in: requested };
-  } else if (auth.user.role === 'cleaner') {
-    // 청소매니저는 담당 숙소와 무관하게 자기 신청만 본다.
+  if (auth.role === 'cleaner') {
+    // 청소담당자는 배정 지점과 무관하게 자기 신청만 본다.
     where.applicantId = auth.session.userId;
     if (requested) where.propertyId = { in: requested };
   } else {
-    const allowed = auth.propertyIds ?? [];
-    if (allowed.length === 0) return ok([]);
-    const ids = requested ? requested.filter(id => allowed.includes(id)) : allowed;
-    if (ids.length === 0) return ok([]);
-    where.propertyId = { in: ids };
+    const ids = await visibleScope(auth, requested);
+    if (ids !== null) {
+      if (ids.length === 0) return ok([]);
+      where.propertyId = { in: ids };
+    }
   }
 
   const status = query(req, 'status');
@@ -53,11 +51,10 @@ export const POST = withAuth('cleaning-applications', async (req, { auth }) => {
   });
   if (!cleaning) throw fail(404, MESSAGES.notFound);
 
-  const isCleaner = auth.user.role === 'cleaner';
-  const scopedIds = auth.propertyIds ?? [];
-  if (!auth.isAdmin && !isCleaner && !scopedIds.includes(cleaning.propertyId)) throw fail(403, MESSAGES.forbidden);
+  // 보이는 지점에만 신청할 수 있다 (청소담당자: 배정 지점, 매니저: 배정 숙소, 관리자: 전체).
+  await requireVisible(auth, cleaning.propertyId);
 
-  if (isCleaner) {
+  if (auth.role === 'cleaner') {
     if (cleaning.cleanerId) throw fail(400, '이미 다른 담당자에게 배정된 청소입니다.');
     // 동일 (propertyId, date) 슬롯에 배정된 sibling 행이 있으면 이 미배정 행은 유령 잔재 — 신청 차단해 이중 배정 방지.
     const siblingClaimed = await prisma.cleaning.findFirst({
@@ -65,7 +62,6 @@ export const POST = withAuth('cleaning-applications', async (req, { auth }) => {
       select: { id: true },
     });
     if (siblingClaimed) throw fail(400, '이 날짜의 청소는 이미 다른 담당자에게 배정되었습니다.');
-    if (scopedIds.length > 0 && !scopedIds.includes(cleaning.propertyId)) throw fail(403, '이 지점의 청소는 신청할 수 없습니다.');
   }
 
   // Resolve User.id → Cleaner.id (required for FK on cleanings.cleaner_id)
@@ -128,9 +124,9 @@ export const PUT = withAuth('cleaning-applications', async (req, { auth }) => {
   const target = await prisma.cleaningApplication.findUnique({ where: { id }, select: { propertyId: true, applicantId: true } });
   if (!target) throw fail(404, MESSAGES.notFound);
 
-  // Non-admins may only mutate their own applications on properties in their scope.
-  if (!auth.isAdmin) {
-    if (!(auth.propertyIds ?? []).includes(target.propertyId)) throw fail(403, MESSAGES.forbidden);
+  // 관리자가 아니면 자기 신청만, 그것도 보이는 지점 안에서만.
+  if (auth.role !== 'admin') {
+    await requireVisible(auth, target.propertyId);
     if (target.applicantId !== auth.session.userId) throw fail(403, MESSAGES.forbidden);
   }
 

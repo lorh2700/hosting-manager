@@ -53,7 +53,7 @@ export default function ApiClientsPage() {
   const [newKey, setNewKey] = useState<{ name: string; plaintextKey: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const isSuperAdmin = profile?.role === 'super_admin' || profile?.role === 'admin';
+  const isSuperAdmin = profile?.role === 'admin';
 
   useEffect(() => {
     if (!isSuperAdmin) return;

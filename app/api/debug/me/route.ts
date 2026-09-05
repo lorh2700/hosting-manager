@@ -25,7 +25,7 @@ export const GET = withAuth('debug/me', async (_req, { auth }) => {
 
   return ok({
     session: { userId: auth.session.userId, email: auth.session.email },
-    user: { id: auth.user.id, email: auth.user.email, phone: auth.user.phone, role: auth.user.role, status: auth.user.status, displayName: auth.user.displayName },
+    user: { id: auth.user.id, email: auth.user.email, phone: auth.user.phone, role: auth.role, rawRole: auth.user.role, status: auth.user.status, displayName: auth.user.displayName },
     isAdmin: auth.isAdmin,
     cleanerLookup: { byUserId: cleanerByUserId, byPhone: cleanerByPhone, resolved: myCleaner },
     scope: {

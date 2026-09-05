@@ -52,7 +52,7 @@ export default function CleanerHistoryPage() {
       const cleaningsData = await cleaningsRes.json();
 
       // Filter by cleanerId if not super_admin
-      const filteredCleanings = profile.role === 'super_admin'
+      const filteredCleanings = profile.role === 'admin'
         ? cleaningsData
         : myCleanerId
           ? cleaningsData.filter((c: { cleanerId?: string }) => c.cleanerId === myCleanerId)

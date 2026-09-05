@@ -151,7 +151,7 @@ export default function CleanerPage() {
       }
 
       // ── My cleaning task list (existing logic) ───────────────────────
-      const filteredCleanings = profile.role === 'super_admin'
+      const filteredCleanings = profile.role === 'admin'
         ? cleaningsData
         : myCleanerId
           ? cleaningsData.filter((c: { cleanerId?: string }) => c.cleanerId === myCleanerId)

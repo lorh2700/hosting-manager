@@ -35,7 +35,7 @@ export const POST = withAuth<Params>('properties/channels', async (req, { auth, 
   }));
 });
 
-export const PUT = withAuth('properties/channels', async (req, { auth }) => {
+export const PUT = withAuth<Params>('properties/channels', async (req, { auth }) => {
   const body = await readJson(req);
   const channelId = str(body, 'channelId', { required: true })!;
   const channel = await prisma.propertyChannel.findUnique({ where: { id: channelId }, select: { propertyId: true } });
@@ -47,7 +47,7 @@ export const PUT = withAuth('properties/channels', async (req, { auth }) => {
   return ok(await prisma.propertyChannel.update({ where: { id: channelId }, data }));
 });
 
-export const DELETE = withAuth('properties/channels', async (req, { auth }) => {
+export const DELETE = withAuth<Params>('properties/channels', async (req, { auth }) => {
   const channelId = requireQuery(req, 'channelId');
   const channel = await prisma.propertyChannel.findUnique({ where: { id: channelId }, select: { propertyId: true } });
   if (!channel) throw fail(404, MESSAGES.notFound);

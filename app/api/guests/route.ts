@@ -2,9 +2,9 @@ import { prisma } from '@/lib/prisma';
 import { type SessionAuth } from '@/lib/auth';
 import { withAuth, ok, created, fail, MESSAGES, readJson, str, int, query } from '@/lib/core/http';
 
-// 게스트 명부는 숙소 단위가 아니라 사업장 단위 데이터. 호스트/관리자만 다룬다.
+// 게스트 명부는 숙소 단위가 아니라 사업장 단위 데이터. 관리자·매니저만 다룬다 (청소담당자 제외).
 function requireGuestBook(auth: SessionAuth): void {
-  if (!(auth.isAdmin || auth.user.role === 'host')) throw fail(403, MESSAGES.forbidden);
+  if (auth.role === 'cleaner') throw fail(403, MESSAGES.forbidden);
 }
 
 function pickGuestFields(body: Record<string, unknown>) {

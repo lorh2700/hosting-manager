@@ -39,7 +39,7 @@ async function requireTierOwner(tierId: string, auth: { session: { userId: strin
   if (!(await authorizeTour(tier.tourId, auth.session.userId, { isAdmin: auth.isAdmin }))) throw fail(403, MESSAGES.forbidden);
 }
 
-export const PUT = withAuth('tours/ticket-tiers', async (req, { auth }) => {
+export const PUT = withAuth<Params>('tours/ticket-tiers', async (req, { auth }) => {
   const body = await readJson(req);
   const tierId = str(body, 'tierId', { required: true })!;
   await requireTierOwner(tierId, auth);
@@ -53,7 +53,7 @@ export const PUT = withAuth('tours/ticket-tiers', async (req, { auth }) => {
   return ok(await prisma.tourTicketTier.update({ where: { id: tierId }, data }));
 });
 
-export const DELETE = withAuth('tours/ticket-tiers', async (req, { auth }) => {
+export const DELETE = withAuth<Params>('tours/ticket-tiers', async (req, { auth }) => {
   const tierId = requireQuery(req, 'tierId');
   await requireTierOwner(tierId, auth);
   await prisma.tourTicketTier.delete({ where: { id: tierId } });

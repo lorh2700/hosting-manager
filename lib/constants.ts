@@ -3,14 +3,21 @@ import type { UserRole, UserStatus, IssueCategory, IssueUrgency, IssueStatus, Su
 // ─── 역할 ────────────────────────────────────────────────────────────────────
 
 export const ROLE_LABELS: Record<UserRole, string> = {
-  super_admin: '슈퍼 어드민',
   admin: '관리자',
-  host: '호스트',
-  cleaner: '청소팀',
-  viewer: '뷰어',
+  manager: '매니저',
+  cleaner: '청소담당자',
 };
 
-export const ADMIN_ROLES: UserRole[] = ['super_admin', 'admin'];
+export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
+  admin: '모든 숙소와 설정, 유저 관리까지 접근합니다.',
+  manager: '배정된 숙소의 예약·청소·메시지만 관리합니다.',
+  cleaner: '청소 담당자 관리 화면에서 프로필과 함께 관리합니다.',
+};
+
+/** 유저 관리 화면에서 초대·역할 변경이 가능한 역할 (청소담당자는 청소 담당자 화면에서) */
+export const STAFF_ROLES: UserRole[] = ['admin', 'manager'];
+
+export const ADMIN_ROLES: UserRole[] = ['admin'];
 
 // ─── 사용자 상태 ─────────────────────────────────────────────────────────────
 

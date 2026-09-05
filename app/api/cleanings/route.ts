@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { notifyCleaningAssigned, notifyCleaningCancelled, type CleaningCancelReason } from '@/lib/notify';
 import {
   withAuth, ok, created, fail, MESSAGES, DATE_RE,
-  requireManage, readJson, str, idList, query, requireQuery,
+  requireManage, visibleScope, readJson, str, idList, query, requireQuery,
 } from '@/lib/core/http';
 
 async function notifyAssignmentByCleaningId(cleaningId: string) {
@@ -82,46 +82,10 @@ export const GET = withAuth('cleanings', async (req, { auth }) => {
   const isOpen = query(req, 'isOpen');
   const where: Record<string, unknown> = {};
 
-  // Detect cleaner by role OR Cleaner-row existence (handles legacy accounts where role wasn't set).
-  let myCleaner = await prisma.cleaner.findUnique({ where: { userId: auth.session.userId }, select: { ownerId: true } });
-  if (!myCleaner && auth.user.phone) {
-    myCleaner = await prisma.cleaner.findFirst({ where: { phone: auth.user.phone }, select: { ownerId: true } });
-  }
-  const isCleaner = auth.user.role === 'cleaner' || !!myCleaner;
-  const scopedIds = auth.propertyIds ?? [];
-
-  // Cleaners can SEE every cleaning across their host's properties.
-  let cleanerVisibleIds: string[] | null = null;
-  if (myCleaner) {
-    const ownedProps = await prisma.property.findMany({ where: { ownerId: myCleaner.ownerId }, select: { id: true } });
-    cleanerVisibleIds = ownedProps.map(p => p.id);
-    // Fallback when Cleaner.ownerId points to a host with no properties: use the UserProperty scope.
-    if (cleanerVisibleIds.length === 0 && scopedIds.length > 0) cleanerVisibleIds = scopedIds;
-  }
-
-  if (auth.isAdmin) {
-    if (requested) where.propertyId = { in: requested };
-  } else if (isCleaner && isOpen === 'true') {
-    // Application/claim scope is the narrower UserProperty scope.
-    if (scopedIds.length > 0) {
-      const ids = requested ? requested.filter(id => scopedIds.includes(id)) : scopedIds;
-      if (ids.length === 0) return ok([]);
-      where.propertyId = { in: ids };
-    } else if (requested) {
-      where.propertyId = { in: requested };
-    }
-  } else if (isCleaner && cleanerVisibleIds) {
-    const ids = requested ? requested.filter(id => cleanerVisibleIds!.includes(id)) : cleanerVisibleIds;
-    if (ids.length === 0) return ok([]);
-    where.propertyId = { in: ids };
-  } else if (isCleaner) {
-    // Cleaner with no Cleaner record at all — restrict to whatever was asked for / scoped.
-    if (requested) where.propertyId = { in: requested };
-    else if (scopedIds.length > 0) where.propertyId = { in: scopedIds };
-    else return ok([]);
-  } else {
-    if (scopedIds.length === 0) return ok([]);
-    const ids = requested ? requested.filter(id => scopedIds.includes(id)) : scopedIds;
+  // 읽기 범위 한 규칙 (lib/access): 관리자 전체, 매니저 배정 숙소, 청소담당자 배정 지점.
+  // 청소 신청(isOpen=true)도 같은 범위다 — 보이는 지점에만 신청할 수 있다.
+  const ids = await visibleScope(auth, requested);
+  if (ids !== null) {
     if (ids.length === 0) return ok([]);
     where.propertyId = { in: ids };
   }

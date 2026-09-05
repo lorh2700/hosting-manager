@@ -27,6 +27,7 @@ const RELATIONS: Record<string, { model: string; localKey?: string; foreignKey?:
   properties: { model: 'userProperty', foreignKey: 'userId', many: true },
   invitations: { model: 'invitation', foreignKey: 'cleanerId', many: true },
   channels: { model: 'propertyChannel', foreignKey: 'propertyId', many: true },
+  assignments: { model: 'cleanerProperty', foreignKey: 'cleanerId', many: true },
 };
 
 const OPERATORS = new Set(['equals', 'not', 'in', 'notIn', 'lt', 'lte', 'gt', 'gte', 'contains', 'startsWith', 'endsWith', 'has', 'hasSome', 'hasEvery', 'mode']);
