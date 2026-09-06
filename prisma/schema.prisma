@@ -84,6 +84,7 @@ model Property {
   cleaningApplications CleaningApplication[]
   syncLogs             SyncLog[]
   cleanerAssignments   CleanerProperty[]
+  checkoutSignals      CheckoutSignal[]
   welcomepadConfig     WelcomepadConfig?
 
   @@map("properties")
@@ -261,6 +262,27 @@ model Cleaner {
   assignments CleanerProperty[]
 
   @@map("cleaners")
+}
+
+/// 체크아웃 신호. 같은 숙소·날짜에 여러 출처(호스트 확인, 패드 셀프 체크아웃, 게스트 답장, 카메라, 문 센서)가 쌓인다.
+/// "확인됨" = host 또는 guest_pad 신호가 하나라도 있음. 카드에는 신호가 모두 표시된다.
+model CheckoutSignal {
+  id         String   @id @default(uuid())
+  propertyId String   @map("property_id")
+  /// 체크아웃 날짜 (YYYY-MM-DD, KST)
+  date       String
+  /// 해당 예약(Event.id). 못 찾으면 null
+  eventId    String?  @map("event_id")
+  /// host | guest_pad | guest_message | camera | sensor
+  kind       String
+  at         DateTime @default(now())
+  note       String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId, date])
+  @@map("checkout_signals")
 }
 
 /// 청소담당자 ↔ 숙소 배정. 화면 표시·청소 신청·신규 오픈 알림이 모두 이 한 규칙을 쓴다.

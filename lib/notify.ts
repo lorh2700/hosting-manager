@@ -48,6 +48,8 @@ export const TEMPLATES = {
   // 승인된 템플릿 코드를 기본값으로 두고, 바꿀 때는 env 로 덮어쓴다.
   CLEANING_CANCELLED: process.env.SOLAPI_TPL_CLEANING_CANCELLED ?? 'KA01TP2604271450581856f06opPxqMq',
   CLEANING_APPLICATION_NEW: process.env.SOLAPI_TPL_CLEANING_APPLICATION_NEW ?? '',
+  // 체크아웃 완료 알림 (패드 셀프 체크아웃·호스트 확인 → 청소담당자·호스트). 템플릿 승인 전에는 문자로 나간다.
+  CHECKOUT_CONFIRMED: process.env.SOLAPI_TPL_CHECKOUT_CONFIRMED ?? '',
   TOUR_BOOKING_NEW: process.env.SOLAPI_TPL_TOUR_BOOKING_NEW ?? '',
   // Host notification — falls back to TOUR_BOOKING_NEW if a dedicated
   // template isn't registered.
@@ -325,6 +327,58 @@ export async function notifyCleaningCancelled(opts: {
   });
   return notifier.sendSms({ to: opts.cleanerPhone, text: smsText }).catch(err => {
     console.error('[notify] cleaning cancel SMS fallback failed', err);
+    return result;
+  });
+}
+
+/**
+ * 체크아웃 완료 알림 — 청소담당자와 호스트에게.
+ * 템플릿(SOLAPI_TPL_CHECKOUT_CONFIRMED)이 없으면 문자로, 알림톡이 거부되면 문자로 대체한다.
+ * 템플릿 변수: #{수신자명} #{숙소명} #{체크아웃시각} #{확인주체}
+ */
+export async function notifyCheckoutConfirmed(opts: {
+  phone: string | null;
+  name: string;
+  propertyName: string;
+  /** 'HH:mm' (KST) */
+  timeText: string;
+  by: 'host' | 'guest';
+}): Promise<NotifyResult | null> {
+  if (!opts.phone) return null;
+  const byText = opts.by === 'guest' ? '게스트 직접 확인' : '호스트 확인';
+  const smsText =
+    `[void anchae] 체크아웃 완료\n` +
+    `${opts.propertyName} 게스트가 ${opts.timeText}에 체크아웃했습니다. (${byText})\n` +
+    `청소를 시작하실 수 있습니다.`;
+
+  const notifier = getNotifier();
+
+  if (!TEMPLATES.CHECKOUT_CONFIRMED) {
+    return notifier.sendSms({ to: opts.phone, text: smsText }).catch(err => {
+      console.error('[notify] checkout SMS failed', err);
+      return null;
+    });
+  }
+
+  const result = await notifier.sendAlimtalk({
+    to: opts.phone,
+    templateId: TEMPLATES.CHECKOUT_CONFIRMED,
+    variables: {
+      수신자명: opts.name,
+      숙소명: opts.propertyName,
+      체크아웃시각: opts.timeText,
+      확인주체: byText,
+    },
+    smsText,
+  }).catch(err => {
+    console.error('[notify] checkout alimtalk threw', err);
+    return { ok: false, provider: 'unknown', error: String(err) } as NotifyResult;
+  });
+  if (result.ok) return result;
+
+  console.warn('[notify] checkout alimtalk rejected; falling back to SMS', { to: opts.phone, error: result.error });
+  return notifier.sendSms({ to: opts.phone, text: smsText }).catch(err => {
+    console.error('[notify] checkout SMS fallback failed', err);
     return result;
   });
 }

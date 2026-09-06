@@ -77,6 +77,8 @@ export default function CleanerPage() {
   const [todayCheckins, setTodayCheckins] = useState<Reservation[]>([]);
   const [todayCheckouts, setTodayCheckouts] = useState<Reservation[]>([]);
   const [todayCleanings, setTodayCleanings] = useState<CleaningEntry[]>([]);
+  // 오늘 체크아웃 확인 상태 (숙소별): 게스트 셀프 체크아웃 또는 호스트 확인
+  const [checkoutToday, setCheckoutToday] = useState<Record<string, { confirmed: boolean; confirmedAt: string | null; confirmedBy: string | null }>>({});
   const [loading, setLoading] = useState(true);
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
 
@@ -114,6 +116,7 @@ export default function CleanerPage() {
       setTodayCleanings((data.todayCleanings ?? []) as CleaningEntry[]);
       setTodayCheckins((data.checkins ?? []) as Reservation[]);
       setTodayCheckouts((data.checkouts ?? []) as Reservation[]);
+      setCheckoutToday(data.checkoutToday ?? {});
     } catch (err) {
       console.error(err);
       toast.error('오늘 일정을 불러오지 못했습니다. 아래로 당겨 다시 시도해 주세요.');
@@ -620,6 +623,14 @@ export default function CleanerPage() {
                             </>
                           )}
                         </p>
+                        {checkoutToday[r.propertyId]?.confirmed ? (
+                          <p className="text-xs text-emerald-700 mt-0.5">
+                            체크아웃 확인됨{checkoutToday[r.propertyId].confirmedAt && ` ${format(parseISO(checkoutToday[r.propertyId].confirmedAt!), 'HH:mm')}`}
+                            {checkoutToday[r.propertyId].confirmedBy === 'guest_pad' && ' · 게스트 직접'}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-stone-400 mt-0.5">체크아웃 대기 · 확인 전에는 들어가지 마세요</p>
+                        )}
                       </div>
                       {cleaning?.status === 'done' && (
                         <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />

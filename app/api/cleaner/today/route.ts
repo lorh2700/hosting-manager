@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { withAuth, ok, visibleScope } from '@/lib/core/http';
 import { resolveCleaner } from '@/lib/access';
 import { todayKst, addDaysToDateStr } from '@/lib/dates';
+import { checkoutStatusByProperty } from '@/lib/checkout';
 
 /**
  * 청소담당자 "오늘" 화면 전용 — 호출 한 번으로 화면에 필요한 것을 모두 돌려준다.
@@ -43,10 +44,10 @@ export const GET = withAuth('cleaner/today', async (_req, { auth }) => {
   const meOut = me ? { id: me.id, name: me.name, publicToken: me.publicToken } : null;
 
   if (propIds.length === 0) {
-    return ok({ today, me: meOut, properties: [], checkins: [], checkouts: [], todayCleanings: [], tasks: [] });
+    return ok({ today, me: meOut, properties: [], checkins: [], checkouts: [], todayCleanings: [], tasks: [], checkoutToday: {} });
   }
 
-  const [cleanings, events, bookings] = await Promise.all([
+  const [cleanings, events, bookings, checkoutToday] = await Promise.all([
     prisma.cleaning.findMany({
       where: { propertyId: { in: propIds }, date: { gte: from, lte: to } },
       include: { cleaner: { select: { id: true, name: true } } },
@@ -66,6 +67,8 @@ export const GET = withAuth('cleaner/today', async (_req, { auth }) => {
       where: { propertyId: { in: propIds }, status: 'confirmed', checkIn: { lte: to }, checkOut: { gte: from } },
       select: { id: true, propertyId: true, name: true, checkIn: true, checkOut: true, phone: true, email: true, guests: true, source: true },
     }),
+    // 오늘 체크아웃 확인 상태 — "체크아웃 확인됨 11:05" 표시용
+    checkoutStatusByProperty(propIds, today),
   ]);
 
   const reservations: TodayReservation[] = [
@@ -121,5 +124,6 @@ export const GET = withAuth('cleaner/today', async (_req, { auth }) => {
     checkouts: unique.filter(r => r.end === today),
     todayCleanings,
     tasks,
+    checkoutToday,
   }, 200);
 });

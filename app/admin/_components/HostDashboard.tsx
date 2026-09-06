@@ -116,6 +116,8 @@ export default function HostDashboard() {
   const [openIssues, setOpenIssues] = useState(0);
   const [pendingApplications, setPendingApplications] = useState(0);
   const [monthUnassigned, setMonthUnassigned] = useState<UnassignedCheckout[]>([]);
+  // 오늘 체크아웃 확인 상태 (숙소별). 패드 셀프 체크아웃이나 호스트 확인이 있으면 confirmed.
+  const [checkoutToday, setCheckoutToday] = useState<Record<string, { confirmed: boolean; confirmedAt: string | null; confirmedBy: string | null }>>({});
   const [cleaners, setCleaners] = useState<Cleaner[]>([]);
   const [assignSelection, setAssignSelection] = useState<Record<string, string>>({});
   const [assigningKey, setAssigningKey] = useState<string | null>(null);
@@ -147,6 +149,7 @@ export default function HostDashboard() {
         setPendingSupplies(data.pendingSupplies);
         setOpenIssues(data.openIssues);
         setPendingApplications(data.pendingApplications ?? 0);
+        setCheckoutToday(data.checkoutToday ?? {});
 
         if (!data.reservations?.length) { setLoading(false); return; }
 
@@ -505,6 +508,15 @@ export default function HostDashboard() {
                             ) : null}
                             {cleanerName}
                           </p>
+                        )}
+                        {checkoutToday[r.propertyId]?.confirmed ? (
+                          <p className="text-xs text-emerald-700 mt-0.5 flex items-center gap-1">
+                            <Check size={11} />
+                            {checkoutToday[r.propertyId].confirmedBy === 'guest_pad' ? '게스트 셀프 체크아웃' : '체크아웃 확인'}
+                            {checkoutToday[r.propertyId].confirmedAt && ` ${format(new Date(checkoutToday[r.propertyId].confirmedAt!), 'HH:mm')}`}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-stone-400 mt-0.5">체크아웃 대기</p>
                         )}
                       </div>
                       <StatusPill {...badge} />

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { addDays, endOfMonth, format, startOfMonth } from 'date-fns';
 import { withAuth } from '@/lib/core/http';
+import { checkoutStatusByProperty } from '@/lib/checkout';
+import { todayKst } from '@/lib/dates';
 
 export const GET = withAuth('dashboard', async (_req, { auth }) => {
   const t0 = Date.now();
@@ -62,6 +64,9 @@ export const GET = withAuth('dashboard', async (_req, { auth }) => {
     prisma.cleaningApplication.count({ where: { status: 'pending', propertyId: { in: propIds } } }),
   ]);
   timings.queries = Date.now() - tQueries;
+
+  // 오늘 체크아웃 확인 상태 (패드 셀프 체크아웃·호스트 확인) — 오늘 카드에 표시
+  const checkoutToday = await checkoutStatusByProperty(propIds, todayKst());
 
   const cleanersMap = Object.fromEntries(cleaners.map(c => [c.id, c.name]));
 
@@ -124,6 +129,7 @@ export const GET = withAuth('dashboard', async (_req, { auth }) => {
       reservations: unique,
       cleaningsMap,
       cleanersMap,
+      checkoutToday,
       unreadMessages,
       pendingSupplies,
       openIssues,

@@ -22,6 +22,7 @@ const RELATIONS: Record<string, { model: string; localKey?: string; foreignKey?:
   cleaner: { model: 'cleaner', localKey: 'cleanerId' },
   property: { model: 'property', localKey: 'propertyId' },
   user: { model: 'user', localKey: 'userId' },
+  owner: { model: 'user', localKey: 'ownerId' },
   event: { model: 'event', localKey: 'eventId' },
   applications: { model: 'cleaningApplication', foreignKey: 'cleaningId', many: true },
   properties: { model: 'userProperty', foreignKey: 'userId', many: true },
