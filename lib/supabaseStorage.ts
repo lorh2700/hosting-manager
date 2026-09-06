@@ -107,3 +107,54 @@ export async function uploadToSupabaseStorage(opts: {
   const publicUrl = `${supabaseUrl}/storage/v1/object/public/${encodeURIComponent(bucket)}/${encodeURIComponent(objectPath)}`;
   return { ok: true, url: publicUrl, path: objectPath, bucket };
 }
+
+function serviceAuth(): { supabaseUrl: string; serviceKey: string } | null {
+  const supabaseUrl = deriveSupabaseUrl();
+  const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+  if (!supabaseUrl || looksLikePlaceholder(serviceKey)) return null;
+  return { supabaseUrl, serviceKey };
+}
+
+/**
+ * 비공개 버킷용 서명 URL (기본 1시간). 복도 카메라 사진처럼 공개하면 안 되는 파일을 화면에 보여줄 때 쓴다.
+ * 실패하면 null — 호출자는 이미지 없이 그린다.
+ */
+export async function createSignedUrl(opts: { bucket: string; path: string; expiresInSec?: number }): Promise<string | null> {
+  const auth = serviceAuth();
+  if (!auth) return null;
+  try {
+    const res = await fetch(
+      `${auth.supabaseUrl}/storage/v1/object/sign/${encodeURIComponent(opts.bucket)}/${opts.path.split('/').map(encodeURIComponent).join('/')}`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${auth.serviceKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expiresIn: opts.expiresInSec ?? 3600 }),
+      },
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as { signedURL?: string; signedUrl?: string };
+    const signed = data.signedURL ?? data.signedUrl;
+    if (!signed) return null;
+    return signed.startsWith('http') ? signed : `${auth.supabaseUrl}/storage/v1${signed}`;
+  } catch {
+    return null;
+  }
+}
+
+/** 객체 여러 개 삭제 (보관 기간 지난 카메라 사진 정리용). 실패해도 던지지 않는다. */
+export async function deleteFromSupabaseStorage(opts: { bucket: string; paths: string[] }): Promise<{ ok: boolean; error?: string }> {
+  if (opts.paths.length === 0) return { ok: true };
+  const auth = serviceAuth();
+  if (!auth) return { ok: false, error: 'SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 미설정' };
+  try {
+    const res = await fetch(`${auth.supabaseUrl}/storage/v1/object/${encodeURIComponent(opts.bucket)}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${auth.serviceKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prefixes: opts.paths }),
+    });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status} ${(await res.text().catch(() => '')).slice(0, 200)}` };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}

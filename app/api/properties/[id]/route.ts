@@ -3,7 +3,7 @@ import { withAuth, ok, fail, MESSAGES, requireManage, requireOwnerOrAdmin, requi
 
 type Params = { id: string };
 
-const ALLOWED_FIELDS = ['name', 'timezone', 'beds24PropId', 'beds24RoomId', 'doorPassword', 'addressUrl', 'roomReadyMessage', 'basePrice', 'maxGuests', 'description'];
+const ALLOWED_FIELDS = ['name', 'timezone', 'beds24PropId', 'beds24RoomId', 'doorPassword', 'addressUrl', 'roomReadyMessage', 'basePrice', 'maxGuests', 'description', 'cameraName', 'cameraNotes'];
 
 // 읽기는 청소매니저도 자기 호스트의 숙소라면 허용 (도어코드·주소 안내용).
 export const GET = withAuth<Params>('properties/id', async (_req, { auth, params }) => {

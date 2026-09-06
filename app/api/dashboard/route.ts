@@ -4,6 +4,8 @@ import { addDays, endOfMonth, format, startOfMonth } from 'date-fns';
 import { withAuth } from '@/lib/core/http';
 import { checkoutStatusByProperty } from '@/lib/checkout';
 import { todayKst } from '@/lib/dates';
+import { CAMERA_BUCKET } from '@/lib/camera-types';
+import { createSignedUrl } from '@/lib/supabaseStorage';
 
 export const GET = withAuth('dashboard', async (_req, { auth }) => {
   const t0 = Date.now();
@@ -66,7 +68,30 @@ export const GET = withAuth('dashboard', async (_req, { auth }) => {
   timings.queries = Date.now() - tQueries;
 
   // 오늘 체크아웃 확인 상태 (패드 셀프 체크아웃·호스트 확인) — 오늘 카드에 표시
-  const checkoutToday = await checkoutStatusByProperty(propIds, todayKst());
+  const todayStr = todayKst();
+  const checkoutToday = await checkoutStatusByProperty(propIds, todayStr);
+
+  // 오늘 복도 카메라 사진 (숙소별 최근 4장, 서명 URL 1시간). 사진이 없는 숙소는 키가 없다.
+  const cameraRows = await prisma.cameraSnapshot.findMany({
+    where: { propertyId: { in: propIds }, date: todayStr },
+    orderBy: { capturedAt: 'desc' },
+    select: { id: true, propertyId: true, capturedAt: true, storagePath: true, leaving: true, verdict: true },
+  });
+  const perProperty: Record<string, typeof cameraRows> = {};
+  for (const r of cameraRows) {
+    const list = (perProperty[r.propertyId] ??= []);
+    if (list.length < 4) list.push(r);
+  }
+  const cameraToday = Object.fromEntries(await Promise.all(Object.entries(perProperty).map(async ([pid, rows]) => [
+    pid,
+    await Promise.all(rows.map(async r => ({
+      id: r.id,
+      capturedAt: r.capturedAt.toISOString(),
+      url: await createSignedUrl({ bucket: CAMERA_BUCKET, path: r.storagePath }),
+      leaving: r.leaving,
+      summary: (r.verdict as { summary?: string } | null)?.summary ?? null,
+    }))),
+  ])));
 
   const cleanersMap = Object.fromEntries(cleaners.map(c => [c.id, c.name]));
 
@@ -130,6 +155,7 @@ export const GET = withAuth('dashboard', async (_req, { auth }) => {
       cleaningsMap,
       cleanersMap,
       checkoutToday,
+      cameraToday,
       unreadMessages,
       pendingSupplies,
       openIssues,

@@ -21,6 +21,8 @@ interface Property {
   doorPassword?: string;
   addressUrl?: string;
   roomReadyMessage?: string;
+  cameraName?: string;
+  cameraNotes?: string;
 }
 
 export default function PropertySettingsPage() {
@@ -44,6 +46,8 @@ export default function PropertySettingsPage() {
   const [doorPassword, setDoorPassword] = useState('');
   const [addressUrl, setAddressUrl] = useState('');
   const [roomReadyMessage, setRoomReadyMessage] = useState('');
+  const [cameraName, setCameraName] = useState('');
+  const [cameraNotes, setCameraNotes] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -64,6 +68,8 @@ export default function PropertySettingsPage() {
           setDoorPassword(data.doorPassword || '');
           setAddressUrl(data.addressUrl || '');
           setRoomReadyMessage(data.roomReadyMessage || '');
+          setCameraName(data.cameraName || '');
+          setCameraNotes(data.cameraNotes || '');
         }
       } catch (error) {
         console.error('Error fetching property', error);
@@ -93,6 +99,8 @@ export default function PropertySettingsPage() {
           doorPassword: doorPassword.trim() || null,
           addressUrl: addressUrl.trim() || null,
           roomReadyMessage: roomReadyMessage.trim() || null,
+          cameraName: cameraName.trim() || null,
+          cameraNotes: cameraNotes.trim() || null,
           updatedAt: new Date().toISOString()
         }),
       });
@@ -258,6 +266,33 @@ export default function PropertySettingsPage() {
                 onChange={(e) => setAddressUrl(e.target.value)}
                 placeholder="예: https://naver.me/..."
                 className="w-full bg-white border border-stone-200 rounded-none px-4 py-3 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors font-mono"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">복도 카메라 이름</label>
+              <input
+                type="text"
+                value={cameraName}
+                onChange={(e) => setCameraName(e.target.value)}
+                placeholder="예: 별하재 복도 (Reolink 카메라 이름과 같게)"
+                className="w-full bg-white border border-stone-200 rounded-none px-4 py-3 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors"
+              />
+              <p className="text-[13px] text-stone-400 mt-2">
+                카메라 메일의 제목·본문에서 이 이름으로 지점을 찾습니다. 받는 주소에 +태그를 쓰면 이름 없이도 됩니다
+                {property?.slug ? ` (예: cam+${property.slug}@gmail.com)` : ''}.
+              </p>
+            </div>
+            <div>
+              <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">카메라 위치 설명 (AI 판정용)</label>
+              <textarea
+                value={cameraNotes}
+                onChange={(e) => setCameraNotes(e.target.value)}
+                rows={3}
+                placeholder="예: 화면 왼쪽이 현관, 오른쪽이 객실. 청소팀은 파란 앞치마를 입음"
+                className="w-full bg-white border border-stone-200 rounded-none px-4 py-3 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors resize-none"
               />
             </div>
           </div>

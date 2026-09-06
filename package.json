@@ -13,6 +13,7 @@
     "seed": "node scripts/seed-properties.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.124.0",
     "@fullcalendar/daygrid": "^6.1.20",
     "@fullcalendar/interaction": "^6.1.20",
     "@fullcalendar/react": "^6.1.20",
@@ -25,6 +26,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "ics": "^3.8.1",
+    "imapflow": "^1.7.8",
     "jose": "^6.2.2",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.553.0",
@@ -32,12 +34,14 @@
     "next": "^15.4.9",
     "nodemailer": "^8.0.4",
     "pg": "^8.20.0",
+    "postal-mime": "^3.0.0",
     "postcss": "^8.5.6",
     "prisma": "^7.7.0",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "tailwind-merge": "^3.3.1",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@netlify/functions": "^5.2.0",

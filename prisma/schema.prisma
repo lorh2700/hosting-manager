@@ -61,6 +61,10 @@ model Property {
   // schema lineage; this short key (e.g. 'anon', 'unwadang') is what
   // the pad URL uses to identify which property's settings to load.
   welcomepadKey    String?  @unique @map("welcomepad_key")
+  /// 복도 카메라 이름 (Reolink 카메라 이름과 같게). 스냅샷 메일의 제목/본문에서 지점을 찾을 때 쓴다.
+  cameraName       String?  @map("camera_name")
+  /// AI 판정 프롬프트에 넣는 카메라 위치 설명 (예: "화면 왼쪽이 현관, 오른쪽이 객실")
+  cameraNotes      String?  @map("camera_notes")
   // 공개 URL 및 UI 슬러그 — /book/{slug} 로 접근. UUID 대신 사람이 읽는 키.
   slug             String?  @unique
   // 오픈 상태. 'active' | 'coming_soon' | 'closed'.
@@ -85,6 +89,7 @@ model Property {
   syncLogs             SyncLog[]
   cleanerAssignments   CleanerProperty[]
   checkoutSignals      CheckoutSignal[]
+  cameraSnapshots      CameraSnapshot[]
   welcomepadConfig     WelcomepadConfig?
 
   @@map("properties")
@@ -283,6 +288,31 @@ model CheckoutSignal {
 
   @@index([propertyId, date])
   @@map("checkout_signals")
+}
+
+/// 복도 카메라 스냅샷. 카메라가 사람 감지 때 보낸 메일의 사진을 Storage 에 저장하고, 체크아웃 시간대면 AI 판정을 붙인다.
+model CameraSnapshot {
+  id          String   @id @default(uuid())
+  propertyId  String   @map("property_id")
+  capturedAt  DateTime @map("captured_at")
+  /// KST 날짜 (YYYY-MM-DD)
+  date        String
+  /// imap | resend | webhook
+  source      String
+  /// 메일 Message-ID 등 중복 방지 키
+  messageId   String?  @unique @map("message_id")
+  storagePath String   @map("storage_path")
+  cameraName  String?  @map("camera_name")
+  /// AI 판정 결과 (CameraVerdict JSON). 판정 안 했으면 null
+  verdict     Json?
+  /// 판정: 짐을 들고 나가는 모습으로 보임
+  leaving     Boolean  @default(false)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId, date])
+  @@map("camera_snapshots")
 }
 
 /// 청소담당자 ↔ 숙소 배정. 화면 표시·청소 신청·신규 오픈 알림이 모두 이 한 규칙을 쓴다.

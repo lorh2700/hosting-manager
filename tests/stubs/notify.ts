@@ -10,6 +10,7 @@ export const notifyCalls = {
   tourHost: [] as any[],
   tourGuest: [] as any[],
   checkout: [] as any[],
+  checkoutCandidate: [] as any[],
 };
 
 export function resetNotify() {
@@ -26,5 +27,6 @@ export async function notifyTourOperatorOfBooking(opts: any) { notifyCalls.tourO
 export async function notifyTourHostOfBooking(opts: any) { notifyCalls.tourHost.push(opts); return ok; }
 export async function notifyTourGuestOfBooking(opts: any) { notifyCalls.tourGuest.push(opts); return ok; }
 export async function notifyCheckoutConfirmed(opts: any) { notifyCalls.checkout.push(opts); return ok; }
+export async function notifyCheckoutCandidate(opts: any) { notifyCalls.checkoutCandidate.push(opts); return ok; }
 export function getNotifier() { return { name: 'stub', sendAlimtalk: async () => ok, sendSms: async () => ok }; }
 export const TEMPLATES: Record<string, string> = {};

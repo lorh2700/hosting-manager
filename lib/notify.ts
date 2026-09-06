@@ -384,6 +384,27 @@ export async function notifyCheckoutConfirmed(opts: {
 }
 
 /**
+ * 카메라 퇴실 감지 → 호스트에게 "확인해 주세요". 문자로 보낸다 (템플릿 없음, 호스트 본인용이라 알림톡 심사 불필요).
+ */
+export async function notifyCheckoutCandidate(opts: {
+  phone: string | null;
+  name: string;
+  propertyName: string;
+  timeText: string;
+  summary: string;
+}): Promise<NotifyResult | null> {
+  if (!opts.phone) return null;
+  const text =
+    `[void anchae] 퇴실 감지\n` +
+    `${opts.propertyName} ${opts.timeText} 카메라: ${opts.summary}\n` +
+    `앱 오늘 화면에서 사진을 보고 체크아웃 확인을 눌러주세요.`;
+  return getNotifier().sendSms({ to: opts.phone, text }).catch(err => {
+    console.error('[notify] checkout candidate SMS failed', err);
+    return null;
+  });
+}
+
+/**
  * Notify a tour operator that a new tour booking arrived.
  * Falls back gracefully when channel is email-only / unconfigured —
  * we always log so the host can audit even if no message went out.

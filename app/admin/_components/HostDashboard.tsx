@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRefetchOnReturn } from '@/lib/hooks/useRefetchOnReturn';
+import { toast, confirmDialog } from '@/components/ui';
 import {
   ArrowRight,
   ArrowDownRight,
@@ -118,6 +119,32 @@ export default function HostDashboard() {
   const [monthUnassigned, setMonthUnassigned] = useState<UnassignedCheckout[]>([]);
   // 오늘 체크아웃 확인 상태 (숙소별). 패드 셀프 체크아웃이나 호스트 확인이 있으면 confirmed.
   const [checkoutToday, setCheckoutToday] = useState<Record<string, { confirmed: boolean; confirmedAt: string | null; confirmedBy: string | null }>>({});
+  // 오늘 복도 카메라 사진 (숙소별 최근 4장) + AI 퇴실 판정 요약
+  const [cameraToday, setCameraToday] = useState<Record<string, { id: string; capturedAt: string; url: string | null; leaving: boolean; summary: string | null }[]>>({});
+  const [confirming, setConfirming] = useState<string | null>(null);
+
+  const confirmCheckout = async (propertyId: string) => {
+    if (!(await confirmDialog({ title: '체크아웃 확인', message: '배정된 청소담당자에게 청소 시작 알림이 갑니다.', confirmLabel: '확인' }))) return;
+    setConfirming(propertyId);
+    try {
+      const res = await fetch('/api/checkout/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ propertyId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { toast.error(data.error || '확인에 실패했습니다.'); return; }
+      setCheckoutToday(prev => ({
+        ...prev,
+        [propertyId]: { confirmed: true, confirmedAt: data.confirmedAt ?? new Date().toISOString(), confirmedBy: data.confirmedBy ?? 'host' },
+      }));
+      toast.success(data.notified ? `청소담당자 ${data.notified}명에게 알렸습니다.` : '체크아웃을 확인했습니다.');
+    } catch {
+      toast.error('확인에 실패했습니다.');
+    } finally {
+      setConfirming(null);
+    }
+  };
   const [cleaners, setCleaners] = useState<Cleaner[]>([]);
   const [assignSelection, setAssignSelection] = useState<Record<string, string>>({});
   const [assigningKey, setAssigningKey] = useState<string | null>(null);
@@ -150,6 +177,7 @@ export default function HostDashboard() {
         setOpenIssues(data.openIssues);
         setPendingApplications(data.pendingApplications ?? 0);
         setCheckoutToday(data.checkoutToday ?? {});
+        setCameraToday(data.cameraToday ?? {});
 
         if (!data.reservations?.length) { setLoading(false); return; }
 
@@ -518,8 +546,51 @@ export default function HostDashboard() {
                         ) : (
                           <p className="text-xs text-stone-400 mt-0.5">체크아웃 대기</p>
                         )}
+                        {cameraToday[r.propertyId]?.length ? (
+                          <div className="mt-2">
+                            {(() => {
+                              const leaving = cameraToday[r.propertyId].find(s => s.leaving);
+                              return leaving ? (
+                                <p className="text-xs text-amber-700 mb-1.5">
+                                  퇴실로 보임 {format(new Date(leaving.capturedAt), 'HH:mm')}{leaving.summary ? ` · ${leaving.summary}` : ''}
+                                </p>
+                              ) : (
+                                <p className="text-xs text-stone-400 mb-1.5">복도 카메라 {cameraToday[r.propertyId].length}장 · 퇴실 판정 없음</p>
+                              );
+                            })()}
+                            <div className="flex gap-1.5 overflow-x-auto">
+                              {cameraToday[r.propertyId].map(s => s.url ? (
+                                <a
+                                  key={s.id}
+                                  href={s.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className={`relative shrink-0 border ${s.leaving ? 'border-amber-400' : 'border-stone-200'}`}
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={s.url} alt={`복도 ${format(new Date(s.capturedAt), 'HH:mm')}`} className="h-16 w-24 object-cover" />
+                                  <span className="absolute bottom-0 right-0 bg-black/60 text-white text-[11px] px-1">
+                                    {format(new Date(s.capturedAt), 'HH:mm')}
+                                  </span>
+                                </a>
+                              ) : null)}
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
-                      <StatusPill {...badge} />
+                      <div className="flex flex-col items-end gap-2 shrink-0">
+                        <StatusPill {...badge} />
+                        {!checkoutToday[r.propertyId]?.confirmed && (
+                          <button
+                            type="button"
+                            onClick={() => confirmCheckout(r.propertyId)}
+                            disabled={confirming === r.propertyId}
+                            className="min-h-[36px] px-3 text-xs font-semibold bg-[var(--brand)] text-white hover:bg-[var(--brand-dark)] transition-colors disabled:opacity-50"
+                          >
+                            {confirming === r.propertyId ? '전송 중…' : '체크아웃 확인'}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
