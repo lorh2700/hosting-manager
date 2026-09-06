@@ -21,6 +21,7 @@ import {
   CalendarCheck,
   Hand,
   KeyRound,
+  Wrench,
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { Logo } from '@/components/Logo';
@@ -36,7 +37,7 @@ interface NavItem {
 }
 
 // 폰 하단 탭: 매일 쓰는 네 가지. 나머지는 더보기. (숙박 모드)
-const MOBILE_PRIMARY = ['/admin', '/admin/calendar', '/admin/messages', '/admin/cleaning-requests'];
+const MOBILE_PRIMARY = ['/admin', '/admin/calendar', '/admin/messages', '/admin/ops'];
 
 const COMMON_TOP: NavItem[] = [
   { href: '/admin', label: '대시보드', mobileLabel: '오늘', icon: Home, roles: ['admin', 'manager'] },
@@ -45,10 +46,11 @@ const COMMON_TOP: NavItem[] = [
 const HOST_LINKS: NavItem[] = [
   { href: '/admin/properties', label: '숙소 관리', icon: HomeIcon, roles: ['admin', 'manager'] },
   { href: '/admin/calendar', label: '캘린더', icon: Calendar, roles: ['admin', 'manager'] },
+  { href: '/admin/ops', label: '정비', icon: Wrench, roles: ['admin', 'manager'] },
   { href: '/admin/bookings', label: '예약', icon: BookOpen, roles: ['admin', 'manager'] },
   { href: '/admin/messages', label: '메시지', icon: MessageSquare, roles: ['admin', 'manager'] },
   { href: '/admin/cleaners', label: '청소 담당자', icon: Users, roles: ['admin', 'manager'] },
-  { href: '/admin/cleaning-requests', label: '청소 신청 관리', mobileLabel: '청소', icon: Hand, roles: ['admin', 'manager'] },
+  { href: '/admin/cleaning-requests', label: '청소 신청 관리', icon: Hand, roles: ['admin', 'manager'] },
   { href: '/admin/cleaning-report', label: '청소 보고서', icon: FileBarChart, roles: ['admin', 'manager'] },
 ];
 
