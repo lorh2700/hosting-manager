@@ -405,6 +405,7 @@ export default function CalendarPage() {
           { href: `/admin/properties/${id}`, label: '캘린더', active: pathname === `/admin/properties/${id}` },
           { href: `/admin/properties/${id}/channels`, label: '채널 연결', active: pathname === `/admin/properties/${id}/channels` },
           { href: `/admin/properties/${id}/settings`, label: '숙소 설정', active: pathname === `/admin/properties/${id}/settings` },
+          { href: `/admin/properties/${id}/camera`, label: '복도 카메라', active: pathname === `/admin/properties/${id}/camera` },
         ].map(tab => (
           <Link
             key={tab.href}
