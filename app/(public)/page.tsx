@@ -28,8 +28,8 @@ export default function PublicPortal() {
     <div className="min-h-screen bg-[#0C0A09] text-stone-50 selection:bg-stone-400/20 font-sans">
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-stone-950/55 backdrop-blur-md border-b border-white/[0.06]">
-        <div className="flex justify-between items-center px-6 md:px-8 h-16 md:h-[72px]">
-          <Link href="/" className="flex items-center hover:opacity-80 transition-opacity" aria-label="void anchae 홈" onClick={() => setMobileOpen(false)}>
+        <div className="flex justify-between items-center gap-3 px-4 sm:px-6 md:px-8 h-16 md:h-[72px]">
+          <Link href="/" className="flex items-center shrink-0 max-[360px]:w-[120px] hover:opacity-80 transition-opacity" aria-label="void anchae 홈" onClick={() => setMobileOpen(false)}>
             <Logo width={140} priority />
           </Link>
 
@@ -66,8 +66,9 @@ export default function PublicPortal() {
             ))}
           </div>
 
-          {/* Mobile: hamburger */}
-          <div className="md:hidden flex items-center gap-2">
+          {/* Mobile: direct access to available spaces */}
+          <div className="md:hidden flex items-center gap-2 shrink-0">
+            <Link href="#spaces" onClick={() => setMobileOpen(false)} className="min-h-[44px] inline-flex items-center whitespace-nowrap px-3 text-xs text-stone-100 border border-white/25">공간 · 예약</Link>
             <button
               type="button"
               onClick={() => setMobileOpen(v => !v)}
@@ -122,28 +123,11 @@ export default function PublicPortal() {
         )}
       </nav>
 
-      {/* No-JS fallback for hero (cards rely on scroll-driven animation) */}
-      <noscript>
-        <style>{`
-          [data-scroll-hero] { display: none !important; }
-          [data-noscript-hero] { display: block !important; }
-        `}</style>
-      </noscript>
-
-      <div data-noscript-hero style={{ display: 'none' }} className="pt-24 pb-16 px-6 text-center">
-        <h1 className="text-4xl md:text-5xl font-light tracking-tight leading-tight mb-6">
-          당신만의 특별한<br />머무름
-        </h1>
-        <p className="text-stone-300 max-w-xl mx-auto mb-8">
-          북촌의 디자인 한옥 스테이. 정성스럽게 가꾼 공간으로 초대합니다.
-        </p>
-      </div>
-
       {/* Hero Section */}
       <ScrollUnfoldHero />
 
       {/* Spaces Grid Section */}
-      <section id="spaces" className="py-24 px-6 md:px-12 max-w-[1600px] mx-auto border-t border-stone-800">
+      <section id="spaces" className="scroll-mt-20 py-24 px-6 md:px-12 max-w-[1600px] mx-auto border-t border-stone-800">
         <div className="flex flex-col items-center mb-16 md:mb-20">
           <p className="text-xs uppercase tracking-[0.3em] text-stone-400 mb-4">Bukchon Hanok Stay</p>
           <h2 className="text-4xl md:text-5xl font-light tracking-tight mb-4 text-center">VOID ANCHAE 공간</h2>
