@@ -25,8 +25,8 @@ const VARIANT: Record<ButtonVariant, string> = {
 
 // 터치 목표 44px. sm 은 목록 안 보조 동작에만 쓴다.
 const SIZE: Record<ButtonSize, string> = {
-  sm: 'min-h-[36px] px-3 t-caption',
-  md: 'min-h-[44px] px-4 t-body',
+  sm: 'min-h-[48px] md:min-h-[36px] px-3 t-caption',
+  md: 'min-h-[48px] px-4 t-body',
   lg: 'min-h-[52px] px-5 t-lead',
 };
 
@@ -39,7 +39,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ref={ref}
       type={type}
       disabled={disabled || loading}
-      className={`inline-flex items-center justify-center gap-2 font-semibold tracking-wide transition-colors active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${VARIANT[variant]} ${SIZE[size]} ${full ? 'w-full' : ''} ${className}`}
+      className={`rounded-xl inline-flex items-center justify-center gap-2 font-semibold tracking-wide transition-colors active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${VARIANT[variant]} ${SIZE[size]} ${full ? 'w-full' : ''} ${className}`}
       {...rest}
     >
       {loading ? <Loader2 size={18} className="animate-spin" /> : icon}

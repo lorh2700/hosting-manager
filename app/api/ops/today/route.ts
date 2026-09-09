@@ -5,7 +5,7 @@ import { checkoutStatusByProperty, type CheckoutStatus } from '@/lib/checkout';
 import { CAMERA_BUCKET } from '@/lib/camera-types';
 import { createSignedUrl } from '@/lib/supabaseStorage';
 import { detectGuestFlags, nightsBetween, type GuestFlag } from '@/lib/ops-flags';
-import { getChannelLabel } from '@/app/admin/calendar/types';
+import { getRoomReadyMessage, type Property as CalendarProperty, getChannelLabel } from '@/app/admin/calendar/types';
 
 /**
  * 정비 허브 전용 — 오늘 정비하는 지점, 체크인·체크아웃 게스트(투숙 일자·인원·채널), 그 게스트와의 최근 대화와
@@ -23,6 +23,7 @@ export interface OpsReservation {
   guests: number | null;
   channel: string;
   hasChat: boolean;
+  readyDelivery?: string | null;
   unread: number;
   flags: GuestFlag[];
   messages: OpsMessage[];
@@ -45,7 +46,7 @@ export const GET = withAuth('ops/today', async (_req, { auth }) => {
   const visible = await visibleScope(auth);
   const properties = await prisma.property.findMany({
     where: visible === null ? {} : { id: { in: visible } },
-    select: { id: true, name: true, ownerId: true },
+    select: { id: true, name: true, ownerId: true, roomReadyMessage: true, doorPassword: true, addressUrl: true },
     orderBy: { name: 'asc' },
   });
   const propIds = properties.map(p => p.id);
@@ -92,7 +93,7 @@ export const GET = withAuth('ops/today', async (_req, { auth }) => {
     ? await prisma.message.findMany({
         where: { eventId: { in: eventIds }, type: 'message' },
         orderBy: { createdAt: 'desc' },
-        select: { id: true, eventId: true, sender: true, text: true, read: true, createdAt: true },
+        select: { id: true, eventId: true, sender: true, text: true, read: true, createdAt: true, deliveryStatus: true },
       })
     : [];
   const byEvent: Record<string, typeof messages> = {};
@@ -100,11 +101,14 @@ export const GET = withAuth('ops/today', async (_req, { auth }) => {
 
   const eventView = (e: (typeof events)[number]): OpsReservation => {
     const list = byEvent[e.id] ?? [];
+    const template = getRoomReadyMessage(properties as unknown as CalendarProperty[], e.propertyId);
+    const ready = list.find(m => m.sender === 'host' && m.text === template);
     const guestTexts = list.filter(m => m.sender === 'guest').map(m => m.text);
     const guests = (e.numAdults ?? 0) + (e.numChildren ?? 0);
     return {
       id: e.id,
       kind: 'event',
+      readyDelivery: ready?.deliveryStatus ?? null,
       propertyId: e.propertyId,
       guestName: (e.title || '').replace(/ 예약$/, '') || '게스트',
       start: e.startDate,

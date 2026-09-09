@@ -5,7 +5,7 @@
  *   <Sheet open={open} onClose={close} title="담당자 배정" footer={<Button …/>}>…</Sheet>
  * 배경 탭·Esc 로 닫힌다. 열려 있는 동안 body 스크롤을 막는다.
  */
-import { useEffect } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
@@ -25,17 +25,35 @@ export interface SheetProps {
 const SIZE = { sm: 'sm:max-w-sm', md: 'sm:max-w-md', lg: 'sm:max-w-2xl' } as const;
 
 export function Sheet({ open, onClose, title, description, children, footer, size = 'md', dismissible = true }: SheetProps) {
+  const panel = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  useEffect(() => { closeRef.current = onClose; }, [onClose]);
+  const titleId = useId();
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && dismissible) onClose(); };
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const focusable = () => Array.from(panel.current?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]') ?? []).filter(el => el.getClientRects().length > 0);
+    panel.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (!panel.current?.contains(document.activeElement)) return;
+      if (e.key === 'Escape' && dismissible) { e.preventDefault(); e.stopImmediatePropagation(); closeRef.current(); }
+      if (e.key === 'Tab') {
+        const targets = focusable();
+        const first = targets[0]; const last = targets[targets.length - 1];
+        if (!first) { e.preventDefault(); panel.current?.focus(); }
+        else if (e.shiftKey && (document.activeElement === first || document.activeElement === panel.current)) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && (document.activeElement === last || document.activeElement === panel.current)) { e.preventDefault(); first.focus(); }
+      }
+    };
     document.addEventListener('keydown', onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = prev;
+      if (previousFocus?.isConnected) previousFocus.focus();
     };
-  }, [open, onClose, dismissible]);
+  }, [open, dismissible]);
 
   if (!open || typeof document === 'undefined') return null;
 
@@ -47,14 +65,18 @@ export function Sheet({ open, onClose, title, description, children, footer, siz
     >
       <div
         role="dialog"
+        ref={panel}
+        tabIndex={-1}
+        aria-labelledby={title ? titleId : undefined}
+        aria-label={title ? undefined : '상세 보기'}
         aria-modal="true"
         onClick={e => e.stopPropagation()}
-        className={`animate-sheet-up bg-white w-full ${SIZE[size]} max-h-[92dvh] flex flex-col shadow-2xl sm:border sm:border-stone-200`}
+        className={`animate-sheet-up rounded-t-2xl sm:rounded-2xl outline-none bg-white w-full ${SIZE[size]} max-h-[92dvh] flex flex-col shadow-2xl sm:border sm:border-stone-200`}
       >
         {(title || dismissible) && (
           <div className="flex items-start gap-3 px-5 pt-5 pb-3">
             <div className="flex-1 min-w-0">
-              {title && <h2 className="t-title text-stone-900">{title}</h2>}
+              {title && <h2 id={titleId} className="t-title text-stone-900">{title}</h2>}
               {description && <p className="t-caption text-stone-500 mt-1">{description}</p>}
             </div>
             {dismissible && (

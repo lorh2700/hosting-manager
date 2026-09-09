@@ -32,6 +32,8 @@ const PUBLIC_PATHS = [
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const loginUrl = new URL('/login', req.url);
+  loginUrl.searchParams.set('next', pathname + req.nextUrl.search);
 
   // Allow public paths
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
@@ -51,7 +53,7 @@ export async function middleware(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     // Pages redirect to login
-    return NextResponse.redirect(new URL('/login', req.url));
+    return NextResponse.redirect(loginUrl);
   }
 
   try {
@@ -61,7 +63,7 @@ export async function middleware(req: NextRequest) {
     // Invalid token — clear cookie and redirect
     const response = pathname.startsWith('/api/')
       ? NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      : NextResponse.redirect(new URL('/login', req.url));
+      : NextResponse.redirect(loginUrl);
     response.cookies.delete(COOKIE_NAME);
     return response;
   }

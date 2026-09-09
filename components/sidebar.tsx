@@ -21,7 +21,6 @@ import {
   CalendarCheck,
   Hand,
   KeyRound,
-  Wrench,
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { Logo } from '@/components/Logo';
@@ -37,17 +36,16 @@ interface NavItem {
 }
 
 // 폰 하단 탭: 매일 쓰는 네 가지. 나머지는 더보기. (숙박 모드)
-const MOBILE_PRIMARY = ['/admin', '/admin/calendar', '/admin/messages', '/admin/ops'];
+const MOBILE_PRIMARY = ['/admin', '/admin/calendar', '/admin/messages'];
 
 const COMMON_TOP: NavItem[] = [
-  { href: '/admin', label: '대시보드', mobileLabel: '오늘', icon: Home, roles: ['admin', 'manager'] },
+  { href: '/admin', label: '오늘', mobileLabel: '오늘', icon: Home, roles: ['admin', 'manager'] },
 ];
 
 const HOST_LINKS: NavItem[] = [
   { href: '/admin/properties', label: '숙소 관리', icon: HomeIcon, roles: ['admin', 'manager'] },
-  { href: '/admin/calendar', label: '캘린더', icon: Calendar, roles: ['admin', 'manager'] },
-  { href: '/admin/ops', label: '정비', icon: Wrench, roles: ['admin', 'manager'] },
-  { href: '/admin/bookings', label: '예약', icon: BookOpen, roles: ['admin', 'manager'] },
+  { href: '/admin/calendar', label: '예약 달력', mobileLabel: '예약', icon: Calendar, roles: ['admin', 'manager'] },
+  { href: '/admin/bookings', label: '예약 요청', icon: BookOpen, roles: ['admin', 'manager'] },
   { href: '/admin/messages', label: '메시지', icon: MessageSquare, roles: ['admin', 'manager'] },
   { href: '/admin/cleaners', label: '청소 담당자', icon: Users, roles: ['admin', 'manager'] },
   { href: '/admin/cleaning-requests', label: '청소 신청 관리', icon: Hand, roles: ['admin', 'manager'] },
@@ -131,7 +129,7 @@ export function Sidebar() {
     ? MOBILE_PRIMARY.map(href => flatLinks.find(l => l.href === href)).filter((l): l is NavItem => !!l)
     : flatLinks.slice(0, MOBILE_PRIMARY_COUNT);
   const mobileMoreLinks = flatLinks.filter(l => !mobileMainLinks.includes(l));
-  const isMoreActive = mobileMoreLinks.some(link => pathname === link.href || (link.href !== '/admin' && pathname.startsWith(link.href)));
+  const isMoreActive = mobileMoreLinks.some(link => (pathname === link.href || (link.href === '/admin' && pathname === '/admin/ops')) || (link.href !== '/admin' && pathname.startsWith(link.href)));
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -140,12 +138,13 @@ export function Sidebar() {
   };
 
   const renderLink = (link: NavItem) => {
-    const isActive = pathname === link.href || (link.href !== '/admin' && pathname.startsWith(link.href));
+    const isActive = (pathname === link.href || (link.href === '/admin' && pathname === '/admin/ops')) || (link.href !== '/admin' && pathname.startsWith(link.href));
     const Icon = link.icon;
     return (
       <Link
         key={link.href}
         href={link.href}
+                aria-current={pathname === link.href ? 'page' : undefined}
         className={`group relative flex items-center gap-3 pl-4 pr-3 py-2.5 text-[13px] transition-colors ${
           isActive
             ? 'text-stone-900 font-medium bg-stone-50 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-[var(--brand)]'
@@ -225,12 +224,13 @@ export function Sidebar() {
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-lg border-t border-stone-200 safe-bottom">
         <div className="flex items-stretch justify-around">
           {mobileMainLinks.map((link) => {
-            const isActive = pathname === link.href || (link.href !== '/admin' && pathname.startsWith(link.href));
+            const isActive = (pathname === link.href || (link.href === '/admin' && pathname === '/admin/ops')) || (link.href !== '/admin' && pathname.startsWith(link.href));
             const Icon = link.icon;
             return (
               <Link
                 key={link.href}
                 href={link.href}
+                aria-current={pathname === link.href ? 'page' : undefined}
                 className={`relative flex flex-col items-center justify-center gap-1 py-3 flex-1 min-h-[56px] transition-colors active:scale-95 ${
                   isActive ? 'text-stone-900' : 'text-stone-500'
                 }`}
@@ -261,14 +261,15 @@ export function Sidebar() {
               </button>
 
               {moreOpen && (
-                <div className="absolute bottom-full right-2 mb-2 w-52 bg-white border border-stone-200 overflow-hidden shadow-2xl shadow-black/10">
+                <div className="absolute bottom-full right-2 mb-2 w-52 bg-white border border-stone-200 max-h-[70dvh] overflow-y-auto shadow-2xl shadow-black/10">
                   {mobileMoreLinks.map((link) => {
-                    const isActive = pathname === link.href || (link.href !== '/admin' && pathname.startsWith(link.href));
+                    const isActive = (pathname === link.href || (link.href === '/admin' && pathname === '/admin/ops')) || (link.href !== '/admin' && pathname.startsWith(link.href));
                     const Icon = link.icon;
                     return (
                       <Link
                         key={link.href}
                         href={link.href}
+                aria-current={pathname === link.href ? 'page' : undefined}
                         className={`relative flex items-center gap-3 px-4 py-3 transition-colors active:bg-stone-100 ${
                           isActive ? 'text-stone-900 bg-stone-50 font-medium before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-[var(--brand)]' : 'text-stone-700'
                         }`}

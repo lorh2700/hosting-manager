@@ -20,22 +20,18 @@ import {
 // 하단 탭 4개 = 매일 쓰는 것. 나머지는 더보기.
 const NAV_ITEMS = [
   { href: '/cleaner', label: '오늘', icon: ClipboardList },
+  { href: '/cleaner/calendar', label: '일정', icon: CalendarIcon },
   { href: '/cleaner/schedule', label: '신청', icon: Hand },
   { href: '/cleaner/issues', label: '이슈', icon: AlertTriangle },
   { href: '/cleaner/history', label: '기록', icon: History },
-  { href: '/cleaner/calendar', label: '캘린더', icon: CalendarIcon },
   { href: '/cleaner/supplies', label: '비품', icon: Package },
   { href: '/cleaner/settings', label: '설정', icon: Settings },
 ];
 
-const MOBILE_PRIMARY_COUNT = 4;
+const MOBILE_PRIMARY_COUNT = 3;
 
 export default function CleanerLayout({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [error, setError] = useState('');
   const [moreOpen, setMoreOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
@@ -47,6 +43,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
   }, [loading, profile, router]);
 
   useEffect(() => { setMoreOpen(false); }, [pathname]);
+  useEffect(() => { if (!loading && !user) router.replace('/login?next=' + encodeURIComponent(pathname + window.location.search)); }, [loading, user, pathname, router]);
 
   const handleLogout = async () => {
     try {
@@ -58,31 +55,6 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
     }
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isLoggingIn) return;
-    setIsLoggingIn(true);
-    setError('');
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || '로그인에 실패했습니다.');
-      } else {
-        window.location.reload();
-      }
-    } catch (err: unknown) {
-      setError('로그인에 실패했습니다.');
-      console.error('Login failed', err);
-    } finally {
-      setIsLoggingIn(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="min-h-dvh flex items-center justify-center bg-stone-50">
@@ -91,68 +63,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
     );
   }
 
-  if (!user) {
-    return (
-      <div className="min-h-dvh flex flex-col items-center justify-center bg-stone-50 p-5 font-sans">
-        <Link
-          href="/"
-          aria-label="void anchae 홈으로"
-          className="mb-9 inline-flex hover:opacity-80 transition-opacity"
-        >
-          <Logo width={200} variant="black" priority />
-        </Link>
-        <div className="bg-white p-8 sm:p-10 border border-stone-200 max-w-md w-full">
-          <p className="text-[12px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">Cleaner</p>
-          <h1 className="text-xl font-semibold text-stone-900 mb-1.5">청소 담당자 로그인</h1>
-          <p className="text-stone-500 mb-7 text-sm">청소 일정을 확인하려면 로그인하세요.</p>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-[12px] uppercase tracking-widest text-stone-600 mb-2">이메일</label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-                className="w-full bg-white border border-stone-300 px-4 py-3 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors"
-                placeholder="example@email.com"
-              />
-            </div>
-            <div>
-              <label className="block text-[12px] uppercase tracking-widest text-stone-600 mb-2">비밀번호</label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-                className="w-full bg-white border border-stone-300 px-4 py-3 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors"
-                placeholder="••••••••"
-              />
-            </div>
-
-            {error && <p className="text-rose-600 text-xs">{error}</p>}
-
-            <button
-              type="submit"
-              disabled={isLoggingIn}
-              className="w-full bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white py-3.5 text-sm font-semibold uppercase tracking-widest transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
-            >
-              {isLoggingIn ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                  로그인 중...
-                </>
-              ) : (
-                '로그인'
-              )}
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
+  if (!user) return <div role="status" className="min-h-dvh grid place-items-center">로그인 화면으로 이동 중…</div>;
 
   if (profile && profile.role !== 'cleaner' && profile.role !== 'admin') return null;
 
@@ -223,7 +134,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
               </button>
 
               {moreOpen && (
-                <div className="absolute bottom-full right-2 mb-2 w-52 bg-white border border-stone-200 overflow-hidden shadow-2xl shadow-black/10">
+                <div className="absolute bottom-full right-2 mb-2 w-52 bg-white border border-stone-200 max-h-[65dvh] overflow-y-auto shadow-2xl shadow-black/10">
                   {moreItems.map(item => {
                     const isActive = pathname === item.href || (item.href !== '/cleaner' && pathname.startsWith(item.href));
                     const Icon = item.icon;

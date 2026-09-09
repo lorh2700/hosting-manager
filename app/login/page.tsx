@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { loginDestination } from '@/lib/login-destination';
 import { Home, Compass } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { writeAdminMode, type AdminMode } from '@/lib/adminMode';
@@ -9,6 +10,7 @@ import { writeAdminMode, type AdminMode } from '@/lib/adminMode';
 type Mode = 'email' | 'phone' | 'register';
 
 export default function LoginPage() {
+  useEffect(() => { const next = new URLSearchParams(window.location.search).get('next'); if (next?.startsWith('/cleaner')) setMode('phone'); }, []);
   const [mode, setMode] = useState<Mode>('email');
   const [adminMode, setAdminMode] = useState<AdminMode>('host');
   const [email, setEmail] = useState('');
@@ -43,7 +45,7 @@ export default function LoginPage() {
       } else {
         // Persist chosen admin area so /admin sidebar/dashboard pick it up.
         writeAdminMode(adminMode);
-        window.location.href = '/admin';
+        window.location.href = loginDestination(new URLSearchParams(window.location.search).get('next'), data.profile?.role ?? 'manager');
       }
     } catch {
       setError('로그인에 실패했습니다.');
@@ -67,7 +69,7 @@ export default function LoginPage() {
       if (!res.ok) {
         setError(data.error || '로그인에 실패했습니다.');
       } else {
-        window.location.href = '/cleaner';
+        window.location.href = loginDestination(new URLSearchParams(window.location.search).get('next'), data.profile?.role ?? 'cleaner');
       }
     } catch {
       setError('로그인에 실패했습니다.');

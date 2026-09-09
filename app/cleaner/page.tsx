@@ -67,7 +67,7 @@ const ISSUE_CATEGORIES: { value: IssueCategory; label: string }[] = [
 
 const URGENCY_OPTIONS: { value: IssueUrgency; label: string; color: string }[] = [
   { value: 'low', label: '낮음', color: 'text-stone-500' },
-  { value: 'normal', label: '보통', color: 'text-amber-400' },
+  { value: 'normal', label: '보통', color: 'text-amber-800' },
   { value: 'urgent', label: '긴급', color: 'text-red-400' },
 ];
 
@@ -80,6 +80,7 @@ export default function CleanerPage() {
   // 오늘 체크아웃 확인 상태 (숙소별): 게스트 셀프 체크아웃 또는 호스트 확인
   const [checkoutToday, setCheckoutToday] = useState<Record<string, { confirmed: boolean; confirmedAt: string | null; confirmedBy: string | null }>>({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
 
   // chat dialog
@@ -116,10 +117,10 @@ export default function CleanerPage() {
       setTodayCleanings((data.todayCleanings ?? []) as CleaningEntry[]);
       setTodayCheckins((data.checkins ?? []) as Reservation[]);
       setTodayCheckouts((data.checkouts ?? []) as Reservation[]);
-      setCheckoutToday(data.checkoutToday ?? {});
+      setCheckoutToday(data.checkoutToday ?? {}); setLoadError('');
     } catch (err) {
       console.error(err);
-      toast.error('오늘 일정을 불러오지 못했습니다. 아래로 당겨 다시 시도해 주세요.');
+      setLoadError('일정을 불러오지 못했습니다. 표시된 내용은 최신 정보가 아닐 수 있습니다.');
     } finally {
       setLoading(false);
     }
@@ -367,11 +368,11 @@ export default function CleanerPage() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 {task.status === 'done'
-                  ? <CheckCircle2 size={14} className="text-green-400 shrink-0" />
+                  ? <CheckCircle2 size={14} className="text-emerald-700 shrink-0" />
                   : <Clock size={14} className="text-stone-400 shrink-0" />
                 }
                 <span className={`text-[12px] uppercase tracking-widest font-semibold ${
-                  task.status === 'done' ? 'text-green-400' : 'text-stone-500'
+                  task.status === 'done' ? 'text-emerald-700' : 'text-stone-500'
                 }`}>
                   {task.status === 'done' ? '완료' : '청소 예정'}
                 </span>
@@ -381,13 +382,13 @@ export default function CleanerPage() {
               </div>
               <p className="text-stone-900 font-medium text-sm">{task.propertyName}</p>
               {task.guestName && (
-                <p className="text-stone-400 text-xs mt-1">{task.guestName} 체크아웃</p>
+                <p className="text-stone-600 text-sm mt-1">{task.guestName} 체크아웃</p>
               )}
               {task.supplies && (
                 <p className="text-stone-500 text-xs mt-2 leading-relaxed">{task.supplies}</p>
               )}
               {task.completionNote && (
-                <p className="text-green-400/60 text-xs mt-2">메모: {task.completionNote}</p>
+                <p className="text-emerald-700 text-xs mt-2">메모: {task.completionNote}</p>
               )}
             </div>
             <div className="text-right shrink-0 flex flex-col items-end gap-2">
@@ -417,7 +418,7 @@ export default function CleanerPage() {
               />
             </div>
             {disabledReason && (
-              <p className="text-[13px] text-amber-400/80 leading-relaxed">{disabledReason}</p>
+              <p className="text-[13px] text-amber-800 leading-relaxed">{disabledReason}</p>
             )}
             <div className="flex gap-3">
               <button
@@ -434,7 +435,7 @@ export default function CleanerPage() {
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); setShowIssueForm(isIssueOpen ? null : task.cleaningId); }}
-                className="border border-amber-500/30 text-amber-400 px-4 py-3 text-[13px] uppercase tracking-widest font-semibold hover:bg-amber-500/10 transition-colors flex items-center gap-2"
+                className="border border-amber-500/30 text-amber-800 px-4 py-3 text-[13px] uppercase tracking-widest font-semibold hover:bg-amber-500/10 transition-colors flex items-center gap-2"
               >
                 <AlertTriangle size={14} /> 이슈
               </button>
@@ -443,7 +444,7 @@ export default function CleanerPage() {
             {/* 이슈 등록 폼 */}
             {isIssueOpen && (
               <div className="border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
-                <p className="text-[12px] uppercase tracking-widest text-amber-400/80 font-semibold">이슈 등록</p>
+                <p className="text-[12px] uppercase tracking-widest text-amber-800 font-semibold">이슈 등록</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[12px] uppercase tracking-widest text-stone-400 mb-1.5">카테고리</label>
@@ -535,6 +536,8 @@ export default function CleanerPage() {
         <p className="text-stone-500 mt-2 t-caption">오늘의 운영을 한눈에 확인하세요. 아래로 당기면 새로고침됩니다.</p>
       </header>
 
+      {loadError && <div role="alert" className="bg-amber-50 border border-amber-300 rounded-xl p-4 text-sm"><p>{loadError}</p><button type="button" onClick={loadTasks} className="min-h-12 underline font-medium">다시 불러오기</button></div>}
+      <section className="space-y-3"><h2 className="text-xl font-semibold text-stone-900">내 오늘 청소</h2>{tasks.filter(t => t.date === format(new Date(), 'yyyy-MM-dd')).map(t => <TaskCard key={t.cleaningId} task={t} />)}{!loadError && !tasks.some(t => t.date === format(new Date(), 'yyyy-MM-dd')) && <p className="text-stone-600 text-sm py-3">오늘 배정된 청소가 없습니다.</p>}</section>
       {/* ── 오늘의 운영 ── */}
       {(todayCheckins.length > 0 || todayCheckouts.length > 0 || todayCleanings.length > 0) && (
         <section className="bg-white border border-stone-200 overflow-hidden">
@@ -670,7 +673,7 @@ export default function CleanerPage() {
         </section>
       )}
 
-      {tasks.length === 0 ? (
+      {loadError && tasks.length === 0 ? null : tasks.length === 0 ? (
         <div className="flex flex-col items-center text-stone-400 py-16">
           <CalendarDays size={32} className="mb-4 opacity-50" />
           <p className="text-sm">배정된 청소 일정이 없습니다.</p>
@@ -680,7 +683,7 @@ export default function CleanerPage() {
           {upcomingGroups.length > 0 && (
             <section className="space-y-6">
               <h2 className="text-[12px] uppercase tracking-widest text-stone-400">예정된 일정 ({upcoming.length})</h2>
-              {upcomingGroups.map(([dateStr, items]) => (
+              {upcomingGroups.filter(([dateStr]) => dateStr !== format(new Date(), 'yyyy-MM-dd')).map(([dateStr, items]) => (
                 <div key={dateStr} className="space-y-2">
                   <DateHeader dateStr={dateStr} count={items.length} variant="upcoming" />
                   <div className="space-y-2 pl-1">
