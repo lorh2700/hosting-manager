@@ -50,6 +50,7 @@ export interface Beds24MockOptions {
 /** 토큰 발급 + /bookings 계열을 처리하는 기본 Beds24 핸들러. */
 export function installBeds24Mock(opts: Beds24MockOptions = {}) {
   let tokenCounter = 0;
+  let cancelled = false;
   setFetchHandler((u, init) => {
     if (u.pathname.endsWith('/authentication/token')) {
       tokenCounter++;
@@ -63,6 +64,7 @@ export function installBeds24Mock(opts: Beds24MockOptions = {}) {
     }
     if (u.pathname.endsWith('/bookings') && init.method === 'POST') {
       const body = JSON.parse(init.body!);
+      if (body[0]?.id && body[0]?.status === 'cancelled' && !opts.onCreate) { cancelled = true; return json([{ success: true, modified: { id: body[0].id } }]); }
       return opts.onCreate ? opts.onCreate(body) : json([{ success: true, new: sampleBooking() }]);
     }
     if (u.pathname.endsWith('/bookings') && init.method === 'PUT') {
@@ -71,7 +73,7 @@ export function installBeds24Mock(opts: Beds24MockOptions = {}) {
     }
     if (u.pathname.endsWith('/bookings') && init.method === 'GET') {
       const id = u.searchParams.get('id');
-      if (id) return opts.onGetById ? opts.onGetById(id) : json({ success: true, data: [sampleBooking()] });
+      if (id) return opts.onGetById ? opts.onGetById(id) : json({ success: true, data: [sampleBooking(cancelled ? { status: 'cancelled' } : {})] });
       return opts.onSearch ? opts.onSearch(u.searchParams) : json({ success: true, data: [], pages: { nextPageExists: false } });
     }
     throw new Error(`unexpected request ${init.method} ${u.href}`);

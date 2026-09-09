@@ -38,6 +38,8 @@ function shiftDate(date: string, days: number): string {
 export default function PropertyCameraPage() {
   const { id } = useParams() as { id: string };
   const { user } = useAuth();
+  const [diagnostic, setDiagnostic] = useState('');
+  useEffect(() => { if (user) fetch('/api/camera/diagnostics?propertyId=' + encodeURIComponent(id)).then(async r => { if (r.ok) { const d = await r.json(); setDiagnostic(d.message + (d.missing?.length ? ' ' + d.missing.join(', ') : '')); } }).catch(() => {}); }, [id, user]);
   const [propertyName, setPropertyName] = useState('');
   const [date, setDate] = useState<string>(() => format(new Date(), 'yyyy-MM-dd'));
   const [dates, setDates] = useState<string[]>([]);
@@ -86,6 +88,7 @@ export default function PropertyCameraPage() {
           description="카메라가 사람을 감지해 보낸 사진과, 체크아웃 시간대의 AI 판정입니다. 사진은 30일 뒤 자동 삭제됩니다."
         />
 
+        {diagnostic && <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-stone-700">{diagnostic}</p>}
         <div className="flex items-center gap-2">
           <Button variant="secondary" size="sm" icon={<ChevronLeft size={16} />} onClick={() => setDate(d => shiftDate(d, -1))} aria-label="이전 날" />
           <input

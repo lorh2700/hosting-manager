@@ -48,11 +48,12 @@ test('판정 규칙: 캐리어 + 현관 방향 + 게스트 + 확신 0.7 이상�
   assert.equal(isLeavingWithLuggage({ ...leavingVerdict, confidence: 0.5 }), false);
   assert.equal(isLeavingWithLuggage({ ...leavingVerdict, likelyRole: 'staff' }), false);
   assert.equal(isLeavingWithLuggage({ ...leavingVerdict, direction: 'toward_rooms' }), false);
+  assert.equal(isLeavingWithLuggage({ ...leavingVerdict, direction: 'unclear' }), false);
   assert.equal(isLeavingWithLuggage({ ...leavingVerdict, luggage: 'small_bag' }), false);
 });
 
 test('+태그로 지점을 찾고, 체크아웃 시간대면 판정해 신호와 호스트 알림을 남긴다', async () => {
-  const r = await ingestCameraImage(image(), { upload, judge: async () => leavingVerdict });
+  const r = await ingestCameraImage(image(), { now: () => KST_1105, upload, judge: async () => leavingVerdict });
   assert.equal(r.status, 'stored');
   assert.equal(r.propertyId, 'p1');
   assert.equal(r.judged, true);
@@ -70,18 +71,18 @@ test('+태그로 지점을 찾고, 체크아웃 시간대면 판정해 신호와
 });
 
 test('카메라 이름이 제목에 있으면 그 지점으로, 어느 쪽도 없으면 저장하지 않는다', async () => {
-  const byName = await ingestCameraImage(image({ to: ['cam@gmail.com'], subject: '[별하재 복도] Person detected' }), { upload, judge: async () => stayingVerdict });
+  const byName = await ingestCameraImage(image({ to: ['cam@gmail.com'], subject: '[별하재 복도] Person detected' }), { now: () => KST_1105, upload, judge: async () => stayingVerdict });
   assert.equal(byName.status, 'stored');
   assert.equal(byName.propertyId, 'p1');
 
-  const none = await ingestCameraImage(image({ messageId: 'm2', to: ['cam@gmail.com'], subject: 'unknown' }), { upload, judge: async () => stayingVerdict });
+  const none = await ingestCameraImage(image({ messageId: 'm2', to: ['cam@gmail.com'], subject: 'unknown' }), { now: () => KST_1105, upload, judge: async () => stayingVerdict });
   assert.equal(none.status, 'unmapped');
   assert.equal(uploads.length, 1);
 });
 
 test('같은 메일은 두 번 저장하지 않는다', async () => {
-  await ingestCameraImage(image(), { upload, judge: async () => stayingVerdict });
-  const again = await ingestCameraImage(image(), { upload, judge: async () => stayingVerdict });
+  await ingestCameraImage(image(), { now: () => KST_1105, upload, judge: async () => stayingVerdict });
+  const again = await ingestCameraImage(image(), { now: () => KST_1105, upload, judge: async () => stayingVerdict });
   assert.equal(again.status, 'duplicate');
   assert.equal(db.cameraSnapshot.length, 1);
 });
@@ -89,19 +90,19 @@ test('같은 메일은 두 번 저장하지 않는다', async () => {
 test('체크아웃 시간대 밖이거나 오늘 퇴실 예정이 없으면 사진만 저장하고 판정하지 않는다', async () => {
   let judged = 0;
   const judge = async () => { judged += 1; return leavingVerdict; };
-  const night = await ingestCameraImage(image({ capturedAt: KST_2000 }), { upload, judge });
+  const night = await ingestCameraImage(image({ capturedAt: KST_2000 }), { now: () => KST_1105, upload, judge });
   assert.equal(night.status, 'stored');
   assert.equal(night.judged, false);
 
-  const noCheckout = await ingestCameraImage(image({ messageId: 'm3', to: ['cam+anon@gmail.com'] }), { upload, judge });
+  const noCheckout = await ingestCameraImage(image({ messageId: 'm3', to: ['cam+anon@gmail.com'] }), { now: () => KST_1105, upload, judge });
   assert.equal(noCheckout.propertyId, 'p2');
   assert.equal(noCheckout.judged, false);
   assert.equal(judged, 0);
 });
 
 test('퇴실 판정이 하루에 여러 번 나와도 호스트 알림은 한 번', async () => {
-  await ingestCameraImage(image({ messageId: 'a' }), { upload, judge: async () => leavingVerdict });
-  await ingestCameraImage(image({ messageId: 'b', capturedAt: new Date(KST_1105.getTime() + 60_000) }), { upload, judge: async () => leavingVerdict });
+  await ingestCameraImage(image({ messageId: 'a' }), { now: () => KST_1105, upload, judge: async () => leavingVerdict });
+  await ingestCameraImage(image({ messageId: 'b', capturedAt: new Date(KST_1105.getTime() + 60_000) }), { now: () => KST_1105, upload, judge: async () => leavingVerdict });
   assert.equal(db.cameraSnapshot.filter(s => s.leaving).length, 2);
   assert.equal(db.checkoutSignal.length, 1);
   assert.equal(notifyCalls.checkoutCandidate.length, 1);
@@ -119,4 +120,19 @@ test('호스트 확인: host 신호 + 배정 담당자 알림, 호스트 본인�
   const again = await callRoute(CONFIRM, makeRequest({ propertyId: 'p1', date: '2026-09-06' }));
   assert.equal(again.body.duplicate, true);
   assert.equal(notifyCalls.checkout.length, 1);
+});
+
+
+test('failed verdict retries stored image without another upload', async () => {
+  const first = await ingestCameraImage(image(), { upload, judge: async () => null });
+  assert.equal(first.retryable, true);
+  const retry = await ingestCameraImage(image(), { now: () => KST_1105, upload, judge: async () => leavingVerdict });
+  assert.equal(retry.judged, true);
+  assert.equal(uploads.length, 1);
+  assert.equal(db.cameraSnapshot.length, 1);
+});
+test('historical images do not send today checkout alerts', async () => {
+  const result = await ingestCameraImage(image(), { now: () => new Date('2026-09-09T02:00:00Z'), upload, judge: async () => leavingVerdict });
+  assert.equal(result.notified, false);
+  assert.equal(notifyCalls.checkoutCandidate.length, 0);
 });

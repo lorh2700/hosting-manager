@@ -9,7 +9,7 @@
  * 플랫폼 저장(Event upsert)은 호출자가 한다 — 저장할 내용이 예약/정비마다 다르기 때문.
  */
 import {
-  beds24Put,
+  beds24Post,
   beds24WithRetry,
   describeBeds24Error,
   isBeds24TransientError,
@@ -17,6 +17,8 @@ import {
 } from '@/lib/beds24';
 import {
   createBeds24Booking,
+  fetchBeds24BookingById,
+  isCancelledStatus,
   findMatchingBeds24Booking,
   verifyBeds24Booking,
   Beds24BookingRejectedError,
@@ -201,11 +203,23 @@ export async function registerBeds24BookingVerified(input: RegisterInput): Promi
   return { ok: true, bookingId, origin, booking: verification.booking };
 }
 
-/** Beds24 항목 취소 (예약·차단 공통). PUT status=cancelled 는 멱등이라 일시 오류에 재시도해도 안전. */
-export async function cancelBeds24Booking(bookingId: string | number): Promise<void> {
-  await beds24WithRetry(
-    `cancel booking #${bookingId}`,
-    () => beds24Put('/bookings', [{ id: Number(bookingId), status: 'cancelled' }]),
-    { attempts: 2, baseDelayMs: 1000 },
-  );
+/** Beds24 항목 취소 (예약·차단 공통). POST status=cancelled 는 멱등이라 일시 오류에 재시도해도 안전. */
+export async function cancelBeds24Booking(bookingId: string | number, expectedRoomId?: string | number): Promise<void> {
+  const id = Number(bookingId);
+  if (!Number.isSafeInteger(id) || id <= 0) throw new Error('Invalid Beds24 booking ID');
+  const deadlineAt = Date.now() + ROUTE_BUDGET_MS;
+  const current = await fetchBeds24BookingById(id, { timeoutMs: 6000 });
+  if (!current) throw new Error('Beds24 booking not found; cancellation not verified');
+  if (expectedRoomId && String(current.roomId) !== String(expectedRoomId)) throw new Error('Beds24 객실이 일치하지 않습니다.');
+  if (isCancelledStatus(current.status)) return;
+  if (current.channel || current.apiReference) throw new Error('채널 예약은 해당 예약 채널에서 취소해야 합니다.');
+  let writeError: unknown;
+  try {
+    const raw = await beds24Post('/bookings', [{ id, status: 'cancelled' }], { timeoutMs: 7000 });
+    const item = Array.isArray(raw) ? raw[0] : raw;
+    if (item?.success === false) throw new Beds24BookingRejectedError(['Beds24 rejected cancellation']);
+  } catch (err) { writeError = err; }
+  // A timeout may mean the update succeeded. Only a read-back proves cancellation.
+  const verified = await beds24WithRetry('verify cancellation', () => fetchBeds24BookingById(id, { timeoutMs: 6000 }), { attempts: 2, deadlineAt });
+  if (!verified || !isCancelledStatus(verified.status)) throw writeError ?? new Error('Beds24 취소 상태를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.');
 }

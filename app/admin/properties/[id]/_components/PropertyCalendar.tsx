@@ -16,6 +16,7 @@ interface CalendarEvent {
   extendedProps: {
     type: 'reservation' | 'block';
     channelName: string;
+  channelId: string;
     eventId: string;
     description?: string;
     source?: string;
@@ -28,6 +29,7 @@ export interface PropertyCalendarSelected {
   end: Date | null;
   type: 'reservation' | 'block';
   channelName: string;
+  channelId: string;
   description?: string;
   color: string;
   eventId: string;
@@ -71,6 +73,7 @@ export default function PropertyCalendar({ events, onEventClick }: Props) {
           end: info.event.end,
           type: info.event.extendedProps.type,
           channelName: info.event.extendedProps.channelName,
+          channelId: info.event.extendedProps.channelId,
           description: info.event.extendedProps.description,
           color: info.event.backgroundColor,
           eventId: info.event.extendedProps.eventId,

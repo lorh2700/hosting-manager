@@ -36,6 +36,7 @@ export interface IngestResult {
   leaving: boolean;
   notified: boolean;
   error?: string;
+  retryable?: boolean;
 }
 
 type PropertyLite = { id: string; name: string; cameraName: string | null; cameraNotes: string | null; ownerId: string };
@@ -85,9 +86,11 @@ export async function ingestCameraImage(img: IncomingCameraImage, deps: IngestDe
   const judge = deps.judge ?? judgeCheckoutSnapshot;
   const notifyHost = deps.notifyHost ?? notifyCheckoutCandidate;
 
+  let existingSnapshot: { id: string; verdict: unknown } | null = null;
   if (img.messageId) {
-    const dup = await prisma.cameraSnapshot.findUnique({ where: { messageId: img.messageId }, select: { id: true } });
-    if (dup) return { status: 'duplicate', snapshotId: dup.id, judged: false, leaving: false, notified: false };
+    const dup = await prisma.cameraSnapshot.findUnique({ where: { messageId: img.messageId }, select: { id: true, verdict: true } });
+    existingSnapshot = dup;
+    if (dup?.verdict) return { status: 'duplicate', snapshotId: dup.id, judged: false, leaving: false, notified: false };
   }
 
   const property = await resolvePropertyForImage(img);
@@ -100,10 +103,10 @@ export async function ingestCameraImage(img: IncomingCameraImage, deps: IngestDe
   const date = todayKst(capturedAt);
   const stamp = capturedAt.toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
   const ext = img.contentType === 'image/png' ? 'png' : 'jpg';
-  const uploaded = await upload({ buffer: img.buffer, contentType: img.contentType, filename: `${property.id}/${date}/${stamp}.${ext}`, bucket: CAMERA_BUCKET });
+  const uploaded = existingSnapshot ? { ok: true as const, path: '' } : await upload({ buffer: img.buffer, contentType: img.contentType, filename: `${property.id}/${date}/${stamp}.${ext}`, bucket: CAMERA_BUCKET });
   if (!uploaded.ok) return { status: 'upload_failed', propertyId: property.id, judged: false, leaving: false, notified: false, error: uploaded.error };
 
-  const snapshot = await prisma.cameraSnapshot.create({
+  const snapshot = existingSnapshot ?? await prisma.cameraSnapshot.create({
     data: {
       propertyId: property.id,
       capturedAt,
@@ -118,7 +121,7 @@ export async function ingestCameraImage(img: IncomingCameraImage, deps: IngestDe
 
   // 판정은 체크아웃 시간대 + 오늘 퇴실 예정이 있는 숙소에서만.
   if (!inCheckoutWindow(capturedAt) || !(await hasCheckoutToday(property.id, date))) {
-    return { status: 'stored', snapshotId: snapshot.id, propertyId: property.id, judged: false, leaving: false, notified: false };
+    return { status: existingSnapshot ? 'duplicate' : 'stored', snapshotId: snapshot.id, propertyId: property.id, judged: false, leaving: false, notified: false };
   }
 
   const verdict = await judge({
@@ -126,13 +129,13 @@ export async function ingestCameraImage(img: IncomingCameraImage, deps: IngestDe
     propertyName: property.name,
     cameraNotes: property.cameraNotes,
   });
-  if (!verdict) return { status: 'stored', snapshotId: snapshot.id, propertyId: property.id, judged: false, leaving: false, notified: false };
+  if (!verdict) return { status: 'stored', snapshotId: snapshot.id, propertyId: property.id, judged: false, leaving: false, notified: false, retryable: true, error: 'AI 판정 미완료: API 설정·오류 로그를 확인해 주세요.' };
 
   const leaving = isLeavingWithLuggage(verdict);
   await prisma.cameraSnapshot.update({ where: { id: snapshot.id }, data: { verdict: verdict as unknown as object, leaving } });
 
   let notified = false;
-  if (leaving) {
+  if (leaving && date === todayKst(now)) {
     // 하루 한 번만 신호를 남기고 호스트에게 알린다 (같은 종류 신호는 recordCheckoutSignal 이 중복 처리).
     const rec = await recordCheckoutSignal({ propertyId: property.id, date, kind: 'camera', note: verdict.summary });
     if (!rec.duplicate) {

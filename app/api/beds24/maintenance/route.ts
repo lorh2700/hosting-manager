@@ -96,7 +96,9 @@ export const DELETE = withAuth('beds24/maintenance', async (req, { auth, log }) 
 
   if (event.originalUid) {
     try {
-      await cancelBeds24Booking(event.originalUid);
+      const property = await prisma.property.findUnique({ where: { id: event.propertyId }, select: { beds24RoomId: true } });
+      if (!property?.beds24RoomId) throw new Error('Beds24 객실 연결을 확인해 주세요.');
+      await cancelBeds24Booking(event.originalUid, property.beds24RoomId);
     } catch (e) {
       console.error('[beds24/maintenance] Beds24 cancel failed:', e);
       throw fail(502, `Beds24에서 차단 해제에 실패했습니다 (${describeBeds24Error(e)}). 잠시 후 다시 시도해주세요.`);

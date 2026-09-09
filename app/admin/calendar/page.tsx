@@ -92,6 +92,7 @@ export default function UnifiedCalendarPage() {
           onSendMessage={modal.handleSendMessage}
           onSyncMessages={modal.handleSyncMessages}
           onUpdateTags={modal.handleUpdateTags}
+          onReservationCancelled={modal.handleReservationCancelled}
           onReleaseMaintenance={modal.handleReleaseMaintenance}
           releasingMaintenance={modal.releasingMaintenance}
           openModal={modal.openModal}

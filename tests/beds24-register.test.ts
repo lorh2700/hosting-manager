@@ -70,9 +70,9 @@ test('예약 취소: Beds24 취소 후 로컬 삭제, 자동 청소 정리까지
   db.event = [{ id: 'evt-1', propertyId: 'p1', channelId: 'beds24', type: 'reservation', originalUid: '123', source: 'manual-reservation', startDate: '2026-10-01', endDate: '2026-10-03' }];
   const res = await callRoute(RESERVATION_DELETE, makeRequest({}, 'http://localhost/api/beds24/reservations?eventId=evt-1'));
   assert.equal(res.status, 200, JSON.stringify(res.body));
-  assert.ok(fetchLog.some(l => l.method === 'PUT' && l.body?.[0]?.status === 'cancelled'));
+  assert.ok(fetchLog.some(l => l.method === 'POST' && l.body?.[0]?.status === 'cancelled'));
   assert.equal(db.event.length, 0);
-  assert.ok(calls.indexOf('cleaning.findMany') > calls.indexOf('event.delete'), '삭제 후 청소 정리');
+  assert.ok(calls.indexOf('cleaning.findMany') > calls.indexOf('event.deleteMany'), '삭제 후 청소 정리');
 });
 
 test('객실정비: black 으로 생성, 확인은 black 만 통과, 로컬은 block/maintenance', async () => {
@@ -111,4 +111,25 @@ test('객실정비 해제: Beds24 취소 후 로컬 삭제, 예약 이벤트는 
   assert.ok(!db.event.some(e => e.id === 'evt-m'));
   const bad = await callRoute(MAINTENANCE_DELETE, makeRequest({}, 'http://localhost/api/beds24/maintenance?eventId=evt-r'));
   assert.equal(bad.status, 400);
+});
+
+
+test('cancellation rejection keeps local reservation', async () => {
+  installBeds24Mock({ onCreate: () => json([{ success: false, errors: [{ message: 'denied' }] }]) });
+  db.event = [{ id: 'e', propertyId: 'p1', channelId: 'beds24', type: 'reservation', source: 'manual-reservation', originalUid: '123' }];
+  const r = await callRoute(RESERVATION_DELETE, makeRequest({}, 'http://localhost/?eventId=e'));
+  assert.equal(r.status, 502); assert.equal(db.event.length, 1);
+});
+test('cancel update timeout is recovered only by cancelled readback', async () => {
+  let reads = 0;
+  installBeds24Mock({ onCreate: () => { throw new TypeError('fetch failed'); }, onGetById: () => json({ data: [sampleBooking({ status: ++reads === 1 ? 'confirmed' : 'cancelled' })] }) });
+  db.event = [{ id: 'e', propertyId: 'p1', channelId: 'beds24', type: 'reservation', source: 'manual-reservation', originalUid: '123' }];
+  const r = await callRoute(RESERVATION_DELETE, makeRequest({}, 'http://localhost/?eventId=e'));
+  assert.equal(r.status, 200); assert.equal(db.event.length, 0);
+});
+test('remote room mismatch prevents cancellation', async () => {
+  installBeds24Mock({ onGetById: () => json({ data: [sampleBooking({ roomId: 999 })] }) });
+  db.event = [{ id: 'e', propertyId: 'p1', channelId: 'beds24', type: 'reservation', source: 'manual-reservation', originalUid: '123' }];
+  const r = await callRoute(RESERVATION_DELETE, makeRequest({}, 'http://localhost/?eventId=e'));
+  assert.equal(r.status, 502); assert.equal(postsTo('/bookings').length, 0);
 });

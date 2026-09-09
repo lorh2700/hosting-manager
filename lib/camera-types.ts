@@ -27,7 +27,7 @@ export function isLeavingWithLuggage(v: CameraVerdict): boolean {
   return (
     v.peoplePresent &&
     v.luggage === 'suitcase_or_large_bag' &&
-    v.direction !== 'toward_rooms' &&
+    v.direction === 'toward_exit' &&
     v.likelyRole !== 'staff' &&
     v.confidence >= LEAVING_CONFIDENCE_MIN
   );

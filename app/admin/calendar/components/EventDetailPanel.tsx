@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { CancelReservationButton } from '@/components/CancelReservationButton';
 import { ChevronLeft, ChevronRight, X, Save, Trash2, Send, CheckCircle, RefreshCw, Tag as TagIcon, Plus, Ban, Wrench } from 'lucide-react';
 import type { SelectedEvent, ProcessedEvent, Cleaner, SupplyTodo, ModalMessage } from '../types';
 
@@ -35,6 +36,7 @@ interface EventDetailPanelProps {
   onSendMessage: () => void;
   onSyncMessages: () => void;
   onUpdateTags: (tags: string[]) => Promise<void> | void;
+  onReservationCancelled: () => void;
   onReleaseMaintenance?: () => void;
   releasingMaintenance?: boolean;
   openModal: (e: ProcessedEvent) => void;
@@ -56,7 +58,7 @@ export function EventDetailPanel({
   onClose, onSaveCleaner, onDeleteCleaner, onCompleteCleaning,
   onAddSupply, onToggleSupply, onDeleteSupply,
   onSendMessage, onSyncMessages, onUpdateTags, openModal,
-  onReleaseMaintenance, releasingMaintenance,
+  onReleaseMaintenance, releasingMaintenance, onReservationCancelled,
 }: EventDetailPanelProps) {
   const [newTag, setNewTag] = useState('');
   const isBlock = selectedEvent.type === 'block';
@@ -195,6 +197,7 @@ export function EventDetailPanel({
         </div>
 
         {/* 객실정비 해제 */}
+        {!isBlock && selectedEvent.channelId === 'beds24' && <CancelReservationButton eventId={selectedEvent.eventId} source={selectedEvent.source} onCancelled={onReservationCancelled} />}
         {isMaintenance && onReleaseMaintenance && (
           <div className="border-t border-stone-200 pt-5 space-y-2">
             <p className="text-xs text-stone-500 leading-relaxed">

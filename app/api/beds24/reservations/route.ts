@@ -125,21 +125,30 @@ export const DELETE = withAuth('beds24/reservations', async (req, { auth }) => {
   if (event.channelId !== 'beds24') throw fail(400, '이 이벤트는 Beds24 예약이 아닙니다.');
   requireManage(auth, event.propertyId);
 
+  if (event.type !== 'reservation' || !event.originalUid) throw fail(400, '유효한 Beds24 예약이 아닙니다.');
+  if (!['manual-reservation', 'Beds24', 'direct'].includes(event.source ?? '')) throw fail(400, '직접 등록한 예약만 취소할 수 있습니다.');
   if (event.originalUid) {
     try {
-      await cancelBeds24Booking(event.originalUid);
+      const property = await prisma.property.findUnique({ where: { id: event.propertyId }, select: { beds24RoomId: true } });
+      if (!property?.beds24RoomId) throw new Error('Beds24 객실 연결을 확인해 주세요.');
+      await cancelBeds24Booking(event.originalUid, property.beds24RoomId);
     } catch (e) {
       console.error('[beds24/reservations] Beds24 cancel failed:', e);
       throw fail(502, `Beds24에서 예약 취소에 실패했습니다 (${describeBeds24Error(e)}). 네트워크 또는 권한을 확인하세요.`, { detail: String(e) });
     }
   }
 
-  await prisma.event.delete({ where: { id: eventId } });
+  await prisma.$transaction(async tx => {
+    await tx.booking.updateMany({ where: { propertyId: event.propertyId, channelBookingRef: event.originalUid }, data: { status: 'cancelled' } });
+    await tx.event.deleteMany({ where: { id: eventId } });
+  });
 
   // 취소된 예약의 자동 생성 청소를 바로 정리 (다음 동기화까지 기다리지 않도록).
+  let cleaningCleanupPending = false;
   await ensureCleaningsForProperty(event.propertyId).catch(err => {
+    cleaningCleanupPending = true;
     console.error('[beds24/reservations] cleaning cleanup after cancel failed:', err);
   });
 
-  return ok({ success: true });
+  return ok({ success: true, cleaningCleanupPending });
 });

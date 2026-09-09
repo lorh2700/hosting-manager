@@ -33,7 +33,7 @@ export interface JudgeInput {
 let client: Anthropic | null = null;
 function getClient(): Anthropic | null {
   if (!process.env.ANTHROPIC_API_KEY) return null;
-  return (client ??= new Anthropic());
+  return (client ??= new Anthropic({ timeout: 12_000, maxRetries: 0 }));
 }
 
 async function downscale(buffer: ArrayBuffer, contentType: string): Promise<{ data: string; mediaType: 'image/jpeg' | 'image/png' }> {

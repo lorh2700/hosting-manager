@@ -302,6 +302,7 @@ export function useEventModal({
     selectedEvent, selectedCleaner, setSelectedCleaner,
     cleanerSaving, completingCleaning,
     savingTags, releasingMaintenance, handleReleaseMaintenance,
+    handleReservationCancelled: () => { setEvents(prev => prev.filter(e => e.id !== selectedEvent?.eventId)); setSelectedEvent(null); window.location.reload(); },
     supplyTodos, newSupply, setNewSupply,
     modalMessages, newMessage, setNewMessage,
     sendingMessage, loadingMessages, syncingMessages,
