@@ -1,0 +1,14 @@
+.section { scroll-margin-top: 90px; background: #eee8dc; color: #282d25; }
+.inner { max-width: 1480px; padding: 38px clamp(24px, 5vw, 80px); margin: auto; display: flex; justify-content: space-between; align-items: center; gap: 36px; }
+.eyebrow { font-size: .75rem; letter-spacing: .16em; color: #655b4e; margin-bottom: 12px; }
+.intro h2 { font-size: 1.5rem; font-weight: 400; line-height: 1.5; letter-spacing: -.035em; word-break: keep-all; }
+.intro > p:last-child { font-size: 1rem; line-height: 1.7; color: #655b4e; margin-top: 7px; word-break: keep-all; }
+.form { display: flex; align-items: stretch; flex: 1; max-width: 590px; gap: 12px; }
+.field { flex: 1; min-width: 0; border: 1px solid #b7ac99; padding: 10px 14px; background: #f8f4ec; }
+.field label { display: block; font-size: .875rem; color: #655b4e; }
+.field select { width: 100%; min-height: 36px; font-size: 1rem; color: #282d25; background: transparent; cursor: pointer; }
+.form button { min-height: 54px; padding: 16px 22px; display: flex; justify-content: space-between; align-items: center; gap: 20px; font-size: 1rem; background: #29372c; color: #fff9ef; cursor: pointer; white-space: nowrap; }
+.form button:hover { background: #3e4d3f; }
+.form button:focus-visible, .field select:focus-visible { outline: 2px solid #8b5c30; outline-offset: 4px; }
+@media (max-width: 1000px) { .inner { align-items: stretch; flex-direction: column; gap: 24px; } .form { max-width: none; } }
+@media (max-width: 480px) { .inner { padding: 30px 24px; } .form { flex-direction: column; } }

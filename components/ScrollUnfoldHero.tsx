@@ -1,44 +1,97 @@
 'use client';
 
-import { useRef } from 'react';
-import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowDown, ArrowUpRight } from 'lucide-react';
+import { ArrowDown, ArrowUpRight, Pause, Play } from 'lucide-react';
 import styles from './StayHero.module.css';
 
+type NetworkNavigator = Navigator & { connection?: EventTarget & { saveData?: boolean } };
+function subscribeToPlaybackPreference(onChange: () => void) {
+  const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const connection = (navigator as NetworkNavigator).connection;
+  preference.addEventListener('change', onChange);
+  connection?.addEventListener('change', onChange);
+  return () => {
+    preference.removeEventListener('change', onChange);
+    connection?.removeEventListener('change', onChange);
+  };
+}
+function allowsAutomaticPlayback() {
+  return !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    && !(navigator as NetworkNavigator).connection?.saveData;
+}
+function serverPlaybackPreference() { return false; }
+
 export function ScrollUnfoldHero() {
-  const sceneRef = useRef<HTMLDivElement>(null);
-  const reducedMotion = useReducedMotion();
-  const { scrollYProgress } = useScroll({ target: sceneRef, offset: ['start start', 'end start'] });
-  const photoY = useTransform(scrollYProgress, [0, 1], ['0%', '10%']);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const automaticPlayback = useSyncExternalStore(subscribeToPlaybackPreference, allowsAutomaticPlayback, serverPlaybackPreference);
+  const [manualPlayback, setManualPlayback] = useState(false);
+  const enabled = automaticPlayback || manualPlayback;
+  const [paused, setPaused] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !enabled || failed) return;
+    let visible = true;
+    const syncPlayback = () => {
+      if (paused || !visible || document.hidden) video.pause();
+      else void video.play().catch(() => setPlaying(false));
+    };
+    const observer = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      syncPlayback();
+    }, { threshold: 0.05 });
+    observer.observe(video);
+    document.addEventListener('visibilitychange', syncPlayback);
+    syncPlayback();
+    return () => {
+      observer.disconnect();
+      document.removeEventListener('visibilitychange', syncPlayback);
+      video.pause();
+    };
+  }, [enabled, paused, failed]);
+
+  function togglePlayback() {
+    if (playing) { setPaused(true); videoRef.current?.pause(); }
+    else {
+      setManualPlayback(true);
+      setPaused(false);
+      if (enabled) void videoRef.current?.play().catch(() => setPlaying(false));
+    }
+  }
 
   return (
     <section className={styles.hero} aria-labelledby="stay-hero-title">
-      <div className={styles.scene} ref={sceneRef}>
-        <motion.div className={styles.photoFrame} style={{ y: reducedMotion ? 0 : photoY }}>
-          <Image src="/images/unwa/main.webp" alt="열린 나무 창호 사이로 빛이 드는 운와당의 한옥 실내" fill priority sizes="100vw" quality={85} className={styles.photo} />
-        </motion.div>
-        <div className={styles.shade} aria-hidden="true" />
+      <div className={styles.scene}>
+        <div className={styles.media}>
+          <Image src="/videos/hanok-hero-poster.webp" alt="북촌의 기와지붕 사이로 이어지는 골목" fill priority sizes="100vw" className={styles.photo} />
+          {enabled && !failed && (
+            <video ref={videoRef} className={styles.video} src="/videos/hanok-hero-v1.mp4"
+              muted loop playsInline preload="metadata" poster="/videos/hanok-hero-poster.webp"
+              aria-hidden="true" tabIndex={-1}
+              onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
+              onError={() => { setFailed(true); setPlaying(false); }} />
+          )}
+          <div className={styles.shade} aria-hidden="true" />
+          {!failed && <button type="button" onClick={togglePlayback} className={styles.playback}
+            aria-label={playing ? '배경 영상 일시정지' : '배경 영상 재생'}>
+            {playing ? <Pause size={15} aria-hidden="true" /> : <Play size={15} aria-hidden="true" />}
+            <span>{playing ? '일시정지' : '영상 재생'}</span>
+          </button>}
+          <span className={styles.filmLabel}>BUKCHON · HANOK STAYS</span>
+        </div>
         <div className={styles.content}>
-          <p className={styles.eyebrow}><span aria-hidden="true" /> BUKCHON, SEOUL · HANOK STAY</p>
-          <h1 id="stay-hero-title" className={styles.title}>북촌의 골목 끝,<br /><span>나만의 머무름.</span></h1>
-          <p className={styles.description}>오래된 집의 온기와 오늘의 편안함.<br />잠시 일상을 비우고, 당신의 시간으로 채우세요.</p>
+          <p className={styles.eyebrow}>SEOUL, BUKCHON / VOID ANCHAE</p>
+          <h1 id="stay-hero-title" className={styles.title}>골목을 걷다,<br /><span>한옥에 머물다.</span></h1>
+          <p className={styles.description}>문을 열면 시작되는 느긋한 하루.<br />당신의 여행에 어울리는 한옥을 만나보세요.</p>
           <div className={styles.actions}>
-            <Link href="#spaces" className={styles.primary}>공간 둘러보기 <ArrowDown size={17} aria-hidden="true" /></Link>
-            <Link href="/brand" className={styles.secondary}>안채의 이야기 <ArrowUpRight size={17} aria-hidden="true" /></Link>
+            <Link href="#find-stay" className={styles.primary}>나의 한옥 예약하기 <ArrowUpRight size={18} aria-hidden="true" /></Link>
+            <Link href="#spaces" className={styles.secondary}>공간 둘러보기 <ArrowDown size={17} aria-hidden="true" /></Link>
           </div>
         </div>
-        <Link href="/book/unwadang" className={styles.caption} aria-label="사진 속 운와당의 공간과 예약 정보 보기">
-          <span className={styles.captionIndex}>01 / OUR SPACES</span>
-          <span className={styles.captionName}>운와당 <span>雲窩堂</span><ArrowUpRight size={19} aria-hidden="true" /></span>
-          <span className={styles.captionDetail}>구름이 머무는 마당</span>
-        </Link>
-        <span className={styles.vertical} aria-hidden="true">A QUIET PLACE OF YOUR OWN</span>
-      </div>
-      <div className={styles.note}>
-        <p>도시의 한가운데서 만나는 <span>고요한 한옥의 하루.</span></p>
-        <Link href="#spaces">머물고 싶은 공간을 찾아보세요 <ArrowUpRight size={16} aria-hidden="true" /></Link>
       </div>
     </section>
   );
