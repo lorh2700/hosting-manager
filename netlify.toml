@@ -1,5 +1,5 @@
 [build]
-command = "npm run build"
+command = "PAYPAL_ENV=live node scripts/check-paypal-auth.mjs && npm run build"
 publish = ".next"
 
 [functions]
