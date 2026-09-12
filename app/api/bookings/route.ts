@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { requireUnpaidBooking } from '@/lib/payments/guard';
 import {
   withAuth, ok, created, fail, MESSAGES,
   requireManage, visibleScope, readJson, dateStr, str, int, idList, query, requireQuery,
@@ -79,6 +80,7 @@ export const PUT = withAuth('bookings', async (req, { auth }) => {
 
   const data = pickBookingFields(body);
   if (Object.keys(data).length === 0) throw fail(400, MESSAGES.noFields);
+  await requireUnpaidBooking(id);
   const nextIn = (data.checkIn as string | undefined) ?? existing.checkIn;
   const nextOut = (data.checkOut as string | undefined) ?? existing.checkOut;
   if (nextIn >= nextOut) throw fail(400, '체크아웃은 체크인보다 뒤여야 합니다.');
@@ -92,6 +94,7 @@ export const DELETE = withAuth('bookings', async (req, { auth }) => {
   if (!existing) throw fail(404, MESSAGES.notFound);
   requireManage(auth, existing.propertyId);
 
+  await requireUnpaidBooking(id);
   await prisma.booking.delete({ where: { id } });
   return ok({ success: true });
 });

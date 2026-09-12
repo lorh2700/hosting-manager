@@ -80,6 +80,7 @@ model Property {
   integrations         Integration[]
   events               Event[]
   bookings             Booking[]
+  checkoutOrders       CheckoutOrder[]
   cleanings            Cleaning[]
   messages             Message[]
   supplyTodos          SupplyTodo[]
@@ -224,11 +225,50 @@ model Booking {
   createdAt  DateTime @default(now()) @map("created_at")
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  checkout CheckoutOrder?
 
   @@index([propertyId, status])
   @@index([channelBookingRef])
   @@index([propertyId, status, checkOut])
   @@map("bookings")
+}
+
+// Persistent payment workflow. Amount is integer KRW or USD cents; never recomputed after checkout starts.
+model CheckoutOrder {
+  id           String @id @default(uuid())
+  tokenHash    String @unique @map("token_hash")
+  propertyId   String @map("property_id")
+  property     Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  roomId       Int @map("room_id")
+  offerId      Int @map("offer_id")
+  propertyName String @map("property_name")
+  checkIn      String @map("check_in")
+  checkOut     String @map("check_out")
+  guests       Int
+  name         String
+  email        String
+  phone        String
+  gateway      String
+  mode         String
+  currency     String
+  amountMinor  Int @map("amount_minor")
+  priceKrw     Int @map("price_krw")
+  fxRate       String? @map("fx_rate")
+  terms        String
+  termsAcceptedAt DateTime? @map("terms_accepted_at")
+  status       String @default("quoted")
+  beds24Id     String? @unique @map("beds24_id")
+  paymentKey   String? @unique @map("payment_key")
+  bookingId    String? @unique @map("booking_id")
+  booking      Booking? @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  expiresAt    DateTime @map("expires_at")
+  leaseUntil   DateTime? @map("lease_until")
+  lastError    String? @map("last_error")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  @@index([status, updatedAt])
+  @@index([propertyId, checkIn, checkOut])
+  @@map("checkout_orders")
 }
 
 // ── 게스트 ──

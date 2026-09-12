@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { requireUnpaidBooking } from '@/lib/payments/guard';
 import { describeBeds24Error, BEDS24_REFRESH_TOKEN } from '@/lib/beds24';
 import { registerBeds24BookingVerified, cancelBeds24Booking, ROUTE_BUDGET_MS } from '@/lib/beds24-register';
 import { withAuth, ok, created, fail, requireManage, readJson, str, int, dateStr } from '@/lib/core/http';
@@ -80,6 +81,7 @@ export const PUT = withAuth('beds24/bookings', async (req, { auth }) => {
   requireManage(auth, booking.propertyId);
 
   if (action !== 'cancel') throw fail(400, '알 수 없는 작업입니다.');
+  await requireUnpaidBooking(booking.id);
 
   // 화면이 보낸 id 보다 DB 에 저장된 Beds24 참조를 우선한다.
   const ref = booking.channelBookingRef || (body.beds24BookingId ? String(body.beds24BookingId) : null);

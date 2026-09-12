@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { requireUnpaidBedsBooking } from '@/lib/payments/guard';
 import {
   withAuth, ok, created, fail, MESSAGES,
   requireManage, visibleScope, readJson, dateStr, str, idList, query, requireQuery,
@@ -80,11 +81,12 @@ export const PUT = withAuth('events', async (req, { auth }) => {
   const body = await readJson(req);
   const id = str(body, 'id', { required: true })!;
 
-  const existing = await prisma.event.findUnique({ where: { id }, select: { propertyId: true, startDate: true, endDate: true } });
+  const existing = await prisma.event.findUnique({ where: { id }, select: { propertyId: true, startDate: true, endDate: true, channelId: true, originalUid: true } });
   if (!existing) throw fail(404, MESSAGES.notFound);
   requireManage(auth, existing.propertyId);
 
   const data = pickEventFields(body);
+  if (existing.channelId === 'beds24' && existing.originalUid && (body.startDate || body.endDate || body.type)) await requireUnpaidBedsBooking(existing.originalUid);
   // 다른 숙소·다른 원본으로 옮기는 것은 허용하지 않는다.
   delete data.channelId;
   delete data.originalUid;
@@ -99,10 +101,11 @@ export const PUT = withAuth('events', async (req, { auth }) => {
 
 export const DELETE = withAuth('events', async (req, { auth }) => {
   const id = requireQuery(req, 'id');
-  const existing = await prisma.event.findUnique({ where: { id }, select: { propertyId: true } });
+  const existing = await prisma.event.findUnique({ where: { id }, select: { propertyId: true, channelId: true, originalUid: true } });
   if (!existing) throw fail(404, MESSAGES.notFound);
   requireManage(auth, existing.propertyId);
 
+  if (existing.channelId === 'beds24' && existing.originalUid) await requireUnpaidBedsBooking(existing.originalUid);
   await prisma.event.delete({ where: { id } });
   return ok({ success: true });
 });

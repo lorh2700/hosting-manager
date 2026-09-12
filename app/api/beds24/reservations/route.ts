@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { requireUnpaidBedsBooking } from '@/lib/payments/guard';
 import { ensureCleaningsForProperty } from '@/lib/sync-engine';
 import { describeBeds24Error, BEDS24_REFRESH_TOKEN } from '@/lib/beds24';
 import { registerBeds24BookingVerified, cancelBeds24Booking, ROUTE_BUDGET_MS } from '@/lib/beds24-register';
@@ -128,6 +129,7 @@ export const DELETE = withAuth('beds24/reservations', async (req, { auth }) => {
   if (event.type !== 'reservation' || !event.originalUid) throw fail(400, '유효한 Beds24 예약이 아닙니다.');
   if (!['manual-reservation', 'Beds24', 'direct'].includes(event.source ?? '')) throw fail(400, '직접 등록한 예약만 취소할 수 있습니다.');
   if (event.originalUid) {
+    await requireUnpaidBedsBooking(event.originalUid);
     try {
       const property = await prisma.property.findUnique({ where: { id: event.propertyId }, select: { beds24RoomId: true } });
       if (!property?.beds24RoomId) throw new Error('Beds24 객실 연결을 확인해 주세요.');

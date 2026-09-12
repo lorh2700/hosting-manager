@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -406,6 +407,7 @@ export default function BookingsPage() {
           <p className="text-[13px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">예약</p>
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-900">예약 관리</h1>
           <p className="text-stone-500 mt-2 text-sm">직접 예약과 OTA 채널 예약을 통합 관리하세요.</p>
+          <Link href="/admin/payments" className="inline-flex min-h-12 items-center underline text-sm">온라인 결제·환불 관리 →</Link>
         </div>
         <button
           onClick={() => setIsCreateOpen(true)}

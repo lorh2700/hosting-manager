@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { checkoutConfig } from '@/lib/payments/config';
 import { getPropertyDisplay, propertyImagePaths, slugCandidates } from '@/lib/property-display';
 import { withErrors, ok, fail } from '@/lib/core/http';
 
@@ -31,7 +32,12 @@ export const GET = withErrors<{ id: string }>('public/properties/id', async (_re
     ];
   }
 
+  const checkoutMethods = (['card', 'paypal'] as const).filter(method => {
+    try { checkoutConfig(property.id, method); return method !== 'paypal' || Number(process.env.CHECKOUT_KRW_PER_USD) > 0; }
+    catch { return false; }
+  });
   return ok({
+    checkoutMethods,
     id: property.id,
     slug: property.slug,
     status: property.status,

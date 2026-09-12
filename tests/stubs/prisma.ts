@@ -165,6 +165,12 @@ function collection(model: string) {
       const r = rows().find(r => matches(r, args.where));
       return r ? project(r, args.select, args.include) : null;
     },
+    findUniqueOrThrow: async (args: Row = {}) => {
+      record('findUniqueOrThrow');
+      const r = rows().find(r => matches(r, args.where));
+      if (!r) throw notFound(model);
+      return project(r, args.select, args.include);
+    },
     count: async (args: Row = {}) => { record('count'); return rows().filter(r => matches(r, args.where)).length; },
     create: async (args: Row) => {
       record('create');

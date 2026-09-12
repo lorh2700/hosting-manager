@@ -22,6 +22,8 @@ export default function BookPage() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [checkoutMethods, setCheckoutMethods] = useState<string[]>([]);
+  const [gateway, setGateway] = useState('card');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -47,6 +49,8 @@ export default function BookPage() {
         const res = await fetch(`/api/public/properties/${id}`);
         if (res.ok) {
           const data = await res.json();
+          setCheckoutMethods(data.checkoutMethods ?? []);
+          setGateway(data.checkoutMethods?.[0] ?? 'card');
           setProperty({
             id: data.id,
             name: data.name,
@@ -212,11 +216,13 @@ export default function BookPage() {
     setIsSubmitting(true);
     setErrorMessage(null);
     try {
-      const res = await fetch('/api/public/bookings', {
+      const onlinePayment = checkoutMethods.length > 0;
+      const res = await fetch(onlinePayment ? '/api/public/checkout' : '/api/public/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          propertyId: id,
+          propertyId: property!.id,
+          ...(onlinePayment ? { action: 'quote', gateway } : {}),
           propertyName: property?.name || '',
           checkIn: format(checkIn, 'yyyy-MM-dd'),
           checkOut: format(checkOut, 'yyyy-MM-dd'),
@@ -232,7 +238,10 @@ export default function BookPage() {
         throw new Error(data.error || '예약 실패');
       }
 
-      setIsSuccess(true);
+      if (onlinePayment) {
+        const quote = await res.json();
+        window.location.assign(`/book/checkout/${quote.id}#token=${encodeURIComponent(quote.token)}`);
+      } else setIsSuccess(true);
     } catch (error: unknown) {
       console.error(error);
       const message = error instanceof Error ? error.message : '예약에 실패했습니다. 다시 시도해주세요.';
@@ -720,6 +729,14 @@ export default function BookPage() {
                 </div>
               </div>
 
+              {checkoutMethods.length > 0 && <fieldset className="space-y-3">
+                <legend className="text-sm mb-2">결제수단 / Payment method</legend>
+                {checkoutMethods.map(method => <label key={method} className="flex items-center gap-3 border border-stone-700 p-4 cursor-pointer">
+                  <input type="radio" name="gateway" value={method} checked={gateway === method} onChange={() => setGateway(method)} />
+                  {method === 'paypal' ? 'PayPal · USD' : '카드·간편결제 / Card · KRW'}
+                </label>)}
+                <p className="text-sm text-stone-400">다음 화면에서 최종 요금과 취소 규정을 확인합니다.<br />Review the total price and cancellation policy on the next screen.</p>
+              </fieldset>}
               <button
                 type="submit"
                 disabled={!checkIn || !checkOut || !name || !phone || !email || isSubmitting}
@@ -730,7 +747,7 @@ export default function BookPage() {
                     : 'bg-stone-800/60 text-stone-600 cursor-not-allowed'}
                 `}
               >
-                {isSubmitting ? '처리 중...' : '예약 요청하기'}
+                {isSubmitting ? '처리 중...' : checkoutMethods.length > 0 ? '최종 요금 확인 / Review total price' : '예약 요청하기'}
               </button>
 
               {!checkIn && (
