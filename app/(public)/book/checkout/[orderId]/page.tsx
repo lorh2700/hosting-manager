@@ -7,7 +7,7 @@ import Link from 'next/link';
 
 type Order = { id: string; status: string; propertyName: string; checkIn: string; checkOut: string; guests: number;
   currency: string; amount: number; gateway: string; terms: string; expiresAt: string; mode: string;
-  priceKrw: number; fxRate: string | null; bookingId: string | null; clientKey?: string; customerName?: string; customerEmail?: string };
+  priceKrw: number; fxRate: string | null; bookingId: string | null; approvalUrl?: string; resumeConfirmation?: boolean; clientKey?: string; customerName?: string; customerEmail?: string };
 type TossWindow = Window & { TossPayments?: (key: string) => { payment: (args: { customerKey: string }) => { requestPayment: (args: Record<string, unknown>) => Promise<void> } } };
 const statusText: Record<string, string> = {
   quoted: '결제 금액 확인 / Review your payment', holding: '객실 확보 확인 중 / Checking room hold',
@@ -27,7 +27,6 @@ export default function CheckoutPage() {
   const [agreed, setAgreed] = useState(false);
   const [sdkReady, setSdkReady] = useState(false);
   const [international, setInternational] = useState(false);
-  const [country, setCountry] = useState('');
   const send = useCallback(async (action: string, extras: object = {}) => {
     const res = await fetch('/api/public/checkout', { method: 'POST', cache: 'no-store',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token.current}` },
@@ -49,7 +48,7 @@ export default function CheckoutPage() {
     if (!token.current) { setError('이 브라우저에서 예약을 다시 시작해주세요. / Please reopen checkout in the original browser.'); return; }
     const result = new URLSearchParams(location.search).get('result');
     if (result === 'fail') setError('결제가 완료되지 않았습니다. 다시 시도할 수 있습니다. / Payment was not completed.');
-    // Query paymentKey/amount are not trusted: server retrieves the order directly from Toss.
+    // Query paymentKey/amount are not trusted: server retrieves the order directly from the payment provider.
     void send(result === 'success' ? 'confirm' : 'status').catch(e => setError(e.message));
     history.replaceState(null, '', location.pathname);
   }, [orderId, send]);
@@ -64,24 +63,29 @@ export default function CheckoutPage() {
     setBusy(true); setError('');
     try {
       const started = await send('start', { acceptTerms: agreed });
+      if (started.gateway === 'paypal') {
+        if (started.resumeConfirmation) { await send('confirm'); return; }
+        if (!started.approvalUrl) throw new Error('PayPal 결제창을 준비하지 못했습니다. 다시 시도해주세요.');
+        window.location.assign(started.approvalUrl);
+        return;
+      }
       const sdk = (window as TossWindow).TossPayments;
       if (!sdk || !started.clientKey) throw new Error('결제창을 불러오지 못했습니다. / Reload the payment page.');
       await sdk(started.clientKey).payment({ customerKey: started.id }).requestPayment({
-        method: started.gateway === 'paypal' ? 'FOREIGN_EASY_PAY' : 'CARD',
+        method: 'CARD',
         amount: { currency: started.currency, value: started.amount },
         orderId: started.id, orderName: `${started.propertyName} ${started.checkIn} ~ ${started.checkOut}`.slice(0, 100),
         customerName: started.customerName, customerEmail: started.customerEmail,
         successUrl: `${location.origin}/book/checkout/${orderId}?result=success`,
         failUrl: `${location.origin}/book/checkout/${orderId}?result=fail`,
-        ...(started.gateway === 'paypal' ? { foreignEasyPay: { provider: 'PAYPAL', country } } :
-          { card: { useInternationalCardOnly: international, language: international ? 'EN' : 'KO' } }),
+        card: { useInternationalCardOnly: international, language: international ? 'EN' : 'KO' },
       });
     } catch (e) { setError(e instanceof Error ? e.message : '결제 처리 중 오류가 발생했습니다.'); }
     finally { setBusy(false); }
   }
   const payable = order && ['quoted', 'awaiting_payment'].includes(order.status);
   return <main className="min-h-screen bg-stone-950 text-stone-100 px-5 py-12">
-    <Script src="https://js.tosspayments.com/v2/standard" onReady={() => setSdkReady(true)} onError={() => setError('결제창 로딩 실패 / Payment SDK failed to load')} />
+    {order?.gateway === 'card' && <Script src="https://js.tosspayments.com/v2/standard" onReady={() => setSdkReady(true)} onError={() => setError('결제창 로딩 실패 / Payment SDK failed to load')} />}
     <div className="max-w-lg mx-auto space-y-7">
       <Link href="/" className="text-sm tracking-widest">VOID ANCHAE</Link>
       <h1 className="text-2xl">{order ? statusText[order.status] ?? '처리 중 / Processing' : '예약 결제 / Reservation payment'}</h1>
@@ -103,12 +107,8 @@ export default function CheckoutPage() {
           <label className="flex items-start gap-3 py-2"><input className="mt-1 size-5" type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
             <span>일정·금액·취소 규정에 동의합니다.<br />I agree to the dates, total price and cancellation policy.</span></label>
           {order.gateway === 'card' && <label className="flex gap-3"><input type="checkbox" checked={international} onChange={e => setInternational(e.target.checked)} />Overseas-issued card / 해외 발급 카드</label>}
-          {order.gateway === 'paypal' && <label className="block space-y-2"><span>PayPal account country / 계정 국가</span>
-            <select className="block w-full min-h-12 bg-stone-900 border border-stone-600 p-3" value={country} onChange={e => setCountry(e.target.value)}>
-              <option value="">Select your country</option>
-              {['US','GB','CA','AU','NZ','JP','TW','HK','SG','MY','TH','PH','ID','VN','IN','DE','FR','IT','ES','NL','BE','CH','AT','SE','NO','DK','FI','IE','PT','PL','CZ','GR','AE','IL','BR','MX','ZA','KR'].map(code => <option key={code} value={code}>{new Intl.DisplayNames(['en'], { type: 'region' }).of(code)}</option>)}
-            </select></label>}
-          <button onClick={pay} disabled={busy || !agreed || !sdkReady || (order.gateway === 'paypal' && !country)} className="w-full min-h-14 bg-stone-100 text-stone-950 px-4 py-4 disabled:opacity-40">
+          {order.gateway === 'paypal' && <p className="text-sm text-stone-300">PayPal 보안 결제창으로 이동합니다. / Continue to PayPal to pay.</p>}
+          <button onClick={pay} disabled={busy || !agreed || (order.gateway === 'card' && !sdkReady)} className="w-full min-h-14 bg-stone-100 text-stone-950 px-4 py-4 disabled:opacity-40">
             {busy ? '처리 중 / Processing…' : `${order.gateway === 'paypal' ? 'PayPal' : '카드·간편결제 / Card'} · ${order.currency} ${order.amount} 결제 / Pay`}
           </button>
         </>}

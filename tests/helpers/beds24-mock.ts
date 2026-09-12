@@ -17,7 +17,7 @@ globalThis.fetch = (async (input: any, init: any = {}) => {
   const url = String(input);
   const method = init.method ?? 'GET';
   const headers: Record<string, string> = init.headers ?? {};
-  const body = init.body ? JSON.parse(init.body) : undefined;
+  const body = init.body ? (headers['Content-Type'] === 'application/x-www-form-urlencoded' ? Object.fromEntries(new URLSearchParams(init.body)) : JSON.parse(init.body)) : undefined;
   const entry: FetchEntry = { method, url, body, token: headers.token };
   fetchLog.push(entry);
   const u = new URL(url);

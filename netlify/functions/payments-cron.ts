@@ -1,7 +1,7 @@
 import type { Config } from '@netlify/functions';
 const handler = async () => {
   // Disabling new sales must not strand previously created orders.
-  if (!process.env.TOSS_SECRET_KEY && !process.env.TOSS_PAYPAL_SECRET_KEY) return new Response('Not configured');
+  if (!process.env.TOSS_SECRET_KEY && !process.env.PAYPAL_CLIENT_SECRET) return new Response('Not configured');
   const origin = process.env.URL;
   const secret = process.env.CRON_SECRET;
   if (!origin || !secret) return new Response('Missing configuration', { status: 500 });

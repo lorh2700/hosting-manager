@@ -15,6 +15,7 @@ const order = (over: Partial<CheckoutOrder> = {}): CheckoutOrder => ({ id, prope
   tokenHash: createHash('sha256').update('valid-token').digest('hex'), propertyName: 'Test', checkIn: '2027-10-01', checkOut: '2027-10-03', guests: 2,
   name: 'Test Guest', email: 'test@example.com', phone: '+12025550100', gateway: 'card', mode: 'test', currency: 'KRW', amountMinor: 350000, priceKrw: 350000,
   fxRate: null, terms: 'Test terms', termsAcceptedAt: null, status: 'awaiting_payment', beds24Id: '123', paymentKey: null, bookingId: null,
+  paypalRefundId: null, paypalRefundRequestedAt: null,
   expiresAt: new Date(Date.now() + 900000), leaseUntil: null, lastError: null, createdAt: new Date(), updatedAt: new Date(), ...over });
 
 let remoteStatus: string;

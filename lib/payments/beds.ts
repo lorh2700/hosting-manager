@@ -2,13 +2,14 @@ import { beds24Get, beds24Post } from '@/lib/beds24';
 import { fetchBeds24BookingById, type Beds24Booking } from '@/lib/beds24-booking';
 import type { CheckoutOrder } from '@/generated/prisma/client';
 import { toMinor } from './money';
+import { fail } from '@/lib/core/http';
 
 export const checkoutMarker = (id: string) => `void-checkout:${id}`;
 
 export function selectOffer(raw: unknown, roomId: number, offerId: number) {
   const data = raw as { data?: { roomId: number; offers?: { offerId: number; price: number; unitsAvailable: number }[] }[] };
   const offer = data.data?.find(r => r.roomId === roomId)?.offers?.find(o => o.offerId === offerId && o.unitsAvailable > 0);
-  if (!offer) throw new Error('선택한 일정에 판매 가능한 요금이 없습니다. / No available offer.');
+  if (!offer) throw fail(409, '선택한 날짜와 인원으로 예약 가능한 요금이 없습니다. / No available offer.');
   return toMinor(offer.price, 'KRW');
 }
 

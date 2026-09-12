@@ -19,6 +19,29 @@ export default function BookPage() {
   const [checkOut, setCheckOut] = useState<Date | null>(null);
 
   const [guests, setGuests] = useState(2);
+  const [stayPrice, setStayPrice] = useState<{ priceKrw: number; nights: number } | null>(null);
+  const [priceLoading, setPriceLoading] = useState(false);
+  const [priceError, setPriceError] = useState('');
+  useEffect(() => {
+    setStayPrice(null); setPriceError(''); setPriceLoading(false);
+    if (!property?.id || property.status !== 'active' || !checkIn || !checkOut) return;
+    const controller = new AbortController();
+    setPriceLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/public/checkout', { method: 'POST', signal: controller.signal,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'price', propertyId: property.id, checkIn: format(checkIn, 'yyyy-MM-dd'), checkOut: format(checkOut, 'yyyy-MM-dd'), guests }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? '요금을 불러오지 못했습니다.');
+        if (!controller.signal.aborted) setStayPrice(data);
+      } catch (error) {
+        if (!controller.signal.aborted) setPriceError(error instanceof Error ? error.message : '요금 조회에 실패했습니다.');
+      } finally { if (!controller.signal.aborted) setPriceLoading(false); }
+    }, 500);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [property?.id, property?.status, checkIn, checkOut, guests]);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -729,6 +752,13 @@ export default function BookPage() {
                 </div>
               </div>
 
+              {checkIn && checkOut && <section aria-live="polite" className="border border-stone-700 p-5 space-y-2">
+                <h3 className="text-sm text-stone-300">총 숙박요금</h3>
+                {priceLoading && <p className="text-sm text-stone-400">선택한 날짜의 요금을 확인하고 있습니다…</p>}
+                {stayPrice && <><p className="text-2xl text-stone-100">₩{stayPrice.priceKrw.toLocaleString()} <span className="text-sm">/ {stayPrice.nights}박 · {guests}명</span></p>
+                  <p className="text-xs text-stone-400">결제 전 요금과 예약 가능 여부를 다시 확인합니다. PayPal 결제 시 다음 화면에서 USD 금액을 확인할 수 있습니다.</p></>}
+                {priceError && <p className="text-sm text-amber-300">{priceError}</p>}
+              </section>}
               {checkoutMethods.length > 0 && <fieldset className="space-y-3">
                 <legend className="text-sm mb-2">결제수단 / Payment method</legend>
                 {checkoutMethods.map(method => <label key={method} className="flex items-center gap-3 border border-stone-700 p-4 cursor-pointer">

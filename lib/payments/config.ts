@@ -2,7 +2,16 @@ import type { Gateway } from './money';
 
 export function paymentKeys(gateway: string, mode: string) {
   if (!['test', 'live'].includes(mode) || mode !== process.env.CHECKOUT_MODE) throw new Error('Payment mode mismatch');
-  const prefix = gateway === 'paypal' ? 'TOSS_PAYPAL' : 'TOSS';
+  if (gateway === 'paypal') {
+    const expected = mode === 'live' ? 'live' : 'sandbox';
+    if (process.env.PAYPAL_ENV !== expected) throw new Error('PayPal environment mismatch');
+    const clientKey = process.env.PAYPAL_CLIENT_ID?.trim();
+    const secretKey = process.env.PAYPAL_CLIENT_SECRET?.trim();
+    if (!clientKey || !secretKey) throw new Error('PayPal credentials are not configured');
+    return { clientKey, secretKey };
+  }
+  if (gateway !== 'card') throw new Error('Unknown payment gateway');
+  const prefix = 'TOSS';
   const clientKey = process.env[`${prefix}_CLIENT_KEY`];
   const secretKey = process.env[`${prefix}_SECRET_KEY`];
   if (!clientKey?.startsWith(`${mode}_ck_`) || !secretKey?.startsWith(`${mode}_sk_`)) throw new Error('Payment API keys are not configured');

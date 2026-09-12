@@ -259,6 +259,8 @@ model CheckoutOrder {
   status       String @default("quoted")
   beds24Id     String? @unique @map("beds24_id")
   paymentKey   String? @unique @map("payment_key")
+  paypalRefundId String? @unique @map("paypal_refund_id")
+  paypalRefundRequestedAt DateTime? @map("paypal_refund_requested_at")
   bookingId    String? @unique @map("booking_id")
   booking      Booking? @relation(fields: [bookingId], references: [id], onDelete: Restrict)
   expiresAt    DateTime @map("expires_at")

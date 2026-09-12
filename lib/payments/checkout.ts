@@ -9,7 +9,9 @@ import { fail } from '@/lib/core/http';
 import { checkoutConfig, paymentKeys } from './config';
 import { assertPayment, chargeAmount, majorAmount } from './money';
 import { assertHold, createHold, finalizeHold, findHold, getPrice, releaseHold } from './beds';
-import { confirmPayment, getPayment, refundPayment, TossError } from './toss';
+import { TossError } from './toss';
+import { confirmPayment, getPayment, refundPayment } from './provider';
+import { PayPalError, startPayPal } from './paypal';
 
 const hash = (token: string) => createHash('sha256').update(token).digest('hex');
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v => {
@@ -20,6 +22,23 @@ const inputSchema = z.object({ propertyId: z.string().uuid(), checkIn: date, che
   email: z.email().max(100), phone: z.string().trim().min(6).max(40), gateway: z.enum(['card', 'paypal']),
 });
 
+export async function priceStay(raw: unknown) {
+  const parsed = inputSchema.pick({ propertyId: true, checkIn: true, checkOut: true, guests: true }).safeParse(raw);
+  if (!parsed.success) throw fail(400, '숙소·날짜·인원을 확인해주세요.');
+  const data = parsed.data;
+  const nights = (Date.parse(data.checkOut) - Date.parse(data.checkIn)) / 86400000;
+  if (data.checkIn < todayKst() || nights < 1 || nights > 30) throw fail(400, '1~30박의 미래 일정을 선택해주세요.');
+  const property = await prisma.property.findUnique({ where: { id: data.propertyId } });
+  if (!property || property.status !== 'active' || !property.beds24RoomId || !property.beds24PropId || !property.maxGuests || data.guests > property.maxGuests) throw fail(400, '이 숙소의 온라인 요금을 조회할 수 없습니다.');
+  const roomId = Number(property.beds24RoomId);
+  const offerId = Number(process.env.CHECKOUT_BEDS24_OFFER_ID);
+  if (!Number.isSafeInteger(roomId) || roomId < 1 || !Number.isSafeInteger(offerId) || offerId < 1 || process.env.CHECKOUT_PRICE_INCLUDES_ALL_FEES !== 'true') throw fail(503, '숙소 요금 설정을 확인 중입니다.');
+  const details = await beds24Get('/properties', { id: String(property.beds24PropId) });
+  if (details.data?.find((p: { id: number }) => String(p.id) === String(property.beds24PropId))?.currency !== 'KRW') throw fail(400, '현재 원화로 설정한 숙소만 지원합니다.');
+  const priceKrw = await getPrice(roomId, offerId, data.checkIn, data.checkOut, data.guests);
+  return { priceKrw, currency: 'KRW', nights, roomId, offerId, propertyName: property.name };
+}
+
 export async function quoteCheckout(raw: unknown) {
   const parsed = inputSchema.safeParse(raw);
   if (!parsed.success) throw fail(400, '예약자 정보와 일정을 확인해 주세요. / Please check your details.');
@@ -29,17 +48,11 @@ export async function quoteCheckout(raw: unknown) {
   const config = checkoutConfig(data.propertyId, data.gateway);
   const recent = await prisma.checkoutOrder.count({ where: { email: data.email, createdAt: { gt: new Date(Date.now() - 60 * 60_000) } } });
   if (recent >= 10) throw fail(429, '요금 조회 횟수를 초과했습니다. 잠시 후 다시 시도해주세요.');
-  const property = await prisma.property.findUnique({ where: { id: data.propertyId } });
-  if (!property || property.status !== 'active' || !property.beds24RoomId || !property.beds24PropId || !property.maxGuests || data.guests > property.maxGuests) throw fail(400, '이 숙소는 온라인 결제할 수 없습니다.');
-  const roomId = Number(property.beds24RoomId);
-  // Never assume that a Beds24 account is priced in KRW.
-  const details = await beds24Get('/properties', { id: String(property.beds24PropId) });
-  if (details.data?.find((p: { id: number }) => String(p.id) === String(property.beds24PropId))?.currency !== 'KRW') throw fail(400, '현재 원화로 설정한 숙소만 지원합니다.');
-  const priceKrw = await getPrice(roomId, config.offerId, data.checkIn, data.checkOut, data.guests);
+  const { priceKrw, roomId, propertyName } = await priceStay(data);
   const amount = chargeAmount(priceKrw, data.gateway, process.env.CHECKOUT_KRW_PER_USD);
   const token = randomBytes(32).toString('base64url');
   const order = await prisma.checkoutOrder.create({ data: { ...data, ...amount, priceKrw,
-    tokenHash: hash(token), roomId, offerId: config.offerId, propertyName: property.name,
+    tokenHash: hash(token), roomId, offerId: config.offerId, propertyName,
     mode: config.mode, terms: config.terms, expiresAt: new Date(Date.now() + 5 * 60_000),
   } });
   return { ...publicOrder(order), token };
@@ -71,7 +84,9 @@ async function withLease(id: string, work: (o: CheckoutOrder) => Promise<void>) 
     await prisma.checkoutOrder.updateMany({ where: { id, status: { not: 'review' } }, data: { lastError: null } });
   } catch (e) {
     // Do not persist raw provider payloads, keys, or guest details.
-    await prisma.checkoutOrder.update({ where: { id }, data: { lastError: e instanceof TossError ? e.code : 'PROCESSING_RETRY_REQUIRED' } });
+    const code = e instanceof TossError || e instanceof PayPalError ? e.code : 'PROCESSING_RETRY_REQUIRED';
+    await prisma.checkoutOrder.update({ where: { id }, data: { lastError: code,
+      ...(['CAPTURE_REQUIRES_REVIEW', 'REFUND_REQUIRES_REVIEW', 'MULTIPLE_CAPTURES', 'AMOUNT_MISMATCH', 'ORDER_MISMATCH', 'CAPTURE_MISMATCH', 'REFUND_MISMATCH'].includes(code) ? { status: 'review' } : {}) } });
     throw e;
   } finally {
     await prisma.checkoutOrder.updateMany({ where: { id, leaseUntil }, data: { leaseUntil: null } });
@@ -80,9 +95,14 @@ async function withLease(id: string, work: (o: CheckoutOrder) => Promise<void>) 
 }
 
 export async function startCheckout(order: CheckoutOrder) {
-  checkoutConfig(order.propertyId, order.gateway as 'card' | 'paypal');
+  const config = checkoutConfig(order.propertyId, order.gateway as 'card' | 'paypal');
+  let paypalStart: { approvalUrl?: string; resumeConfirmation?: boolean } = {};
   const updated = await withLease(order.id, async o => {
-    if (o.status === 'awaiting_payment' && o.expiresAt > new Date()) return;
+    if (o.status === 'awaiting_payment' && o.expiresAt > new Date()) {
+      assertHold(o, await findHold(o));
+      if (o.gateway === 'paypal') paypalStart = await startPayPal(o, config.origin);
+      return;
+    }
     if (o.status !== 'quoted' || o.expiresAt <= new Date()) throw fail(409, '견적이 만료되었습니다. 요금을 다시 확인해주세요.');
     const latest = await getPrice(o.roomId, o.offerId, o.checkIn, o.checkOut, o.guests);
     if (latest !== o.priceKrw) throw fail(409, '판매 요금이 변경되었습니다. 요금을 다시 확인해주세요.');
@@ -93,9 +113,11 @@ export async function startCheckout(order: CheckoutOrder) {
     await prisma.checkoutOrder.update({ where: { id: o.id }, data: { beds24Id } });
     const held = { ...o, beds24Id };
     assertHold(held, await findHold(held));
-    await prisma.checkoutOrder.update({ where: { id: o.id }, data: { status: 'awaiting_payment' } });
+    const ready = await prisma.checkoutOrder.update({ where: { id: o.id }, data: { status: 'awaiting_payment' } });
+    if (o.gateway === 'paypal') paypalStart = await startPayPal(ready, config.origin);
   });
   if (updated.status !== 'awaiting_payment') throw fail(409, '예약 확보 상태를 확인 중입니다.');
+  if (updated.gateway === 'paypal') return { ...publicOrder(updated), ...paypalStart };
   const { clientKey } = paymentKeys(updated.gateway, updated.mode);
   return { ...publicOrder(updated), clientKey, customerName: updated.name, customerEmail: updated.email };
 }
@@ -151,6 +173,12 @@ export async function reconcileCheckout(id: string, approve = false) {
       assertHold(o, found);
       o = await prisma.checkoutOrder.update({ where: { id }, data: { beds24Id: String(found.id), status: 'awaiting_payment' } });
     }
+    // No PayPal approval URL can be returned until paymentKey is saved. A lost create
+    // response therefore cannot have charged the guest and this hold can safely expire.
+    if (o.gateway === 'paypal' && !o.paymentKey && o.status === 'awaiting_payment') {
+      if (o.expiresAt <= new Date()) await clearReservation(o, 'expired');
+      return;
+    }
     let payment;
     try { payment = await getPayment(o); }
     catch (e) {
@@ -160,6 +188,9 @@ export async function reconcileCheckout(id: string, approve = false) {
       throw e;
     }
     assertPayment(o, payment);
+    if (payment.status === 'PARTIAL_CANCELED') {
+      await prisma.checkoutOrder.update({ where: { id }, data: { status: 'review', lastError: 'PARTIAL_REFUND_REVIEW' } }); return;
+    }
     if (o.status === 'refund_pending') {
       if (payment.status !== 'CANCELED') payment = await refundPayment(o);
       assertPayment(o, payment);
@@ -167,9 +198,6 @@ export async function reconcileCheckout(id: string, approve = false) {
       await clearReservation(o, 'refunded'); return;
     }
     if (payment.status === 'CANCELED') { await clearReservation(o, 'refunded'); return; }
-    if (payment.status === 'PARTIAL_CANCELED') {
-      await prisma.checkoutOrder.update({ where: { id }, data: { status: 'review', lastError: 'PARTIAL_REFUND_REVIEW' } }); return;
-    }
     if (payment.status === 'IN_PROGRESS' && (o.status === 'approving' || (approve && o.expiresAt > new Date() && o.status === 'awaiting_payment'))) {
       assertHold(o, await findHold(o));
       // Persist identity before approval so interrupted approval can be reconciled.
