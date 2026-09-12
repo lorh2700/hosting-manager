@@ -1,13 +1,18 @@
 # Booking landing page hero
 
-The public home route `/` uses a silent 25.625-second film assembled from the user's nine accommodation photographs and two Bukchon street photographs. The single-property `/book/[id]` pages retain their own galleries and booking flow; the multi-property film is intentionally used on the shared landing page.
+The public home route `/` uses the user's supplied 30-second `한옥_영상_2.mp4`, compressed for silent background playback. The single-property `/book/[id]` pages retain their own galleries and booking flow; the film is used on the shared landing page.
 
 ## Assets
 
-- `public/videos/hanok-hero-v1.mp4`: H.264 / 1280 × 720 / 24 fps, fast-start, no audio and no burned-in text. Page copy remains responsive HTML.
-- `public/videos/hanok-hero-poster.webp`: the opening street scene, displayed before playback and on media failure.
+- `public/videos/hanok-hero-v2.mp4`: H.264 / 1280 × 720 / 30 fps, yuv420p, fast-start, no audio. Original duration, sequence and embedded ending title are retained. Page copy remains responsive HTML.
+- `public/videos/hanok-hero-v2-poster.webp`: the opening landscape, displayed before playback and on media failure.
+- Encoding: FFmpeg libx264, preset slow, CRF 25, Lanczos downscale, metadata stripped. The original 18,046,098-byte 1080p file is reduced to 3,427,900 bytes (81% smaller). Versioned asset paths avoid reusing cached footage and posters.
 
-The film includes AI-composited fictional guests in three scenes. It is photo-based motion editing, not footage of actual guests. The source images were edited using built-in image generation; the source video project and prompts are in the sibling `hanok-video` workspace directory. Public serving requires only the two assets above, which are stored in this repository.
+Public serving requires only the two v2 assets above, which are stored in this repository. The original supplied file is not needed at runtime.
+
+## Previous version
+
+The retained v1 assets are no longer referenced by the hero. That earlier photo-based film includes AI-composited fictional guests in three scenes, not footage of actual guests. Its source project and prompts are in the sibling `hanok-video` workspace directory. The following external photo credits apply to that previous version:
 
 External photo credits: Bernard Gagnon (Bgag), CC0 1.0; photographed 27 September 2022; license checked 10 September 2026.
 

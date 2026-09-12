@@ -67,10 +67,10 @@ export function ScrollUnfoldHero() {
     <section className={styles.hero} aria-labelledby="stay-hero-title">
       <div className={styles.scene}>
         <div className={styles.media}>
-          <Image src="/videos/hanok-hero-poster.webp" alt="북촌의 기와지붕 사이로 이어지는 골목" fill priority sizes="100vw" className={styles.photo} />
+          <Image src="/videos/hanok-hero-v2-poster.webp" alt="한옥에서 바라보는 초록빛 풍경과 산 능선" fill priority sizes="100vw" className={styles.photo} />
           {enabled && !failed && (
-            <video ref={videoRef} className={styles.video} src="/videos/hanok-hero-v1.mp4"
-              muted loop playsInline preload="metadata" poster="/videos/hanok-hero-poster.webp"
+            <video ref={videoRef} className={styles.video} src="/videos/hanok-hero-v2.mp4"
+              muted loop playsInline preload="metadata" poster="/videos/hanok-hero-v2-poster.webp"
               aria-hidden="true" tabIndex={-1}
               onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
               onError={() => { setFailed(true); setPlaying(false); }} />
