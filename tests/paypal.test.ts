@@ -18,7 +18,7 @@ const order = (over: Partial<CheckoutOrder> = {}): CheckoutOrder => ({ id, prope
 let remoteStatus: string, ppStatus: string, captureStatus: string, refundStatus: string;
 let captureCalls: number, refundCalls: number, createCalls: number, bedsCreates: number;
 let lostCapture: boolean, lostCreate: boolean, lostRefund: boolean, outage: boolean;
-let price: number, amount: string, customId: string, maliciousLink: boolean;
+let price: number, amount: string, customId: string, maliciousLink: boolean, expectedAdults: number;
 const current = () => db.checkoutOrder[0] as CheckoutOrder;
 const remote = () => ({ id: 'PP-ORDER', intent: 'CAPTURE', status: ppStatus,
   purchase_units: [{ custom_id: customId, invoice_id: id, amount: { currency_code: 'USD', value: amount },
@@ -28,7 +28,7 @@ const remote = () => ({ id: 'PP-ORDER', intent: 'CAPTURE', status: ppStatus,
 beforeEach(() => {
   resetDb(); resetFetch(); remoteStatus = 'black'; ppStatus = 'APPROVED'; captureStatus = ''; refundStatus = 'COMPLETED';
   captureCalls = refundCalls = createCalls = bedsCreates = 0; lostCapture = lostCreate = lostRefund = outage = maliciousLink = false;
-  price = 350000; amount = '250.00'; customId = id;
+  price = 350000; amount = '250.00'; customId = id; expectedAdults = 2;
   Object.assign(process.env, { CHECKOUT_ENABLED: 'true', CHECKOUT_MODE: 'test', CHECKOUT_PROPERTY_IDS: pid,
     CHECKOUT_BEDS24_OFFER_ID: '1', CHECKOUT_SITE_URL: 'http://localhost:3100', CHECKOUT_TERMS: 'Terms', CHECKOUT_KRW_PER_USD: '1400',
     CHECKOUT_PRICE_INCLUDES_ALL_FEES: 'true', CRON_SECRET: 'cron-test', PAYPAL_ENV: 'sandbox', PAYPAL_CLIENT_ID: 'dummy-client', PAYPAL_CLIENT_SECRET: 'dummy-secret' });
@@ -60,7 +60,7 @@ beforeEach(() => {
     if (url.pathname.endsWith('/authentication/token')) return json({ token: 'beds-token', expiresIn: 86400 });
     if (url.pathname.endsWith('/properties')) return json({ data: [{ id: 111, currency: 'KRW' }] });
     if (url.pathname.endsWith('/inventory/rooms/offers')) {
-      assert.equal(url.searchParams.get('numAdults'), '2');
+      assert.equal(url.searchParams.get('numAdults'), String(expectedAdults));
       assert.equal(url.searchParams.get('arrival'), '2027-10-01');
       return json({ data: [{ roomId: 555, offers: [{ offerId: 1, price, unitsAvailable: 1 }] }] });
     }
@@ -79,6 +79,28 @@ test('Beds24 prices drive quote; client amount cannot change the charged amount'
   const quote = await quoteCheckout(input); assert.equal(quote.amount, 250); assert.equal(quote.priceKrw, 350000);
   assert.equal(createCalls, 0); assert.equal(bedsCreates, 0);
 });
+test('legacy Firestore property IDs work for price and checkout quotes', async () => {
+  const legacyId = 'oKWKVQqLy7uENyHUwljr';
+  db.property[0].id = legacyId;
+  process.env.CHECKOUT_PROPERTY_IDS = legacyId;
+  const input = { propertyId: legacyId, checkIn: '2027-10-01', checkOut: '2027-10-03', guests: 2,
+    name: 'Guest', email: 'test@example.com', phone: '1234567', gateway: 'paypal' };
+  assert.equal((await priceStay(input)).priceKrw, 350000);
+  assert.equal((await quoteCheckout(input)).amount, 250);
+  for (const propertyId of ['', '../unwadang', 'a'.repeat(129)]) {
+    await assert.rejects(priceStay({ ...input, propertyId }));
+  }
+});
+
+test('six-person capacity accepts six adults and rejects seven before pricing', async () => {
+  db.property[0].maxGuests = 6; expectedAdults = 6;
+  const input = { propertyId: pid, checkIn: '2027-10-01', checkOut: '2027-10-03', guests: 6 };
+  assert.equal((await priceStay(input)).priceKrw, 350000);
+  const before = fetchLog.length;
+  await assert.rejects(priceStay({ ...input, guests: 7 }));
+  assert.equal(fetchLog.length, before);
+});
+
 test('PayPal start holds inventory and creates only one provider order across retries', async () => {
   db.checkoutOrder = [order({ status: 'quoted', paymentKey: null, beds24Id: null })];
   const first = await startCheckout(current()); const second = await startCheckout(current());

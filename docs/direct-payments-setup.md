@@ -27,7 +27,7 @@ Prisma 이력을 관리하는 환경에서는 `npx prisma migrate deploy`를 사
 CHECKOUT_ENABLED=false
 CHECKOUT_MODE=test
 CHECKOUT_SITE_URL=https://voidanchae.com
-# 플랫폼 Property UUID를 쉼표로 구분. Beds24 ID나 slug가 아니다.
+# 플랫폼 Property ID를 쉼표로 구분(UUID 또는 기존 문자형 ID). Beds24 ID나 slug가 아니다.
 CHECKOUT_PROPERTY_IDS=
 CHECKOUT_BEDS24_OFFER_ID=
 # 선택 offer.price가 세금·청소비 등 필수 요금을 모두 포함함을 확인한 뒤 true

@@ -17,7 +17,9 @@ const hash = (token: string) => createHash('sha256').update(token).digest('hex')
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v => {
   const d = new Date(`${v}T00:00:00Z`); return Number.isFinite(d.getTime()) && d.toISOString().slice(0, 10) === v;
 });
-const inputSchema = z.object({ propertyId: z.string().uuid(), checkIn: date, checkOut: date,
+// Properties migrated from Firestore retain their original document IDs.
+// Checkout order IDs are UUIDs, but property IDs may also be legacy IDs.
+const inputSchema = z.object({ propertyId: z.string().trim().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/), checkIn: date, checkOut: date,
   guests: z.number().int().min(1).max(20), name: z.string().trim().min(1).max(80),
   email: z.email().max(100), phone: z.string().trim().min(6).max(40), gateway: z.enum(['card', 'paypal']),
 });
