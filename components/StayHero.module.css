@@ -27,9 +27,10 @@
  .eyebrow { font-size: .75rem; letter-spacing: .13em; margin-bottom: 18px; }
  .title { font-size: clamp(36px, 8.5vw, 54px); line-height: 1.4; }
  .description { margin-top: 18px; }
- .actions { gap: 18px; margin-top: 24px; }
- .primary { padding: 0 18px; }
- .primary, .secondary { gap: 12px; }
+ .actions { gap: 10px; margin-top: 24px; flex-direction: column; align-items: stretch; }
+ .primary { padding: 0 18px; border-radius: 8px; }
+ .primary, .secondary { gap: 12px; min-height: 48px; }
+ .secondary { justify-content: center; border-bottom: 0; }
  .playback { top: 12px; right: 12px; }
  .filmLabel { display: none; }
 }

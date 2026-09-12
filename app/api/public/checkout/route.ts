@@ -9,7 +9,7 @@ export const POST = withErrors('public/checkout', async req => {
   if (!rateLimit(`checkout:${body.action}:${clientIp(req)}`, limit, 10 * 60_000).ok) throw fail(429, '잠시 후 다시 시도해주세요. / Please try again later.');
   if (body.action === 'price') {
     const price = await priceStay(body);
-    return ok({ priceKrw: price.priceKrw, currency: price.currency, nights: price.nights });
+    return ok({ priceKrw: price.priceKrw, currency: price.currency, nights: price.nights, includesAllFees: price.includesAllFees });
   }
   if (body.action === 'quote') return ok(await quoteCheckout(body));
   const order = await authorizedOrder(String(body.orderId ?? ''), req.headers.get('authorization')?.replace(/^Bearer /, '') ?? '');

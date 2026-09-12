@@ -84,10 +84,9 @@ export default function CheckoutPage() {
     finally { setBusy(false); }
   }
   const payable = order && ['quoted', 'awaiting_payment'].includes(order.status);
-  return <main className="min-h-screen bg-stone-950 text-stone-100 px-5 py-12">
+  return <main className="min-h-screen bg-stone-950 text-stone-100 px-5 pt-28 pb-12">
     {order?.gateway === 'card' && <Script src="https://js.tosspayments.com/v2/standard" onReady={() => setSdkReady(true)} onError={() => setError('결제창 로딩 실패 / Payment SDK failed to load')} />}
     <div className="max-w-lg mx-auto space-y-7">
-      <Link href="/" className="text-sm tracking-widest">VOID ANCHAE</Link>
       <h1 className="text-2xl">{order ? statusText[order.status] ?? '처리 중 / Processing' : '예약 결제 / Reservation payment'}</h1>
       {order && <>
         {order.mode === 'test' && <p className="p-3 border border-amber-500 text-amber-300">테스트 결제 / TEST — 실제 결제가 아닙니다.</p>}

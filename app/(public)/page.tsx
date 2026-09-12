@@ -2,128 +2,17 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useState } from 'react';
-import { Menu, X, ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
 import { ScrollUnfoldHero } from '@/components/ScrollUnfoldHero';
 import { StayBookingSearch } from '@/components/StayBookingSearch';
 import { Logo } from '@/components/Logo';
 import { PROPERTY_DISPLAY, PROPERTY_DISPLAY_ORDER } from '@/lib/property-display';
 
-const NAV_LINKS = [
-  { href: '/brand', label: '브랜드' },
-  { href: '#spaces', label: '공간' },
-  { href: '/tours', label: '투어' },
-  { href: '/about', label: '호스팅 지원 플랫폼' },
-];
-
-const SECONDARY_LINKS = [
-  { href: 'https://lab.voidanchae.com', label: 'Lab', external: true },
-  { href: '/admin', label: '관리자', external: false },
-];
-
 export default function PublicPortal() {
-  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#171b18] text-stone-50 selection:bg-stone-400/20 font-sans">
       <a href="#find-stay" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-4 focus:z-[60] focus:bg-white focus:text-stone-900 focus:p-4">숙소 예약으로 바로가기</a>
-      {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-stone-950/55 backdrop-blur-md border-b border-white/[0.06]">
-        <div className="flex justify-between items-center gap-3 px-4 sm:px-6 md:px-8 h-16 md:h-[72px]">
-          <Link href="/" className="flex items-center shrink-0 max-[360px]:w-[120px] hover:opacity-80 transition-opacity" aria-label="void anchae 홈" onClick={() => setMobileOpen(false)}>
-            <Logo width={140} priority />
-          </Link>
-
-          {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-5 text-sm font-medium text-stone-300">
-            {NAV_LINKS.map(link => (
-              <Link key={link.href} href={link.href} className="hover:text-white transition-colors min-h-[44px] inline-flex items-center">
-                {link.label}
-              </Link>
-            ))}
-          </div>
-
-          <div className="hidden md:flex items-center gap-2">
-            <Link href="#find-stay" className="inline-flex items-center min-h-[44px] px-5 bg-[#eee8dc] text-stone-900 text-sm">예약하기</Link>
-            {SECONDARY_LINKS.map(link => (
-              link.external ? (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs uppercase tracking-widest font-medium text-stone-200 bg-white/5 hover:bg-white/15 px-4 py-3 rounded-full transition-colors min-h-[44px] inline-flex items-center"
-                >
-                  {link.label}
-                </a>
-              ) : (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="text-xs uppercase tracking-widest font-medium text-stone-200 bg-white/5 hover:bg-white/15 px-4 py-3 rounded-full transition-colors min-h-[44px] inline-flex items-center"
-                >
-                  {link.label}
-                </Link>
-              )
-            ))}
-          </div>
-
-          {/* Mobile: direct access to available spaces */}
-          <div className="md:hidden flex items-center gap-2 shrink-0">
-            <Link href="#spaces" onClick={() => setMobileOpen(false)} className="min-h-[44px] inline-flex items-center whitespace-nowrap px-3 text-xs text-stone-100 border border-white/25">공간 · 예약</Link>
-            <button
-              type="button"
-              onClick={() => setMobileOpen(v => !v)}
-              aria-label={mobileOpen ? '메뉴 닫기' : '메뉴 열기'}
-              aria-expanded={mobileOpen}
-              className="p-3 -mr-2 text-stone-200 hover:text-white min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
-            >
-              {mobileOpen ? <X size={22} /> : <Menu size={22} />}
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile menu panel */}
-        {mobileOpen && (
-          <div className="md:hidden border-t border-white/[0.06] bg-stone-950/95 backdrop-blur-lg px-6 py-4 space-y-1">
-            {NAV_LINKS.map(link => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setMobileOpen(false)}
-                className="block py-3 text-sm uppercase tracking-widest text-stone-200 hover:text-white min-h-[44px]"
-              >
-                {link.label}
-              </Link>
-            ))}
-            <div className="border-t border-white/[0.06] pt-2 mt-2 space-y-1">
-              {SECONDARY_LINKS.map(link => (
-                link.external ? (
-                  <a
-                    key={link.href}
-                    href={link.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => setMobileOpen(false)}
-                    className="block py-3 text-sm uppercase tracking-widest text-stone-300 hover:text-white min-h-[44px]"
-                  >
-                    {link.label}
-                  </a>
-                ) : (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    onClick={() => setMobileOpen(false)}
-                    className="block py-3 text-sm uppercase tracking-widest text-stone-300 hover:text-white min-h-[44px]"
-                  >
-                    {link.label}
-                  </Link>
-                )
-              ))}
-            </div>
-          </div>
-        )}
-      </nav>
 
       <main>
       {/* Hero Section */}

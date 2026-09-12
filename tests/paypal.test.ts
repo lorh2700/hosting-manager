@@ -79,6 +79,23 @@ test('Beds24 prices drive quote; client amount cannot change the charged amount'
   const quote = await quoteCheckout(input); assert.equal(quote.amount, 250); assert.equal(quote.priceKrw, 350000);
   assert.equal(createCalls, 0); assert.equal(bedsCreates, 0);
 });
+test('price preview works before all-fees verification, but checkout stays blocked', async () => {
+  const input = { propertyId: pid, checkIn: '2027-10-01', checkOut: '2027-10-03', guests: 2,
+    name: 'Guest', email: 'test@example.com', phone: '1234567', gateway: 'paypal' };
+  for (const flag of ['false', undefined]) {
+    if (flag === undefined) delete process.env.CHECKOUT_PRICE_INCLUDES_ALL_FEES;
+    else process.env.CHECKOUT_PRICE_INCLUDES_ALL_FEES = flag;
+    const preview = await priceStay(input);
+    assert.equal(preview.priceKrw, 350000);
+    assert.equal(preview.includesAllFees, false);
+    await assert.rejects(quoteCheckout(input));
+    assert.equal(db.checkoutOrder.length, 1);
+    assert.equal(createCalls, 0); assert.equal(bedsCreates, 0);
+  }
+  process.env.CHECKOUT_PRICE_INCLUDES_ALL_FEES = 'true';
+  assert.equal((await priceStay(input)).includesAllFees, true);
+});
+
 test('legacy Firestore property IDs work for price and checkout quotes', async () => {
   const legacyId = 'oKWKVQqLy7uENyHUwljr';
   db.property[0].id = legacyId;

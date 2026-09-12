@@ -34,11 +34,12 @@ export async function priceStay(raw: unknown) {
   if (!property || property.status !== 'active' || !property.beds24RoomId || !property.beds24PropId || !property.maxGuests || data.guests > property.maxGuests) throw fail(400, '이 숙소의 온라인 요금을 조회할 수 없습니다.');
   const roomId = Number(property.beds24RoomId);
   const offerId = Number(process.env.CHECKOUT_BEDS24_OFFER_ID);
-  if (!Number.isSafeInteger(roomId) || roomId < 1 || !Number.isSafeInteger(offerId) || offerId < 1 || process.env.CHECKOUT_PRICE_INCLUDES_ALL_FEES !== 'true') throw fail(503, '숙소 요금 설정을 확인 중입니다.');
+  if (!Number.isSafeInteger(roomId) || roomId < 1 || !Number.isSafeInteger(offerId) || offerId < 1) throw fail(503, '숙소 요금 설정을 확인 중입니다.');
   const details = await beds24Get('/properties', { id: String(property.beds24PropId) });
   if (details.data?.find((p: { id: number }) => String(p.id) === String(property.beds24PropId))?.currency !== 'KRW') throw fail(400, '현재 원화로 설정한 숙소만 지원합니다.');
   const priceKrw = await getPrice(roomId, offerId, data.checkIn, data.checkOut, data.guests);
-  return { priceKrw, currency: 'KRW', nights, roomId, offerId, propertyName: property.name };
+  return { priceKrw, currency: 'KRW', nights, roomId, offerId, propertyName: property.name,
+    includesAllFees: process.env.CHECKOUT_PRICE_INCLUDES_ALL_FEES === 'true' };
 }
 
 export async function quoteCheckout(raw: unknown) {

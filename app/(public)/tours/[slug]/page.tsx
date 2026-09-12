@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { ArrowRight, Clock, Users as UsersIcon, MapPin, Compass, Loader2, Check } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { Logo } from '@/components/Logo';
 
 interface Slot {
   id: string;
@@ -246,16 +245,6 @@ export default function PublicTourDetailPage() {
 
   return (
     <div className="min-h-screen bg-[#0C0A09] text-stone-50 font-sans selection:bg-stone-400/20">
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-stone-950/55 backdrop-blur-md border-b border-white/[0.06]">
-        <div className="flex justify-between items-center px-6 md:px-8 h-16 md:h-[72px]">
-          <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
-            <Logo width={140} priority />
-          </Link>
-          <Link href="/tours" className="text-xs uppercase tracking-widest text-stone-300 hover:text-white transition-colors">
-            투어 목록
-          </Link>
-        </div>
-      </nav>
 
       <main className="pt-28 md:pt-36 pb-32 max-w-[1100px] mx-auto px-6 md:px-12">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">

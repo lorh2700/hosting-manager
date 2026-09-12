@@ -19,7 +19,7 @@ export default function BookPage() {
   const [checkOut, setCheckOut] = useState<Date | null>(null);
 
   const [guests, setGuests] = useState(2);
-  const [stayPrice, setStayPrice] = useState<{ priceKrw: number; nights: number } | null>(null);
+  const [stayPrice, setStayPrice] = useState<{ priceKrw: number; nights: number; includesAllFees: boolean } | null>(null);
   const [priceLoading, setPriceLoading] = useState(false);
   const [priceError, setPriceError] = useState('');
   useEffect(() => {
@@ -64,7 +64,6 @@ export default function BookPage() {
   const lightboxOpen = lightboxIndex !== null;
   const touchStartX = useRef<number | null>(null);
 
-  const formRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchPropertyAndBookings = async () => {
@@ -210,9 +209,7 @@ export default function BookPage() {
           }
         } else {
           setCheckOut(date);
-          setTimeout(() => {
-            formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }, 300);
+
         }
       }
     }
@@ -330,12 +327,6 @@ export default function BookPage() {
 
   return (
     <div className="min-h-screen bg-[#0C0A09] text-stone-50 selection:bg-stone-400/20">
-      {/* Top Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 flex justify-between items-center px-6 md:px-8 py-5 mix-blend-difference">
-        <Link href="/" className="text-sm uppercase tracking-[0.2em] font-medium hover:opacity-70 transition-opacity">
-          void anchae
-        </Link>
-      </nav>
 
       {/* Hero Gallery Section */}
       {(() => {
@@ -343,7 +334,7 @@ export default function BookPage() {
           ? property.images
           : [property.imageUrl || '/images/main_yard.webp'];
         return (
-          <div className="relative h-[50vh] md:h-[65vh] w-full overflow-hidden group/hero">
+          <div className="relative h-[55svh] min-h-[360px] md:h-[65vh] w-full overflow-hidden group/hero">
             {galleryImages.map((src, i) => (
               <Image
                 key={src}
@@ -361,14 +352,14 @@ export default function BookPage() {
               <>
                 <button
                   onClick={() => setHeroIndex((heroIndex - 1 + galleryImages.length) % galleryImages.length)}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 z-30 p-3 rounded-full bg-black/30 backdrop-blur-sm border border-stone-800 text-stone-400 hover:text-stone-50 hover:bg-black/50 transition-all opacity-0 group-hover/hero:opacity-100"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 z-30 p-3 rounded-full bg-black/30 backdrop-blur-sm border border-stone-800 text-stone-400 hover:text-stone-50 hover:bg-black/50 transition-all opacity-100 md:opacity-0 md:group-hover/hero:opacity-100 focus-visible:opacity-100"
                   aria-label="이전 이미지"
                 >
                   <ChevronLeft size={20} />
                 </button>
                 <button
                   onClick={() => setHeroIndex((heroIndex + 1) % galleryImages.length)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 z-30 p-3 rounded-full bg-black/30 backdrop-blur-sm border border-stone-800 text-stone-400 hover:text-stone-50 hover:bg-black/50 transition-all opacity-0 group-hover/hero:opacity-100"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 z-30 p-3 rounded-full bg-black/30 backdrop-blur-sm border border-stone-800 text-stone-400 hover:text-stone-50 hover:bg-black/50 transition-all opacity-100 md:opacity-0 md:group-hover/hero:opacity-100 focus-visible:opacity-100"
                   aria-label="다음 이미지"
                 >
                   <ChevronRight size={20} />
@@ -404,7 +395,7 @@ export default function BookPage() {
       })()}
 
       {/* Property Info Bar */}
-      <div className="max-w-5xl mx-auto px-6 py-8 flex flex-wrap items-center justify-center gap-8 text-sm text-stone-400 border-b border-stone-800">
+      <div className="max-w-5xl mx-auto px-4 md:px-6 py-6 md:py-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-3 text-sm text-stone-400 border-b border-stone-800">
         {property.checkInTime && (
           <div className="flex items-center gap-2">
             <Clock size={15} className="text-stone-500" />
@@ -425,9 +416,17 @@ export default function BookPage() {
         )}
       </div>
 
+      {property.status !== 'coming_soon' && (
+        <div className="lg:hidden px-4 pt-6">
+          <a href="#booking-dates" className="flex min-h-12 items-center justify-center gap-3 rounded-xl bg-[#eee8dc] px-5 py-3 text-sm font-medium text-stone-950">
+            날짜 · 요금 확인 <ArrowRight size={16} />
+          </a>
+        </div>
+      )}
+
       {/* Photo Gallery Viewer — 한 장씩 넘기는 뷰어. 사진이 1장 초과일 때만. */}
       {galleryImages.length > 1 && (
-        <section className="max-w-6xl mx-auto px-6 py-16 md:py-20">
+        <section className="max-w-6xl mx-auto px-4 md:px-6 py-10 md:py-20">
           <div className="flex items-baseline justify-between mb-8 md:mb-10">
             <div>
               <p className="text-xs uppercase tracking-[0.3em] text-stone-400 mb-3 font-semibold">Gallery</p>
@@ -510,8 +509,8 @@ export default function BookPage() {
             ))}
           </div>
 
-          <p className="text-center text-[10px] uppercase tracking-widest text-stone-500 mt-4">
-            스크롤 · 화살표로 넘기기 · 사진 클릭 시 크게 보기
+          <p className="text-center text-xs text-stone-400 mt-4">
+            좌우로 밀어 넘기기 · 사진을 누르면 크게 보기
           </p>
         </section>
       )}
@@ -540,16 +539,16 @@ export default function BookPage() {
           </Link>
         </div>
       ) : (
-      <div className="max-w-5xl mx-auto px-6 py-16 md:py-24 grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-20">
+      <div id="booking-dates" className="scroll-mt-24 max-w-5xl mx-auto px-4 md:px-6 py-10 md:py-24 grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-20">
 
         {/* Left: Calendar */}
         <div className="lg:col-span-7 space-y-8">
           <div>
             <h2 className="font-serif text-3xl md:text-4xl font-light mb-2">날짜 선택</h2>
-            <p className="text-stone-500 text-sm font-light tracking-wide">원하시는 숙박 일정을 선택해주세요.</p>
+            <p className="text-stone-500 text-sm font-light tracking-wide">{!checkIn ? '체크인 날짜를 선택해주세요.' : !checkOut ? '체크아웃 날짜를 선택해주세요.' : `${nightCount}박 일정이 선택되었습니다.`}</p>
           </div>
 
-          <div className="bg-stone-900 border border-stone-800 rounded-3xl p-6 md:p-10">
+          <div className="bg-stone-900 border border-stone-800 rounded-2xl p-3 sm:p-6 md:p-10">
             <div className="flex justify-between items-center mb-8">
               <h3 className="font-serif text-xl md:text-2xl font-light tracking-wide">
                 {format(currentMonth, 'yyyy년 M월', { locale: ko })}
@@ -572,7 +571,7 @@ export default function BookPage() {
               ))}
             </div>
 
-            <div className="grid grid-cols-7 gap-y-1.5 gap-x-1 text-center">
+            <div className="grid grid-cols-7 gap-y-1.5 gap-x-0.5 text-center">
               {emptyDays.map(i => (
                 <div key={`empty-${i}`} className="h-11"></div>
               ))}
@@ -601,6 +600,7 @@ export default function BookPage() {
                     key={date.toString()}
                     onClick={() => handleDateClick(date)}
                     disabled={isDisabled}
+                    aria-pressed={!!isSelected}
                     className={`
                       relative h-11 w-full flex items-center justify-center text-sm transition-all duration-200 rounded-full
                       ${isDisabled
@@ -638,7 +638,7 @@ export default function BookPage() {
             </div>
 
             {/* Legend */}
-            <div className="flex items-center justify-center gap-6 mt-6 pt-5 border-t border-stone-800/60">
+            <div className="flex items-center justify-center flex-wrap gap-x-4 gap-y-2 mt-6 pt-5 border-t border-stone-800/60">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-400/50"></span>
                 <span className="text-xs text-stone-500 tracking-wide">예약 가능</span>
@@ -653,11 +653,17 @@ export default function BookPage() {
               </div>
             </div>
           </div>
+          {checkIn && checkOut && (
+            <div className="lg:hidden rounded-xl border border-stone-700 p-4 space-y-3" aria-live="polite">
+              <p className="text-sm text-stone-200">{format(checkIn, 'M월 d일')} → {format(checkOut, 'M월 d일')} · {nightCount}박</p>
+              <a href="#booking-details" className="flex min-h-12 items-center justify-center rounded-lg bg-[#eee8dc] text-sm font-medium text-stone-950">이 일정으로 예약 정보 입력</a>
+            </div>
+          )}
         </div>
 
         {/* Right: Booking Form */}
-        <div className="lg:col-span-5" ref={formRef}>
-          <div className="sticky top-12 space-y-8">
+        <div id="booking-details" className="lg:col-span-5 scroll-mt-24">
+          <div className="lg:sticky lg:top-24 space-y-8">
             <div>
               <h2 className="font-serif text-3xl md:text-4xl font-light mb-2">예약</h2>
               <p className="text-stone-500 text-sm font-light tracking-wide">예약 정보를 입력해주세요.</p>
@@ -692,6 +698,8 @@ export default function BookPage() {
                 </div>
               </div>
 
+              <a href="#booking-dates" className="inline-flex min-h-11 items-center text-sm text-stone-300 underline underline-offset-4">날짜 다시 선택</a>
+
               {/* Guests */}
               <div className="space-y-2">
                 <label className="text-xs uppercase tracking-widest text-stone-500">인원</label>
@@ -699,14 +707,16 @@ export default function BookPage() {
                   <button
                     type="button"
                     onClick={() => setGuests(Math.max(1, guests - 1))}
-                    className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-stone-800/60 transition-colors text-xl font-light"
+                    className="w-11 h-11 disabled:opacity-30 rounded-full flex items-center justify-center hover:bg-stone-800/60 transition-colors text-xl font-light"
+                    disabled={guests <= 1}
                     aria-label="인원 감소"
                   >-</button>
                   <span className="font-serif text-xl">{guests}</span>
                   <button
                     type="button"
                     onClick={() => setGuests(Math.min(maxGuests, guests + 1))}
-                    className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-stone-800/60 transition-colors text-xl font-light"
+                    className="w-11 h-11 disabled:opacity-30 rounded-full flex items-center justify-center hover:bg-stone-800/60 transition-colors text-xl font-light"
+                    disabled={guests >= maxGuests}
                     aria-label="인원 증가"
                   >+</button>
                 </div>
@@ -718,45 +728,53 @@ export default function BookPage() {
               {/* Guest Info */}
               <div className="space-y-5">
                 <div className="space-y-2">
-                  <label className="text-xs uppercase tracking-widest text-stone-500">이름</label>
+                  <label htmlFor="guest-name" className="text-sm text-stone-400">이름</label>
                   <input
+                    id="guest-name"
+                    autoComplete="name"
                     type="text"
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full bg-transparent border-b border-stone-700 py-3 text-stone-50 font-light focus:outline-none focus:border-stone-400 transition-colors placeholder:text-stone-700"
+                    className="w-full bg-transparent border-b border-stone-700 py-3 text-base text-stone-50 font-light focus:outline-none focus:border-stone-400 transition-colors placeholder:text-stone-700"
                     placeholder="홍길동"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs uppercase tracking-widest text-stone-500">연락처</label>
+                  <label htmlFor="guest-phone" className="text-sm text-stone-400">연락처</label>
                   <input
+                    id="guest-phone"
+                    autoComplete="tel"
                     type="tel"
                     required
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full bg-transparent border-b border-stone-700 py-3 text-stone-50 font-light focus:outline-none focus:border-stone-400 transition-colors placeholder:text-stone-700"
+                    className="w-full bg-transparent border-b border-stone-700 py-3 text-base text-stone-50 font-light focus:outline-none focus:border-stone-400 transition-colors placeholder:text-stone-700"
                     placeholder="010-1234-5678"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs uppercase tracking-widest text-stone-500">이메일 주소</label>
+                  <label htmlFor="guest-email" className="text-sm text-stone-400">이메일 주소</label>
                   <input
+                    id="guest-email"
+                    autoComplete="email"
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full bg-transparent border-b border-stone-700 py-3 text-stone-50 font-light focus:outline-none focus:border-stone-400 transition-colors placeholder:text-stone-700"
+                    className="w-full bg-transparent border-b border-stone-700 py-3 text-base text-stone-50 font-light focus:outline-none focus:border-stone-400 transition-colors placeholder:text-stone-700"
                     placeholder="example@email.com"
                   />
                 </div>
               </div>
 
               {checkIn && checkOut && <section aria-live="polite" className="border border-stone-700 p-5 space-y-2">
-                <h3 className="text-sm text-stone-300">총 숙박요금</h3>
+                <h3 className="text-sm text-stone-300">{stayPrice?.includesAllFees ? '총 숙박요금' : '숙박요금'}</h3>
                 {priceLoading && <p className="text-sm text-stone-400">선택한 날짜의 요금을 확인하고 있습니다…</p>}
                 {stayPrice && <><p className="text-2xl text-stone-100">₩{stayPrice.priceKrw.toLocaleString()} <span className="text-sm">/ {stayPrice.nights}박 · {guests}명</span></p>
-                  <p className="text-xs text-stone-400">결제 전 요금과 예약 가능 여부를 다시 확인합니다. PayPal 결제 시 다음 화면에서 USD 금액을 확인할 수 있습니다.</p></>}
+                  <p className="text-xs text-stone-400">{stayPrice.includesAllFees
+                    ? '결제 전 요금과 예약 가능 여부를 다시 확인합니다. PayPal 결제 시 다음 화면에서 USD 금액을 확인할 수 있습니다.'
+                    : '표시 금액은 숙박요금입니다. 세금·청소비 등 필수 추가 요금의 포함 여부와 최종 금액은 예약 시 확인해주세요.'}</p></>}
                 {priceError && <p className="text-sm text-amber-300">{priceError}</p>}
               </section>}
               {checkoutMethods.length > 0 && <fieldset className="space-y-3">

@@ -1,20 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
 import { motion, useScroll, useSpring } from 'motion/react';
-import { Menu, X, ArrowRight, Calendar, Brush, Inbox, BarChart3, Layers, Sparkles, Check, RefreshCw, ChevronLeft, ChevronRight, Languages, ConciergeBell, Plane, UtensilsCrossed, Lock, QrCode, Send, Zap } from 'lucide-react';
+import { ArrowRight, Calendar, Brush, Inbox, BarChart3, Layers, Sparkles, Check, RefreshCw, ChevronLeft, ChevronRight, Languages, ConciergeBell, Plane, UtensilsCrossed, Lock, QrCode, Send, Zap } from 'lucide-react';
 import { Logo } from '@/components/Logo';
-
-const NAV_LINKS = [
-  { href: '/#spaces', label: '공간' },
-  { href: '/about', label: '호스팅 지원 플랫폼' },
-];
-
-const SECONDARY_LINKS = [
-  { href: 'https://lab.voidanchae.com', label: 'Lab', external: true },
-  { href: '/admin', label: '호스트', external: false },
-];
 
 const PLATFORM_FEATURES = [
   { icon: Layers,    label: '멀티 채널 통합',     desc: 'Airbnb · Booking.com · 아고다 · 직접예약을 한 화면에' },
@@ -172,7 +161,6 @@ function PropertyLane({ prop, events, weekendCols = [0, 6] }: { prop: typeof PRO
 }
 
 export default function AboutPage() {
-  const [mobileOpen, setMobileOpen] = useState(false);
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, { stiffness: 120, damping: 28, restDelta: 0.001 });
 
@@ -184,68 +172,6 @@ export default function AboutPage() {
         className="fixed top-0 left-0 right-0 h-[2px] bg-[var(--brand)] z-[60] origin-left"
       />
 
-      {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-stone-950/55 backdrop-blur-md border-b border-white/[0.06]">
-        <div className="flex justify-between items-center px-6 md:px-8 h-16 md:h-[72px]">
-          <Link href="/" className="flex items-center hover:opacity-80 transition-opacity" aria-label="void anchae 홈" onClick={() => setMobileOpen(false)}>
-            <Logo width={140} priority />
-          </Link>
-
-          <div className="hidden md:flex items-center gap-7 text-xs uppercase tracking-widest font-medium text-stone-300">
-            {NAV_LINKS.map(link => (
-              <Link key={link.href} href={link.href} className="hover:text-white transition-colors min-h-[44px] inline-flex items-center">
-                {link.label}
-              </Link>
-            ))}
-          </div>
-
-          <div className="hidden md:flex items-center gap-2">
-            {SECONDARY_LINKS.map(link => (
-              link.external ? (
-                <a key={link.href} href={link.href} target="_blank" rel="noopener noreferrer"
-                  className="text-xs uppercase tracking-widest font-medium text-stone-200 bg-white/5 hover:bg-white/15 px-4 py-3 transition-colors min-h-[44px] inline-flex items-center"
-                >{link.label}</a>
-              ) : (
-                <Link key={link.href} href={link.href}
-                  className="text-xs uppercase tracking-widest font-medium text-stone-200 bg-white/5 hover:bg-white/15 px-4 py-3 transition-colors min-h-[44px] inline-flex items-center"
-                >{link.label}</Link>
-              )
-            ))}
-          </div>
-
-          <div className="md:hidden flex items-center gap-2">
-            <button type="button" onClick={() => setMobileOpen(v => !v)}
-              aria-label={mobileOpen ? '메뉴 닫기' : '메뉴 열기'} aria-expanded={mobileOpen}
-              className="p-3 -mr-2 text-stone-200 hover:text-white min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
-            >
-              {mobileOpen ? <X size={22} /> : <Menu size={22} />}
-            </button>
-          </div>
-        </div>
-
-        {mobileOpen && (
-          <div className="md:hidden border-t border-white/[0.06] bg-stone-950/95 backdrop-blur-lg px-6 py-4 space-y-1">
-            {NAV_LINKS.map(link => (
-              <Link key={link.href} href={link.href} onClick={() => setMobileOpen(false)}
-                className="block py-3 text-sm uppercase tracking-widest text-stone-200 hover:text-white min-h-[44px]"
-              >{link.label}</Link>
-            ))}
-            <div className="border-t border-white/[0.06] pt-2 mt-2 space-y-1">
-              {SECONDARY_LINKS.map(link => (
-                link.external ? (
-                  <a key={link.href} href={link.href} target="_blank" rel="noopener noreferrer" onClick={() => setMobileOpen(false)}
-                    className="block py-3 text-sm uppercase tracking-widest text-stone-300 hover:text-white min-h-[44px]"
-                  >{link.label}</a>
-                ) : (
-                  <Link key={link.href} href={link.href} onClick={() => setMobileOpen(false)}
-                    className="block py-3 text-sm uppercase tracking-widest text-stone-300 hover:text-white min-h-[44px]"
-                  >{link.label}</Link>
-                )
-              ))}
-            </div>
-          </div>
-        )}
-      </nav>
 
       {/* Hero */}
       <section className="pt-32 md:pt-40 pb-16 md:pb-20 px-6 md:px-12 max-w-[1200px] mx-auto">

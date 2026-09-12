@@ -1,17 +1,15 @@
 /**
  * 복도 카메라 스냅샷 → "짐을 들고 나가는 게스트인가" AI 판정.
  *
- *  - Claude 비전 + 구조화 출력(JSON 스키마). 모델은 기본 claude-opus-5, env CHECKOUT_VISION_MODEL 로 바꿀 수 있다.
+ *  - OpenAI GPT 비전 + 구조화 출력(JSON 스키마). 모델은 기본 gpt-4.1-mini, env CHECKOUT_VISION_MODEL 로 바꿀 수 있다.
  *  - 사람 식별은 하지 않는다: 존재/짐/방향/역할(게스트·직원)만 묻는다.
  *  - 사진은 1280px 폭으로 줄여 보낸다 (토큰 ≈ 비용). sharp 가 없으면 원본을 보낸다.
  *  - 판정 실패(거부·파싱 실패·네트워크)는 null 로 돌려주고, 호출자는 "판정 없음"으로 처리한다.
  */
-import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
-import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import type { CameraVerdict } from '@/lib/camera-types';
 
-export const DEFAULT_VISION_MODEL = 'claude-opus-5';
+export const DEFAULT_VISION_MODEL = 'gpt-4.1-mini';
 
 const VerdictSchema = z.object({
   people_present: z.boolean().describe('사진에 사람이 있는가'),
@@ -30,11 +28,20 @@ export interface JudgeInput {
   cameraNotes?: string | null;
 }
 
-let client: Anthropic | null = null;
-function getClient(): Anthropic | null {
-  if (!process.env.ANTHROPIC_API_KEY) return null;
-  return (client ??= new Anthropic({ timeout: 12_000, maxRetries: 0 }));
+// 이전 배포의 Claude 모델 환경변수가 남아 있어도 OpenAI 모델로 전환한다.
+export function checkoutVisionModel(): string {
+  const configured = process.env.CHECKOUT_VISION_MODEL?.trim();
+  return !configured || configured.startsWith('claude-') ? DEFAULT_VISION_MODEL : configured;
 }
+
+const ResponseSchema = z.object({
+  status: z.literal('completed'),
+  model: z.string().min(1),
+  output: z.array(z.object({
+    type: z.string(),
+    content: z.array(z.object({ type: z.string(), text: z.string().optional() })).optional(),
+  })),
+});
 
 async function downscale(buffer: ArrayBuffer, contentType: string): Promise<{ data: string; mediaType: 'image/jpeg' | 'image/png' }> {
   try {
@@ -64,41 +71,52 @@ const SYSTEM = `당신은 한옥 스테이 복도 CCTV 스냅샷을 보고 "게�
  * 스냅샷 1~6장으로 한 번 판정. 실패하면 null.
  */
 export async function judgeCheckoutSnapshot(input: JudgeInput): Promise<CameraVerdict | null> {
-  const anthropic = getClient();
-  if (!anthropic || input.images.length === 0) return null;
-  const model = process.env.CHECKOUT_VISION_MODEL || DEFAULT_VISION_MODEL;
-
-  const frames = await Promise.all(input.images.slice(0, 6).map(img => downscale(img.buffer, img.contentType)));
-  const content: Anthropic.Beta.BetaContentBlockParam[] = [];
-  frames.forEach((f, i) => {
-    content.push({ type: 'text', text: `사진 ${i + 1} (${kstTime(input.images[i].capturedAt)} KST)` });
-    content.push({ type: 'image', source: { type: 'base64', media_type: f.mediaType, data: f.data } });
-  });
-  content.push({
-    type: 'text',
-    text:
-      `숙소: ${input.propertyName}\n` +
-      (input.cameraNotes ? `카메라 위치 설명: ${input.cameraNotes}\n` : '') +
-      `위 사진들이 같은 감지 이벤트의 연속 장면입니다. 사람이 짐을 들고 현관 쪽으로 나가는 장면인지 판단해 JSON 으로 답하세요.`,
-  });
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  if (!apiKey || input.images.length === 0) return null;
+  const model = checkoutVisionModel();
 
   try {
-    const response = await anthropic.beta.messages.parse({
-      model,
-      max_tokens: 1024,
-      system: SYSTEM,
-      thinking: { type: 'adaptive' },
-      output_config: { effort: 'low', format: betaZodOutputFormat(VerdictSchema) },
-      // 정책상 거부되면 다른 모델로 같은 요청을 이어가 판정이 비지 않게 한다.
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      messages: [{ role: 'user', content }],
+
+    const frames = await Promise.all(input.images.slice(0, 6).map(img => downscale(img.buffer, img.contentType)));
+    const content: ({ type: 'input_text'; text: string } | { type: 'input_image'; image_url: string; detail: 'high' })[] = [];
+    frames.forEach((f, i) => {
+      content.push({ type: 'input_text', text: `사진 ${i + 1} (${kstTime(input.images[i].capturedAt)} KST)` });
+      content.push({ type: 'input_image', image_url: `data:${f.mediaType};base64,${f.data}`, detail: 'high' });
     });
-    if (response.stop_reason === 'refusal' || !response.parsed_output) {
-      console.warn('[checkout-vision] no verdict', { stop: response.stop_reason });
+    content.push({
+      type: 'input_text',
+      text:
+        `숙소: ${input.propertyName}\n` +
+        (input.cameraNotes ? `카메라 위치 설명: ${input.cameraNotes}\n` : '') +
+        `위 사진들이 같은 감지 이벤트의 연속 장면입니다. 사람이 짐을 들고 현관 쪽으로 나가는 장면인지 판단해 JSON 으로 답하세요.`,
+    });
+
+    const { $schema: _schema, ...schema } = z.toJSONSchema(VerdictSchema);
+    const result = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(12_000),
+      body: JSON.stringify({
+        model,
+        store: false,
+        max_output_tokens: 1024,
+        instructions: SYSTEM,
+        input: [{ role: 'user', content }],
+        text: { format: { type: 'json_schema', name: 'checkout_verdict', strict: true, schema } },
+      }),
+    });
+    if (!result.ok) {
+      // API 응답 본문에는 요청 정보가 포함될 수 있으므로 상태 코드만 기록한다.
+      console.warn('[checkout-vision] OpenAI API error', result.status);
       return null;
     }
-    const p = response.parsed_output;
+    const parsed = ResponseSchema.safeParse(await result.json());
+    if (!parsed.success) return null;
+    const response = parsed.data;
+    const blocks = response.output.filter(item => item.type === 'message').flatMap(item => item.content ?? []);
+    if (blocks.some(block => block.type === 'refusal')) return null;
+    const output = blocks.filter(block => block.type === 'output_text').map(block => block.text ?? '').join('');
+    const p = VerdictSchema.parse(JSON.parse(output));
     return {
       peoplePresent: p.people_present,
       personCount: Math.max(0, Math.round(p.person_count)),
@@ -111,9 +129,7 @@ export async function judgeCheckoutSnapshot(input: JudgeInput): Promise<CameraVe
       judgedAt: new Date().toISOString(),
     };
   } catch (err) {
-    if (err instanceof Anthropic.RateLimitError) console.warn('[checkout-vision] rate limited');
-    else if (err instanceof Anthropic.APIError) console.error('[checkout-vision] api error', err.status, err.message);
-    else console.error('[checkout-vision] error', err);
+    console.warn('[checkout-vision] no verdict', err instanceof Error ? err.name : 'UnknownError');
     return null;
   }
 }
