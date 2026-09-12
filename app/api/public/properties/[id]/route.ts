@@ -4,7 +4,7 @@ import { getPropertyDisplay, propertyImagePaths, slugCandidates } from '@/lib/pr
 import { withErrors, ok, fail } from '@/lib/core/http';
 
 // GET /api/public/properties/{idOrSlug}
-// idOrSlug 는 UUID 또는 slug. coming_soon 상태 지점은 bookedDates 를 빈 배열로 두고 status 로 UI 가 판단.
+// idOrSlug 는 UUID 또는 slug. 판매 일정은 /api/public/stay-calendar 에서 Beds24 기준으로 조회한다.
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const GET = withErrors<{ id: string }>('public/properties/id', async (_req, { params }) => {
@@ -18,19 +18,6 @@ export const GET = withErrors<{ id: string }>('public/properties/id', async (_re
 
   const display = property.slug ? getPropertyDisplay(property.slug) : null;
   const images = display ? propertyImagePaths(display).map((p) => p.src) : [];
-
-  // coming_soon 이면 예약 데이터 조회 스킵.
-  let bookedDates: { start: string; end: string; type: string }[] = [];
-  if (property.status === 'active') {
-    const [events, bookings] = await Promise.all([
-      prisma.event.findMany({ where: { propertyId: property.id }, select: { startDate: true, endDate: true, type: true } }),
-      prisma.booking.findMany({ where: { propertyId: property.id, status: 'confirmed' }, select: { checkIn: true, checkOut: true } }),
-    ]);
-    bookedDates = [
-      ...events.map((e) => ({ start: e.startDate, end: e.endDate, type: e.type })),
-      ...bookings.map((b) => ({ start: b.checkIn, end: b.checkOut, type: 'reservation' })),
-    ];
-  }
 
   const checkoutMethods = (['card', 'paypal'] as const).filter(method => {
     try { checkoutConfig(property.id, method); return method !== 'paypal' || Number(process.env.CHECKOUT_KRW_PER_USD) > 0; }
@@ -54,6 +41,5 @@ export const GET = withErrors<{ id: string }>('public/properties/id', async (_re
     region: display?.region ?? null,
     addressKo: display?.addressKo ?? null,
     catchphrase: display?.catchphrase ?? null,
-    bookedDates,
   });
 });

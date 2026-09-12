@@ -5,7 +5,9 @@ import type { CheckoutOrder } from '@/generated/prisma/client';
 import { beds24Get } from '@/lib/beds24';
 import { todayKst } from '@/lib/dates';
 import { ensureCleaningsForProperty } from '@/lib/sync-engine';
-import { fail } from '@/lib/core/http';
+import { fail, HttpError } from '@/lib/core/http';
+import { fetchStayCalendar } from '@/lib/beds24-stay-calendar';
+import { stayIssue } from '@/lib/stay-calendar';
 import { checkoutConfig, paymentKeys } from './config';
 import { assertPayment, chargeAmount, majorAmount } from './money';
 import { assertHold, createHold, finalizeHold, findHold, getPrice, releaseHold } from './beds';
@@ -37,7 +39,14 @@ export async function priceStay(raw: unknown) {
   if (!Number.isSafeInteger(roomId) || roomId < 1 || !Number.isSafeInteger(offerId) || offerId < 1) throw fail(503, '숙소 요금 설정을 확인 중입니다.');
   const details = await beds24Get('/properties', { id: String(property.beds24PropId) });
   if (details.data?.find((p: { id: number }) => String(p.id) === String(property.beds24PropId))?.currency !== 'KRW') throw fail(400, '현재 원화로 설정한 숙소만 지원합니다.');
-  const priceKrw = await getPrice(roomId, offerId, data.checkIn, data.checkOut, data.guests);
+  let priceKrw: number;
+  try { priceKrw = await getPrice(roomId, offerId, data.checkIn, data.checkOut, data.guests); }
+  catch (error) {
+    if (!(error instanceof HttpError) || error.status !== 409) throw error;
+    const calendar = await fetchStayCalendar(roomId, Number(property.beds24PropId), data.checkIn, data.checkOut);
+    throw fail(409, stayIssue(calendar, data.checkIn, data.checkOut)
+      ?? '선택한 날짜·인원에 판매 가능한 요금이 없습니다. 다른 일정이나 인원을 선택해주세요.');
+  }
   return { priceKrw, currency: 'KRW', nights, roomId, offerId, propertyName: property.name,
     includesAllFees: process.env.CHECKOUT_PRICE_INCLUDES_ALL_FEES === 'true' };
 }

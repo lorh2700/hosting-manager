@@ -6,6 +6,7 @@
  *  확인되는 순간 청소담당자와 호스트에게 알림이 나간다. 같은 종류의 신호는 하루에 한 번만 기록한다.
  */
 import { prisma } from '@/lib/prisma';
+import { createHash } from 'node:crypto';
 import { notifyCheckoutConfirmed } from '@/lib/notify';
 
 export type CheckoutSignalKind = 'host' | 'guest_pad' | 'guest_message' | 'camera' | 'sensor';
@@ -88,10 +89,21 @@ export async function recordCheckoutSignal(input: RecordSignalInput): Promise<Re
   if (same) return { signal: same, duplicate: true, newlyConfirmed: false };
 
   const wasConfirmed = existing.some(s => isConfirming(s.kind));
-  const signal = await prisma.checkoutSignal.create({
-    data: { propertyId: input.propertyId, date: input.date, kind: input.kind, eventId: input.eventId ?? null, note: input.note ?? null, at: new Date() },
-    select: { id: true, kind: true, at: true },
-  });
+  // Deterministic primary key makes simultaneous QR/pad retries idempotent without a schema change.
+  const digest = createHash('sha256').update(JSON.stringify([input.propertyId, input.date, input.kind])).digest('hex');
+  const signalId = `${digest.slice(0, 8)}-${digest.slice(8, 12)}-${digest.slice(12, 16)}-${digest.slice(16, 20)}-${digest.slice(20, 32)}`;
+  let signal;
+  try {
+    signal = await prisma.checkoutSignal.create({
+      data: { id: signalId, propertyId: input.propertyId, date: input.date, kind: input.kind, eventId: input.eventId ?? null, note: input.note ?? null, at: new Date() },
+      select: { id: true, kind: true, at: true },
+    });
+  } catch (error) {
+    if ((error as { code?: string }).code !== 'P2002') throw error;
+    const saved = await prisma.checkoutSignal.findFirst({ where: { id: signalId }, select: { id: true, kind: true, at: true } });
+    if (!saved) throw error;
+    return { signal: saved, duplicate: true, newlyConfirmed: false };
+  }
   return { signal, duplicate: false, newlyConfirmed: !wasConfirmed && isConfirming(input.kind) };
 }
 

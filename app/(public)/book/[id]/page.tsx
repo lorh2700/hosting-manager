@@ -5,18 +5,56 @@ import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, ArrowRight, Clock, Users as UsersIcon, X } from 'lucide-react';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isBefore, startOfToday, parseISO } from 'date-fns';
+import { format, addDays, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isBefore } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import type { PropertyData } from '@/lib/types';
+import { todayKst } from '@/lib/dates';
+import { arrivalIssue, stayIssue, type StayCalendar } from '@/lib/stay-calendar';
 
 export default function BookPage() {
   const { id } = useParams() as { id: string };
-  const [property, setProperty] = useState<PropertyData | null>(null);
+  return <BookingContent key={id} />;
+}
+
+function BookingContent() {
+  const { id } = useParams() as { id: string };
+  const [property, setProperty] = useState<Omit<PropertyData, 'bookedDates'> | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const [currentMonth, setCurrentMonth] = useState(startOfToday());
+  const [currentMonth, setCurrentMonth] = useState(new Date(`${todayKst()}T00:00:00`));
   const [checkIn, setCheckIn] = useState<Date | null>(null);
   const [checkOut, setCheckOut] = useState<Date | null>(null);
+
+  const [calendarResult, setCalendarResult] = useState<{ key: string; data: StayCalendar } | null>(null);
+  const [calendarError, setCalendarError] = useState('');
+  const [calendarRetry, setCalendarRetry] = useState(0);
+  const monthKey = format(currentMonth, 'yyyy-MM');
+  const calendarKey = `${property?.id}:${monthKey}:${calendarRetry}`;
+  const calendar = calendarResult?.key === calendarKey ? calendarResult.data : null;
+  useEffect(() => {
+    if (!property?.id || property.status !== 'active') return;
+    const controller = new AbortController();
+    setCalendarError('');
+    const month = new Date(`${monthKey}-01T00:00:00`);
+    const query = new URLSearchParams({ propertyId: property.id,
+      start: format(addDays(month, -30), 'yyyy-MM-dd'), end: format(endOfMonth(month), 'yyyy-MM-dd') });
+    fetch(`/api/public/stay-calendar?${query}`, { signal: controller.signal, cache: 'no-store' })
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error ?? '예약 가능 날짜를 불러오지 못했습니다.');
+        if (!controller.signal.aborted) setCalendarResult({ key: calendarKey, data });
+      }).catch(error => {
+        if (!controller.signal.aborted) setCalendarError(error instanceof Error ? error.message : '날짜 조회에 실패했습니다.');
+      });
+    return () => controller.abort();
+  }, [property?.id, property?.status, monthKey, calendarKey]);
+  useEffect(() => {
+    const refresh = () => setCalendarRetry(value => value + 1);
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
+  }, []);
+  const selectedStayIssue = checkIn && checkOut
+    ? stayIssue(calendar, format(checkIn, 'yyyy-MM-dd'), format(checkOut, 'yyyy-MM-dd')) : null;
 
   const [guests, setGuests] = useState(2);
   const [stayPrice, setStayPrice] = useState<{ priceKrw: number; nights: number; includesAllFees: boolean } | null>(null);
@@ -66,7 +104,7 @@ export default function BookPage() {
 
 
   useEffect(() => {
-    const fetchPropertyAndBookings = async () => {
+    const fetchProperty = async () => {
       try {
         const res = await fetch(`/api/public/properties/${id}`);
         if (res.ok) {
@@ -90,7 +128,6 @@ export default function BookPage() {
             openingDate: data.openingDate ?? null,
             addressKo: data.addressKo ?? null,
             catchphrase: data.catchphrase ?? null,
-            bookedDates: data.bookedDates ?? [],
           });
         }
       } catch (err) {
@@ -100,7 +137,7 @@ export default function BookPage() {
       }
     };
 
-    fetchPropertyAndBookings();
+    fetchProperty();
   }, [id]);
 
   // 갤러리 조작: 이전/다음/닫기 (뷰어 + 라이트박스가 공유)
@@ -158,61 +195,18 @@ export default function BookPage() {
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
 
-  // 날짜가 예약 범위 안에 있는지 (체크인용: 시작일 포함)
-  const isDateBooked = (date: Date) => {
-    if (!property) return false;
-    return property.bookedDates.some(b => {
-      const start = parseISO(b.start);
-      const end = parseISO(b.end);
-      return date >= start && date < end;
-    });
-  };
-
-  // 체크아웃으로 선택 가능한지 (예약 시작일은 체크아웃 가능 — 오전퇴실/오후입실)
-  const isDateBookedMiddle = (date: Date) => {
-    if (!property) return false;
-    return property.bookedDates.some(b => {
-      const start = parseISO(b.start);
-      const end = parseISO(b.end);
-      return date > start && date < end; // 시작일 제외
-    });
-  };
-
-  // 체크아웃 선택 중인지
   const isSelectingCheckout = checkIn && !checkOut;
-
+  const dateIssue = (date: Date): string | null => {
+    if (isBefore(date, new Date(`${todayKst()}T00:00:00`))) return '지난 날짜';
+    const key = format(date, 'yyyy-MM-dd');
+    return checkIn && !checkOut && date > checkIn
+      ? stayIssue(calendar, format(checkIn, 'yyyy-MM-dd'), key)
+      : arrivalIssue(calendar, key);
+  };
   const handleDateClick = (date: Date) => {
-    if (isBefore(date, startOfToday())) return;
-
-    if (!checkIn || (checkIn && checkOut)) {
-      // 체크인 선택: 예약된 날은 불가
-      if (isDateBooked(date)) return;
-      setCheckIn(date);
-      setCheckOut(null);
-    } else if (checkIn && !checkOut) {
-      if (isBefore(date, checkIn) || isSameDay(date, checkIn)) {
-        // 같은 날 또는 이전 날 → 체크인 재설정 (최소 1박)
-        if (isDateBooked(date)) return;
-        setCheckIn(date);
-      } else {
-        // 체크아웃 선택: 중간에 예약이 끼어있으면 안 됨
-        // 단, 선택한 날이 예약 시작일이면 OK (그 날 체크아웃)
-        const interval = eachDayOfInterval({ start: checkIn, end: date });
-        const hasBlockedMiddle = interval.some(d =>
-          !isSameDay(d, checkIn) && !isSameDay(d, date) && isDateBooked(d)
-        );
-
-        // 선택한 날 자체가 예약 중간에 있으면 불가 (시작일은 OK)
-        if (hasBlockedMiddle || isDateBookedMiddle(date)) {
-          if (!isDateBooked(date)) {
-            setCheckIn(date);
-          }
-        } else {
-          setCheckOut(date);
-
-        }
-      }
-    }
+    if (dateIssue(date)) return;
+    if (checkIn && !checkOut && date > checkIn) setCheckOut(date);
+    else { setCheckIn(date); setCheckOut(null); }
   };
 
   const isDateSelected = (date: Date) => {
@@ -231,7 +225,7 @@ export default function BookPage() {
 
   const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!checkIn || !checkOut || !name || !phone || !email) return;
+    if (!checkIn || !checkOut || !name || !phone || !email || selectedStayIssue || !stayPrice || priceLoading || priceError) return;
 
     setIsSubmitting(true);
     setErrorMessage(null);
@@ -548,13 +542,21 @@ export default function BookPage() {
             <p className="text-stone-500 text-sm font-light tracking-wide">{!checkIn ? '체크인 날짜를 선택해주세요.' : !checkOut ? '체크아웃 날짜를 선택해주세요.' : `${nightCount}박 일정이 선택되었습니다.`}</p>
           </div>
 
+          <div role="status" aria-live="polite" className="text-sm text-stone-300 space-y-2">
+            {calendarError ? <><p className="text-amber-300">{calendarError}</p><button type="button" onClick={() => setCalendarRetry(value => value + 1)} className="min-h-11 underline underline-offset-4">날짜 다시 불러오기</button></>
+              : !calendar ? <p>예약 가능 날짜를 확인하고 있습니다…</p>
+              : <p>숙소의 최신 판매 일정입니다. 날짜·인원 선택 후 최종 요금을 확인합니다.</p>}
+            {checkIn && calendar && <p>{format(checkIn, 'M월 d일')} 체크인 · 최소 {calendar.days[format(checkIn, 'yyyy-MM-dd')]?.minStay ?? '확인 중'}박</p>}
+            {checkIn && <button type="button" onClick={() => { setCheckIn(null); setCheckOut(null); }} className="min-h-11 underline underline-offset-4">날짜 선택 초기화</button>}
+            {selectedStayIssue && <p className="text-amber-300">{selectedStayIssue}</p>}
+          </div>
           <div className="bg-stone-900 border border-stone-800 rounded-2xl p-3 sm:p-6 md:p-10">
             <div className="flex justify-between items-center mb-8">
               <h3 className="font-serif text-xl md:text-2xl font-light tracking-wide">
                 {format(currentMonth, 'yyyy년 M월', { locale: ko })}
               </h3>
               <div className="flex gap-2">
-                <button onClick={prevMonth} className="p-3 border border-stone-800 rounded-full hover:bg-stone-800/40 transition-colors" aria-label="이전 달">
+                <button onClick={prevMonth} disabled={monthKey <= format(new Date(`${todayKst()}T00:00:00`), 'yyyy-MM')} className="p-3 border border-stone-800 rounded-full disabled:opacity-30 hover:bg-stone-800/40 transition-colors" aria-label="이전 달">
                   <ChevronLeft size={18} className="text-stone-300" />
                 </button>
                 <button onClick={nextMonth} className="p-3 border border-stone-800 rounded-full hover:bg-stone-800/40 transition-colors" aria-label="다음 달">
@@ -576,24 +578,17 @@ export default function BookPage() {
                 <div key={`empty-${i}`} className="h-11"></div>
               ))}
               {daysInMonth.map(date => {
-                const isPast = isBefore(date, startOfToday());
-                const isBooked = isDateBooked(date);
-                const isBookedStart = property?.bookedDates.some(b => isSameDay(date, parseISO(b.start))) ?? false;
+                const isPast = isBefore(date, new Date(`${todayKst()}T00:00:00`));
+                const day = calendar?.days[format(date, 'yyyy-MM-dd')];
+                const issue = dateIssue(date);
+                const isBooked = !!day && day.available < 1;
                 const isSelected = isDateSelected(date);
                 const inRange = isDateInRange(date);
                 const isStart = checkIn && isSameDay(date, checkIn);
                 const isEnd = checkOut && isSameDay(date, checkOut);
                 const isOnlyStart = isStart && !checkOut;
-
-                // 체크아웃 선택 중 + 체크인 이후 + 예약 시작일 + 중간에 다른 예약 없는 경우만
-                const isAfterCheckIn = checkIn ? date > checkIn : false;
-                const hasNoBlockBetween = checkIn && isAfterCheckIn
-                  ? !eachDayOfInterval({ start: checkIn, end: date }).some(d =>
-                      !isSameDay(d, checkIn) && !isSameDay(d, date) && isDateBooked(d)
-                    )
-                  : false;
-                const canClickForCheckout = isSelectingCheckout && isAfterCheckIn && isBookedStart && !isDateBookedMiddle(date) && hasNoBlockBetween;
-                const isDisabled = isPast || (isBooked && !canClickForCheckout);
+                const canClickForCheckout = !!isSelectingCheckout && !!checkIn && date > checkIn && !issue;
+                const isDisabled = !!issue;
 
                 return (
                   <button
@@ -606,7 +601,7 @@ export default function BookPage() {
                       ${isDisabled
                         ? isBooked && !isPast
                           ? 'bg-stone-800/40 text-stone-700 cursor-not-allowed line-through decoration-stone-600'
-                          : 'text-stone-800 cursor-not-allowed'
+                          : 'text-stone-600 cursor-not-allowed'
                         : ''}
                       ${canClickForCheckout && !isSelected
                         ? 'text-stone-500 hover:bg-amber-500/15 hover:text-stone-300 border border-dashed border-stone-700'
@@ -620,7 +615,7 @@ export default function BookPage() {
                       ${isStart && !isOnlyStart ? 'bg-stone-100 rounded-l-full rounded-r-none' : ''}
                       ${isEnd ? 'bg-stone-100 rounded-r-full rounded-l-none' : ''}
                     `}
-                    aria-label={`${format(date, 'M월 d일')}${isDisabled ? (isBooked ? ' 예약 완료' : ' 지난 날짜') : canClickForCheckout ? ' 체크아웃 가능' : ' 예약 가능'}`}
+                    aria-label={`${format(date, 'M월 d일')}${issue ? ` ${issue}` : canClickForCheckout ? ' 체크아웃 가능' : ` 체크인 선택 가능, 최소 ${day?.minStay ?? 1}박`}`}
                   >
                     <span className="relative z-10">{format(date, 'd')}</span>
                     {isBooked && !isPast && !canClickForCheckout && (
@@ -629,7 +624,7 @@ export default function BookPage() {
                     {canClickForCheckout && !isSelected && (
                       <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-amber-400/60"></span>
                     )}
-                    {!isPast && !isBooked && !isSelected && !inRange && (
+                    {!isDisabled && !isPast && !isBooked && !isSelected && !inRange && (
                       <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-emerald-400/50"></span>
                     )}
                   </button>
@@ -641,11 +636,11 @@ export default function BookPage() {
             <div className="flex items-center justify-center flex-wrap gap-x-4 gap-y-2 mt-6 pt-5 border-t border-stone-800/60">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-400/50"></span>
-                <span className="text-xs text-stone-500 tracking-wide">예약 가능</span>
+                <span className="text-xs text-stone-500 tracking-wide">날짜 선택 가능</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-red-400/60"></span>
-                <span className="text-xs text-stone-500 tracking-wide">예약 완료</span>
+                <span className="text-xs text-stone-500 tracking-wide">판매 마감</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-stone-100"></span>
@@ -787,10 +782,10 @@ export default function BookPage() {
               </fieldset>}
               <button
                 type="submit"
-                disabled={!checkIn || !checkOut || !name || !phone || !email || isSubmitting}
+                disabled={!checkIn || !checkOut || !name || !phone || !email || isSubmitting || !!selectedStayIssue || !stayPrice || priceLoading || !!priceError}
                 className={`
                   w-full py-5 rounded-full text-sm uppercase tracking-widest font-medium transition-all duration-500
-                  ${checkIn && checkOut && name && phone && email
+                  ${checkIn && checkOut && name && phone && email && !selectedStayIssue && stayPrice && !priceLoading && !priceError
                     ? 'bg-stone-100 text-stone-900 hover:bg-stone-200 shadow-[0_0_40px_rgba(214,211,209,0.15)]'
                     : 'bg-stone-800/60 text-stone-600 cursor-not-allowed'}
                 `}

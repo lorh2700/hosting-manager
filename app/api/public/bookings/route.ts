@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { priceStay } from '@/lib/payments/checkout';
 import { rateLimit, clientIp } from '@/lib/rateLimit';
 import { withErrors, created, fail, readJson, str, dateStr, int } from '@/lib/core/http';
 
@@ -21,16 +22,9 @@ export const POST = withErrors('public/bookings', async (req) => {
   const guests = int(body, 'guests', { min: 1, max: 50 }) ?? 1;
   const propertyName = str(body, 'propertyName', { max: 100 }) || '숙소';
 
-  // Check for conflicts against every event and every non-cancelled direct booking.
-  const [events, bookings] = await Promise.all([
-    prisma.event.findMany({ where: { propertyId }, select: { startDate: true, endDate: true } }),
-    prisma.booking.findMany({ where: { propertyId, status: { not: 'cancelled' } }, select: { checkIn: true, checkOut: true } }),
-  ]);
-  const ranges = [
-    ...events.map(e => ({ start: e.startDate.slice(0, 10), end: e.endDate.slice(0, 10) })),
-    ...bookings.map(b => ({ start: b.checkIn.slice(0, 10), end: b.checkOut.slice(0, 10) })),
-  ];
-  if (ranges.some(r => checkIn < r.end && checkOut > r.start)) throw fail(409, '선택한 날짜에 이미 예약이 있습니다.');
+  // Payment-disabled reservation requests use the same Beds24 sales check.
+  // They remain pending requests; only a verified Beds24 hold can reserve inventory.
+  await priceStay({ propertyId, checkIn, checkOut, guests });
 
   const booking = await prisma.booking.create({
     data: { propertyId, name, email, phone, guests, checkIn, checkOut, status: 'pending' },

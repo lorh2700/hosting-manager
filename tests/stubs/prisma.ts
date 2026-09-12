@@ -175,6 +175,9 @@ function collection(model: string) {
     create: async (args: Row) => {
       record('create');
       const row = { id: nextId(model), ...args.data };
+      if (model === 'checkoutSignal' && rows().some(r => r.id === row.id)) {
+        throw Object.assign(new Error('Duplicate checkout signal primary key'), { code: 'P2002' });
+      }
       rows().push(row);
       return project(row, args.select, args.include);
     },
