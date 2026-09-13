@@ -2,8 +2,9 @@
 
 import { usePublicLanguage } from '@/components/PublicLanguage';
 
-import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'next/navigation';
+import { useState, useEffect, useRef, Suspense } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
+import { parseStaySearch } from '@/lib/stay-search';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, ArrowRight, Clock, Users as UsersIcon, X } from 'lucide-react';
@@ -16,18 +17,20 @@ import { arrivalIssue, stayIssue, type StayCalendar } from '@/lib/stay-calendar'
 
 export default function BookPage() {
   const { id } = useParams() as { id: string };
-  return <BookingContent key={id} />;
+  return <Suspense fallback={<div className="min-h-screen bg-stone-950" />}><BookingContent key={id} /></Suspense>;
 }
 
 function BookingContent() {
+  const query = useSearchParams();
+  const initial = parseStaySearch(Object.fromEntries(query.entries()));
   const { language, t } = usePublicLanguage();
   const { id } = useParams() as { id: string };
   const [property, setProperty] = useState<Omit<PropertyData, 'bookedDates'> | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const [currentMonth, setCurrentMonth] = useState(new Date(`${todayKst()}T00:00:00`));
-  const [checkIn, setCheckIn] = useState<Date | null>(null);
-  const [checkOut, setCheckOut] = useState<Date | null>(null);
+  const [currentMonth, setCurrentMonth] = useState(new Date(`${initial?.checkIn ?? todayKst()}T00:00:00`));
+  const [checkIn, setCheckIn] = useState<Date | null>(initial ? new Date(`${initial.checkIn}T00:00:00`) : null);
+  const [checkOut, setCheckOut] = useState<Date | null>(initial ? new Date(`${initial.checkOut}T00:00:00`) : null);
 
   const [calendarResult, setCalendarResult] = useState<{ key: string; data: StayCalendar } | null>(null);
   const [calendarError, setCalendarError] = useState('');
@@ -60,8 +63,8 @@ function BookingContent() {
   const selectedStayIssue = checkIn && checkOut
     ? stayIssue(calendar, format(checkIn, 'yyyy-MM-dd'), format(checkOut, 'yyyy-MM-dd')) : null;
 
-  const [guests, setGuests] = useState(2);
-  const [pets, setPets] = useState(0);
+  const [guests, setGuests] = useState(initial?.guests ?? 2);
+  const [pets, setPets] = useState(initial?.pets ?? 0);
   const [optionPolicy, setOptionPolicy] = useState<{ baseGuests: number; extraGuestFeeKrw: number; maxPets: number; petFeesKrw: number[] } | null>(null);
   const [stayPrice, setStayPrice] = useState<{ priceKrw: number; nights: number; includesAllFees: boolean; stayOptions: StayOptions | null } | null>(null);
   const [priceLoading, setPriceLoading] = useState(false);

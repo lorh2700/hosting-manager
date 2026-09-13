@@ -1,12 +1,12 @@
-.section { scroll-margin-top: 90px; background: #eee8dc; color: #282d25; }
-.inner { max-width: 1480px; padding: 38px clamp(24px, 5vw, 80px); margin: auto; display: flex; justify-content: space-between; align-items: center; gap: 36px; }
-.intro h2 { font-size: 1.5rem; font-weight: 400; line-height: 1.5; letter-spacing: -.035em; word-break: keep-all; }
-.form { display: flex; align-items: stretch; flex: 1; max-width: 590px; gap: 12px; }
-.field { flex: 1; min-width: 0; border: 1px solid #b7ac99; padding: 10px 14px; background: #f8f4ec; }
-.field label { display: block; font-size: .875rem; color: #655b4e; }
-.field select { width: 100%; min-height: 36px; font-size: 1rem; color: #282d25; background: transparent; cursor: pointer; }
-.form button { min-height: 54px; padding: 16px 22px; display: flex; justify-content: space-between; align-items: center; gap: 20px; font-size: 1rem; background: #29372c; color: #fff9ef; cursor: pointer; white-space: nowrap; }
-.form button:hover { background: #3e4d3f; }
-.form button:focus-visible, .field select:focus-visible { outline: 2px solid #8b5c30; outline-offset: 4px; }
-@media (max-width: 1000px) { .inner { align-items: stretch; flex-direction: column; gap: 24px; } .form { max-width: none; } }
-@media (max-width: 480px) { .inner { padding: 30px 24px; } .form { flex-direction: column; } }
+.section { position: relative; z-index: 3; scroll-margin-top: 96px; max-width: 1320px; margin: -44px auto 0; padding: 0 32px; color: #29372c; }
+.form { display: grid; grid-template-columns: 1.25fr 1.25fr .85fr 1.1fr; padding: 24px; gap: 0; background: #f4f0e8; box-shadow: 0 16px 48px #0002; }
+.field { min-width: 0; padding: 4px 22px; border-right: 1px solid #cfc9bc; }
+.field label { display: block; font-size: 12px; color: #6b7164; margin-bottom: 8px; }
+.field input, .field select { width: 100%; min-height: 36px; font-size: 16px; background: transparent; color: #29372c; color-scheme: light; border: 0; }
+.form button { margin-left: 20px; min-height: 64px; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px; background: #354b3b; color: white; cursor: pointer; font-size: 14px; }
+.form button:disabled { opacity: .6; cursor: wait; }
+.form button:hover:not(:disabled) { background: #223e29; }
+.field input:focus-visible, .field select:focus-visible, .form button:focus-visible { outline: 2px solid #997b50; outline-offset: 4px; }
+.notice { background: #f4f0e8; color: #a03924; padding: 0 24px 20px; font-size: 14px; }
+@media (max-width: 1000px) { .form { grid-template-columns: 1fr 1fr; gap: 16px; } .field { padding: 4px 12px; border: 0; } .form button { margin: 0; min-height: 52px; } }
+@media (max-width: 600px) { .section { padding: 0 20px; margin-top: -28px; } .form { padding: 18px 12px; gap: 12px; } .field { padding: 4px 8px; } }

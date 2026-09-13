@@ -12,7 +12,7 @@ const NAV_LINKS = [
   { href: '/brand', label: '브랜드' },
   { href: '/#spaces', label: '공간' },
   { href: '/tours', label: '투어' },
-  { href: '/about', label: '호스팅 지원 플랫폼' },
+  { href: '/about', label: '입점 안내' },
 ];
 
 export function PublicNavigation() {

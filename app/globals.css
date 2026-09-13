@@ -141,3 +141,10 @@
   word-break: keep-all;
   overflow-wrap: break-word;
 }
+/* Native scrolling stays in control; unsupported browsers simply show the cards. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .stay-reveal { animation: stay-arrive linear both; animation-timeline: view(); animation-range: entry 0% entry 25%; }
+    @keyframes stay-arrive { from { opacity: .4; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+  }
+}

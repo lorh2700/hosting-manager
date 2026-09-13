@@ -1,7 +1,7 @@
 export const publicCopy: Record<string, string> = {
   '10월 오픈 예정':'Opening in October',
   '예약 가능 여부를 확인 중입니다.':'Checking availability.', '판매 가능한 객실이 없습니다.':'No rooms are available.', '체크인이 제한된 날짜입니다.':'Check-in is not available on this date.', '1~30박 일정을 선택해주세요.':'Choose a stay of 1–30 nights.', '체크아웃 가능 여부를 확인 중입니다.':'Checking check-out availability.', '체크아웃이 제한된 날짜입니다.':'Check-out is not available on this date.', '일정 중 판매 가능한 객실이 없는 날짜가 있습니다.':'A room is unavailable on one or more selected nights.', '취소·환불 규정에 동의해주세요.':'Please agree to the cancellation and refund policy.',
-  '브랜드':'Our story', '공간':'Stays', '투어':'Tours', '호스팅 지원 플랫폼':'Hosting platform', '주 메뉴':'Main navigation', 'void anchae 홈':'VOID ANCHAE home', '예약하기':'Book a stay', '관리자':'Admin', '메뉴 닫기':'Close menu', '메뉴 열기':'Open menu',
+  '브랜드':'Our story', '공간':'Stays', '투어':'Tours', '입점 안내':'Partner with us', '호스팅 지원 플랫폼':'Hosting platform', '주 메뉴':'Main navigation', 'void anchae 홈':'VOID ANCHAE home', '예약하기':'Book a stay', '관리자':'Admin', '메뉴 닫기':'Close menu', '메뉴 열기':'Open menu',
   '한옥에서 바라보는 초록빛 풍경과 산 능선':'Green landscape and mountains seen from a hanok', '배경 영상 일시정지':'Pause background video', '배경 영상 재생':'Play background video', '그저 머물러도':'Simply stay.', '충분합니다.':'That is enough.',
   '머무를 한옥':'Find your stay', '머물고 싶은 한옥':'Your hanok', '숙소를 선택해주세요':'Select a stay', '날짜 · 요금 확인':'Dates & rates', '숙소 예약으로 바로가기':'Skip to booking', '머무는 공간':'Our stays',
   '안온재':'Anonjae', '운와당':'Unwadang', '화연재':'Hwayeonjae', '도원재':'Dowonjae', '별하재':'Byulhajae', '자락헌':'Jarakheon', '북촌':'Bukchon, Seoul', '경북 영주':'Yeongju, Gyeongbuk', '삼청동':'Samcheong-dong, Seoul',

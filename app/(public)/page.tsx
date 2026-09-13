@@ -1,17 +1,54 @@
 'use client';
 
 import { usePublicLanguage } from '@/components/PublicLanguage';
+import { useEffect, useRef, useState } from 'react';
+import { type StaySearch, type StaySearchResult, staySearchQuery } from '@/lib/stay-search';
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, MapPin, Users, Dog } from 'lucide-react';
 import { ScrollUnfoldHero } from '@/components/ScrollUnfoldHero';
 import { StayBookingSearch } from '@/components/StayBookingSearch';
 import { Logo } from '@/components/Logo';
 import { PROPERTY_DISPLAY, PROPERTY_DISPLAY_ORDER } from '@/lib/property-display';
 
 export default function PublicPortal() {
-  const { t } = usePublicLanguage();
+  const { t, language } = usePublicLanguage();
+  const en = language === 'en';
+  const [details, setDetails] = useState<{ slug: string; maxGuests: number | null; maxPets: number | null; basePrice: number | null }[]>([]);
+  const [metadataError, setMetadataError] = useState(false);
+  const [search, setSearch] = useState<StaySearch | null>(null);
+  const [results, setResults] = useState<StaySearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState(false);
+  const controller = useRef<AbortController | null>(null);
+  useEffect(() => {
+    const request = new AbortController();
+    fetch('/api/public/properties', { signal: request.signal }).then(async res => {
+      if (!res.ok) throw new Error('Properties unavailable');
+      setDetails(await res.json());
+    }).catch(() => { if (!request.signal.aborted) setMetadataError(true); });
+    return () => { request.abort(); controller.current?.abort(); controller.current = null; };
+  }, []);
+  async function findStays(criteria: StaySearch) {
+    controller.current?.abort();
+    const request = new AbortController(); controller.current = request;
+    setSearching(true); setSearchError(false); setSearch(criteria); setResults([]);
+    const timeout = setTimeout(() => request.abort(), 60000);
+    try {
+      const response = await fetch('/api/public/stay-search', { method: 'POST', signal: request.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(criteria) });
+      if (!response.ok) throw new Error('Search unavailable');
+      const data = await response.json();
+      if (controller.current === request) setResults(data.results);
+    } catch { if (controller.current === request) setSearchError(true); }
+    finally {
+      clearTimeout(timeout);
+      if (controller.current === request) {
+        setSearching(false);
+        document.getElementById('spaces')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' });
+      }
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#171b18] text-stone-50 selection:bg-stone-400/20 font-sans">
@@ -20,7 +57,7 @@ export default function PublicPortal() {
       <main>
       {/* Hero Section */}
       <ScrollUnfoldHero />
-      <StayBookingSearch />
+      <StayBookingSearch onSearch={findStays} loading={searching} />
 
       {/* Spaces Grid Section */}
       <section id="spaces" aria-labelledby="spaces-title" className="scroll-mt-20 py-16 md:py-24 px-6 md:px-12 max-w-[1480px] mx-auto">
@@ -29,18 +66,27 @@ export default function PublicPortal() {
             <h2 id="spaces-title" className="brand-serif text-3xl md:text-5xl leading-relaxed">{t("머무는 공간")}</h2>
           </div>
         </div>
+        <div aria-live="polite" className="mb-8 text-sm text-stone-300 space-y-3">
+          {search ? <p>{search.checkIn} — {search.checkOut} · {search.guests}{en ? ' guests' : '명'} <button type="button" onClick={() => { controller.current?.abort(); controller.current = null; setSearching(false); setSearch(null); setResults([]); setSearchError(false); }} className="ml-4 min-h-11 underline">{en ? 'Clear search' : '전체 숙소 보기'}</button></p> : <p>{en ? 'From rates · 2 guests, per night. Final rates vary by date and options.' : '기준요금 · 2인 / 1박부터. 날짜와 옵션에 따라 최종 요금이 달라집니다.'}</p>}
+          {searching && <p role="status">{en ? 'Checking live rates and availability…' : '실시간 요금과 예약 가능 여부를 확인하고 있습니다…'}</p>}
+          {search && results.some(r => r.status === 'available' && !r.includesAllFees) && <p>{en ? 'Any additional mandatory fees will be confirmed at checkout.' : '별도 필수 요금이 있는 경우 결제 단계에서 확인할 수 있습니다.'}</p>}
+          {(searchError || metadataError) && <p role="alert">{en ? 'Some information could not be loaded. Please retry or check the stay details.' : '일부 정보를 불러오지 못했습니다. 다시 검색하거나 숙소 상세에서 확인해주세요.'}</p>}
+          {search && !searching && !searchError && results.length > 0 && results.every(r => r.status === 'unavailable') && <p>{en ? 'No stays match these dates and guests. Please try another date.' : '선택한 날짜와 인원에 맞는 숙소가 없습니다. 다른 날짜로 검색해주세요.'}</p>}
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-10 md:gap-y-14">
           {PROPERTY_DISPLAY_ORDER.filter(slug => PROPERTY_DISPLAY[slug]?.status !== 'closed').map((slug) => {
             const p = PROPERTY_DISPLAY[slug];
             if (!p) return null;
             const isComingSoon = p.status === 'coming_soon';
+            const info = details.find(detail => detail.slug === p.slug);
+            const result = results.find(item => item.slug === p.slug);
             const hasImage = p.imageFiles.length > 0;
             const coverWebp = hasImage ? `/images/${p.imageFolder}/${p.imageFiles[0]}.webp` : null;
             return (
-              <article key={slug}>
+              <article key={slug} className="stay-reveal">
                 <Link
-                  href={`/book/${p.slug}`}
+                  href={`/book/${p.slug}${search && result?.status === 'available' ? `?${staySearchQuery(search)}` : ''}`}
                   className="group block focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#d8c3a4]"
                 >
                   <div className="relative overflow-hidden bg-stone-900 aspect-[3/2]">
@@ -70,7 +116,7 @@ export default function PublicPortal() {
                   </div>
 
                   <div className="pt-5 pb-5 border-b border-white/20">
-                    <p className="text-xs tracking-[0.15em] text-[#d8c3a4] mb-3">
+                    <p className="flex items-center gap-2 text-sm text-[#d8c3a4] mb-3"><MapPin size={14} aria-hidden="true" />
                       {t(p.region)}
                     </p>
                     <div className="flex items-end justify-between gap-3">
@@ -81,6 +127,17 @@ export default function PublicPortal() {
                         size={22}
                         className="text-stone-100 shrink-0 mb-1 opacity-70 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all duration-300"
                       />
+                    </div>
+                    <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-stone-300 mt-4">
+                      <span className="inline-flex items-center gap-2"><Users size={15} aria-hidden="true" />{info?.maxGuests ? (en ? `Up to ${info.maxGuests} guests` : `최대 ${info.maxGuests}인`) : (en ? 'Capacity to be confirmed' : '인원 정보 확인 중')}</span>
+                      <span className="inline-flex items-center gap-2"><Dog size={15} aria-hidden="true" />{info?.maxPets != null ? info.maxPets > 0 ? (en ? `Up to ${info.maxPets} dogs` : `반려견 ${info.maxPets}마리 동반 가능`) : (en ? 'No dogs' : '반려견 동반 불가') : (en ? 'Pet policy to be confirmed' : '반려견 정책 확인 중')}</span>
+                    </div>
+                    <div className="flex justify-between items-end gap-4 mt-6 pt-5 border-t border-white/10">
+                      <p className="text-xl text-stone-100">
+                        {isComingSoon ? t('오픈 예정') : search ? searching ? (en ? 'Checking rates…' : '요금 확인 중…') : result?.status === 'available' ? `₩${result.priceKrw!.toLocaleString()}` : result?.status === 'unavailable' ? (en ? 'Unavailable for this search' : '선택 조건 예약 불가') : (en ? 'Rate unavailable · retry' : '요금 조회 실패 · 재검색') : info?.basePrice ? `₩${info.basePrice.toLocaleString()} ${en ? 'from' : '부터'}` : (en ? 'Select dates for rates' : '날짜 선택 후 요금 확인')}
+                        {!isComingSoon && ((search && result?.status === 'available') || (!search && info?.basePrice)) && <span className="block text-xs text-stone-400 mt-2">{search ? (en ? `${result?.nights} nights · ${result?.includesAllFees ? 'stay total' : 'stay rate'}, selected options included` : `${result?.nights}박 ${result?.includesAllFees ? '총요금' : '숙박요금'} · 선택 옵션 포함`) : (en ? '2 guests · per night' : '기준 2인 · 1박')}</span>}
+                      </p>
+                      <span className="text-sm text-[#d8c3a4] whitespace-nowrap">{en ? 'View stay' : '숙소 보기'}</span>
                     </div>
                   </div>
                 </Link>
@@ -93,12 +150,22 @@ export default function PublicPortal() {
 
       {/* Footer */}
       <footer className="border-t border-stone-800 py-12 px-6 md:px-12 mt-20">
-        <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="opacity-80">
-            <Logo width={120} />
+        <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between items-start gap-8">
+          <div className="space-y-5">
+            <div className="opacity-80"><Logo width={120} /></div>
+            <div className="text-xs leading-6 text-stone-400">
+              <p>{en ? 'Company' : '회사명'} · 주식회사 운와</p>
+              <p>{en ? 'Representative' : '대표자'} · 박도영</p>
+              <p>{en ? 'Business registration number' : '사업자 등록번호'} · 743-86-03452</p>
+            </div>
           </div>
-          <div className="text-xs uppercase tracking-widest text-stone-400">
-            © {new Date().getFullYear()} void anchae. All rights reserved.
+          <div className="space-y-4 md:text-right">
+            <a href="https://www.instagram.com/voidanchae/" target="_blank" rel="noopener noreferrer" aria-label={en ? 'VOID ANCHAE Instagram (opens in a new tab)' : 'VOID ANCHAE 인스타그램 (새 탭에서 열림)'} className="inline-flex items-center gap-2 min-h-11 text-sm text-stone-300 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4">
+              Instagram <ArrowUpRight size={16} aria-hidden="true" />
+            </a>
+            <p className="text-xs tracking-wide text-stone-400">
+              © {new Date().getFullYear()} VOID ANCHAE. All rights reserved.
+            </p>
           </div>
         </div>
       </footer>

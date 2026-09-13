@@ -16,7 +16,7 @@ const cormorantGaramond = Cormorant_Garamond({
 });
 
 const SITE_URL = 'https://voidanchae.com';
-const SITE_TITLE = 'void anchae · 큐레이션된 한옥 스테이';
+const SITE_TITLE = 'VOID ANCHAE | 한옥 스테이';
 const SITE_DESCRIPTION = '그저 머물러도 충분합니다. 서울 북촌과 경북 영주, 당신의 시간과 마음이 스며드는 한옥 스테이 VOID ANCHAE.';
 const OG_IMAGE = `${SITE_URL}/images/main_yard.jpg`;
 
@@ -32,12 +32,16 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default: SITE_TITLE,
-    template: '%s · void anchae',
+    template: '%s | VOID ANCHAE',
   },
   description: SITE_DESCRIPTION,
   manifest: '/manifest.webmanifest',
   appleWebApp: { capable: true, statusBarStyle: 'default', title: 'void anchae' },
-  icons: { apple: '/icons/apple-touch-icon.png' },
+  icons: {
+    icon: [{ url: '/icons/tab-icon-32.png', sizes: '32x32', type: 'image/png' }],
+    shortcut: '/favicon.ico',
+    apple: '/icons/apple-touch-icon.png',
+  },
   alternates: {
     canonical: '/',
     languages: {

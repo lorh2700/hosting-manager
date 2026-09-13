@@ -85,7 +85,8 @@ export function ScrollUnfoldHero() {
           </button>}
         </div>
         <div className={styles.content}>
-          <h1 id="stay-hero-title" className={styles.title}>{t("그저 머물러도")}<br /><span>{t("충분합니다.")}</span></h1>
+          <p className={styles.kicker}>VOID ANCHAE · HANOK STAYS</p>
+          <h1 id="stay-hero-title" lang="en" className={styles.title}>A Quiet Stay<br /><span>in the City</span></h1>
           <div className={styles.actions}>
             <Link href="#find-stay" className={styles.primary}>{t("예약하기")}<ArrowUpRight size={18} aria-hidden="true" /></Link>
           </div>

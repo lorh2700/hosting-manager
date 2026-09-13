@@ -4,7 +4,8 @@
 .photo, .video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; }
 .shade { position: absolute; inset: 0; background: linear-gradient(90deg, #0b110ede 0%, #0b110e80 42%, #0b110e0a 80%), linear-gradient(0deg, #0b110e80, transparent 55%); }
 .content { position: relative; width: 100%; max-width: 1600px; margin: 0 auto; padding: 100px clamp(24px, 6vw, 96px) 100px; height: 100%; display: flex; flex-direction: column; justify-content: center; pointer-events: none; }
-.title { font-family: var(--font-brand-serif), 'Batang', serif; font-size: clamp(46px, 4.7vw, 74px); font-weight: 400; line-height: 1.55; letter-spacing: -.035em; word-break: keep-all; margin: 0; }
+.kicker { font-size: 11px; letter-spacing: .3em; margin-bottom: 24px; color: #eee5d6; }
+.title { font-family: var(--font-serif), Georgia, serif; font-size: clamp(64px, 7.2vw, 110px); font-weight: 400; line-height: 1.05; letter-spacing: -.025em; word-break: keep-all; margin: 0; }
 .title span { color: #e6d1b2; }
 .actions { display: flex; gap: 26px; align-items: center; flex-wrap: wrap; margin-top: 34px; }
 .primary { pointer-events: auto; display: inline-flex; align-items: center; justify-content: space-between; gap: 22px; min-height: 54px; font-size: .875rem; transition: background .2s, color .2s; }
@@ -16,11 +17,11 @@
 .primary:focus-visible, .playback:focus-visible { outline: 2px solid #dfbd88; outline-offset: 5px; }
 @media (max-width: 767px) {
  .hero { padding-top: 64px; }
- .scene { min-height: 0; height: auto; }
- .media { position: relative; aspect-ratio: 16 / 9; }
- .shade { background: linear-gradient(0deg, #171b1880, transparent 40%); }
- .content { padding: 32px 24px 38px; }
- .title { font-size: clamp(32px, 8.2vw, 48px); line-height: 1.6; }
+ .scene { min-height: 530px; height: 76svh; max-height: 740px; }
+ .media { position: absolute; inset: 0; }
+ .shade { background: linear-gradient(0deg, #171b18bb, #171b1820 90%); }
+ .content { padding: 80px 28px 100px; justify-content: flex-end; }
+ .title { font-size: clamp(52px, 12vw, 78px); line-height: 1.1; }
  .actions { gap: 10px; margin-top: 24px; flex-direction: column; align-items: stretch; }
  .primary { padding: 0 18px; border-radius: 8px; }
  .primary { gap: 12px; min-height: 48px; }
