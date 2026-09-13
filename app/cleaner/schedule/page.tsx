@@ -53,7 +53,6 @@ export default function CleanerSchedulePage() {
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState<string | null>(null);
   const [applyNote, setApplyNote] = useState('');
-  const [showApplyForm, setShowApplyForm] = useState<string | null>(null);
   const [monthCursor, setMonthCursor] = useState(() => startOfMonth(new Date()));
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
@@ -148,7 +147,6 @@ export default function CleanerSchedulePage() {
         throw new Error(data.error || 'Failed to apply');
       }
 
-      setShowApplyForm(null);
       setApplyNote('');
       toast.success('배정이 완료되었습니다.');
       await loadData();

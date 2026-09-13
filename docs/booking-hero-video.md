@@ -12,7 +12,7 @@ Public serving requires only the two v2 assets above, which are stored in this r
 
 ## Previous version
 
-The retained v1 assets are no longer referenced by the hero. That earlier photo-based film includes AI-composited fictional guests in three scenes, not footage of actual guests. Its source project and prompts are in the sibling `hanok-video` workspace directory. The following external photo credits apply to that previous version:
+The unused v1 assets were removed from public serving; the current hero uses v2. That earlier photo-based film includes AI-composited fictional guests in three scenes, not footage of actual guests. Its source project and prompts are in the sibling `hanok-video` workspace directory. The following external photo credits apply to that previous version:
 
 External photo credits: Bernard Gagnon (Bgag), CC0 1.0; photographed 27 September 2022; license checked 10 September 2026.
 

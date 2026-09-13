@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/components/AuthProvider';
 import { Users, Save, Search } from 'lucide-react';
 
 interface GuestRecord {
@@ -26,7 +25,6 @@ const SOURCE_LABELS: Record<string, string> = {
 };
 
 export default function GuestsPage() {
-  const { profile } = useAuth();
   const [guests, setGuests] = useState<GuestRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');

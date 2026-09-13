@@ -26,7 +26,7 @@ export function useCalendarData() {
     const fetchAll = async () => {
       try {
         if (isLoggedIn) {
-          const res = await fetch('/api/admin/calendar');
+          const res = await fetch('/api/admin/calendar', { cache: 'no-store' });
           if (!res.ok) throw new Error('Failed to fetch admin calendar');
           const data = await res.json();
           if (cancelled) return;

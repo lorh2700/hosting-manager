@@ -72,7 +72,7 @@ function getSourceBadgeClass(_source: string): string {
 }
 
 export default function BookingsPage() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [properties, setProperties] = useState<Map<string, PropertyInfo>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -138,7 +138,7 @@ export default function BookingsPage() {
           children: d.children,
           status: d.status ?? 'pending',
           createdAt: d.createdAt ?? '',
-          source: d.channelId === 'beds24' ? 'beds24' : 'direct',
+          source: d.source || 'direct',
           channelBookingRef: ref ? String(ref) : undefined,
           dataSource: 'bookings',
         });
@@ -191,40 +191,18 @@ export default function BookingsPage() {
   const handleCancelBooking = async (booking: Booking) => {
     setCancellingId(booking.id);
     try {
-      if (booking.channelBookingRef && booking.source !== 'direct') {
-        // Cancel via Beds24 API
-        const res = await fetch('/api/beds24/bookings', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            beds24BookingId: booking.channelBookingRef,
-            bookingId: booking.id,
-            action: 'cancel',
-          }),
-        });
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || '취소에 실패했습니다.');
-        }
-      } else {
-        // Cancel via API
-        const res = await fetch('/api/bookings', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: booking.id,
-            status: 'cancelled',
-            cancelledAt: new Date().toISOString(),
-          }),
-        });
-        if (!res.ok) throw new Error('Failed to cancel booking');
-      }
+      const res = booking.dataSource === 'events'
+        ? await fetch('/api/beds24/reservations?eventId=' + encodeURIComponent(booking.id), { method: 'DELETE' })
+        : await fetch('/api/bookings/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: booking.id }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '예약 취소에 실패했습니다.');
+      if (data.cleaningCleanupPending) toast.error('예약은 취소됐지만 청소 일정 정리가 지연됩니다. 동기화 후 확인해주세요.');
       setBookings(prev =>
         prev.map(b => b.id === booking.id ? { ...b, status: 'cancelled' } : b)
       );
     } catch (err) {
       console.error('Failed to cancel booking:', err);
-      toast.error('예약 취소에 실패했습니다.');
+      toast.error(err instanceof Error ? err.message : '예약 취소에 실패했습니다.');
     } finally {
       setCancellingId(null);
       setConfirmCancelBooking(null);
@@ -536,7 +514,7 @@ export default function BookingsPage() {
                       <span>{booking.guests}명</span>
                     </div>
 
-                    {booking.status === 'confirmed' && (
+                    {booking.status !== 'cancelled' && ['direct', 'beds24', 'Beds24', 'manual-reservation'].includes(booking.source) && (
                       <div className="flex justify-end">
                         <button
                           onClick={() => setConfirmCancelBooking(booking)}
@@ -584,7 +562,7 @@ export default function BookingsPage() {
                     <p className="text-xs text-stone-500">{formatCreatedAt(booking.createdAt)}</p>
 
                     <div className="flex justify-end w-16">
-                      {booking.status === 'confirmed' && booking.dataSource === 'bookings' && (
+                      {booking.status !== 'cancelled' && ['direct', 'beds24', 'Beds24', 'manual-reservation'].includes(booking.source) && (
                         <button
                           onClick={() => setConfirmCancelBooking(booking)}
                           disabled={isCancelling}
@@ -623,11 +601,13 @@ export default function BookingsPage() {
           <div className="bg-white border border-stone-200 p-6 sm:p-8 w-full sm:max-w-md shadow-2xl">
             <h2 className="text-lg font-semibold text-stone-900 mb-2">예약을 취소하시겠습니까?</h2>
             <p className="text-stone-700 text-sm mb-2">
-              이 작업은 되돌릴 수 없습니다. 예약 상태가 &apos;취소됨&apos;으로 변경됩니다.
+              {confirmCancelBooking.propertyName} · {confirmCancelBooking.name}<br />
+              {confirmCancelBooking.checkIn} ~ {confirmCancelBooking.checkOut}<br />
+              선택한 예약의 상태를 취소됨으로 변경합니다.
             </p>
-            {confirmCancelBooking.source !== 'direct' && confirmCancelBooking.channelBookingRef && (
+            {confirmCancelBooking.channelBookingRef && (
               <p className="text-amber-700 text-xs bg-amber-50 border border-amber-200 px-3 py-2 mt-4">
-                Beds24를 통해 OTA 채널에도 취소가 반영됩니다.
+                연결된 Beds24 직접예약도 취소합니다. 외부 채널 예약은 해당 채널에서 취소해주세요.
               </p>
             )}
             <div className="flex justify-end gap-2 mt-6">

@@ -9,7 +9,6 @@ import {
   Briefcase,
   Clock,
   Users as UsersIcon,
-  Loader2,
   Plus,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';

@@ -619,7 +619,7 @@ export default function CalendarPage() {
                 </div>
               )}
 
-              {selectedEvent.eventId && selectedEvent.channelId === 'beds24' && selectedEvent.type !== 'block' && <CancelReservationButton eventId={selectedEvent.eventId} source={selectedEvent.source} onCancelled={() => { setSelectedEvent(null); void fetchEvents(); }} />}
+              {selectedEvent.eventId && selectedEvent.channelId === 'beds24' && selectedEvent.type !== 'block' && <CancelReservationButton eventId={selectedEvent.eventId} source={selectedEvent.source} channelId={selectedEvent.channelId} description={`${selectedEvent.title} · ${selectedEvent.start} ~ ${selectedEvent.end}`} onCancelled={() => { setSelectedEvent(null); void fetchEvents(); }} />}
               {selectedEvent.type === 'block' && selectedEvent.source === 'maintenance' && (
                 <button
                   onClick={handleReleaseMaintenance}

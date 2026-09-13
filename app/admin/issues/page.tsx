@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { AlertTriangle, CheckCircle2, Clock, ArrowRight } from 'lucide-react';
-import type { CleaningIssue, IssueStatus } from '@/lib/types';
+import { AlertTriangle, ArrowRight } from 'lucide-react';
+import type { CleaningIssue } from '@/lib/types';
 import { ISSUE_CATEGORY_LABELS, URGENCY_LABELS, ISSUE_STATUS_CONFIG, ISSUE_NEXT_STATUS } from '@/lib/constants';
 import { fetchPropertyNames, enrichWithPropertyName, apiPut } from '@/lib/api-client';
 

@@ -197,7 +197,7 @@ export function EventDetailPanel({
         </div>
 
         {/* 객실정비 해제 */}
-        {!isBlock && selectedEvent.channelId === 'beds24' && <CancelReservationButton eventId={selectedEvent.eventId} source={selectedEvent.source} onCancelled={onReservationCancelled} />}
+        {!isBlock && ['beds24', 'direct'].includes(selectedEvent.channelId) && <CancelReservationButton eventId={selectedEvent.eventId} source={selectedEvent.source} channelId={selectedEvent.channelId} description={`${selectedEvent.propertyName} · ${selectedEvent.title}\n${selectedEvent.start} ~ ${selectedEvent.end}`} onCancelled={onReservationCancelled} />}
         {isMaintenance && onReleaseMaintenance && (
           <div className="border-t border-stone-200 pt-5 space-y-2">
             <p className="text-xs text-stone-500 leading-relaxed">

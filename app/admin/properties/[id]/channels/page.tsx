@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
-import { ArrowLeft, Save, Link as LinkIcon, CheckCircle2, XCircle, Copy, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save, CheckCircle2, XCircle, Copy, Trash2 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { toast, confirmDialog } from '@/components/ui';
 

@@ -143,7 +143,6 @@ export async function GET(req: Request) {
   }
   const beds24PropIds = properties.map(p => p.beds24PropId).filter((v): v is string => !!v);
   const propIdToBeds24 = new Map(properties.map(p => [p.id, p.beds24PropId || '']));
-  const propsById = new Map(properties.map(p => [p.id, p]));
   const internalPropertyIds = properties.map(p => p.id);
 
   // Date math — string comparison works because all dates are YYYY-MM-DD.

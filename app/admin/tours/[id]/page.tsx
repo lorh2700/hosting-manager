@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Save, Trash2, CalendarDays, BookOpen, Loader2, ExternalLink, Plus, X, Upload, ImagePlus } from 'lucide-react';
+import { ChevronLeft, Save, Trash2, CalendarDays, BookOpen, Loader2, ExternalLink, Plus, X, ImagePlus } from 'lucide-react';
 import { toast, confirmDialog } from '@/components/ui';
 
 interface OperatorOption { id: string; name: string }

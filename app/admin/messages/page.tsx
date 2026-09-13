@@ -23,15 +23,6 @@ interface Message {
   beds24MessageType?: string;  // 'guest' | 'host' | 'internalNote' | 'system'
 }
 
-interface EventInfo {
-  id: string;
-  propertyId: string;
-  title: string;
-  start: string;
-  end: string;
-  description?: string;
-}
-
 interface Conversation {
   eventId: string;
   propertyId: string;

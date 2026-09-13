@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { motion, useScroll, useSpring } from 'motion/react';
 import { ArrowRight, Calendar, Brush, Inbox, BarChart3, Layers, Sparkles, Check, RefreshCw, ChevronLeft, ChevronRight, Languages, ConciergeBell, Plane, UtensilsCrossed, Lock, QrCode, Send, Zap } from 'lucide-react';
 import { Logo } from '@/components/Logo';
