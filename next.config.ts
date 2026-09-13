@@ -1,6 +1,8 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
+  // Keep verification builds separate from a running development preview when requested.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   reactStrictMode: true,
   eslint: {
     ignoreDuringBuilds: true,

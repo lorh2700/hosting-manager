@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, useEffect, useCallback } from 'react';
 import {
   Users, Plus, Trash2, Save, Phone, Link as LinkIcon, Copy, RefreshCw, Check,
@@ -241,6 +242,8 @@ export default function CleanersPage() {
         <p className="text-stone-500 mt-2 text-sm">
           프로필을 만들고, 필요하면 앱 로그인이나 공개 링크로 일정을 공유하세요. 배정 지점은 화면·청소 신청·알림에 모두 적용됩니다.
         </p>
+        <Link href="/cleaner" className="inline-flex min-h-11 items-center rounded-xl border border-stone-300 px-4 mt-4 text-sm">업무 화면 미리보기</Link>
+        <p className="text-xs text-stone-500 mt-2">현재 관리자 권한으로 확인합니다. 특정 담당자 계정으로 전환하지 않습니다.</p>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">

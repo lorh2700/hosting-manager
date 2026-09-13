@@ -26,7 +26,7 @@ interface OpsData {
   today: string;
   properties: OpsProperty[];
   cleaners: { id: string; name: string }[];
-  counts: { pendingApplications: number; openIssues: number; pendingSupplies: number };
+  counts: { pendingApplications: number; openIssues: number; pendingSupplies: number; delayedLaundry: number };
 }
 
 const todayStr = () => format(new Date(), 'yyyy-MM-dd');
@@ -47,6 +47,7 @@ function GuestBlock({ r, statusLine, action }: { r: OpsReservation; statusLine?:
         {r.guests ? <span className="t-caption text-stone-500">{r.guests}명</span> : null}
         <span className="t-micro text-stone-500 bg-stone-100 px-1.5 py-0.5">{r.channel}</span>
       </div>
+      {r.pets != null && r.pets > 0 && <p className="t-caption text-amber-800 font-semibold">반려견 동반 · {r.pets}마리</p>}
       {statusLine}
       {r.flags.length > 0 && (
         <div className="flex gap-1.5 flex-wrap">
@@ -216,6 +217,11 @@ export default function OpsPage() {
           <SkeletonList count={3} rows={3} />
         ) : data ? (
           <>
+            <section aria-label="청소와 세탁 현황" className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <button onClick={()=>setFilter('attention')} className="text-left rounded-xl border bg-white p-4"><p className="text-xs text-stone-500">오늘 청소 미완료</p><p className="text-2xl font-semibold mt-2">{working.filter(p=>p.cleaning&&p.cleaning.status!=='done').length}<span className="text-xs font-normal ml-1">곳</span></p><p className="text-xs text-stone-500 mt-2">아래 숙소에서 진행 상황 확인</p></button>
+              <button onClick={()=>setFilter('attention')} className="text-left rounded-xl border bg-white p-4"><p className="text-xs text-stone-500">오늘 청소 미배정</p><p className="text-2xl font-semibold mt-2">{working.filter(p=>p.cleaning?.status!=='done'&&!p.cleaning?.cleanerId).length}<span className="text-xs font-normal ml-1">곳</span></p><p className="text-xs text-stone-500 mt-2">아래 숙소에서 담당자 배정</p></button>
+              <Link href="/admin/laundry" className="rounded-xl border bg-white p-4"><p className="text-xs text-stone-500">세탁 입고 지연</p><p className="text-2xl font-semibold mt-2">{data.counts.delayedLaundry}<span className="text-xs font-normal ml-1">건</span></p><p className="text-xs text-stone-500 mt-2">배송 예정일을 지난 미입고 건 확인 →</p></Link>
+            </section>
             {/* 1. 오늘 요약 */}
             <div className="bg-white border border-stone-200 px-4 py-3">
               {working.length === 0 ? (

@@ -1,12 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import LaundryWorkspace from '@/components/LaundryWorkspace';
+import { todayKst } from '@/lib/dates';
 import { useAuth } from '@/components/AuthProvider';
 import { format, parseISO, isToday, isTomorrow, isPast, differenceInCalendarDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import {
   CheckCircle2, Clock, CalendarDays, AlertTriangle, ChevronDown, ChevronUp, Send,
-  MessageSquare, ArrowDownRight, ArrowUpRight, X, Loader2, Brush,
+  MessageSquare, X, Loader2,
 } from 'lucide-react';
 import type { IssueCategory, IssueUrgency } from '@/lib/types';
 import { toast, Skeleton, SkeletonCard, PullToRefresh } from '@/components/ui';
@@ -35,6 +38,9 @@ interface Reservation {
   phone?: string;
   email?: string;
   guests?: number;
+  adults?: number;
+  children?: number;
+  pets?: number;
   source?: string | null;
   dataSource: 'event' | 'booking';
 }
@@ -55,6 +61,16 @@ interface GuestMessage {
   text: string;
   sender: string;
   createdAt: string;
+}
+
+function ArrivalDetails({reservation:r}:{reservation:Reservation}) {
+  const nights = differenceInCalendarDays(parseISO(r.end),parseISO(r.start));
+  return <div className="mt-2 space-y-1 text-sm text-stone-700">
+    <p className="font-medium">{r.guests != null && r.guests > 0 ? `${r.guests}명` : '인원 미확인'} · {nights>0?`${nights}박 ${nights+1}일`:'숙박 기간 미확인'}</p>
+    {r.adults != null && <p className="text-xs text-stone-500">성인 {r.adults}명{r.children != null?` · 아동 ${r.children}명`:''}</p>}
+    <p className="text-xs">{format(parseISO(r.start),'M월 d일')} 입실 → {format(parseISO(r.end),'M월 d일')} 퇴실</p>
+    <p className={r.pets ? 'font-medium text-amber-800' : 'text-stone-500'}>{r.pets == null?'반려견 옵션 미확인':r.pets===0?'반려견 동반 없음':`반려견 ${r.pets}마리 동반`}</p>
+  </div>;
 }
 
 const ISSUE_CATEGORIES: { value: IssueCategory; label: string }[] = [
@@ -79,6 +95,7 @@ export default function CleanerPage() {
   const [todayCleanings, setTodayCleanings] = useState<CleaningEntry[]>([]);
   // 오늘 체크아웃 확인 상태 (숙소별): 게스트 셀프 체크아웃 또는 호스트 확인
   const [checkoutToday, setCheckoutToday] = useState<Record<string, { confirmed: boolean; confirmedAt: string | null; confirmedBy: string | null }>>({});
+  const [today, setToday] = useState(todayKst);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
@@ -114,6 +131,7 @@ export default function CleanerPage() {
       if (!res.ok) throw new Error(`today ${res.status}`);
       const data = await res.json();
       setTasks(((data.tasks ?? []) as CleaningTask[]).slice().sort((a, b) => a.date.localeCompare(b.date)));
+      setToday(data.today || todayKst());
       setTodayCleanings((data.todayCleanings ?? []) as CleaningEntry[]);
       setTodayCheckins((data.checkins ?? []) as Reservation[]);
       setTodayCheckouts((data.checkouts ?? []) as Reservation[]);
@@ -200,6 +218,7 @@ export default function CleanerPage() {
           ? { ...t, status: 'done', completedAt: new Date().toISOString(), completionNote }
           : t
       ));
+      setTodayCleanings(prev => prev.map(c => c.id === task.cleaningId ? {...c, status: 'done'} : c));
       setCompletionNote('');
       setExpandedTask(null);
       toast.success('청소 완료로 기록했습니다.');
@@ -352,16 +371,18 @@ export default function CleanerPage() {
     );
   };
 
-  const TaskCard = ({ task }: { task: CleaningTask }) => {
+  const TaskCard = ({ task, embedded = false }: { task: CleaningTask; embedded?: boolean }) => {
     const isExpanded = expandedTask === task.cleaningId;
     const isIssueOpen = showIssueForm === task.cleaningId;
+
 
     return (
       <div className={`border transition-colors ${
         task.status === 'done' ? 'border-stone-100 bg-stone-50' : 'border-stone-200 bg-white'
       }`}>
-        <div
-          className="p-5 cursor-pointer"
+        <button
+          type="button" aria-expanded={isExpanded}
+          className="w-full text-left p-5 min-h-16"
           onClick={() => setExpandedTask(isExpanded ? null : task.cleaningId)}
         >
           <div className="flex items-start justify-between gap-3">
@@ -374,14 +395,14 @@ export default function CleanerPage() {
                 <span className={`text-[12px] uppercase tracking-widest font-semibold ${
                   task.status === 'done' ? 'text-emerald-700' : 'text-stone-500'
                 }`}>
-                  {task.status === 'done' ? '완료' : '청소 예정'}
+                  {task.status === 'done' ? '청소 완료' : embedded ? '청소 완료 보고 · 문제 신고' : '청소 예정'}
                 </span>
                 {task.hasIssue && (
                   <span className="text-[12px] bg-red-500/20 text-red-400 px-1.5 py-0.5 tracking-wider">이슈</span>
                 )}
               </div>
-              <p className="text-stone-900 font-medium text-sm">{task.propertyName}</p>
-              {task.guestName && (
+              {!embedded && <p className="text-stone-900 font-medium text-sm">{task.propertyName}</p>}
+              {!embedded && task.guestName && (
                 <p className="text-stone-600 text-sm mt-1">{task.guestName} 체크아웃</p>
               )}
               {task.supplies && (
@@ -399,7 +420,7 @@ export default function CleanerPage() {
               )}
             </div>
           </div>
-        </div>
+        </button>
 
         {/* 완료 보고 패널 */}
         {isExpanded && task.status === 'pending' && (() => {
@@ -525,6 +546,18 @@ export default function CleanerPage() {
     return source;
   };
 
+  const propertyIds = [...new Set([...todayCheckins, ...todayCheckouts, ...todayCleanings, ...tasks.filter(t=>t.date===today)].map(r=>r.propertyId))];
+  const operations = propertyIds.map(propertyId => {
+    const arrivals = todayCheckins.filter(r=>r.propertyId===propertyId);
+    const departures = todayCheckouts.filter(r=>r.propertyId===propertyId);
+    const cleanings = todayCleanings.filter(c=>c.propertyId===propertyId);
+    const ownTasks = tasks.filter(t=>t.date===today&&t.propertyId===propertyId);
+    const completed = cleanings.length>0 && cleanings.every(c=>c.status==='done');
+    const priority = arrivals.length && !completed ? 0 : completed ? 2 : 1;
+    const name = (arrivals[0] || departures[0] || cleanings[0] || ownTasks[0]).propertyName;
+    return {propertyId, name, arrivals, departures, cleanings, ownTasks, completed, priority};
+  }).sort((a,b)=>a.priority-b.priority || a.name.localeCompare(b.name,'ko'));
+
   return (
     <PullToRefresh onRefresh={loadTasks}>
     <div className="space-y-10 pb-nav">
@@ -533,146 +566,38 @@ export default function CleanerPage() {
         <h1 className="t-display text-stone-900">
           {format(new Date(), 'M월 d일 EEEE', { locale: ko })}
         </h1>
-        <p className="text-stone-500 mt-2 t-caption">오늘의 운영을 한눈에 확인하세요. 아래로 당기면 새로고침됩니다.</p>
+        <p className="text-stone-500 mt-2 t-caption">청소부터 세탁 입고까지, 오늘 할 일을 한곳에서 확인하세요.</p>
       </header>
 
       {loadError && <div role="alert" className="bg-amber-50 border border-amber-300 rounded-xl p-4 text-sm"><p>{loadError}</p><button type="button" onClick={loadTasks} className="min-h-12 underline font-medium">다시 불러오기</button></div>}
-      <section className="space-y-3"><h2 className="text-xl font-semibold text-stone-900">내 오늘 청소</h2>{tasks.filter(t => t.date === format(new Date(), 'yyyy-MM-dd')).map(t => <TaskCard key={t.cleaningId} task={t} />)}{!loadError && !tasks.some(t => t.date === format(new Date(), 'yyyy-MM-dd')) && <p className="text-stone-600 text-sm py-3">오늘 배정된 청소가 없습니다.</p>}</section>
-      {/* ── 오늘의 운영 ── */}
-      {(todayCheckins.length > 0 || todayCheckouts.length > 0 || todayCleanings.length > 0) && (
-        <section className="bg-white border border-stone-200 overflow-hidden">
-          <div className="px-5 sm:px-6 py-4 border-b border-stone-200 flex items-center gap-3">
-            <p className="text-base sm:text-lg text-stone-900 font-semibold tracking-tight">오늘의 운영</p>
-            <span className="ml-auto text-[12px] uppercase tracking-widest text-[var(--brand)] bg-[var(--brand-tint)] px-2.5 py-1 font-semibold">오늘</span>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[['남은 청소',tasks.filter(t=>t.date===today&&t.status!=='done').length,'#today-cleaning'],['청소 완료',tasks.filter(t=>t.date===today&&t.status==='done').length,'#today-cleaning'],['퇴실 확인 대기',todayCheckouts.filter(r=>!checkoutToday[r.propertyId]?.confirmed).length,'#today-cleaning'],['오늘 입실',todayCheckins.length,'#today-cleaning']].map(([label,count,href])=><a key={label} href={String(href)} className="rounded-2xl border border-stone-200 bg-white p-4"><p className="text-xs text-stone-500">{label}</p><p className="text-2xl font-semibold mt-2">{count}<span className="text-xs font-normal ml-1">건</span></p></a>)}
+      </div>
+      <nav className="flex gap-2 flex-wrap text-sm" aria-label="업무 바로가기"><a href="#today-laundry" className="min-h-11 rounded-xl bg-stone-900 text-white px-4 py-3">세탁 수거·입고</a>{[['/cleaner/calendar','이번 달 일정'],['/cleaner/supplies','비품 관리'],['/cleaner/issues','문제 신고']].map(([href,label])=><Link key={href} href={href} className="min-h-11 rounded-xl border px-4 py-3 bg-white">{label}</Link>)}</nav>
+      <section id="today-cleaning" className="space-y-4 scroll-mt-6" aria-label="숙소별 오늘 업무">
+        <div><h2 className="text-xl font-semibold">숙소별 오늘 업무</h2><p className="text-sm text-stone-500 mt-1">오늘 입실을 앞두고 청소가 남은 숙소부터 표시합니다.</p></div>
+        {operations.map(op=><details key={op.propertyId} open={!op.completed} className="group rounded-2xl border border-stone-200 bg-white overflow-hidden">
+          <summary className="cursor-pointer p-5 marker:text-stone-400"><span className="font-semibold">{op.name}</span><span className={`ml-3 text-xs ${op.completed?'text-emerald-700':op.priority===0?'text-amber-800':'text-stone-500'}`}>{op.completed?'청소 완료':op.cleanings.length?'청소 대기':'청소 일정 미등록'}{op.arrivals.length?' · 오늘 입실':''}</span>
+            {op.completed&&<span className="block mt-2 text-xs text-stone-500">{op.arrivals.length?op.arrivals.map(r=>`${r.guests || '인원 미확인'}${r.guests?'명':''} · ${differenceInCalendarDays(parseISO(r.end),parseISO(r.start))}박`).join(' / '):'오늘 입실 없음'} · 펼쳐서 상세 보기</span>}
+          </summary>
+          <div className="px-5 pb-5 space-y-4 border-t border-stone-100">
+            <section className="pt-4"><h3 className="text-xs font-semibold text-stone-500 mb-2">퇴실</h3>
+              {op.departures.map(r=><p key={r.id} className="text-sm">{r.title || '게스트'}</p>)}
+              {checkoutToday[op.propertyId]?.confirmed?<p className="text-sm text-emerald-700">퇴실 확인 완료{checkoutToday[op.propertyId].confirmedAt&&` · ${format(parseISO(checkoutToday[op.propertyId].confirmedAt!), 'HH:mm')}`}</p>:<p className="text-sm text-amber-800">{op.departures.length?'퇴실 확인 대기 · 확인 전에는 들어가지 마세요.':'오늘 퇴실 예약 정보 없음 · 출입 전 확인해주세요.'}</p>}
+            </section>
+            <section className="border-t border-stone-100 pt-4 space-y-2"><h3 className="text-xs font-semibold text-stone-500">청소</h3>
+              {op.cleanings.length?op.cleanings.map(c=><p key={c.id} className="text-sm">{c.cleanerName || '담당자 미배정'}{c.isMine?' (나)':''} · {c.status==='done'?'완료':'대기'}</p>):<p className="text-sm text-amber-800">등록된 청소 일정이 없습니다.</p>}
+              {op.ownTasks.map(t=><TaskCard key={t.cleaningId} task={t} embedded/>)}
+            </section>
+            <section className="border-t border-stone-100 pt-4"><h3 className="text-xs font-semibold text-stone-500 mb-2">입실</h3>
+              {op.arrivals.length?op.arrivals.map(r=><div key={r.id} className="py-2"><p className="text-sm font-medium">{r.title || '게스트'} <span className="font-normal text-xs text-stone-500">{channelLabel(r.source)}</span></p><ArrivalDetails reservation={r}/>{r.dataSource==='event'&&<button type="button" onClick={()=>openChat(r)} className="mt-3 min-h-11 rounded-xl border px-4 text-sm">입실 예약 대화</button>}</div>):<p className="text-sm text-stone-500">오늘 입실 예정 예약이 없습니다.</p>}
+              {op.departures.filter(r=>r.dataSource==='event').map(r=><button type="button" key={r.id} onClick={()=>openChat(r)} className="mt-2 mr-2 min-h-11 rounded-xl border px-4 text-sm">퇴실 예약 대화</button>)}
+            </section>
           </div>
-
-          {/* 체크인 */}
-          {todayCheckins.length > 0 && (
-            <div className="px-5 sm:px-6 py-4 border-b border-stone-200">
-              <div className="flex items-center gap-2 mb-3">
-                <ArrowDownRight size={16} className="text-emerald-700" />
-                <p className="text-sm text-stone-800 font-medium">체크인</p>
-                <span className="text-xs text-stone-500 tabular-nums">{todayCheckins.length}건</span>
-              </div>
-              <div className="space-y-px bg-stone-200">
-                {todayCheckins.map(r => {
-                  const ch = channelLabel(r.source);
-                  return (
-                    <button
-                      type="button"
-                      key={`in-${r.id}`}
-                      onClick={() => openChat(r)}
-                      className="w-full flex items-center gap-3 px-4 py-3 bg-white hover:bg-stone-50 transition-colors text-left"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-stone-900 truncate flex items-center gap-2">
-                          <span className="truncate">{r.propertyName}</span>
-                          {ch && (
-                            <span className="text-[12px] text-stone-700 bg-stone-100 px-1.5 py-0.5 shrink-0 uppercase tracking-wider">
-                              {ch}
-                            </span>
-                          )}
-                        </p>
-                        <p className="text-xs text-stone-500 mt-0.5 truncate">{r.title || '게스트'}</p>
-                      </div>
-                      {r.dataSource === 'event' && (
-                        <MessageSquare size={14} className="text-stone-400 shrink-0" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* 체크아웃 + 청소 */}
-          {(todayCheckouts.length > 0 || todayCleanings.length > 0) && (
-            <div className="px-5 sm:px-6 py-4">
-              <div className="flex items-center gap-2 mb-3">
-                <ArrowUpRight size={16} className="text-amber-600" />
-                <p className="text-sm text-stone-800 font-medium">체크아웃 · 청소</p>
-                <span className="text-xs text-stone-500 tabular-nums">
-                  {Math.max(todayCheckouts.length, todayCleanings.length)}건
-                </span>
-              </div>
-              <div className="space-y-px bg-stone-200">
-                {todayCheckouts.map(r => {
-                  const cleaning = todayCleanings.find(c => c.propertyId === r.propertyId);
-                  return (
-                    <button
-                      type="button"
-                      key={`out-${r.id}`}
-                      onClick={() => openChat(r)}
-                      className="w-full flex items-center gap-3 px-4 py-3 bg-white hover:bg-stone-50 transition-colors text-left"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-stone-900 truncate">{r.propertyName}</p>
-                        <p className="text-xs text-stone-500 mt-0.5 flex items-center gap-1.5">
-                          {r.title && <span>{r.title}</span>}
-                          {cleaning?.cleanerName && (
-                            <>
-                              <span className="text-stone-300">·</span>
-                              <Brush size={11} className={cleaning.isMine ? 'text-[var(--brand)]' : 'text-stone-400'} />
-                              <span className={cleaning.isMine ? 'text-[var(--brand-dark)] font-medium' : ''}>
-                                {cleaning.cleanerName}
-                                {cleaning.isMine && ' (나)'}
-                              </span>
-                            </>
-                          )}
-                          {!cleaning?.cleanerName && (
-                            <>
-                              <span className="text-stone-300">·</span>
-                              <span className="text-rose-600">미배정</span>
-                            </>
-                          )}
-                        </p>
-                        {checkoutToday[r.propertyId]?.confirmed ? (
-                          <p className="text-xs text-emerald-700 mt-0.5">
-                            체크아웃 확인됨{checkoutToday[r.propertyId].confirmedAt && ` ${format(parseISO(checkoutToday[r.propertyId].confirmedAt!), 'HH:mm')}`}
-                            {checkoutToday[r.propertyId].confirmedBy === 'guest_pad' && ' · 게스트 직접'}
-                          </p>
-                        ) : (
-                          <p className="text-xs text-stone-400 mt-0.5">체크아웃 대기 · 확인 전에는 들어가지 마세요</p>
-                        )}
-                      </div>
-                      {cleaning?.status === 'done' && (
-                        <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
-                      )}
-                      {r.dataSource === 'event' && cleaning?.status !== 'done' && (
-                        <MessageSquare size={14} className="text-stone-400 shrink-0" />
-                      )}
-                    </button>
-                  );
-                })}
-                {/* Cleanings without matching checkouts (manual cleanings) */}
-                {todayCleanings
-                  .filter(c => !todayCheckouts.some(r => r.propertyId === c.propertyId))
-                  .map(c => (
-                    <div
-                      key={`only-cleaning-${c.id}`}
-                      className="flex items-center gap-3 px-4 py-3 bg-white"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-stone-900 truncate">{c.propertyName}</p>
-                        <p className="text-xs text-stone-500 mt-0.5 flex items-center gap-1.5">
-                          <Brush size={11} className={c.isMine ? 'text-[var(--brand)]' : 'text-stone-400'} />
-                          <span className={c.isMine ? 'text-[var(--brand-dark)] font-medium' : ''}>
-                            {c.cleanerName ?? '미배정'}
-                            {c.isMine && ' (나)'}
-                          </span>
-                        </p>
-                      </div>
-                      {c.status === 'done' && (
-                        <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
-                      )}
-                    </div>
-                  ))}
-              </div>
-            </div>
-          )}
-        </section>
-      )}
-
+        </details>)}
+        {!loadError&&!operations.length&&<p className="rounded-xl bg-white border p-5 text-sm text-stone-500">오늘 등록된 청소·입실·퇴실 일정이 없습니다.</p>}
+      </section>
+      <section id="today-laundry" className="scroll-mt-6 rounded-2xl bg-stone-50 border border-stone-200 p-4 sm:p-6"><LaundryWorkspace embedded /></section>
       {loadError && tasks.length === 0 ? null : tasks.length === 0 ? (
         <div className="flex flex-col items-center text-stone-400 py-16">
           <CalendarDays size={32} className="mb-4 opacity-50" />
@@ -681,9 +606,8 @@ export default function CleanerPage() {
       ) : (
         <>
           {upcomingGroups.length > 0 && (
-            <section className="space-y-6">
-              <h2 className="text-[12px] uppercase tracking-widest text-stone-400">예정된 일정 ({upcoming.length})</h2>
-              {upcomingGroups.filter(([dateStr]) => dateStr !== format(new Date(), 'yyyy-MM-dd')).map(([dateStr, items]) => (
+            <details className="space-y-4"><summary className="cursor-pointer py-3 font-medium">앞으로의 청소 일정</summary>
+              {upcomingGroups.filter(([dateStr]) => dateStr !== today).map(([dateStr, items]) => (
                 <div key={dateStr} className="space-y-2">
                   <DateHeader dateStr={dateStr} count={items.length} variant="upcoming" />
                   <div className="space-y-2 pl-1">
@@ -691,11 +615,10 @@ export default function CleanerPage() {
                   </div>
                 </div>
               ))}
-            </section>
+            </details>
           )}
           {pastGroups.length > 0 && (
-            <section className="space-y-6">
-              <h2 className="text-[12px] uppercase tracking-widest text-stone-400">지난 일정 ({past.length})</h2>
+            <details className="space-y-4"><summary className="cursor-pointer py-3 font-medium">지난 청소 일정 ({past.length})</summary>
               {pastGroups.map(([dateStr, items]) => (
                 <div key={dateStr} className="space-y-2">
                   <DateHeader dateStr={dateStr} count={items.length} variant="past" />
@@ -704,7 +627,7 @@ export default function CleanerPage() {
                   </div>
                 </div>
               ))}
-            </section>
+            </details>
           )}
         </>
       )}

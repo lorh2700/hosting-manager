@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { withAuth, ok, visibleScope } from '@/lib/core/http';
 import { resolveCleaner } from '@/lib/access';
 import { todayKst, addDaysToDateStr } from '@/lib/dates';
+import { readStayOptions } from '@/lib/payments/stay-options';
 import { checkoutStatusByProperty } from '@/lib/checkout';
 
 /**
@@ -17,7 +18,7 @@ const FUTURE_DAYS = 90;
 
 export interface TodayReservation {
   id: string; propertyId: string; propertyName: string; title: string; start: string; end: string;
-  phone?: string; email?: string; guests?: number; source?: string | null; dataSource: 'event' | 'booking';
+  phone?: string; email?: string; guests?: number; adults?: number; children?: number; pets?: number; source?: string | null; dataSource: 'event' | 'booking';
 }
 export interface TodayCleaningEntry {
   id: string; propertyId: string; propertyName: string; date: string;
@@ -61,27 +62,33 @@ export const GET = withAuth('cleaner/today', async (_req, { auth }) => {
         startDate: { lte: to },
         endDate: { gte: from },
       },
-      select: { id: true, propertyId: true, title: true, startDate: true, endDate: true, source: true, channelId: true },
+      select: { id: true, propertyId: true, title: true, startDate: true, endDate: true, source: true, channelId: true, originalUid: true, numAdults: true, numChildren: true },
     }),
     prisma.booking.findMany({
       where: { propertyId: { in: propIds }, status: 'confirmed', checkIn: { lte: to }, checkOut: { gte: from } },
-      select: { id: true, propertyId: true, name: true, checkIn: true, checkOut: true, phone: true, email: true, guests: true, source: true },
+      select: { id: true, propertyId: true, name: true, checkIn: true, checkOut: true, phone: true, email: true, guests: true, source: true, channelBookingRef: true, checkout: { select: { stayOptions: true, beds24Id: true } } },
     }),
     // 오늘 체크아웃 확인 상태 — "체크아웃 확인됨 11:05" 표시용
     checkoutStatusByProperty(propIds, today),
   ]);
 
   const reservations: TodayReservation[] = [
-    ...events.map(e => ({
+    ...events.map(e => {
+      const linked = bookings.find(b => b.propertyId === e.propertyId && e.channelId === 'beds24' && e.originalUid && (b.channelBookingRef === e.originalUid || b.checkout?.beds24Id === e.originalUid));
+      const options = readStayOptions(linked?.checkout?.stayOptions);
+      return ({
       id: e.id, propertyId: e.propertyId, propertyName: propName[e.propertyId] ?? '',
       title: (e.title || '').replace(/ 예약$/, ''), start: e.startDate, end: e.endDate,
       source: e.source || e.channelId || null, dataSource: 'event' as const,
-    })),
+      guests: linked?.guests || (e.numAdults != null ? e.numAdults + (e.numChildren ?? 0) : undefined),
+      adults: e.numAdults ?? undefined, children: e.numChildren ?? undefined, pets: options?.pets,
+    });}),
     ...bookings.map(b => ({
       id: b.id, propertyId: b.propertyId, propertyName: propName[b.propertyId] ?? '',
       title: b.name || '', start: b.checkIn, end: b.checkOut,
       phone: b.phone || undefined, email: b.email || undefined, guests: b.guests || undefined,
       source: b.source || 'direct', dataSource: 'booking' as const,
+      pets: readStayOptions(b.checkout?.stayOptions)?.pets,
     })),
   ];
   const seen = new Set<string>();
@@ -106,7 +113,7 @@ export const GET = withAuth('cleaner/today', async (_req, { auth }) => {
     }))
     .sort((a, b) => a.propertyName.localeCompare(b.propertyName));
 
-  const mine = auth.role === 'admin' ? cleanings : me ? cleanings.filter(c => c.cleanerId === me.id) : [];
+  const mine = auth.role !== 'cleaner' ? cleanings : me ? cleanings.filter(c => c.cleanerId === me.id) : [];
   const tasks: TodayTask[] = mine.map(c => ({
     cleaningId: c.id, propertyId: c.propertyId, propertyName: propName[c.propertyId] ?? '',
     date: c.date, guestName: guestByKey[`${c.propertyId}_${c.date}`] ?? '',

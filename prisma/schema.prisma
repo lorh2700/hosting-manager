@@ -92,8 +92,32 @@ model Property {
   checkoutSignals      CheckoutSignal[]
   cameraSnapshots      CameraSnapshot[]
   welcomepadConfig     WelcomepadConfig?
+  laundryBatches       LaundryBatch[]
 
   @@map("properties")
+}
+
+model LaundryBatch {
+  id           String   @id @default(uuid())
+  propertyId   String   @map("property_id")
+  pickupDate   String   @map("pickup_date")
+  deliveryDate String   @map("delivery_date")
+  vendor       String
+  vendorPhone  String   @default("") @map("vendor_phone")
+  status       String   @default("scheduled")
+  items        Json
+  history      Json
+  notes        String   @default("")
+  version      Int      @default(1)
+  createdBy    String   @map("created_by")
+  collectedAt  DateTime? @map("collected_at")
+  completedAt  DateTime? @map("completed_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  property     Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  @@index([propertyId, pickupDate])
+  @@index([status, deliveryDate])
+  @@map("laundry_batches")
 }
 
 // ── 외부 API 클라이언트 (파트너사용 v1 API key) ──

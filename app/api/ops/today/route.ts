@@ -1,3 +1,4 @@
+import { readStayOptions } from '@/lib/payments/stay-options';
 import { prisma } from '@/lib/prisma';
 import { withAuth, ok, visibleScope } from '@/lib/core/http';
 import { todayKst } from '@/lib/dates';
@@ -21,6 +22,7 @@ export interface OpsReservation {
   end: string;
   nights: number;
   guests: number | null;
+  pets?: number | null;
   channel: string;
   hasChat: boolean;
   readyDelivery?: string | null;
@@ -55,7 +57,7 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
   });
   const propIds = properties.map(p => p.id);
   if (propIds.length === 0) {
-    return ok({ today, properties: [], cleaners: [], counts: { pendingApplications: 0, openIssues: 0, pendingSupplies: 0 } });
+    return ok({ today, properties: [], cleaners: [], counts: { pendingApplications: 0, openIssues: 0, pendingSupplies: 0, delayedLaundry: 0 } });
   }
 
   // Optional media must never delay the operational summary. Each property is
@@ -76,7 +78,7 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
     return response;
   }
 
-  const [events, bookings, cleanings, checkoutStatus, cameraRows, cleaners, pendingApplications, openIssues, pendingSupplies] = await Promise.all([
+  const [events, bookings, cleanings, checkoutStatus, cameraRows, cleaners, pendingApplications, openIssues, pendingSupplies, delayedLaundry] = await Promise.all([
     prisma.event.findMany({
       where: {
         propertyId: { in: propIds },
@@ -84,11 +86,11 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
         NOT: { OR: [{ tags: { has: 'inquiry' } }, { title: { startsWith: '[문의]' } }] },
         OR: [{ startDate: today }, { endDate: today }],
       },
-      select: { id: true, propertyId: true, title: true, startDate: true, endDate: true, source: true, channelId: true, numAdults: true, numChildren: true },
+      select: { id: true, propertyId: true, title: true, startDate: true, endDate: true, source: true, channelId: true, numAdults: true, numChildren: true, originalUid: true },
     }),
     prisma.booking.findMany({
       where: { propertyId: { in: propIds }, status: 'confirmed', OR: [{ checkIn: today }, { checkOut: today }] },
-      select: { id: true, propertyId: true, name: true, checkIn: true, checkOut: true, guests: true, source: true },
+      select: { id: true, propertyId: true, name: true, checkIn: true, checkOut: true, guests: true, source: true, channelBookingRef: true, checkout: { select: { stayOptions: true, beds24Id: true } } },
     }),
     prisma.cleaning.findMany({
       where: { propertyId: { in: propIds }, date: today },
@@ -107,6 +109,7 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
     prisma.cleaningApplication.count({ where: { status: 'pending', propertyId: { in: propIds } } }),
     prisma.cleaningIssue.count({ where: { status: { in: ['open', 'in_progress'] }, propertyId: { in: propIds } } }),
     prisma.supplyTodo.count({ where: { done: false, propertyId: { in: propIds } } }),
+    prisma.laundryBatch.count({ where: { propertyId: { in: propIds }, deliveryDate: { lt: today }, status: { in: ['collected','washing','shipping','partial'] } } }),
   ]);
 
   // 최근 대화: 오늘 체크인·체크아웃 이벤트에 한해 마지막 4개 + 읽지 않은 게스트 메시지 수 + 자동 태그
@@ -122,6 +125,7 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
   for (const m of messages) if (m.eventId) (byEvent[m.eventId] ??= []).push(m);
 
   const eventView = (e: (typeof events)[number]): OpsReservation => {
+    const linked = bookings.find(b => b.propertyId === e.propertyId && e.channelId === 'beds24' && e.originalUid && (b.channelBookingRef === e.originalUid || b.checkout?.beds24Id === e.originalUid));
     const list = byEvent[e.id] ?? [];
     const template = getRoomReadyMessage(properties as unknown as CalendarProperty[], e.propertyId);
     const ready = list.find(m => m.sender === 'host' && m.text === template);
@@ -137,6 +141,7 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
       end: e.endDate,
       nights: nightsBetween(e.startDate, e.endDate),
       guests: guests > 0 ? guests : null,
+      pets: readStayOptions(linked?.checkout?.stayOptions)?.pets ?? null,
       channel: getChannelLabel(e.channelId ?? 'beds24', e.source ?? undefined, {}),
       hasChat: e.channelId === 'beds24',
       unread: list.filter(m => m.sender === 'guest' && !m.read).length,
@@ -153,6 +158,7 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
     end: b.checkOut,
     nights: nightsBetween(b.checkIn, b.checkOut),
     guests: b.guests ?? null,
+    pets: readStayOptions(b.checkout?.stayOptions)?.pets ?? null,
     channel: getChannelLabel('direct', b.source ?? undefined, {}),
     hasChat: false,
     unread: 0,
@@ -193,7 +199,7 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
   }));
 
   out.sort((a, b) => Number(b.hasWork) - Number(a.hasWork) || a.name.localeCompare(b.name));
-  const response = ok({ today, properties: out, cleaners, counts: { pendingApplications, openIssues, pendingSupplies } });
+  const response = ok({ today, properties: out, cleaners, counts: { pendingApplications, openIssues, pendingSupplies, delayedLaundry } });
   response.headers.set('Cache-Control', 'private, no-store');
   response.headers.set('Server-Timing', `ops;dur=${(performance.now() - started).toFixed(1)}`);
   return response;

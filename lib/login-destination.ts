@@ -5,7 +5,7 @@ export function loginDestination(raw: string | null, role: string): string {
   try {
     const url = new URL(raw, 'https://app.invalid');
     if (!raw.startsWith('/') || url.origin !== 'https://app.invalid') return fallback;
-    const allowed = role === 'cleaner' ? ['/cleaner'] : role === 'admin' ? ['/admin', '/cleaner'] : ['/admin'];
+    const allowed = role === 'cleaner' ? ['/cleaner'] : (role === 'admin' || role === 'manager') ? ['/admin', '/cleaner'] : ['/admin'];
     if (!allowed.some(root => url.pathname === root || url.pathname.startsWith(root + '/'))) return fallback;
     return url.pathname + url.search + url.hash;
   } catch { return fallback; }

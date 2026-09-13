@@ -29,10 +29,10 @@ export const GET = withAuth('cleaning-applications', async (req, { auth }) => {
   const apps = await prisma.cleaningApplication.findMany({
     where,
     orderBy: { createdAt: 'desc' },
-    include: { cleaning: { select: { date: true } } },
+    include: { cleaning: { select: { date: true, property: { select: { name: true } } } } },
   });
   // 관리자 화면이 일정 날짜를 바로 쓰도록 cleaning.date 를 cleaningDate 로 펼친다.
-  return ok(apps.map(a => ({ ...a, cleaningDate: a.cleaning?.date ?? null })));
+  return ok(apps.map(a => ({ ...a, cleaningDate: a.cleaning?.date ?? null, propertyName: a.cleaning?.property?.name ?? null })));
 });
 
 /**

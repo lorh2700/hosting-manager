@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   Home,
   HomeIcon,
+  ClipboardList,
   Calendar,
   BookOpen,
   MessageSquare,
@@ -43,6 +44,7 @@ const COMMON_TOP: NavItem[] = [
 ];
 
 const HOST_LINKS: NavItem[] = [
+  { href: '/admin/laundry', label: '세탁 관리', icon: Briefcase, roles: ['admin', 'manager'] },
   { href: '/admin/properties', label: '숙소 관리', icon: HomeIcon, roles: ['admin', 'manager'] },
   { href: '/admin/calendar', label: '예약 달력', mobileLabel: '예약', icon: Calendar, roles: ['admin', 'manager'] },
   { href: '/admin/guests', label: '고객 명부', icon: Users, roles: ['admin'] },

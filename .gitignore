@@ -9,3 +9,6 @@ coverage/
 *.tsbuildinfo
 
 /generated/prisma
+
+.next-manager/
+.next-manager-ux/
