@@ -1,8 +1,6 @@
 .section { scroll-margin-top: 90px; background: #eee8dc; color: #282d25; }
 .inner { max-width: 1480px; padding: 38px clamp(24px, 5vw, 80px); margin: auto; display: flex; justify-content: space-between; align-items: center; gap: 36px; }
-.eyebrow { font-size: .75rem; letter-spacing: .16em; color: #655b4e; margin-bottom: 12px; }
 .intro h2 { font-size: 1.5rem; font-weight: 400; line-height: 1.5; letter-spacing: -.035em; word-break: keep-all; }
-.intro > p:last-child { font-size: 1rem; line-height: 1.7; color: #655b4e; margin-top: 7px; word-break: keep-all; }
 .form { display: flex; align-items: stretch; flex: 1; max-width: 590px; gap: 12px; }
 .field { flex: 1; min-width: 0; border: 1px solid #b7ac99; padding: 10px 14px; background: #f8f4ec; }
 .field label { display: block; font-size: .875rem; color: #655b4e; }

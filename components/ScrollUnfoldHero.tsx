@@ -1,9 +1,11 @@
 'use client';
 
+import { usePublicLanguage } from '@/components/PublicLanguage';
+
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowDown, ArrowUpRight, Pause, Play } from 'lucide-react';
+import { ArrowUpRight, Pause, Play } from 'lucide-react';
 import styles from './StayHero.module.css';
 
 type NetworkNavigator = Navigator & { connection?: EventTarget & { saveData?: boolean } };
@@ -24,6 +26,7 @@ function allowsAutomaticPlayback() {
 function serverPlaybackPreference() { return false; }
 
 export function ScrollUnfoldHero() {
+  const { t } = usePublicLanguage();
   const videoRef = useRef<HTMLVideoElement>(null);
   const automaticPlayback = useSyncExternalStore(subscribeToPlaybackPreference, allowsAutomaticPlayback, serverPlaybackPreference);
   const [manualPlayback, setManualPlayback] = useState(false);
@@ -67,7 +70,7 @@ export function ScrollUnfoldHero() {
     <section className={styles.hero} aria-labelledby="stay-hero-title">
       <div className={styles.scene}>
         <div className={styles.media}>
-          <Image src="/videos/hanok-hero-v2-poster.webp" alt="한옥에서 바라보는 초록빛 풍경과 산 능선" fill priority sizes="100vw" className={styles.photo} />
+          <Image src="/videos/hanok-hero-v2-poster.webp" alt={t("한옥에서 바라보는 초록빛 풍경과 산 능선")} fill priority sizes="100vw" className={styles.photo} />
           {enabled && !failed && (
             <video ref={videoRef} className={styles.video} src="/videos/hanok-hero-v2.mp4"
               muted loop playsInline preload="metadata" poster="/videos/hanok-hero-v2-poster.webp"
@@ -77,19 +80,14 @@ export function ScrollUnfoldHero() {
           )}
           <div className={styles.shade} aria-hidden="true" />
           {!failed && <button type="button" onClick={togglePlayback} className={styles.playback}
-            aria-label={playing ? '배경 영상 일시정지' : '배경 영상 재생'}>
+            aria-label={playing ? t("배경 영상 일시정지") : t("배경 영상 재생")}>
             {playing ? <Pause size={15} aria-hidden="true" /> : <Play size={15} aria-hidden="true" />}
-            <span>{playing ? '일시정지' : '영상 재생'}</span>
           </button>}
-          <span className={styles.filmLabel}>SEOUL · YEONGJU · HANOK STAYS</span>
         </div>
         <div className={styles.content}>
-          <p className={styles.eyebrow}>SEOUL & YEONGJU / VOID ANCHAE</p>
-          <h1 id="stay-hero-title" className={styles.title}>그저 머물러도<br /><span>충분합니다.</span></h1>
-          <p className={styles.description}>대문을 지나면 걸음이 조금 느려집니다.<br />아무것도 하지 않아도 편안한 한옥.</p>
+          <h1 id="stay-hero-title" className={styles.title}>{t("그저 머물러도")}<br /><span>{t("충분합니다.")}</span></h1>
           <div className={styles.actions}>
-            <Link href="#find-stay" className={styles.primary}>머무를 한옥 찾기 <ArrowUpRight size={18} aria-hidden="true" /></Link>
-            <Link href="#spaces" className={styles.secondary}>공간 둘러보기 <ArrowDown size={17} aria-hidden="true" /></Link>
+            <Link href="#find-stay" className={styles.primary}>{t("예약하기")}<ArrowUpRight size={18} aria-hidden="true" /></Link>
           </div>
         </div>
       </div>

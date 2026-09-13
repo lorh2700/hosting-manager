@@ -1,5 +1,7 @@
 'use client';
 
+import { usePublicLanguage } from '@/components/PublicLanguage';
+
 import type { StayOptions } from '@/lib/payments/stay-options';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
@@ -20,6 +22,7 @@ const statusText: Record<string, string> = {
 };
 
 export default function CheckoutPage() {
+  const { language, t } = usePublicLanguage();
   const { orderId } = useParams<{ orderId: string }>();
   const token = useRef('');
   const [order, setOrder] = useState<Order | null>(null);
@@ -46,9 +49,9 @@ export default function CheckoutPage() {
       history.replaceState(null, '', location.pathname + location.search);
     }
     token.current = sessionStorage.getItem(`checkout:${orderId}`) ?? '';
-    if (!token.current) { setError('이 브라우저에서 예약을 다시 시작해주세요. / Please reopen checkout in the original browser.'); return; }
+    if (!token.current) { setError("이 브라우저에서 예약을 다시 시작해주세요. / Please reopen checkout in the original browser."); return; }
     const result = new URLSearchParams(location.search).get('result');
-    if (result === 'fail') setError('결제가 완료되지 않았습니다. 다시 시도할 수 있습니다. / Payment was not completed.');
+    if (result === 'fail') setError("결제가 완료되지 않았습니다. 다시 시도할 수 있습니다. / Payment was not completed.");
     // Query paymentKey/amount are not trusted: server retrieves the order directly from the payment provider.
     void send(result === 'success' ? 'confirm' : 'status').catch(e => setError(e.message));
     history.replaceState(null, '', location.pathname);
@@ -66,12 +69,12 @@ export default function CheckoutPage() {
       const started = await send('start', { acceptTerms: agreed });
       if (started.gateway === 'paypal') {
         if (started.resumeConfirmation) { await send('confirm'); return; }
-        if (!started.approvalUrl) throw new Error('PayPal 결제창을 준비하지 못했습니다. 다시 시도해주세요.');
+        if (!started.approvalUrl) throw new Error(t("PayPal 결제창을 준비하지 못했습니다. 다시 시도해주세요."));
         window.location.assign(started.approvalUrl);
         return;
       }
       const sdk = (window as TossWindow).TossPayments;
-      if (!sdk || !started.clientKey) throw new Error('결제창을 불러오지 못했습니다. / Reload the payment page.');
+      if (!sdk || !started.clientKey) throw new Error(t("결제창을 불러오지 못했습니다. / Reload the payment page."));
       await sdk(started.clientKey).payment({ customerKey: started.id }).requestPayment({
         method: 'CARD',
         amount: { currency: started.currency, value: started.amount },
@@ -79,51 +82,51 @@ export default function CheckoutPage() {
         customerName: started.customerName, customerEmail: started.customerEmail,
         successUrl: `${location.origin}/book/checkout/${orderId}?result=success`,
         failUrl: `${location.origin}/book/checkout/${orderId}?result=fail`,
-        card: { useInternationalCardOnly: international, language: international ? 'EN' : 'KO' },
+        card: { useInternationalCardOnly: international, language: language === 'en' ? 'EN' : 'KO' },
       });
-    } catch (e) { setError(e instanceof Error ? e.message : '결제 처리 중 오류가 발생했습니다.'); }
+    } catch (e) { setError(e instanceof Error ? e.message : t("결제 처리 중 오류가 발생했습니다.")); }
     finally { setBusy(false); }
   }
   const payable = order && ['quoted', 'awaiting_payment'].includes(order.status);
   return <main className="min-h-screen bg-stone-950 text-stone-100 px-5 pt-28 pb-12">
-    {order?.gateway === 'card' && <Script src="https://js.tosspayments.com/v2/standard" onReady={() => setSdkReady(true)} onError={() => setError('결제창 로딩 실패 / Payment SDK failed to load')} />}
+    {order?.gateway === 'card' && <Script src="https://js.tosspayments.com/v2/standard" onReady={() => setSdkReady(true)} onError={() => setError(t("결제창 로딩 실패 / Payment SDK failed to load"))} />}
     <div className="max-w-lg mx-auto space-y-7">
-      <h1 className="text-2xl">{order ? statusText[order.status] ?? '처리 중 / Processing' : '예약 결제 / Reservation payment'}</h1>
+      <h1 className="text-2xl">{order ? t(statusText[order.status] ?? "처리 중 / Processing") : t("예약 결제 / Reservation payment")}</h1>
       {order && <>
-        {order.mode === 'test' && <p className="p-3 border border-amber-500 text-amber-300">테스트 결제 / TEST — 실제 결제가 아닙니다.</p>}
+        {order.mode === 'test' && <p className="p-3 border border-amber-500 text-amber-300">{t("테스트 결제 / TEST — 실제 결제가 아닙니다.")}</p>}
         <section className="space-y-3 border-y border-stone-700 py-6">
-          <h2 className="text-xl">{order.propertyName}</h2>
+          <h2 className="text-xl">{t(order.propertyName)}</h2>
           <p>{order.checkIn} → {order.checkOut} · {order.guests} guests</p>
           <p className="text-3xl">{order.currency} {order.amount.toLocaleString('en-US', { minimumFractionDigits: order.currency === 'USD' ? 2 : 0 })}</p>
           {order.stayOptions && <dl className="text-sm text-stone-300 space-y-2">
-            <div className="flex justify-between"><dt>기본 숙박요금</dt><dd>₩{order.stayOptions.basePriceKrw.toLocaleString()}</dd></div>
-            <div className="flex justify-between"><dt>추가 {order.stayOptions.extraGuests}인 · 숙박 1회</dt><dd>₩{order.stayOptions.extraGuestFeeKrw.toLocaleString()}</dd></div>
-            <div className="flex justify-between"><dt>반려견 {order.stayOptions.pets}마리 · 숙박 1회</dt><dd>₩{order.stayOptions.petFeeKrw.toLocaleString()}</dd></div>
+            <div className="flex justify-between"><dt>{t("기본 숙박요금")}</dt><dd>₩{order.stayOptions.basePriceKrw.toLocaleString()}</dd></div>
+            <div className="flex justify-between"><dt>{t("추가")}{order.stayOptions.extraGuests}{t("인 · 숙박 1회")}</dt><dd>₩{order.stayOptions.extraGuestFeeKrw.toLocaleString()}</dd></div>
+            <div className="flex justify-between"><dt>{t("반려견")}{order.stayOptions.pets}{t("마리 · 숙박 1회")}</dt><dd>₩{order.stayOptions.petFeeKrw.toLocaleString()}</dd></div>
           </dl>}
-          {order.fxRate && <p className="text-sm text-stone-300">KRW {order.priceKrw.toLocaleString()} · 1 USD = KRW {order.fxRate}<br />위 USD 금액으로 결제합니다. / You will be charged the USD amount above.</p>}
-          {order.status === 'confirmed' && <p>예약번호 / Booking reference: {order.bookingId}</p>}
-          {payable && <p className="text-sm text-stone-400">결제 전 객실과 요금을 다시 확인합니다. / Availability and price are rechecked before payment.</p>}
+          {order.fxRate && <p className="text-sm text-stone-300">KRW {order.priceKrw.toLocaleString()} · 1 USD = KRW {order.fxRate}<br />{t("위 USD 금액으로 결제합니다. / You will be charged the USD amount above.")}</p>}
+          {order.status === 'confirmed' && <p>{t("예약번호 / Booking reference:")}{order.bookingId}</p>}
+          {payable && <p className="text-sm text-stone-400">{t("결제 전 객실과 요금을 다시 확인합니다. / Availability and price are rechecked before payment.")}</p>}
         </section>
         <details className="border border-stone-700 p-4" open={!!payable}>
-          <summary className="cursor-pointer">취소·환불 규정 / Cancellation & refund policy</summary>
+          <summary className="cursor-pointer">{t("취소·환불 규정 / Cancellation & refund policy")}</summary>
           <p className="whitespace-pre-wrap text-sm leading-7 mt-4">{order.terms}</p>
         </details>
         {payable && <>
           <label className="flex items-start gap-3 py-2"><input className="mt-1 size-5" type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
-            <span>일정·금액·취소 규정에 동의합니다.<br />I agree to the dates, total price and cancellation policy.</span></label>
-          {order.gateway === 'card' && <label className="flex gap-3"><input type="checkbox" checked={international} onChange={e => setInternational(e.target.checked)} />Overseas-issued card / 해외 발급 카드</label>}
-          {order.gateway === 'paypal' && <p className="text-sm text-stone-300">PayPal 보안 결제창으로 이동합니다. / Continue to PayPal to pay.</p>}
+            <span>{t("일정·금액·취소 규정에 동의합니다.")}</span></label>
+          {order.gateway === 'card' && <label className="flex gap-3"><input type="checkbox" checked={international} onChange={e => setInternational(e.target.checked)} />{t("Overseas-issued card / 해외 발급 카드")}</label>}
+          {order.gateway === 'paypal' && <p className="text-sm text-stone-300">{t("PayPal 보안 결제창으로 이동합니다. / Continue to PayPal to pay.")}</p>}
           <button onClick={pay} disabled={busy || !agreed || (order.gateway === 'card' && !sdkReady)} className="w-full min-h-14 bg-stone-100 text-stone-950 px-4 py-4 disabled:opacity-40">
-            {busy ? '처리 중 / Processing…' : `${order.gateway === 'paypal' ? 'PayPal' : '카드·간편결제 / Card'} · ${order.currency} ${order.amount} 결제 / Pay`}
+            {busy ? t("처리 중 / Processing…") : `${order.gateway === 'paypal' ? 'PayPal' : t("카드·간편결제 / Card")} · ${order.currency} ${order.amount} ${language === 'en' ? 'Pay' : '결제'}`}
           </button>
         </>}
         {!['confirmed', 'expired', 'refunded', 'quoted'].includes(order.status) && <button disabled={busy} className="min-h-12 underline" onClick={async () => {
           setBusy(true); try { await send('confirm'); } catch (e) { setError(String(e)); } finally { setBusy(false); }
-        }}>결제·예약 상태 다시 확인 / Check payment status</button>}
-        {['holding', 'approving', 'fulfilling', 'review'].includes(order.status) && <p className="text-sm text-stone-300">처리 결과를 확인 중입니다. 새 예약이나 추가 결제를 하지 말고 이 페이지에서 확인해주세요.<br />Please wait here; do not create another booking or payment. Reference: {order.id}</p>}
+        }}>{t("결제·예약 상태 다시 확인 / Check payment status")}</button>}
+        {['holding', 'approving', 'fulfilling', 'review'].includes(order.status) && <p className="text-sm text-stone-300">{t("처리 결과를 확인 중입니다. 새 예약이나 추가 결제를 하지 말고 이 페이지에서 확인해주세요.")}<br />Reference: {order.id}</p>}
       </>}
-      {error && <p role="alert" className="p-4 border border-rose-400 text-rose-200">{error}</p>}
-      <Link className="inline-block min-h-12 underline" href="/">홈으로 / Home</Link>
+      {error && <p role="alert" className="p-4 border border-rose-400 text-rose-200">{t(error)}</p>}
+      <Link className="inline-block min-h-12 underline" href="/">{t("홈으로 / Home")}</Link>
     </div>
   </main>;
 }

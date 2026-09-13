@@ -1,5 +1,7 @@
 'use client';
 
+import { usePublicLanguage } from '@/components/PublicLanguage';
+
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowUpRight } from 'lucide-react';
@@ -9,10 +11,11 @@ import { Logo } from '@/components/Logo';
 import { PROPERTY_DISPLAY, PROPERTY_DISPLAY_ORDER } from '@/lib/property-display';
 
 export default function PublicPortal() {
+  const { t } = usePublicLanguage();
 
   return (
     <div className="min-h-screen bg-[#171b18] text-stone-50 selection:bg-stone-400/20 font-sans">
-      <a href="#find-stay" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-4 focus:z-[60] focus:bg-white focus:text-stone-900 focus:p-4">숙소 예약으로 바로가기</a>
+      <a href="#find-stay" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-4 focus:z-[60] focus:bg-white focus:text-stone-900 focus:p-4">{t("숙소 예약으로 바로가기")}</a>
 
       <main>
       {/* Hero Section */}
@@ -23,10 +26,8 @@ export default function PublicPortal() {
       <section id="spaces" aria-labelledby="spaces-title" className="scroll-mt-20 py-16 md:py-24 px-6 md:px-12 max-w-[1480px] mx-auto">
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10 md:mb-14">
           <div>
-            <p className="text-xs uppercase tracking-[0.25em] text-[#d8c3a4] mb-5">The Hanok Collection</p>
-            <h2 id="spaces-title" className="brand-serif text-3xl md:text-5xl leading-relaxed">머물고 싶은<br className="md:hidden" /> 한옥을 만나보세요.</h2>
+            <h2 id="spaces-title" className="brand-serif text-3xl md:text-5xl leading-relaxed">{t("머무는 공간")}</h2>
           </div>
-          <p className="text-base text-stone-300 leading-7 max-w-sm break-keep">서울 북촌의 골목에서 경북 영주까지.<br />서로 다른 모습의 한옥이 기다립니다.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-10 md:gap-y-14">
@@ -47,7 +48,7 @@ export default function PublicPortal() {
                   {coverWebp ? (
                       <Image
                         src={coverWebp}
-                        alt={p.name}
+                        alt={t(p.name)}
                         fill
                         sizes="(max-width: 767px) 100vw, (max-width: 1480px) 50vw, 700px"
                         className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03] motion-reduce:transform-none motion-reduce:transition-none"
@@ -55,7 +56,7 @@ export default function PublicPortal() {
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-stone-800 to-stone-950">
                       <span className="font-serif text-5xl md:text-6xl text-stone-700 tracking-tight">
-                        {p.name.charAt(0)}
+                        {t(p.name).charAt(0)}
                       </span>
                     </div>
                   )}
@@ -63,28 +64,24 @@ export default function PublicPortal() {
                   {/* Coming soon badge */}
                   {isComingSoon && (
                     <div className="absolute top-4 left-4 z-10 bg-[#eee8dc] text-stone-900 text-sm px-3 py-2">
-                      {p.openingLabel || 'Coming Soon'}
+                      {t(p.openingLabel || 'Coming Soon')}
                     </div>
                   )}
                   </div>
 
                   <div className="pt-5 pb-5 border-b border-white/20">
                     <p className="text-xs tracking-[0.15em] text-[#d8c3a4] mb-3">
-                      {p.region}
+                      {t(p.region)}
                     </p>
                     <div className="flex items-end justify-between gap-3">
                       <h3 className="text-2xl md:text-3xl font-light tracking-tight text-stone-50 leading-snug">
-                        {p.name}
+                        {t(p.name)}
                       </h3>
                       <ArrowUpRight
                         size={22}
                         className="text-stone-100 shrink-0 mb-1 opacity-70 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all duration-300"
                       />
                     </div>
-                    <p className="text-base text-stone-300 font-light mt-2 leading-7">
-                      {p.catchphrase}
-                    </p>
-                    <p className="text-sm text-[#e2ceb0] mt-5">{isComingSoon ? '공간 소식 보기' : '공간 · 날짜 · 요금 확인'}</p>
                   </div>
                 </Link>
               </article>

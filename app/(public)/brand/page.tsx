@@ -1,5 +1,7 @@
 'use client';
 
+import { usePublicLanguage } from '@/components/PublicLanguage';
+
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'motion/react';
@@ -37,6 +39,7 @@ const STANZAS: string[][] = [
 ];
 
 export default function BrandPage() {
+  const { t } = usePublicLanguage();
 
   return (
     <div className="min-h-screen bg-[#0C0A09] text-stone-50 selection:bg-stone-400/20 font-sans overflow-x-hidden">
@@ -72,9 +75,7 @@ export default function BrandPage() {
             className="w-[260px] sm:w-[360px] md:w-[500px] lg:w-[600px] h-auto"
           />
 
-          <p className="brand-serif text-stone-300 text-base md:text-xl mt-12 md:mt-14">
-            그저 머물러도 충분한 곳
-          </p>
+          <p className="brand-serif text-stone-300 text-base md:text-xl mt-12 md:mt-14">{t("그저 머물러도 충분한 곳")}</p>
         </motion.div>
 
         {/* 스크롤 힌트 */}
@@ -102,7 +103,7 @@ export default function BrandPage() {
               className="brand-serif text-[18px] sm:text-[22px] md:text-[26px] leading-[2.2] text-stone-200 space-y-2"
             >
               {lines.map((line, i) => (
-                <p key={i}>{line}</p>
+                <p key={i}>{t(line)}</p>
               ))}
             </motion.div>
           ))}
@@ -118,21 +119,14 @@ export default function BrandPage() {
           transition={{ duration: 1.2, ease: 'easeOut' }}
           className="text-center"
         >
-          <p className="brand-serif text-[28px] sm:text-4xl md:text-5xl lg:text-6xl leading-[1.7] text-stone-100">
-            당신이 들어와야<br />
-            비로소 완성되는 공간.
-          </p>
+          <p className="brand-serif text-[28px] sm:text-4xl md:text-5xl lg:text-6xl leading-[1.7] text-stone-100">{t("당신이 들어와야")}<br />{t("비로소 완성되는 공간.")}</p>
 
           <div className="mt-14 md:mt-16 flex flex-col items-center gap-6">
-            <p className="text-stone-400 text-sm md:text-base font-light">
-              당신이 머무는 한옥, VOID ANCHAE
-            </p>
+            <p className="text-stone-400 text-sm md:text-base font-light">{t("당신이 머무는 한옥, VOID ANCHAE")}</p>
             <Link
               href="/#spaces"
               className="inline-flex items-center gap-3 mt-6 px-9 py-4 border border-stone-700 rounded-full text-[11px] uppercase tracking-[0.25em] text-stone-100 hover:bg-stone-100 hover:text-stone-900 hover:border-stone-100 transition-colors duration-500"
-            >
-              공간 둘러보기
-              <ArrowRight size={16} />
+            >{t("공간 둘러보기")}<ArrowRight size={16} />
             </Link>
           </div>
         </motion.div>
