@@ -1,10 +1,11 @@
+import { normalizeIdentity } from '@/lib/guest-history';
 import { prisma } from '@/lib/prisma';
 import { type SessionAuth } from '@/lib/auth';
 import { withAuth, ok, created, fail, MESSAGES, readJson, str, int, query } from '@/lib/core/http';
 
 // 게스트 명부는 숙소 단위가 아니라 사업장 단위 데이터. 관리자·매니저만 다룬다 (청소담당자 제외).
 function requireGuestBook(auth: SessionAuth): void {
-  if (auth.role === 'cleaner') throw fail(403, MESSAGES.forbidden);
+  if (auth.role !== 'admin') throw fail(403, MESSAGES.forbidden);
 }
 
 function pickGuestFields(body: Record<string, unknown>) {
@@ -23,7 +24,11 @@ export const GET = withAuth('guests', async (req, { auth }) => {
   requireGuestBook(auth);
   const limit = Math.min(Number(query(req, 'limit')) || 500, 1000);
   const offset = Number(query(req, 'offset')) || 0;
-  return ok(await prisma.guest.findMany({ orderBy: { updatedAt: 'desc' }, take: limit, skip: offset }));
+  const guests = await prisma.guest.findMany({ orderBy: { updatedAt: 'desc' }, take: limit, skip: offset });
+  const history = await prisma.guestReservation.findMany({ where: { guestId: { in: guests.map(g => g.id) }, status: { in: ['confirmed', 'completed'] } }, select: { guestId: true } });
+  const response = ok(guests.map(g => ({ ...g, bookingCount: history.filter(r => r.guestId === g.id).length })));
+  response.headers.set('Cache-Control', 'private, no-store');
+  return response;
 });
 
 export const POST = withAuth('guests', async (req, { auth }) => {
@@ -31,7 +36,7 @@ export const POST = withAuth('guests', async (req, { auth }) => {
   const body = await readJson(req);
   const data = pickGuestFields(body);
   if (typeof data.name !== 'string' || !data.name) throw fail(400, 'name은 필수입니다.');
-  return created(await prisma.guest.create({ data: { ...data, name: data.name } }));
+  return created(await prisma.guest.create({ data: { ...data, name: data.name, ...normalizeIdentity(data) } }));
 });
 
 export const PUT = withAuth('guests', async (req, { auth }) => {
@@ -40,5 +45,7 @@ export const PUT = withAuth('guests', async (req, { auth }) => {
   const id = str(body, 'id', { required: true })!;
   const data = pickGuestFields(body);
   if (Object.keys(data).length === 0) throw fail(400, MESSAGES.noFields);
-  return ok(await prisma.guest.update({ where: { id }, data }));
+  const existing = await prisma.guest.findUnique({ where: { id } });
+  if (!existing) throw fail(404, MESSAGES.notFound);
+  return ok(await prisma.guest.update({ where: { id }, data: { ...data, ...normalizeIdentity({ ...existing, ...data }) } }));
 });

@@ -1,3 +1,4 @@
+import { recordBooking, indexGuestSafely } from '@/lib/guest-history';
 import { prisma } from '@/lib/prisma';
 import { withAuth, ok, fail, readJson, str, requireManage } from '@/lib/core/http';
 import { requireUnpaidBooking, requireUnpaidBedsBooking } from '@/lib/payments/guard';
@@ -25,6 +26,7 @@ export const POST = withAuth('bookings/cancel', async (req, { auth }) => {
     await tx.booking.update({ where: { id }, data: { status: 'cancelled' } });
     if (ref) await tx.event.deleteMany({ where: { propertyId: booking.propertyId, channelId: 'beds24', originalUid: ref } });
   });
+  await indexGuestSafely(() => recordBooking({ ...booking, status: 'cancelled' }));
   let cleaningCleanupPending = false;
   if (ref) await ensureCleaningsForProperty(booking.propertyId).catch(() => { cleaningCleanupPending = true; });
   return ok({ success: true, cleaningCleanupPending });

@@ -286,8 +286,45 @@ model Guest {
   lastStayAt   String?  @map("last_stay_at")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
+  normalizedName String? @map("normalized_name")
+  normalizedEmail String? @map("normalized_email")
+  normalizedPhone String? @map("normalized_phone")
+  reservations GuestReservation[]
+
+  @@index([normalizedName])
+  @@index([normalizedEmail])
+  @@index([normalizedPhone])
 
   @@map("guests")
+}
+
+// Durable customer history, independent of calendar row deletion.
+// A Beds24 reference shared by direct booking and sync has one canonical key.
+model GuestReservation {
+  id String @id @default(uuid())
+  key String @unique
+  propertyId String @map("property_id")
+  guestId String? @map("guest_id")
+  guest Guest? @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  name String?
+  email String?
+  phone String?
+  checkIn String @map("check_in")
+  checkOut String @map("check_out")
+  status String
+  source String
+  matchStatus String @default("review") @map("match_status")
+  matchReason String @map("match_reason")
+  candidateIds String[] @default([]) @map("candidate_ids")
+  identitySignature String @map("identity_signature")
+  reviewedBy String? @map("reviewed_by")
+  reviewedAt DateTime? @map("reviewed_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@index([guestId, status])
+  @@index([matchStatus, updatedAt])
+  @@index([propertyId, checkOut])
+  @@map("guest_reservations")
 }
 
 // ── 청소 담당자 ──

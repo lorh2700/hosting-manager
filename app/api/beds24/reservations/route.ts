@@ -1,3 +1,4 @@
+import { recordEvent, cancelGuestReservation, indexGuestSafely } from '@/lib/guest-history';
 import { prisma } from '@/lib/prisma';
 import { requireUnpaidBedsBooking } from '@/lib/payments/guard';
 import { ensureCleaningsForProperty } from '@/lib/sync-engine';
@@ -106,6 +107,7 @@ export const POST = withAuth('beds24/reservations', async (req, { auth, log }) =
     });
   }
 
+  await indexGuestSafely(async () => { const row = await prisma.event.findUnique({ where: { id: event.id } }); if (row) await recordEvent(row); });
   log(`registered event ${event.id} for Beds24 booking #${bookingId} (${origin})`);
   return created({ success: true, eventId: event.id, beds24BookingId: String(bookingId), verified: true, origin, beds24Status: outcome.booking.status ?? null });
 });
@@ -145,6 +147,7 @@ export const DELETE = withAuth('beds24/reservations', async (req, { auth }) => {
     await tx.event.deleteMany({ where: { id: eventId } });
   });
 
+  await indexGuestSafely(() => cancelGuestReservation(event.propertyId, event.originalUid!));
   // 취소된 예약의 자동 생성 청소를 바로 정리 (다음 동기화까지 기다리지 않도록).
   let cleaningCleanupPending = false;
   await ensureCleaningsForProperty(event.propertyId).catch(err => {

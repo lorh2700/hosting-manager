@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { GuestHistoryReview } from '@/components/GuestHistoryReview';
 import { Users, Save, Search } from 'lucide-react';
 
 interface GuestRecord {
@@ -92,6 +93,7 @@ export default function GuestsPage() {
           총 {guests.length}명의 게스트 &middot; 재방문 추적 및 메모를 관리합니다.
         </p>
       </header>
+      <GuestHistoryReview />
 
       {/* Search */}
       <div className="relative">

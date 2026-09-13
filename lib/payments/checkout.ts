@@ -1,3 +1,4 @@
+import { recordBooking, indexGuestSafely } from '@/lib/guest-history';
 import { calculateStayOptions, readStayOptions, stayOptionPolicy } from './stay-options';
 import { createHash, randomBytes } from 'node:crypto';
 import { z } from 'zod';
@@ -172,6 +173,10 @@ async function saveConfirmed(o: CheckoutOrder) {
       create: { propertyId: o.propertyId, channelId: 'beds24', originalUid: beds24Id, ...event }, update: event });
     await tx.checkoutOrder.update({ where: { id: o.id }, data: { status: 'confirmed', beds24Id, bookingId: booking.id } });
   });
+  await indexGuestSafely(async () => {
+    const booking = await prisma.booking.findUnique({ where: { id: o.bookingId ?? o.id } });
+    if (booking) await recordBooking(booking);
+  });
   // The regular sync also reconciles cleanings if this request ends here.
   await ensureCleaningsForProperty(o.propertyId).catch(() => console.error('[checkout] cleaning reconciliation pending', o.id));
 }
@@ -182,6 +187,9 @@ async function clearReservation(o: CheckoutOrder, status: string) {
     if (o.bookingId) await tx.booking.update({ where: { id: o.bookingId }, data: { status: 'cancelled' } });
     if (o.beds24Id) await tx.event.deleteMany({ where: { propertyId: o.propertyId, channelId: 'beds24', originalUid: o.beds24Id } });
     await tx.checkoutOrder.update({ where: { id: o.id }, data: { status } });
+  });
+  await indexGuestSafely(async () => {
+    if (o.bookingId) { const booking = await prisma.booking.findUnique({ where: { id: o.bookingId } }); if (booking) await recordBooking(booking); }
   });
   await ensureCleaningsForProperty(o.propertyId).catch(() => console.error('[checkout] cleaning reconciliation pending', o.id));
 }

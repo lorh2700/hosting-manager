@@ -1,3 +1,4 @@
+import { recordBooking, indexGuestSafely } from '@/lib/guest-history';
 import { prisma } from '@/lib/prisma';
 import { requireUnpaidBooking } from '@/lib/payments/guard';
 import {
@@ -67,6 +68,7 @@ export const POST = withAuth('bookings', async (req, { auth }) => {
       channelBookingRef: (data.channelBookingRef as string | null | undefined) ?? null,
     },
   });
+  await indexGuestSafely(() => recordBooking(booking));
   return created(booking);
 });
 
@@ -85,7 +87,9 @@ export const PUT = withAuth('bookings', async (req, { auth }) => {
   const nextOut = (data.checkOut as string | undefined) ?? existing.checkOut;
   if (nextIn >= nextOut) throw fail(400, '체크아웃은 체크인보다 뒤여야 합니다.');
 
-  return ok(await prisma.booking.update({ where: { id }, data }));
+  const booking = await prisma.booking.update({ where: { id }, data });
+  await indexGuestSafely(() => recordBooking(booking));
+  return ok(booking);
 });
 
 export const DELETE = withAuth('bookings', async (req, { auth }) => {
@@ -95,6 +99,7 @@ export const DELETE = withAuth('bookings', async (req, { auth }) => {
   requireManage(auth, existing.propertyId);
 
   await requireUnpaidBooking(id);
-  await prisma.booking.delete({ where: { id } });
+  const removed = await prisma.booking.delete({ where: { id } });
+  await indexGuestSafely(() => recordBooking({ ...removed, status: 'cancelled' }));
   return ok({ success: true });
 });

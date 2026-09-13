@@ -1,3 +1,4 @@
+import { saveGuestReservation, reservationKey, indexGuestSafely } from '@/lib/guest-history';
 import { createHash } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { beds24Get, beds24WithRetry, describeBeds24Error, BEDS24_REFRESH_TOKEN } from '@/lib/beds24';
@@ -518,6 +519,34 @@ export async function syncBeds24Property(
     return s === 'request' || s === 'inquiry' || s === 'requested' || s === 'pending';
   };
 
+  // Preserve customer history, including explicit cancellations, before calendar pruning.
+  const guestSnapshots = new Map<string, Record<string, unknown>>();
+  await indexGuestSafely(async () => {
+    for (const row of await prisma.guestReservation.findMany({ where: { propertyId } })) guestSnapshots.set(row.key, row);
+  });
+  for (const b of allBookings) {
+    if (!b.id || !b.arrival || !b.departure) continue;
+    if (b.status === 'black') {
+      if (!guestSnapshots.has(reservationKey(propertyId, String(b.id)))) continue;
+      await indexGuestSafely(() => prisma.guestReservation.updateMany({ where: { key: reservationKey(propertyId, String(b.id)) }, data: { status: 'blocked' } }));
+      continue;
+    }
+    const status = String(b.status || '').toLowerCase();
+    const guestInput = {
+      key: reservationKey(propertyId, String(b.id)), propertyId,
+      name: [b.firstName, b.lastName].filter(Boolean).join(' ') || null,
+      email: typeof b.email === 'string' ? b.email : null,
+      phone: typeof b.phone === 'string' && b.phone ? b.phone : typeof b.mobile === 'string' ? b.mobile : null,
+      checkIn: String(b.arrival).slice(0, 10), checkOut: String(b.departure).slice(0, 10),
+      status: status === 'cancelled' ? 'cancelled' : ['noshow', 'no-show', 'no_show'].includes(status) ? 'no_show' : ['confirmed', 'new'].includes(status) ? 'confirmed' : 'pending',
+      source: String(b.channel || b.referer || 'beds24'),
+    };
+    const snapshot = guestSnapshots.get(guestInput.key);
+    if (!snapshot || Object.entries(guestInput).some(([field, value]) => snapshot[field] !== value)) {
+      await indexGuestSafely(() => saveGuestReservation(guestInput));
+    }
+  }
+
   // Convert Beds24 bookings to events
   const newEvents = allBookings
     .filter((b) => b.status !== 'cancelled' && b.arrival && b.departure)
@@ -653,6 +682,7 @@ export async function syncBeds24Property(
     console.warn(`[sync] beds24 ${beds24PropId} for ${propertyId}: ${removalGuard} — skipping removal of ${staleEvents.length} events`);
   } else {
     for (const stale of staleEvents) {
+      await indexGuestSafely(() => prisma.guestReservation.updateMany({ where: { key: reservationKey(propertyId, stale.originalUid!), status: { notIn: ['cancelled', 'no_show'] } }, data: { status: 'unknown' } }));
       await prisma.event.delete({ where: { id: stale.id } });
       eventsRemoved++;
     }
