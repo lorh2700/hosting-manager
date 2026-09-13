@@ -7,10 +7,11 @@
  *               체크인 게스트(투숙 일자, 인원, 채널, 얼리 체크인·요청사항, 최근 대화)
  *               청소 배정 · 청소 완료
  *  3. 처리할 것 · 바로가기
- * 데이터는 /api/ops/today 한 번.
+ * 운영 현황을 먼저 표시하고 카메라 사진은 별도로 불러온다.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { format, parseISO, isToday } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { Camera, Check, ChevronRight, Hand, AlertTriangle, Package, Users, FileBarChart, Wrench, ExternalLink, MessageSquare, ArrowDownRight, ArrowUpRight } from 'lucide-react';
@@ -18,8 +19,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { Badge, Button, Card, EmptyState, PageHeader, Select, Sheet, SkeletonList, PullToRefresh, toast, confirmDialog } from '@/components/ui';
 import { useRefetchOnReturn } from '@/lib/hooks/useRefetchOnReturn';
 import { GUEST_FLAG_LABEL, type GuestFlag } from '@/lib/ops-flags';
-import { getRoomReadyMessage, type Property as CalendarProperty } from '@/app/admin/calendar/types';
-import { CreateMaintenanceModal } from '@/app/admin/calendar/components/CreateMaintenanceModal';
+const CreateMaintenanceModal = dynamic(() => import('@/app/admin/calendar/components/CreateMaintenanceModal').then(m => m.CreateMaintenanceModal));
 import type { OpsProperty, OpsReservation } from '@/app/api/ops/today/route';
 
 interface OpsData {
@@ -83,7 +83,10 @@ function GuestBlock({ r, statusLine, action }: { r: OpsReservation; statusLine?:
 export default function OpsPage() {
   const { user } = useAuth();
   const [data, setData] = useState<OpsData | null>(null);
-  const [properties, setProperties] = useState<CalendarProperty[]>([]);
+  const [cameraLoading, setCameraLoading] = useState(false);
+  const [cameraError, setCameraError] = useState('');
+  const mediaController = useRef<AbortController | null>(null);
+  const mounted = useRef(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
@@ -100,17 +103,37 @@ export default function OpsPage() {
     loadingRef.current = true;
     if (!silent) setLoading(true);
     try {
-      const [oRes, pRes] = await Promise.all([fetch('/api/ops/today'), fetch('/api/properties')]);
-      if (!oRes.ok || !pRes.ok) throw new Error('오늘 현황을 불러오지 못했습니다. 연결을 확인하고 다시 시도해 주세요.');
-      setData(await oRes.json()); setProperties(await pRes.json()); setUpdatedAt(new Date()); setLoadError('');
+      mediaController.current?.abort();
+      setCameraLoading(true); setCameraError('');
+      const oRes = await fetch('/api/ops/today?view=summary', { cache: 'no-store' });
+      if (!oRes.ok) throw new Error('오늘 현황을 불러오지 못했습니다.');
+      const next: OpsData = await oRes.json();
+      if (!mounted.current) return;
+      setData(next); setUpdatedAt(new Date()); setLoadError('');
+      // Render core cards now; photo signing/storage is a separate request.
+      const controller = new AbortController();
+      mediaController.current = controller;
+      void fetch('/api/ops/today?view=cameras', { cache: 'no-store', signal: controller.signal })
+        .then(async response => {
+          if (!response.ok) throw new Error('카메라 사진을 불러오지 못했습니다.');
+          const media: { today: string; properties: Pick<OpsProperty, 'id' | 'camera'>[] } = await response.json();
+          if (controller.signal.aborted) return;
+          if (media.today !== next.today) throw new Error('날짜가 변경되었습니다. 새로고침해주세요.');
+          const byId = new Map(media.properties.map(p => [p.id, p.camera]));
+          setData(current => current === next ? { ...current, properties: current.properties.map(p => ({ ...p, camera: byId.get(p.id) ?? [] })) } : current);
+        }).catch(() => { if (!controller.signal.aborted) setCameraError('카메라 사진을 불러오지 못했습니다. 복도 카메라에서 다시 확인해주세요.'); })
+        .finally(() => { if (!controller.signal.aborted) setCameraLoading(false); });
     } catch {
+      if (!mounted.current) return;
+      setCameraLoading(false);
       setLoadError('오늘 현황을 불러오지 못했습니다. 기존 자료가 있다면 마지막 확인 시점의 정보입니다.');
     } finally {
-      loadingRef.current = false; setLoading(false);
+      loadingRef.current = false;
+      if (mounted.current) setLoading(false);
     }
   }, []);
 
-  useEffect(() => { if (user) load(); }, [user, load]);
+  useEffect(() => { mounted.current = true; if (user) load(); return () => { mounted.current = false; mediaController.current?.abort(); }; }, [user, load]);
   useRefetchOnReturn(() => load(true));
 
   const working = useMemo(() => (data?.properties ?? []).filter(p => p.hasWork).sort((a, b) => Number(a.cleaning?.status === 'done') - Number(b.cleaning?.status === 'done')), [data]);
@@ -171,7 +194,7 @@ export default function OpsPage() {
     setDelivery(prev => ({ ...prev, [checkin.id]: 'sending' }));
     setBusy('message:' + p.id);
     try {
-      const res = await fetch('/api/beds24/messages/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ eventId: checkin.id, propertyId: p.id, text: getRoomReadyMessage(properties, p.id) }) });
+      const res = await fetch('/api/beds24/messages/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ eventId: checkin.id, propertyId: p.id, text: p.readyMessage }) });
       const result = await res.json();
       if (!res.ok || result.deliveryStatus !== 'sent') throw new Error('전송 결과를 확인하지 못했습니다. 대화에서 확인 후 다시 보내 주세요.');
       setDelivery(prev => ({ ...prev, [checkin.id]: 'sent' }));
@@ -335,6 +358,8 @@ export default function OpsPage() {
           </>
         ) : null}
 
+        {cameraLoading && !loading && <p role="status" className="t-caption text-stone-500">카메라 사진을 불러오는 중…</p>}
+        {cameraError && <p role="status" className="t-caption text-amber-700">{cameraError}</p>}
         {data?.properties.length === 0 && !loading && <EmptyState icon={Wrench} title="관리하는 숙소가 없습니다" />}
 
         <CameraSheet propertyId={cameraFor} properties={allProps} onSelect={setCameraFor} onClose={() => setCameraFor(null)} />

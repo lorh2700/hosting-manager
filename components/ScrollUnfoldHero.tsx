@@ -85,10 +85,10 @@ export function ScrollUnfoldHero() {
         </div>
         <div className={styles.content}>
           <p className={styles.eyebrow}>SEOUL & YEONGJU / VOID ANCHAE</p>
-          <h1 id="stay-hero-title" className={styles.title}>골목을 걷다,<br /><span>한옥에 머물다.</span></h1>
-          <p className={styles.description}>문을 열면 시작되는 느긋한 하루.<br />당신의 여행에 어울리는 한옥을 만나보세요.</p>
+          <h1 id="stay-hero-title" className={styles.title}>그저 머물러도<br /><span>충분합니다.</span></h1>
+          <p className={styles.description}>대문을 지나면 걸음이 조금 느려집니다.<br />아무것도 하지 않아도 편안한 한옥.</p>
           <div className={styles.actions}>
-            <Link href="#find-stay" className={styles.primary}>나의 한옥 예약하기 <ArrowUpRight size={18} aria-hidden="true" /></Link>
+            <Link href="#find-stay" className={styles.primary}>머무를 한옥 찾기 <ArrowUpRight size={18} aria-hidden="true" /></Link>
             <Link href="#spaces" className={styles.secondary}>공간 둘러보기 <ArrowDown size={17} aria-hidden="true" /></Link>
           </div>
         </div>

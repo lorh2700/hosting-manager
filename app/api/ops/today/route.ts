@@ -31,6 +31,7 @@ export interface OpsReservation {
 export interface OpsProperty {
   id: string;
   name: string;
+  readyMessage: string;
   hasWork: boolean;
   cleaning: { id: string; status: string; cleanerId: string | null; cleanerName: string | null; supplies: string | null; notes: string | null } | null;
   checkoutStatus: CheckoutStatus | null;
@@ -41,7 +42,10 @@ export interface OpsProperty {
 
 const MESSAGES_PER_GUEST = 4;
 
-export const GET = withAuth('ops/today', async (_req, { auth }) => {
+export const GET = withAuth('ops/today', async (req, { auth }) => {
+  const started = performance.now();
+  const view = new URL(req.url).searchParams.get('view');
+  const summaryOnly = view === 'summary';
   const today = todayKst();
   const visible = await visibleScope(auth);
   const properties = await prisma.property.findMany({
@@ -52,6 +56,24 @@ export const GET = withAuth('ops/today', async (_req, { auth }) => {
   const propIds = properties.map(p => p.id);
   if (propIds.length === 0) {
     return ok({ today, properties: [], cleaners: [], counts: { pendingApplications: 0, openIssues: 0, pendingSupplies: 0 } });
+  }
+
+  // Optional media must never delay the operational summary. Each property is
+  // bounded independently so a busy camera cannot crowd out other properties.
+  if (view === 'cameras') {
+    const previews = await Promise.all(propIds.map(async propertyId => {
+      const rows = await prisma.cameraSnapshot.findMany({ where: { propertyId, date: today },
+        orderBy: { capturedAt: 'desc' }, take: 3,
+        select: { id: true, capturedAt: true, storagePath: true, leaving: true, verdict: true } });
+      const camera = await Promise.all(rows.map(async r => ({ id: r.id, capturedAt: r.capturedAt.toISOString(),
+        url: await createSignedUrl({ bucket: CAMERA_BUCKET, path: r.storagePath }), leaving: r.leaving,
+        summary: (r.verdict as { summary?: string } | null)?.summary ?? null })));
+      return { id: propertyId, camera };
+    }));
+    const response = ok({ today, properties: previews });
+    response.headers.set('Cache-Control', 'private, no-store');
+    response.headers.set('Server-Timing', `ops;dur=${(performance.now() - started).toFixed(1)}`);
+    return response;
   }
 
   const [events, bookings, cleanings, checkoutStatus, cameraRows, cleaners, pendingApplications, openIssues, pendingSupplies] = await Promise.all([
@@ -74,7 +96,7 @@ export const GET = withAuth('ops/today', async (_req, { auth }) => {
       orderBy: { createdAt: 'desc' },
     }),
     checkoutStatusByProperty(propIds, today),
-    prisma.cameraSnapshot.findMany({
+    summaryOnly ? Promise.resolve([]) : prisma.cameraSnapshot.findMany({
       where: { propertyId: { in: propIds }, date: today },
       orderBy: { capturedAt: 'desc' },
       select: { id: true, propertyId: true, capturedAt: true, storagePath: true, leaving: true, verdict: true },
@@ -143,7 +165,7 @@ export const GET = withAuth('ops/today', async (_req, { auth }) => {
   const seen = new Set<string>();
   const unique = all.filter(r => { const k = `${r.propertyId}_${r.start}_${r.end}`; if (seen.has(k)) return false; seen.add(k); return true; });
 
-  const cameraByProp: Record<string, typeof cameraRows> = {};
+  const cameraByProp: Record<string, Array<(typeof cameraRows)[number]>> = {};
   for (const r of cameraRows) { const l = (cameraByProp[r.propertyId] ??= []); if (l.length < 3) l.push(r); }
 
   const out: OpsProperty[] = await Promise.all(properties.map(async p => {
@@ -160,6 +182,7 @@ export const GET = withAuth('ops/today', async (_req, { auth }) => {
     return {
       id: p.id,
       name: p.name,
+      readyMessage: getRoomReadyMessage(properties as unknown as CalendarProperty[], p.id),
       hasWork: !!cl || checkouts.length > 0 || checkins.length > 0,
       cleaning: cl ? { id: cl.id, status: cl.status, cleanerId: cl.cleanerId, cleanerName: cl.cleaner?.name ?? null, supplies: cl.supplies, notes: cl.notes } : null,
       checkoutStatus: checkoutStatus[p.id] ?? null,
@@ -170,5 +193,8 @@ export const GET = withAuth('ops/today', async (_req, { auth }) => {
   }));
 
   out.sort((a, b) => Number(b.hasWork) - Number(a.hasWork) || a.name.localeCompare(b.name));
-  return ok({ today, properties: out, cleaners, counts: { pendingApplications, openIssues, pendingSupplies } });
+  const response = ok({ today, properties: out, cleaners, counts: { pendingApplications, openIssues, pendingSupplies } });
+  response.headers.set('Cache-Control', 'private, no-store');
+  response.headers.set('Server-Timing', `ops;dur=${(performance.now() - started).toFixed(1)}`);
+  return response;
 });

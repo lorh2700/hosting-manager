@@ -7,26 +7,32 @@ import { ArrowRight } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 
 // VOID ANCHAE 브랜드 페이지 — 시(詩)적 흐름의 한 페이지.
-// 상단 메뉴 → Hero (로고) → 4-연 본문 → 마무리 한 줄 → CTA → 푸터.
+// 상단 메뉴 → Hero (로고) → 브랜드 이야기 → 마무리 한 줄 → CTA → 푸터.
 
 // 시적 구절을 문단(연) 단위로 배치. 각 연은 스크롤 진입 시 페이드인.
 const STANZAS: string[][] = [
   [
-    '한옥의 가장 깊은 곳, 안채.',
-    '대문을 지나 안채에 이르는 동안',
-    '세상의 소음은 멀어지고, 몸의 긴장은 옅어집니다.',
+    '대문을 지나 안으로 들어오면',
+    '말소리는 낮아지고, 걸음은 느려집니다.',
   ],
   [
-    'VOID ANCHAE는 그 깊은 고요를',
-    '오늘의 감각으로 다시 지은 한옥 스테이입니다.',
+    '이곳에서는 무언가를 하지 않아도 괜찮습니다.',
+    '그저 머무르는 것만으로 충분합니다.',
   ],
   [
-    '우리는 채우지 않습니다.',
-    '당신이 들어올 자리를 남겨둘 뿐입니다.',
+    'VOID ANCHAE는 편안함의 이유를',
+    '공간의 크기나 장식보다',
+    '비워 둔 여백에서 찾았습니다.',
   ],
   [
-    '햇살과 바람, 그리고 당신의 숨소리로',
-    '비로소 완성되는 공간 —',
+    '당신이 들어와야 비로소 완성되는 공간.',
+    '머무는 동안의 시간과 마음이',
+    '자연스럽게 스며드는 한옥입니다.',
+  ],
+  [
+    '서두르지 않아도 좋습니다.',
+    '가장 나다운 모습으로 쉬어갈 수 있도록',
+    '당신의 자리를 비워 두겠습니다.',
   ],
 ];
 
@@ -36,7 +42,7 @@ export default function BrandPage() {
     <div className="min-h-screen bg-[#0C0A09] text-stone-50 selection:bg-stone-400/20 font-sans overflow-x-hidden">
       {/* ═══ 상단 네비게이션 ═══ */}
 
-      {/* ═══ HERO — 로고 + Deepest Rest ═══ */}
+      {/* ═══ HERO — 로고 + 그저 머물러도 충분한 곳 ═══ */}
       <section className="relative min-h-screen w-full flex flex-col items-center justify-center px-6 pt-24">
         <Image
           src="/images/main_yard.webp"
@@ -54,7 +60,7 @@ export default function BrandPage() {
           className="relative z-10 flex flex-col items-center text-center"
         >
           <p className="text-[10px] uppercase tracking-[0.35em] text-stone-400 mb-10 md:mb-14 font-semibold">
-            Bukchon · Hanok Stay
+            Seoul · Yeongju · Hanok Stay
           </p>
 
           <Image
@@ -66,8 +72,8 @@ export default function BrandPage() {
             className="w-[260px] sm:w-[360px] md:w-[500px] lg:w-[600px] h-auto"
           />
 
-          <p className="text-stone-300 text-sm md:text-base font-light tracking-[0.3em] mt-12 md:mt-14 uppercase">
-            Deepest Rest
+          <p className="brand-serif text-stone-300 text-base md:text-xl mt-12 md:mt-14">
+            그저 머물러도 충분한 곳
           </p>
         </motion.div>
 
@@ -83,7 +89,7 @@ export default function BrandPage() {
         </motion.div>
       </section>
 
-      {/* ═══ 본문 (시적 4연) ═══ */}
+      {/* ═══ 본문 (브랜드 이야기) ═══ */}
       <section className="relative py-32 md:py-48 px-6 border-t border-stone-800/60">
         <div className="max-w-2xl mx-auto space-y-20 md:space-y-28 text-center">
           {STANZAS.map((lines, idx) => (
@@ -93,7 +99,7 @@ export default function BrandPage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-100px' }}
               transition={{ duration: 1.1, ease: 'easeOut' }}
-              className="font-serif text-[22px] sm:text-2xl md:text-[28px] font-light leading-[2] tracking-wide text-stone-200 space-y-1"
+              className="brand-serif text-[18px] sm:text-[22px] md:text-[26px] leading-[2.2] text-stone-200 space-y-2"
             >
               {lines.map((line, i) => (
                 <p key={i}>{line}</p>
@@ -112,14 +118,14 @@ export default function BrandPage() {
           transition={{ duration: 1.2, ease: 'easeOut' }}
           className="text-center"
         >
-          <p className="font-serif text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-light tracking-tight leading-[1.25] text-stone-100">
-            비워진 곳에,<br />
-            비로소 당신이 머뭅니다.
+          <p className="brand-serif text-[28px] sm:text-4xl md:text-5xl lg:text-6xl leading-[1.7] text-stone-100">
+            당신이 들어와야<br />
+            비로소 완성되는 공간.
           </p>
 
           <div className="mt-14 md:mt-16 flex flex-col items-center gap-6">
-            <p className="text-stone-400 text-sm md:text-base tracking-[0.3em] uppercase font-light">
-              가장 깊은 안식, VOID ANCHAE
+            <p className="text-stone-400 text-sm md:text-base font-light">
+              당신이 머무는 한옥, VOID ANCHAE
             </p>
             <Link
               href="/#spaces"

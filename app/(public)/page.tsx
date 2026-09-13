@@ -24,9 +24,9 @@ export default function PublicPortal() {
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10 md:mb-14">
           <div>
             <p className="text-xs uppercase tracking-[0.25em] text-[#d8c3a4] mb-5">The Hanok Collection</p>
-            <h2 id="spaces-title" className="text-3xl md:text-5xl font-light tracking-tight leading-snug">서로 다른 집,<br className="md:hidden" /> 나에게 맞는 쉼.</h2>
+            <h2 id="spaces-title" className="brand-serif text-3xl md:text-5xl leading-relaxed">머물고 싶은<br className="md:hidden" /> 한옥을 만나보세요.</h2>
           </div>
-          <p className="text-base text-stone-300 leading-7 max-w-sm break-keep">마당의 빛, 나무의 결, 골목의 풍경.<br />마음이 가는 공간에서 여행을 시작하세요.</p>
+          <p className="text-base text-stone-300 leading-7 max-w-sm break-keep">서울 북촌의 골목에서 경북 영주까지.<br />서로 다른 모습의 한옥이 기다립니다.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-10 md:gap-y-14">

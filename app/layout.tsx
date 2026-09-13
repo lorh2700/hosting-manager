@@ -17,7 +17,7 @@ const cormorantGaramond = Cormorant_Garamond({
 
 const SITE_URL = 'https://voidanchae.com';
 const SITE_TITLE = 'void anchae · 큐레이션된 한옥 스테이';
-const SITE_DESCRIPTION = '북촌의 디자인 한옥 스테이. 정성스럽게 가꾼 공간에서 시간이 머무는 머무름을 경험하세요.';
+const SITE_DESCRIPTION = '그저 머물러도 충분합니다. 서울 북촌과 경북 영주, 당신의 시간과 마음이 스며드는 한옥 스테이 VOID ANCHAE.';
 const OG_IMAGE = `${SITE_URL}/images/main_yard.jpg`;
 
 // 모바일: 안전 영역까지 그리고(viewport-fit) 상태바 색을 브랜드 색으로.

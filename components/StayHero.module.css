@@ -5,9 +5,9 @@
 .shade { position: absolute; inset: 0; background: linear-gradient(90deg, #0b110ede 0%, #0b110e80 42%, #0b110e0a 80%), linear-gradient(0deg, #0b110e80, transparent 55%); }
 .content { position: relative; width: 100%; max-width: 1600px; margin: 0 auto; padding: 100px clamp(24px, 6vw, 96px) 100px; height: 100%; display: flex; flex-direction: column; justify-content: center; pointer-events: none; }
 .eyebrow { font-size: .75rem; letter-spacing: .2em; color: #e4d6be; margin-bottom: 30px; }
-.title { font-family: 'Noto Serif KR', 'Nanum Myeongjo', 'Batang', serif; font-size: clamp(48px, 5.1vw, 80px); font-weight: 400; line-height: 1.4; letter-spacing: -.055em; word-break: keep-all; margin: 0; }
+.title { font-family: var(--font-brand-serif), 'Batang', serif; font-size: clamp(46px, 4.7vw, 74px); font-weight: 400; line-height: 1.55; letter-spacing: -.035em; word-break: keep-all; margin: 0; }
 .title span { color: #e6d1b2; }
-.description { margin-top: 26px; font-size: 1rem; line-height: 1.9; color: #f1e9dd; word-break: keep-all; }
+.description { margin-top: 26px; font-size: 1rem; line-height: 2; color: #f1e9dd; word-break: keep-all; }
 .actions { display: flex; gap: 26px; align-items: center; flex-wrap: wrap; margin-top: 34px; }
 .primary, .secondary { pointer-events: auto; display: inline-flex; align-items: center; justify-content: space-between; gap: 22px; min-height: 54px; font-size: .875rem; transition: background .2s, color .2s; }
 .primary { background: #f2eadc; color: #282c24; padding: 0 24px; }
@@ -25,7 +25,7 @@
  .shade { background: linear-gradient(0deg, #171b1880, transparent 40%); }
  .content { padding: 32px 24px 38px; }
  .eyebrow { font-size: .75rem; letter-spacing: .13em; margin-bottom: 18px; }
- .title { font-size: clamp(36px, 8.5vw, 54px); line-height: 1.4; }
+ .title { font-size: clamp(32px, 8.2vw, 48px); line-height: 1.6; }
  .description { margin-top: 18px; }
  .actions { gap: 10px; margin-top: 24px; flex-direction: column; align-items: stretch; }
  .primary { padding: 0 18px; border-radius: 8px; }

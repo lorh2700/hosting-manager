@@ -19,8 +19,8 @@ export function StayBookingSearch() {
       <div className={styles.inner}>
         <div className={styles.intro}>
           <p className={styles.eyebrow}>FIND YOUR STAY</p>
-          <h2 id="find-stay-title">어느 한옥에서 쉬어갈까요?</h2>
-          <p>공간을 고르고, 가능한 날짜와 요금을 확인하세요.</p>
+          <h2 id="find-stay-title">어디에 머물고 싶으세요?</h2>
+          <p>마음에 드는 한옥의 빈 날짜를 확인해보세요.</p>
         </div>
         <form className={styles.form} onSubmit={submit}>
           <div className={styles.field}>

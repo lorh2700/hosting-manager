@@ -132,3 +132,12 @@
 .animate-sheet-up { animation: sheet-up 0.22s ease-out; }
 @keyframes toast-in { from { transform: translateY(-8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 .animate-toast-in { animation: toast-in 0.18s ease-out; }
+
+/* Public brand copy; booking forms and operational screens retain their UI type. */
+.brand-serif {
+  font-family: var(--font-brand-serif), 'Batang', serif;
+  font-weight: 400;
+  letter-spacing: -.025em;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
