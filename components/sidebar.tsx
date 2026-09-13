@@ -45,6 +45,7 @@ const COMMON_TOP: NavItem[] = [
 const HOST_LINKS: NavItem[] = [
   { href: '/admin/properties', label: '숙소 관리', icon: HomeIcon, roles: ['admin', 'manager'] },
   { href: '/admin/calendar', label: '예약 달력', mobileLabel: '예약', icon: Calendar, roles: ['admin', 'manager'] },
+  { href: '/admin/guests', label: '고객 명부', icon: Users, roles: ['admin'] },
   { href: '/admin/bookings', label: '예약 요청', icon: BookOpen, roles: ['admin', 'manager'] },
   { href: '/admin/messages', label: '메시지', icon: MessageSquare, roles: ['admin', 'manager'] },
   { href: '/admin/cleaners', label: '청소 담당자', icon: Users, roles: ['admin', 'manager'] },

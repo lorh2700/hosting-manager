@@ -313,6 +313,7 @@ model GuestReservation {
   checkOut String @map("check_out")
   status String
   source String
+  residenceCountry String? @map("residence_country")
   matchStatus String @default("review") @map("match_status")
   matchReason String @map("match_reason")
   candidateIds String[] @default([]) @map("candidate_ids")

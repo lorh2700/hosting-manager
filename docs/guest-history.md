@@ -11,3 +11,11 @@
 - CLI backfill: `node --experimental-strip-types --no-warnings scripts/backfill-guest-history.mjs`. Uses the configured production DB, prints counts only, and is idempotent. Do not run against an unintended environment.
 - Migration `20260913020000_guest_reservations` adds only columns, indexes and one table. In this workspace the migration SQL was applied and marked resolved separately because earlier migration records had pending entries. Do not blindly deploy those unrelated pending migrations.
 - Customer retention/deletion policy, marketing consent and welcome-pad use of this new ledger are separate from this change. Existing welcome-pad matching is unchanged.
+
+## Country and region
+
+`guest_reservations.residence_country` stores the explicit Beds24 address country, using `country2` (two-letter selector) before recognized `country` text. Empty subsequent imports preserve existing residence data. Customer display selects the latest dated reservation with a recognized residence country; this takes precedence over telephone inference.
+
+Telephone country/region is derived from the stored raw phone on read, separately labelled as an estimate. It is not stored as nationality or residence. No default country is assumed without an explicit + prefix. Shared calling codes remain ambiguous, even if an area code might narrow them further. International non-geographic numbers are labelled separately.
+
+Run `node --experimental-strip-types --no-warnings scripts/backfill-guest-regions.mjs` to read existing Beds24 reservations and update matching local history with supplied country values only. It does not send messages or change external reservations.

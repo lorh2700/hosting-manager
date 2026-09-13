@@ -1,3 +1,4 @@
+import { bedsResidenceCountry } from '@/lib/guest-region';
 import { saveGuestReservation, reservationKey, indexGuestSafely } from '@/lib/guest-history';
 import { createHash } from 'crypto';
 import { prisma } from '@/lib/prisma';
@@ -540,6 +541,7 @@ export async function syncBeds24Property(
       checkIn: String(b.arrival).slice(0, 10), checkOut: String(b.departure).slice(0, 10),
       status: status === 'cancelled' ? 'cancelled' : ['noshow', 'no-show', 'no_show'].includes(status) ? 'no_show' : ['confirmed', 'new'].includes(status) ? 'confirmed' : 'pending',
       source: String(b.channel || b.referer || 'beds24'),
+      ...(bedsResidenceCountry(b) ? { residenceCountry: bedsResidenceCountry(b) } : {}),
     };
     const snapshot = guestSnapshots.get(guestInput.key);
     if (!snapshot || Object.entries(guestInput).some(([field, value]) => snapshot[field] !== value)) {

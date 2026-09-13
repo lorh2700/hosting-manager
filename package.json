@@ -28,6 +28,7 @@
     "ics": "^3.8.1",
     "imapflow": "^1.7.8",
     "jose": "^6.2.2",
+    "libphonenumber-js": "^1.13.13",
     "lucide-react": "^0.553.0",
     "motion": "^12.23.24",
     "next": "^15.4.9",

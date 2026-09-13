@@ -47,11 +47,11 @@ import { actAsAdmin, actAsManager } from './stubs/auth';
 import { callRoute, makeRequest } from './helpers/beds24-mock';
 test('cross-property customer history and review are administrator-only', async () => {
   actAsManager(['stay']);
-  assert.equal((await callRoute(GET, makeRequest())).status, 403);
+  assert.equal((await callRoute(GET, makeRequest({}))).status, 403);
   assert.equal((await callRoute(PUT, makeRequest({ id: 'any', action: 'new' }))).status, 403);
   actAsAdmin();
   await saveGuestReservation(input);
-  const response = await callRoute(GET, makeRequest());
+  const response = await callRoute(GET, makeRequest({}));
   assert.equal(response.status, 200);
   assert.equal(response.body.rows.length, 1);
 });

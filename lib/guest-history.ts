@@ -23,7 +23,7 @@ export function decideGuest(identity: ReturnType<typeof normalizeIdentity>, cand
   if (candidates.length === 1 && strong.length === 1) return { guestId: strong[0].id, matchStatus: 'matched', matchReason: 'contact-and-name' };
   return { guestId: null, matchStatus: 'review', matchReason: candidates.length ? 'ambiguous-identity' : 'insufficient-identity' };
 }
-export type ReservationInput = Identity & { key: string; propertyId: string; checkIn: string; checkOut: string; status: string; source: string };
+export type ReservationInput = Identity & { key: string; propertyId: string; checkIn: string; checkOut: string; status: string; source: string; residenceCountry?: string };
 export const reservationKey = (propertyId: string, ref: string) => `${propertyId}:beds24:${ref}`;
 async function lock(tx: Prisma.TransactionClient) {
   await tx.$queryRaw`SELECT 1 AS locked FROM (SELECT pg_advisory_xact_lock(73452187)) AS guest_lock`;
