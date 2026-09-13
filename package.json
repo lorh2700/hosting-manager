@@ -13,6 +13,7 @@
     "seed": "node scripts/seed-properties.mjs"
   },
   "dependencies": {
+    "@channel.io/channel-web-sdk-loader": "^2.0.2",
     "@fullcalendar/daygrid": "^6.1.20",
     "@fullcalendar/interaction": "^6.1.20",
     "@fullcalendar/react": "^6.1.20",

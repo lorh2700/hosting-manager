@@ -81,10 +81,10 @@ export function ScrollUnfoldHero() {
             {playing ? <Pause size={15} aria-hidden="true" /> : <Play size={15} aria-hidden="true" />}
             <span>{playing ? '일시정지' : '영상 재생'}</span>
           </button>}
-          <span className={styles.filmLabel}>BUKCHON · HANOK STAYS</span>
+          <span className={styles.filmLabel}>SEOUL · YEONGJU · HANOK STAYS</span>
         </div>
         <div className={styles.content}>
-          <p className={styles.eyebrow}>SEOUL, BUKCHON / VOID ANCHAE</p>
+          <p className={styles.eyebrow}>SEOUL & YEONGJU / VOID ANCHAE</p>
           <h1 id="stay-hero-title" className={styles.title}>골목을 걷다,<br /><span>한옥에 머물다.</span></h1>
           <p className={styles.description}>문을 열면 시작되는 느긋한 하루.<br />당신의 여행에 어울리는 한옥을 만나보세요.</p>
           <div className={styles.actions}>

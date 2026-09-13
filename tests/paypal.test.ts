@@ -9,7 +9,7 @@ import { getPayPalPayment } from '../lib/payments/paypal';
 
 const id = 'e1a6bb45-d76c-4322-b270-76934162bf35';
 const pid = '02b10660-965d-4714-a0fe-55dc90956ea3';
-const order = (over: Partial<CheckoutOrder> = {}): CheckoutOrder => ({ id, propertyId: pid, roomId: 555, offerId: 1,
+const order = (over: Partial<CheckoutOrder> = {}): CheckoutOrder => ({ id, stayOptions: null, propertyId: pid, roomId: 555, offerId: 1,
   tokenHash: 'test', propertyName: 'Test stay', checkIn: '2027-10-01', checkOut: '2027-10-03', guests: 2,
   name: 'Guest', email: 'test@example.com', phone: '+12025550100', gateway: 'paypal', mode: 'test', currency: 'USD',
   amountMinor: 25000, priceKrw: 350000, fxRate: '1400', terms: 'Terms', termsAcceptedAt: new Date(), status: 'awaiting_payment',

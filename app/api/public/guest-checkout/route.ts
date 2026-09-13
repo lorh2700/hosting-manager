@@ -6,7 +6,7 @@ import { getCheckoutStatus, recordCheckoutSignal, notifyCheckoutRecipients } fro
 import { rateLimit, clientIp } from '@/lib/rateLimit';
 
 // Both actions use POST so QR credentials never appear in query/access logs.
-// 'status' is read-only; a scan or link preview cannot confirm checkout.
+// 'status' stays read-only; the guest page automatically follows it with 'confirm'.
 export const POST = withErrors('public/guest-checkout', async req => {
   if (!rateLimit(`guest-checkout:${clientIp(req)}`, 30, 60_000).ok) throw fail(429, '잠시 후 다시 시도해주세요. / Please try again shortly.');
   const body = await readJson(req);

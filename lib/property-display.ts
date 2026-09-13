@@ -62,13 +62,13 @@ export const PROPERTY_DISPLAY: Record<string, PropertyDisplay> = {
   dowonjae: {
     slug: 'dowonjae',
     name: '도원재',
-    region: '북촌',
+    region: '경북 영주',
     catchphrase: '무릉도원 같은 하루',
     imageFolder: 'dowon',
     imageFiles: ['main', 'KakaoTalk_20250716_110016098_07'],
     checkInTime: '15:00',
     checkOutTime: '11:00',
-    addressKo: '서울 종로구 북촌한옥마을 인근',
+    addressKo: '경상북도 영주시',
     status: 'active',
   },
   // 로마자 표기는 byulha 로 통일 (웰컴패드 ?p=byulha 와 동일 키).

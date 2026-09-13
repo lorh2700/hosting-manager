@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, ArrowRight, Clock, Users as UsersIcon, X } f
 import { format, addDays, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isBefore } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import type { PropertyData } from '@/lib/types';
+import type { StayOptions } from '@/lib/payments/stay-options';
 import { todayKst } from '@/lib/dates';
 import { arrivalIssue, stayIssue, type StayCalendar } from '@/lib/stay-calendar';
 
@@ -57,7 +58,9 @@ function BookingContent() {
     ? stayIssue(calendar, format(checkIn, 'yyyy-MM-dd'), format(checkOut, 'yyyy-MM-dd')) : null;
 
   const [guests, setGuests] = useState(2);
-  const [stayPrice, setStayPrice] = useState<{ priceKrw: number; nights: number; includesAllFees: boolean } | null>(null);
+  const [pets, setPets] = useState(0);
+  const [optionPolicy, setOptionPolicy] = useState<{ baseGuests: number; extraGuestFeeKrw: number; maxPets: number; petFeesKrw: number[] } | null>(null);
+  const [stayPrice, setStayPrice] = useState<{ priceKrw: number; nights: number; includesAllFees: boolean; stayOptions: StayOptions | null } | null>(null);
   const [priceLoading, setPriceLoading] = useState(false);
   const [priceError, setPriceError] = useState('');
   useEffect(() => {
@@ -69,7 +72,7 @@ function BookingContent() {
       try {
         const res = await fetch('/api/public/checkout', { method: 'POST', signal: controller.signal,
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'price', propertyId: property.id, checkIn: format(checkIn, 'yyyy-MM-dd'), checkOut: format(checkOut, 'yyyy-MM-dd'), guests }),
+          body: JSON.stringify({ action: 'price', propertyId: property.id, checkIn: format(checkIn, 'yyyy-MM-dd'), checkOut: format(checkOut, 'yyyy-MM-dd'), guests, pets }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? '요금을 불러오지 못했습니다.');
@@ -79,7 +82,7 @@ function BookingContent() {
       } finally { if (!controller.signal.aborted) setPriceLoading(false); }
     }, 500);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [property?.id, property?.status, checkIn, checkOut, guests]);
+  }, [property?.id, property?.status, checkIn, checkOut, guests, pets]);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -87,7 +90,6 @@ function BookingContent() {
   const [gateway, setGateway] = useState('card');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
   const [heroIndex, setHeroIndex] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -109,6 +111,7 @@ function BookingContent() {
         const res = await fetch(`/api/public/properties/${id}`);
         if (res.ok) {
           const data = await res.json();
+          setOptionPolicy(data.stayOptionPolicy ?? null);
           setCheckoutMethods(data.checkoutMethods ?? []);
           setGateway(data.checkoutMethods?.[0] ?? 'card');
           setProperty({
@@ -225,22 +228,27 @@ function BookingContent() {
 
   const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!checkIn || !checkOut || !name || !phone || !email || selectedStayIssue || !stayPrice || priceLoading || priceError) return;
+    if (isSubmitting || !checkIn || !checkOut || !name || !phone || !email || selectedStayIssue || !stayPrice || priceLoading || priceError) return;
+    if (!checkoutMethods.includes(gateway)) {
+      setErrorMessage('현재 온라인 결제를 준비 중입니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
 
     setIsSubmitting(true);
     setErrorMessage(null);
     try {
-      const onlinePayment = checkoutMethods.length > 0;
-      const res = await fetch(onlinePayment ? '/api/public/checkout' : '/api/public/bookings', {
+      const res = await fetch('/api/public/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           propertyId: property!.id,
-          ...(onlinePayment ? { action: 'quote', gateway } : {}),
+          action: 'quote',
+          gateway,
           propertyName: property?.name || '',
           checkIn: format(checkIn, 'yyyy-MM-dd'),
           checkOut: format(checkOut, 'yyyy-MM-dd'),
           guests,
+          pets,
           name,
           phone,
           email,
@@ -252,10 +260,8 @@ function BookingContent() {
         throw new Error(data.error || '예약 실패');
       }
 
-      if (onlinePayment) {
-        const quote = await res.json();
-        window.location.assign(`/book/checkout/${quote.id}#token=${encodeURIComponent(quote.token)}`);
-      } else setIsSuccess(true);
+      const quote = await res.json();
+      window.location.assign(`/book/checkout/${quote.id}#token=${encodeURIComponent(quote.token)}`);
     } catch (error: unknown) {
       console.error(error);
       const message = error instanceof Error ? error.message : '예약에 실패했습니다. 다시 시도해주세요.';
@@ -280,29 +286,6 @@ function BookingContent() {
         <Link href="/" className="text-sm text-stone-500 hover:text-stone-50 transition-colors underline underline-offset-4">
           메인으로 돌아가기
         </Link>
-      </div>
-    );
-  }
-
-  if (isSuccess) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0C0A09] text-stone-50 p-8">
-        <h1 className="font-serif text-5xl md:text-7xl font-light mb-6 tracking-tight">예약 요청 완료</h1>
-        <p className="text-stone-300 text-lg mb-12 font-light tracking-wide">예약 요청이 접수되었습니다. 확인 후 연락드리겠습니다.</p>
-        <div className="flex gap-4">
-          <Link
-            href="/"
-            className="px-8 py-4 border border-stone-600 rounded-full text-sm uppercase tracking-widest hover:bg-stone-50 hover:text-stone-900 transition-colors duration-500"
-          >
-            메인으로
-          </Link>
-          <button
-            onClick={() => setIsSuccess(false)}
-            className="px-8 py-4 bg-stone-100 text-stone-900 rounded-full text-sm uppercase tracking-widest hover:bg-stone-200 transition-colors duration-500"
-          >
-            추가 예약
-          </button>
-        </div>
       </div>
     );
   }
@@ -770,8 +753,26 @@ function BookingContent() {
                   <p className="text-xs text-stone-400">{stayPrice.includesAllFees
                     ? '결제 전 요금과 예약 가능 여부를 다시 확인합니다. PayPal 결제 시 다음 화면에서 USD 금액을 확인할 수 있습니다.'
                     : '표시 금액은 숙박요금입니다. 세금·청소비 등 필수 추가 요금의 포함 여부와 최종 금액은 예약 시 확인해주세요.'}</p></>}
+                {stayPrice?.stayOptions && <dl className="text-sm text-stone-300 space-y-1">
+                  <div className="flex justify-between"><dt>기본 숙박요금</dt><dd>₩{stayPrice.stayOptions.basePriceKrw.toLocaleString()}</dd></div>
+                  <div className="flex justify-between"><dt>추가 {stayPrice.stayOptions.extraGuests}인 · 숙박 1회</dt><dd>₩{stayPrice.stayOptions.extraGuestFeeKrw.toLocaleString()}</dd></div>
+                  <div className="flex justify-between"><dt>반려견 {stayPrice.stayOptions.pets}마리 · 숙박 1회</dt><dd>₩{stayPrice.stayOptions.petFeeKrw.toLocaleString()}</dd></div>
+                </dl>}
                 {priceError && <p className="text-sm text-amber-300">{priceError}</p>}
               </section>}
+              {optionPolicy && <fieldset className="space-y-3 border border-stone-700 p-5">
+                <legend className="text-sm px-2">숙박 옵션</legend>
+                <p className="text-sm text-stone-300">기준 {optionPolicy.baseGuests}인 · 추가 인원 1인 {optionPolicy.extraGuestFeeKrw.toLocaleString()}원 / 숙박 1회</p>
+                <p className="text-xs text-stone-400">선택한 총 인원에서 기준 인원을 초과한 인원만 자동 계산합니다. 연박에도 옵션 요금은 한 번만 부과됩니다.</p>
+                {optionPolicy.maxPets > 0 ? <>
+                  <label htmlFor="stay-pets" className="block text-sm">반려견 동반 · 최대 {optionPolicy.maxPets}마리</label>
+                  <select id="stay-pets" value={pets} onChange={e => setPets(Number(e.target.value))} className="w-full min-h-12 bg-stone-900 border border-stone-700 p-3 text-base">
+                    <option value={0}>동반하지 않음</option>
+                    <option value={1}>1마리 · 70,000원 / 숙박 1회</option>
+                    <option value={2}>2마리 · 100,000원 / 숙박 1회</option>
+                  </select>
+                </> : <p className="text-sm text-stone-300">도원재는 반려견 입실이 불가합니다.</p>}
+              </fieldset>}
               {checkoutMethods.length > 0 && <fieldset className="space-y-3">
                 <legend className="text-sm mb-2">결제수단 / Payment method</legend>
                 {checkoutMethods.map(method => <label key={method} className="flex items-center gap-3 border border-stone-700 p-4 cursor-pointer">
@@ -780,17 +781,20 @@ function BookingContent() {
                 </label>)}
                 <p className="text-sm text-stone-400">다음 화면에서 최종 요금과 취소 규정을 확인합니다.<br />Review the total price and cancellation policy on the next screen.</p>
               </fieldset>}
+              {checkoutMethods.length === 0 && <p role="status" className="text-sm text-amber-300">
+                현재 온라인 결제를 준비 중입니다. 잠시 후 다시 시도해주세요.
+              </p>}
               <button
                 type="submit"
-                disabled={!checkIn || !checkOut || !name || !phone || !email || isSubmitting || !!selectedStayIssue || !stayPrice || priceLoading || !!priceError}
+                disabled={!checkoutMethods.includes(gateway) || !checkIn || !checkOut || !name || !phone || !email || isSubmitting || !!selectedStayIssue || !stayPrice || priceLoading || !!priceError}
                 className={`
                   w-full py-5 rounded-full text-sm uppercase tracking-widest font-medium transition-all duration-500
-                  ${checkIn && checkOut && name && phone && email && !selectedStayIssue && stayPrice && !priceLoading && !priceError
+                  ${checkoutMethods.includes(gateway) && checkIn && checkOut && name && phone && email && !selectedStayIssue && stayPrice && !priceLoading && !priceError
                     ? 'bg-stone-100 text-stone-900 hover:bg-stone-200 shadow-[0_0_40px_rgba(214,211,209,0.15)]'
                     : 'bg-stone-800/60 text-stone-600 cursor-not-allowed'}
                 `}
               >
-                {isSubmitting ? '처리 중...' : checkoutMethods.length > 0 ? '최종 요금 확인 / Review total price' : '예약 요청하기'}
+                {isSubmitting ? '결제 페이지로 이동 중...' : '결제 페이지로 이동 / Continue to payment'}
               </button>
 
               {!checkIn && (

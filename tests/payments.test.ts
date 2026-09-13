@@ -11,7 +11,7 @@ import type { CheckoutOrder } from '../generated/prisma/client';
 
 const id = 'e1a6bb45-d76c-4322-b270-76934162bf35';
 const pid = '02b10660-965d-4714-a0fe-55dc90956ea3';
-const order = (over: Partial<CheckoutOrder> = {}): CheckoutOrder => ({ id, propertyId: pid, roomId: 555, offerId: 1,
+const order = (over: Partial<CheckoutOrder> = {}): CheckoutOrder => ({ id, stayOptions: null, propertyId: pid, roomId: 555, offerId: 1,
   tokenHash: createHash('sha256').update('valid-token').digest('hex'), propertyName: 'Test', checkIn: '2027-10-01', checkOut: '2027-10-03', guests: 2,
   name: 'Test Guest', email: 'test@example.com', phone: '+12025550100', gateway: 'card', mode: 'test', currency: 'KRW', amountMinor: 350000, priceKrw: 350000,
   fxRate: null, terms: 'Test terms', termsAcceptedAt: null, status: 'awaiting_payment', beds24Id: '123', paymentKey: null, bookingId: null,

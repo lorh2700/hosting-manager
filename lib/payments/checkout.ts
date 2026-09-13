@@ -1,3 +1,4 @@
+import { calculateStayOptions, readStayOptions, stayOptionPolicy } from './stay-options';
 import { createHash, randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
@@ -22,12 +23,13 @@ const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v => {
 // Properties migrated from Firestore retain their original document IDs.
 // Checkout order IDs are UUIDs, but property IDs may also be legacy IDs.
 const inputSchema = z.object({ propertyId: z.string().trim().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/), checkIn: date, checkOut: date,
+  pets: z.number().int().min(0).max(2).default(0),
   guests: z.number().int().min(1).max(20), name: z.string().trim().min(1).max(80),
   email: z.email().max(100), phone: z.string().trim().min(6).max(40), gateway: z.enum(['card', 'paypal']),
 });
 
 export async function priceStay(raw: unknown) {
-  const parsed = inputSchema.pick({ propertyId: true, checkIn: true, checkOut: true, guests: true }).safeParse(raw);
+  const parsed = inputSchema.pick({ propertyId: true, checkIn: true, checkOut: true, guests: true, pets: true }).safeParse(raw);
   if (!parsed.success) throw fail(400, '숙소·날짜·인원을 확인해주세요.');
   const data = parsed.data;
   const nights = (Date.parse(data.checkOut) - Date.parse(data.checkIn)) / 86400000;
@@ -39,6 +41,9 @@ export async function priceStay(raw: unknown) {
   if (!Number.isSafeInteger(roomId) || roomId < 1 || !Number.isSafeInteger(offerId) || offerId < 1) throw fail(503, '숙소 요금 설정을 확인 중입니다.');
   const details = await beds24Get('/properties', { id: String(property.beds24PropId) });
   if (details.data?.find((p: { id: number }) => String(p.id) === String(property.beds24PropId))?.currency !== 'KRW') throw fail(400, '현재 원화로 설정한 숙소만 지원합니다.');
+  const policy = stayOptionPolicy(property.slug);
+  // Validate pet restrictions before any external pricing calls.
+  calculateStayOptions(property.slug, data.guests, data.pets, 0);
   let priceKrw: number;
   try { priceKrw = await getPrice(roomId, offerId, data.checkIn, data.checkOut, data.guests); }
   catch (error) {
@@ -47,7 +52,14 @@ export async function priceStay(raw: unknown) {
     throw fail(409, stayIssue(calendar, data.checkIn, data.checkOut)
       ?? '선택한 날짜·인원에 판매 가능한 요금이 없습니다. 다른 일정이나 인원을 선택해주세요.');
   }
-  return { priceKrw, currency: 'KRW', nights, roomId, offerId, propertyName: property.name,
+  // Query actual occupancy for availability, then use the included occupancy's
+  // Beds24 price so its per-person surcharges are not charged a second time.
+  if (policy && data.guests > policy.baseGuests) {
+    priceKrw = await getPrice(roomId, offerId, data.checkIn, data.checkOut, policy.baseGuests);
+  }
+  const stayOptions = calculateStayOptions(property.slug, data.guests, data.pets, priceKrw);
+  if (stayOptions) priceKrw += stayOptions.extraGuestFeeKrw + stayOptions.petFeeKrw;
+  return { stayOptions, priceKrw, currency: 'KRW', nights, roomId, offerId, propertyName: property.name,
     includesAllFees: process.env.CHECKOUT_PRICE_INCLUDES_ALL_FEES === 'true' };
 }
 
@@ -57,13 +69,16 @@ export async function quoteCheckout(raw: unknown) {
   const data = parsed.data;
   const nights = (Date.parse(data.checkOut) - Date.parse(data.checkIn)) / 86400000;
   if (data.checkIn < todayKst() || nights < 1 || nights > 30) throw fail(400, '1~30박의 미래 일정을 선택해주세요.');
-  const config = checkoutConfig(data.propertyId, data.gateway);
+  const property = await prisma.property.findUnique({ where: { id: data.propertyId } });
+  const config = checkoutConfig(data.propertyId, data.gateway, property?.slug);
   const recent = await prisma.checkoutOrder.count({ where: { email: data.email, createdAt: { gt: new Date(Date.now() - 60 * 60_000) } } });
   if (recent >= 10) throw fail(429, '요금 조회 횟수를 초과했습니다. 잠시 후 다시 시도해주세요.');
-  const { priceKrw, roomId, propertyName } = await priceStay(data);
+  const { priceKrw, roomId, propertyName, stayOptions } = await priceStay(data);
   const amount = chargeAmount(priceKrw, data.gateway, process.env.CHECKOUT_KRW_PER_USD);
   const token = randomBytes(32).toString('base64url');
-  const order = await prisma.checkoutOrder.create({ data: { ...data, ...amount, priceKrw,
+  const { pets: _pets, ...bookingData } = data;
+  const order = await prisma.checkoutOrder.create({ data: { ...bookingData, ...amount, priceKrw,
+    ...(stayOptions ? { stayOptions } : {}),
     tokenHash: hash(token), roomId, offerId: config.offerId, propertyName,
     mode: config.mode, terms: config.terms, expiresAt: new Date(Date.now() + 5 * 60_000),
   } });
@@ -72,7 +87,7 @@ export async function quoteCheckout(raw: unknown) {
 
 export function publicOrder(o: CheckoutOrder) {
   return { id: o.id, status: o.status, propertyName: o.propertyName, checkIn: o.checkIn, checkOut: o.checkOut,
-    guests: o.guests, currency: o.currency, amount: majorAmount(o), gateway: o.gateway, priceKrw: o.priceKrw,
+    stayOptions: readStayOptions(o.stayOptions), guests: o.guests, currency: o.currency, amount: majorAmount(o), gateway: o.gateway, priceKrw: o.priceKrw,
     fxRate: o.fxRate, terms: o.terms, expiresAt: o.expiresAt, bookingId: o.bookingId, mode: o.mode };
 }
 
@@ -107,7 +122,8 @@ async function withLease(id: string, work: (o: CheckoutOrder) => Promise<void>) 
 }
 
 export async function startCheckout(order: CheckoutOrder) {
-  const config = checkoutConfig(order.propertyId, order.gateway as 'card' | 'paypal');
+  const property = await prisma.property.findUnique({ where: { id: order.propertyId } });
+  const config = checkoutConfig(order.propertyId, order.gateway as 'card' | 'paypal', property?.slug);
   let paypalStart: { approvalUrl?: string; resumeConfirmation?: boolean } = {};
   const updated = await withLease(order.id, async o => {
     if (o.status === 'awaiting_payment' && o.expiresAt > new Date()) {
@@ -116,7 +132,10 @@ export async function startCheckout(order: CheckoutOrder) {
       return;
     }
     if (o.status !== 'quoted' || o.expiresAt <= new Date()) throw fail(409, '견적이 만료되었습니다. 요금을 다시 확인해주세요.');
-    const latest = await getPrice(o.roomId, o.offerId, o.checkIn, o.checkOut, o.guests);
+    const options = readStayOptions(o.stayOptions);
+    const latest = options
+      ? (await priceStay({ propertyId: o.propertyId, checkIn: o.checkIn, checkOut: o.checkOut, guests: o.guests, pets: options.pets })).priceKrw
+      : await getPrice(o.roomId, o.offerId, o.checkIn, o.checkOut, o.guests);
     if (latest !== o.priceKrw) throw fail(409, '판매 요금이 변경되었습니다. 요금을 다시 확인해주세요.');
     const expiresAt = new Date(Date.now() + 15 * 60_000);
     await prisma.checkoutOrder.update({ where: { id: o.id }, data: { status: 'holding', expiresAt, termsAcceptedAt: new Date() } });

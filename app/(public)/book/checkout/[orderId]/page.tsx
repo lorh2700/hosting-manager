@@ -1,11 +1,12 @@
 'use client';
 
+import type { StayOptions } from '@/lib/payments/stay-options';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Script from 'next/script';
 import Link from 'next/link';
 
-type Order = { id: string; status: string; propertyName: string; checkIn: string; checkOut: string; guests: number;
+type Order = { stayOptions: StayOptions | null; id: string; status: string; propertyName: string; checkIn: string; checkOut: string; guests: number;
   currency: string; amount: number; gateway: string; terms: string; expiresAt: string; mode: string;
   priceKrw: number; fxRate: string | null; bookingId: string | null; approvalUrl?: string; resumeConfirmation?: boolean; clientKey?: string; customerName?: string; customerEmail?: string };
 type TossWindow = Window & { TossPayments?: (key: string) => { payment: (args: { customerKey: string }) => { requestPayment: (args: Record<string, unknown>) => Promise<void> } } };
@@ -94,6 +95,11 @@ export default function CheckoutPage() {
           <h2 className="text-xl">{order.propertyName}</h2>
           <p>{order.checkIn} → {order.checkOut} · {order.guests} guests</p>
           <p className="text-3xl">{order.currency} {order.amount.toLocaleString('en-US', { minimumFractionDigits: order.currency === 'USD' ? 2 : 0 })}</p>
+          {order.stayOptions && <dl className="text-sm text-stone-300 space-y-2">
+            <div className="flex justify-between"><dt>기본 숙박요금</dt><dd>₩{order.stayOptions.basePriceKrw.toLocaleString()}</dd></div>
+            <div className="flex justify-between"><dt>추가 {order.stayOptions.extraGuests}인 · 숙박 1회</dt><dd>₩{order.stayOptions.extraGuestFeeKrw.toLocaleString()}</dd></div>
+            <div className="flex justify-between"><dt>반려견 {order.stayOptions.pets}마리 · 숙박 1회</dt><dd>₩{order.stayOptions.petFeeKrw.toLocaleString()}</dd></div>
+          </dl>}
           {order.fxRate && <p className="text-sm text-stone-300">KRW {order.priceKrw.toLocaleString()} · 1 USD = KRW {order.fxRate}<br />위 USD 금액으로 결제합니다. / You will be charged the USD amount above.</p>}
           {order.status === 'confirmed' && <p>예약번호 / Booking reference: {order.bookingId}</p>}
           {payable && <p className="text-sm text-stone-400">결제 전 객실과 요금을 다시 확인합니다. / Availability and price are rechecked before payment.</p>}

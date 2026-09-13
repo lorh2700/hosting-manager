@@ -1,3 +1,4 @@
+import { stayOptionPolicy } from '@/lib/payments/stay-options';
 import { prisma } from '@/lib/prisma';
 import { checkoutConfig } from '@/lib/payments/config';
 import { getPropertyDisplay, propertyImagePaths, slugCandidates } from '@/lib/property-display';
@@ -20,11 +21,12 @@ export const GET = withErrors<{ id: string }>('public/properties/id', async (_re
   const images = display ? propertyImagePaths(display).map((p) => p.src) : [];
 
   const checkoutMethods = (['card', 'paypal'] as const).filter(method => {
-    try { checkoutConfig(property.id, method); return method !== 'paypal' || Number(process.env.CHECKOUT_KRW_PER_USD) > 0; }
+    try { checkoutConfig(property.id, method, property.slug); return method !== 'paypal' || Number(process.env.CHECKOUT_KRW_PER_USD) > 0; }
     catch { return false; }
   });
   return ok({
     checkoutMethods,
+    stayOptionPolicy: stayOptionPolicy(property.slug),
     id: property.id,
     slug: property.slug,
     status: property.status,

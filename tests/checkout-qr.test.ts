@@ -8,6 +8,7 @@ import { db, resetDb } from './stubs/prisma';
 import { notifyCalls, resetNotify, actAsAdmin, actAsAnonymous } from './stubs/notify-and-auth';
 import { callRoute } from './helpers/beds24-mock';
 import { todayKst, addDaysToDateStr } from '../lib/dates';
+import { autoConfirmGuestCheckout } from '../lib/guest-checkout-client';
 
 const propertyId = 'qr-property';
 function request(action: string, extra: Record<string, unknown> = {}) {
@@ -89,4 +90,54 @@ test('동시 중복 저장의 고유키 충돌은 이미 저장된 확인으로 
   assert.equal(db.checkoutSignal.length, 1);
   assert.equal(results.filter(r => r.duplicate).length, 1);
   assert.equal(results.filter(r => r.newlyConfirmed).length, 1);
+});
+
+test('QR 페이지 자동 흐름은 버튼 없이 확인하고 다시 열어도 알림을 중복 발송하지 않는다', async () => {
+  const actions: string[] = [];
+  const send: typeof fetch = async (_url, init) => {
+    actions.push(JSON.parse(String(init?.body)).action);
+    const response = await callRoute(POST, new Request('https://voidanchae.com/api/public/guest-checkout', init));
+    return Response.json(response.body, { status: response.status });
+  };
+  const token = checkoutQrToken(propertyId);
+  const signal = new AbortController().signal;
+  const first = await autoConfirmGuestCheckout(token, signal, send);
+  assert.equal(first.confirmed, true);
+  assert.deepEqual(actions, ['status', 'confirm']);
+  assert.equal((await autoConfirmGuestCheckout(token, signal, send)).confirmed, true);
+  assert.deepEqual(actions, ['status', 'confirm', 'status']);
+  assert.equal(db.checkoutSignal.length, 1);
+  assert.equal(notifyCalls.checkout.length, 2); // One per host and assigned cleaner.
+});
+
+test('자동 흐름도 오늘 예약이 없으면 확인 요청을 보내지 않는다', async () => {
+  db.event = [];
+  const actions: string[] = [];
+  const send: typeof fetch = async (_url, init) => {
+    actions.push(JSON.parse(String(init?.body)).action);
+    const response = await callRoute(POST, new Request('https://voidanchae.com/api/public/guest-checkout', init));
+    return Response.json(response.body, { status: response.status });
+  };
+  const result = await autoConfirmGuestCheckout(checkoutQrToken(propertyId), new AbortController().signal, send);
+  assert.equal(result.confirmed, false);
+  assert.deepEqual(actions, ['status']);
+  assert.equal(notifyCalls.checkout.length, 0);
+});
+
+test('자동 확인 응답이 유실돼도 재시도는 저장된 확인을 읽고 추가 발송하지 않는다', async () => {
+  let loseConfirmResponse = true;
+  const send: typeof fetch = async (_url, init) => {
+    const response = await callRoute(POST, new Request('https://voidanchae.com/api/public/guest-checkout', init));
+    if (JSON.parse(String(init?.body)).action === 'confirm' && loseConfirmResponse) {
+      loseConfirmResponse = false;
+      throw new Error('network lost');
+    }
+    return Response.json(response.body, { status: response.status });
+  };
+  const token = checkoutQrToken(propertyId);
+  const signal = new AbortController().signal;
+  await assert.rejects(autoConfirmGuestCheckout(token, signal, send), /network lost/);
+  assert.equal((await autoConfirmGuestCheckout(token, signal, send)).confirmed, true);
+  assert.equal(db.checkoutSignal.length, 1);
+  assert.equal(notifyCalls.checkout.length, 2);
 });

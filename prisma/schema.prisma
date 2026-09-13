@@ -253,6 +253,7 @@ model CheckoutOrder {
   currency     String
   amountMinor  Int @map("amount_minor")
   priceKrw     Int @map("price_krw")
+  stayOptions  Json? @map("stay_options")
   fxRate       String? @map("fx_rate")
   terms        String
   termsAcceptedAt DateTime? @map("terms_accepted_at")

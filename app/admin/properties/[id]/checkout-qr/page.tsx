@@ -37,14 +37,14 @@ export default function CheckoutQrPage() {
         {/* Server-generated PNG; no guest URL is sent to a third-party QR service. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={qr.image} alt={`${qr.propertyName} 게스트 체크아웃 QR코드`} width={900} height={900} className="w-full max-w-[340px] mx-auto" />
-        <p className="text-sm leading-6">퇴실 후 QR을 스캔하고 체크아웃 완료를 눌러주세요.<br />Scan after leaving and confirm your checkout.</p>
+        <p className="text-sm leading-6">퇴실 후 QR을 스캔해 링크를 열면 자동으로 체크아웃됩니다.<br />After leaving, scan and open the link to check out automatically.</p>
       </section>
       <div className="flex flex-wrap gap-3">
         <a href={qr.image} download={`${qr.propertyName}-checkout-qr.png`} className="inline-flex min-h-12 items-center justify-center bg-stone-900 text-white rounded-lg px-5">QR 이미지 저장</a>
         <button onClick={async () => { try { await navigator.clipboard.writeText(qr.url); setCopied(true); } catch { setError('링크를 복사하지 못했습니다. 아래 링크를 직접 복사해주세요.'); } }} className="min-h-12 border rounded-lg px-5">{copied ? '복사됨' : '링크 복사'}</button>
       </div>
       <label className="block text-sm">게스트용 링크<input readOnly value={qr.url} onFocus={e => e.target.select()} className="mt-2 w-full border rounded-lg p-3 text-base" /></label>
-      <p className="text-sm text-stone-500 leading-6">오늘 퇴실 예정 예약이 있을 때만 완료할 수 있습니다. 스캔만으로 처리되지 않으며, 중복 완료는 한 번만 기록됩니다. 관리자 오늘 화면에 ‘게스트 셀프 체크아웃’으로 표시됩니다.</p>
+      <p className="text-sm text-stone-500 leading-6">오늘 퇴실 예정 예약이 있을 때만 완료할 수 있습니다. QR 링크를 열면 자동으로 처리되며, 중복 완료는 한 번만 기록됩니다. 관리자 오늘 화면에 ‘게스트 셀프 체크아웃’으로 표시됩니다.</p>
     </>}
   </div>;
 }

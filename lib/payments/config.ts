@@ -1,3 +1,4 @@
+import { LEGACY_SLUGS } from '@/lib/property-display';
 import type { Gateway } from './money';
 
 export function paymentKeys(gateway: string, mode: string) {
@@ -18,8 +19,16 @@ export function paymentKeys(gateway: string, mode: string) {
   return { clientKey, secretKey };
 }
 
-export function checkoutConfig(propertyId: string, gateway: Gateway) {
-  if (process.env.CHECKOUT_ENABLED !== 'true' || !process.env.CHECKOUT_PROPERTY_IDS?.split(',').map(s => s.trim()).includes(propertyId)) throw new Error('Online payment is not available for this property yet.');
+const CHECKOUT_STAYS = new Set(['anon', 'unwadang', 'hwayeonjae', 'dowonjae', 'byulha']);
+
+export function checkoutPropertyAllowed(propertyId: string, propertySlug?: string | null) {
+  if (propertySlug) return CHECKOUT_STAYS.has(LEGACY_SLUGS[propertySlug] ?? propertySlug);
+  // Legacy records without a slug retain the explicit deployment allowlist.
+  return !!process.env.CHECKOUT_PROPERTY_IDS?.split(',').map(s => s.trim()).includes(propertyId);
+}
+
+export function checkoutConfig(propertyId: string, gateway: Gateway, propertySlug?: string | null) {
+  if (process.env.CHECKOUT_ENABLED !== 'true' || !checkoutPropertyAllowed(propertyId, propertySlug)) throw new Error('Online payment is not available for this property yet.');
   const mode = process.env.CHECKOUT_MODE ?? 'test';
   if (!process.env.CRON_SECRET || process.env.CHECKOUT_PRICE_INCLUDES_ALL_FEES !== 'true') throw new Error('Checkout reconciliation or all-inclusive pricing is not configured');
   paymentKeys(gateway, mode);

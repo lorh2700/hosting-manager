@@ -1,3 +1,4 @@
+import { stayOptionsNote } from './stay-options';
 import { beds24Get, beds24Post } from '@/lib/beds24';
 import { fetchBeds24BookingById, type Beds24Booking } from '@/lib/beds24-booking';
 import type { CheckoutOrder } from '@/generated/prisma/client';
@@ -42,7 +43,7 @@ export async function createHold(order: CheckoutOrder) {
   const raw = await beds24Post('/bookings', [{
     roomId: order.roomId, arrival: order.checkIn, departure: order.checkOut, roomQty: 1,
     firstName: '결제 대기', lastName: '', status: 'black', numAdult: order.guests, numChild: 0,
-    custom1: checkoutMarker(order.id), notes: `온라인 결제 대기 / expires ${order.expiresAt.toISOString()}`,
+    custom1: checkoutMarker(order.id), notes: `온라인 결제 대기 / expires ${order.expiresAt.toISOString()}; ${stayOptionsNote(order.stayOptions)}`,
     actions: { checkAvailability: true, notifyGuest: false, notifyHost: false },
   }]);
   const item = Array.isArray(raw) ? raw[0] : null;
@@ -55,7 +56,7 @@ export async function finalizeHold(order: CheckoutOrder) {
   if (booking.status !== 'confirmed') {
     await beds24Post('/bookings', [{ id: booking.id, status: 'confirmed', firstName: order.name, lastName: '',
       email: order.email, phone: order.phone, price: order.priceKrw, numAdult: order.guests,
-      notes: `void anchae paid order ${order.id}; ${order.currency} ${order.amountMinor}; payment recorded in void anchae`,
+      notes: `void anchae paid order ${order.id}; ${order.currency} ${order.amountMinor}; payment recorded in void anchae; ${stayOptionsNote(order.stayOptions)}`,
       actions: { notifyGuest: false, notifyHost: false },
     }]);
   }

@@ -27,7 +27,7 @@ Prisma 이력을 관리하는 환경에서는 `npx prisma migrate deploy`를 사
 CHECKOUT_ENABLED=false
 CHECKOUT_MODE=test
 CHECKOUT_SITE_URL=https://voidanchae.com
-# 플랫폼 Property ID를 쉼표로 구분(UUID 또는 기존 문자형 ID). Beds24 ID나 slug가 아니다.
+# slug가 없는 기존 레코드만 Property ID 목록을 사용. 공개 5지점은 코드 정책으로 허용하고 자락헌은 제외.
 CHECKOUT_PROPERTY_IDS=
 CHECKOUT_BEDS24_OFFER_ID=
 # 선택 offer.price가 세금·청소비 등 필수 요금을 모두 포함함을 확인한 뒤 true
@@ -90,3 +90,15 @@ PayPal Live/Sandbox 앱에서 아래 URL에 CHECKOUT.ORDER.APPROVED, PAYMENT.CAP
 - [Beds24 OpenAPI](https://beds24.com/api/v2/apiV2.yaml)
 
 롤백은 CHECKOUT_ENABLED=false로 신규 결제를 중단한다. 미완료 주문이 남아 있으면 비밀 키·환경·복구 스케줄을 유지한다. 주문 원장과 마이그레이션을 삭제하지 않는다.
+
+
+## 숙박 옵션 (2026-09-13)
+
+- 결제 대상: 안온재, 운와당, 화연재, 도원재, 별하재. 자락헌은 환경변수 목록에 있어도 제외한다.
+- 모든 지점 기준 2인. 추가 1인 30,000원은 박수가 아닌 숙박 1회 기준이다.
+- 반려견 최대 2마리: 1마리 70,000원 / 2마리 100,000원, 숙박 1회 기준. 도원재는 반려견 불가.
+- 실제 총 인원으로 Beds24 판매 가능 여부를 검증하고, 2인 초과 시 2인 기준 Beds24 숙박요금에 추가 인원/반려견 옵션을 더한다. Beds24의 총 인원 요금 위에 인원 추가 비용을 중복 합산하지 않는다. 1인 예약은 Beds24 1인 요금을 사용한다.
+- `CHECKOUT_PRICE_INCLUDES_ALL_FEES`는 기본 숙박요금의 세금/청소비 포함 확인이며 이 변경만으로 자동 활성화하지 않는다.
+- 서버가 옵션을 계산하고 주문의 `stay_options` JSONB에 금액 내역을 저장한다. 클라이언트 전달 금액은 신뢰하지 않는다. 결제 직전에 총액과 반려견 정책을 재검증한다.
+- 기존 옵션 없는 주문은 이전 요금 검증 방식을 유지한다. 신규 주문의 옵션 내역은 결제 화면 및 Beds24 예약 메모에 포함된다.
+- 코드 배포 전에 `prisma/migrations/20260913010000_checkout_stay_options/migration.sql`을 적용해야 한다. nullable 컬럼 추가이므로 기존 주문을 변경하지 않는다.

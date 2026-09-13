@@ -142,30 +142,26 @@ export const PROPERTY_KNOWLEDGE: PropertyKnowledge[] = [
     id: 'dowonjae',
     name: { ko: '도원재', en: 'Dowonjae' },
     address: {
-      ko: '서울 종로구 북촌한옥마을 인근',
-      en: 'Near Bukchon Hanok Village, Jongno-gu, Seoul',
+      ko: '경상북도 영주시',
+      en: 'Yeongju-si, Gyeongsangbuk-do, South Korea',
     },
     doorLockPassword: '',  // 관리자가 채워야 함
     checkIn: '3:00 PM',
     checkOut: '11:00 AM',
     maxGuests: 4,
     directions: {
-      subway: 'Anguk Station (Line 3), Exit 2 — about 10 min walk',
+      subway: 'No local subway access. Contact the host for directions to the property.',
       taxi: 'Show the driver the Korean address below',
-      taxiKorean: '종로구 북촌한옥마을',
+      taxiKorean: '경상북도 영주시 — 정확한 주소는 호스트에게 확인해주세요',
     },
     houseRules: [
       'Please remove your shoes when entering the hanok',
       'Keep noise to a minimum, especially after 10:00 PM (quiet residential area)',
       'No smoking inside the hanok',
+      'Pets are not permitted at Dowonjae',
       'Please close all windows and doors when you leave',
     ],
-    nearbyAttractions: [
-      { name: 'Bukchon Hanok Village', distance: 'right outside', description: 'Traditional Korean village with beautiful hanok houses' },
-      { name: 'Gyeongbokgung Palace', distance: '10 min walk', description: 'The main royal palace of the Joseon dynasty' },
-      { name: 'Samcheong-dong', distance: '5 min walk', description: 'Trendy area with cafes, galleries and boutiques' },
-      { name: 'Insadong', distance: '10 min walk', description: 'Traditional street with Korean crafts, tea houses and antiques' },
-    ],
+    nearbyAttractions: [],
     extras: [
       'The hanok is a traditional Korean house — floors are heated (ondol system)',
       'Bedding is Korean-style (yo/mattress on the floor)',
