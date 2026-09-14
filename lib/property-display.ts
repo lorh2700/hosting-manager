@@ -12,6 +12,10 @@ export type PropertyDisplay = {
   imageFiles: string[];      // 파일명 (확장자 제외). jpg + webp 세트 로드.
   checkInTime: string;       // '15:00'
   checkOutTime: string;      // '11:00'
+  // Public card facts, fixed from property settings (2026-09-14).
+  // Keep capacity aligned when changing the property's reservation limits.
+  maxGuests: number;
+  maxPets?: number;          // Omit for properties whose policy is not published yet.
   addressKo: string;         // 주소 (한글, 상세)
   // 홈 카드 노출용 상태 힌트. DB Property.status 가 source of truth 이지만
   // 홈페이지가 SSG/SSR 무관하게 즉시 렌더할 수 있도록 여기에도 유지.
@@ -24,6 +28,8 @@ export type PropertyDisplay = {
 // 첫 번째 이미지가 홈 카드 대표 사진.
 export const PROPERTY_DISPLAY: Record<string, PropertyDisplay> = {
   anon: {
+    maxGuests: 2,
+    maxPets: 2,
     slug: 'anon',
     name: '안온재',
     region: '북촌',
@@ -36,6 +42,8 @@ export const PROPERTY_DISPLAY: Record<string, PropertyDisplay> = {
     status: 'active',
   },
   unwadang: {
+    maxGuests: 6,
+    maxPets: 2,
     slug: 'unwadang',
     name: '운와당',
     region: '북촌',
@@ -48,6 +56,8 @@ export const PROPERTY_DISPLAY: Record<string, PropertyDisplay> = {
     status: 'active',
   },
   hwayeonjae: {
+    maxGuests: 4,
+    maxPets: 2,
     slug: 'hwayeonjae',
     name: '화연재',
     region: '북촌',
@@ -60,6 +70,8 @@ export const PROPERTY_DISPLAY: Record<string, PropertyDisplay> = {
     status: 'active',
   },
   dowonjae: {
+    maxGuests: 6,
+    maxPets: 0,
     slug: 'dowonjae',
     name: '도원재',
     region: '경북 영주',
@@ -74,6 +86,8 @@ export const PROPERTY_DISPLAY: Record<string, PropertyDisplay> = {
   // 로마자 표기는 byulha 로 통일 (웰컴패드 ?p=byulha 와 동일 키).
   // 구 URL /book/byeolha 는 next.config.ts 영구 리다이렉트로 유지.
   byulha: {
+    maxGuests: 6,
+    maxPets: 2,
     slug: 'byulha',
     name: '별하재',
     region: '북촌',
@@ -104,6 +118,7 @@ export const PROPERTY_DISPLAY: Record<string, PropertyDisplay> = {
     status: 'active',
   },
   jarakheon: {
+    maxGuests: 4,
     slug: 'jarakheon',
     name: '자락헌',
     region: '북촌',

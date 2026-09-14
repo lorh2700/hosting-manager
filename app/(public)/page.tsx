@@ -15,20 +15,13 @@ import { PROPERTY_DISPLAY, PROPERTY_DISPLAY_ORDER } from '@/lib/property-display
 export default function PublicPortal() {
   const { t, language } = usePublicLanguage();
   const en = language === 'en';
-  const [details, setDetails] = useState<{ slug: string; maxGuests: number | null; maxPets: number | null; basePrice: number | null }[]>([]);
-  const [metadataError, setMetadataError] = useState(false);
   const [search, setSearch] = useState<StaySearch | null>(null);
   const [results, setResults] = useState<StaySearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState(false);
   const controller = useRef<AbortController | null>(null);
   useEffect(() => {
-    const request = new AbortController();
-    fetch('/api/public/properties', { signal: request.signal }).then(async res => {
-      if (!res.ok) throw new Error('Properties unavailable');
-      setDetails(await res.json());
-    }).catch(() => { if (!request.signal.aborted) setMetadataError(true); });
-    return () => { request.abort(); controller.current?.abort(); controller.current = null; };
+    return () => { controller.current?.abort(); controller.current = null; };
   }, []);
   async function findStays(criteria: StaySearch) {
     controller.current?.abort();
@@ -70,7 +63,7 @@ export default function PublicPortal() {
           {search ? <p>{search.checkIn} — {search.checkOut} · {search.guests}{en ? ' guests' : '명'} <button type="button" onClick={() => { controller.current?.abort(); controller.current = null; setSearching(false); setSearch(null); setResults([]); setSearchError(false); }} className="ml-4 min-h-11 underline">{en ? 'Clear search' : '전체 숙소 보기'}</button></p> : <p>{en ? 'From rates · 2 guests, per night. Final rates vary by date and options.' : '기준요금 · 2인 / 1박부터. 날짜와 옵션에 따라 최종 요금이 달라집니다.'}</p>}
           {searching && <p role="status">{en ? 'Checking live rates and availability…' : '실시간 요금과 예약 가능 여부를 확인하고 있습니다…'}</p>}
           {search && results.some(r => r.status === 'available' && !r.includesAllFees) && <p>{en ? 'Any additional mandatory fees will be confirmed at checkout.' : '별도 필수 요금이 있는 경우 결제 단계에서 확인할 수 있습니다.'}</p>}
-          {(searchError || metadataError) && <p role="alert">{en ? 'Some information could not be loaded. Please retry or check the stay details.' : '일부 정보를 불러오지 못했습니다. 다시 검색하거나 숙소 상세에서 확인해주세요.'}</p>}
+          {searchError && <p role="alert">{en ? 'Some information could not be loaded. Please retry or check the stay details.' : '일부 정보를 불러오지 못했습니다. 다시 검색하거나 숙소 상세에서 확인해주세요.'}</p>}
           {search && !searching && !searchError && results.length > 0 && results.every(r => r.status === 'unavailable') && <p>{en ? 'No stays match these dates and guests. Please try another date.' : '선택한 날짜와 인원에 맞는 숙소가 없습니다. 다른 날짜로 검색해주세요.'}</p>}
         </div>
 
@@ -79,7 +72,6 @@ export default function PublicPortal() {
             const p = PROPERTY_DISPLAY[slug];
             if (!p) return null;
             const isComingSoon = p.status === 'coming_soon';
-            const info = details.find(detail => detail.slug === p.slug);
             const result = results.find(item => item.slug === p.slug);
             const hasImage = p.imageFiles.length > 0;
             const coverWebp = hasImage ? `/images/${p.imageFolder}/${p.imageFiles[0]}.webp` : null;
@@ -129,13 +121,13 @@ export default function PublicPortal() {
                       />
                     </div>
                     <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-stone-300 mt-4">
-                      <span className="inline-flex items-center gap-2"><Users size={15} aria-hidden="true" />{info?.maxGuests ? (en ? `Up to ${info.maxGuests} guests` : `최대 ${info.maxGuests}인`) : (en ? 'Capacity to be confirmed' : '인원 정보 확인 중')}</span>
-                      <span className="inline-flex items-center gap-2"><Dog size={15} aria-hidden="true" />{info?.maxPets != null ? info.maxPets > 0 ? (en ? `Up to ${info.maxPets} dogs` : `반려견 ${info.maxPets}마리 동반 가능`) : (en ? 'No dogs' : '반려견 동반 불가') : (en ? 'Pet policy to be confirmed' : '반려견 정책 확인 중')}</span>
+                      <span className="inline-flex items-center gap-2"><Users size={15} aria-hidden="true" />{en ? `Up to ${p.maxGuests} guests` : `최대 ${p.maxGuests}인`}</span>
+                      {p.maxPets != null && <span className="inline-flex items-center gap-2"><Dog size={15} aria-hidden="true" />{p.maxPets > 0 ? (en ? `Up to ${p.maxPets} dogs` : `반려견 ${p.maxPets}마리 동반 가능`) : (en ? 'No dogs' : '반려견 동반 불가')}</span>}
                     </div>
                     <div className="flex justify-between items-end gap-4 mt-6 pt-5 border-t border-white/10">
                       <p className="text-xl text-stone-100">
-                        {isComingSoon ? t('오픈 예정') : search ? searching ? (en ? 'Checking rates…' : '요금 확인 중…') : result?.status === 'available' ? `₩${result.priceKrw!.toLocaleString()}` : result?.status === 'unavailable' ? (en ? 'Unavailable for this search' : '선택 조건 예약 불가') : (en ? 'Rate unavailable · retry' : '요금 조회 실패 · 재검색') : info?.basePrice ? `₩${info.basePrice.toLocaleString()} ${en ? 'from' : '부터'}` : (en ? 'Select dates for rates' : '날짜 선택 후 요금 확인')}
-                        {!isComingSoon && ((search && result?.status === 'available') || (!search && info?.basePrice)) && <span className="block text-xs text-stone-400 mt-2">{search ? (en ? `${result?.nights} nights · ${result?.includesAllFees ? 'stay total' : 'stay rate'}, selected options included` : `${result?.nights}박 ${result?.includesAllFees ? '총요금' : '숙박요금'} · 선택 옵션 포함`) : (en ? '2 guests · per night' : '기준 2인 · 1박')}</span>}
+                        {isComingSoon ? t('오픈 예정') : search ? searching ? (en ? 'Checking rates…' : '요금 확인 중…') : result?.status === 'available' ? `₩${result.priceKrw!.toLocaleString()}` : result?.status === 'unavailable' ? (en ? 'Unavailable for this search' : '선택 조건 예약 불가') : (en ? 'Rate unavailable · retry' : '요금 조회 실패 · 재검색') : (en ? 'From ₩300,000' : '30만원~')}
+                        {!isComingSoon && (!search || result?.status === 'available') && <span className="block text-xs text-stone-400 mt-2">{search ? (en ? `${result?.nights} nights · ${result?.includesAllFees ? 'stay total' : 'stay rate'}, selected options included` : `${result?.nights}박 ${result?.includesAllFees ? '총요금' : '숙박요금'} · 선택 옵션 포함`) : (en ? '2 guests · per night' : '기준 2인 · 1박')}</span>}
                       </p>
                       <span className="text-sm text-[#d8c3a4] whitespace-nowrap">{en ? 'View stay' : '숙소 보기'}</span>
                     </div>

@@ -9,7 +9,7 @@ export function stayOptionPolicy(slug?: string | null) {
   const display = slug ? getPropertyDisplay(slug) : null;
   if (!display || display.slug === 'jarakheon') return null;
   return { baseGuests: BASE_GUESTS, extraGuestFeeKrw: EXTRA_GUEST_FEE_KRW,
-    maxPets: display.slug === 'dowonjae' ? 0 : 2, petFeesKrw: [0, 70_000, 100_000], unit: 'stay' as const };
+    maxPets: display.maxPets ?? 0, petFeesKrw: [0, 70_000, 100_000], unit: 'stay' as const };
 }
 
 const snapshotSchema = z.object({ version: z.literal(1), baseGuests: z.literal(2),
