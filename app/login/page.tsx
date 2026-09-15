@@ -133,7 +133,7 @@ export default function LoginPage() {
   };
   const subtitle: Record<Mode, string> = {
     email: 'void anchae 숙소를 관리하려면 로그인하세요.',
-    phone: '전화번호와 초기 비밀번호(전화번호 뒷 4자리)로 로그인하세요.',
+    phone: '전화번호와 담당자에게 전달받은 비밀번호로 로그인하세요.',
     register: '새 계정을 만들어 시작하세요.',
   };
 
@@ -250,7 +250,7 @@ export default function LoginPage() {
           )}
           <div>
             <label className="block text-[12px] uppercase tracking-widest text-stone-600 mb-2">
-              {mode === 'phone' ? '비밀번호 (전화번호 뒷 4자리)' : '비밀번호'}
+              비밀번호
             </label>
             <input
               type="password"
@@ -260,7 +260,7 @@ export default function LoginPage() {
               autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
               inputMode={mode === 'phone' ? 'numeric' : undefined}
               className="w-full bg-white border border-stone-300 px-4 py-3 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors"
-              placeholder={mode === 'phone' ? '••••' : '••••••••'}
+              placeholder="••••••••"
             />
           </div>
           {mode === 'register' && (

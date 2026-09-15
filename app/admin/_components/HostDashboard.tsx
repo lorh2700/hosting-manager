@@ -653,7 +653,7 @@ export default function HostDashboard() {
                 <div className="px-4 sm:px-5 py-6 text-center">
                   <p className="text-stone-500 text-xs mb-2">등록된 청소 담당자가 없습니다.</p>
                   <Link
-                    href="/admin/cleaners"
+                    href="/admin/staff"
                     className="text-rose-700 hover:text-rose-800 text-xs inline-flex items-center gap-1 transition-colors"
                   >
                     담당자 등록하기 <ArrowRight size={12} />

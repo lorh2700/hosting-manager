@@ -1,19 +1,21 @@
 import { prisma } from '@/lib/prisma';
-import { canManageCleaner } from '@/lib/access';
+import { canManageCleaner, getVisiblePropertyIds } from '@/lib/access';
+import { z } from 'zod';
 import { withAuth, ok, fail, MESSAGES, readJson } from '@/lib/core/http';
 
 type Params = { id: string };
 
 /**
  * 담당자의 배정 지점(CleanerProperty)을 통째로 바꾼다.
- * 빈 배열 = 배정 없음 → 소유 호스트의 모든 숙소를 본다.
+ * mode로 전체/선택/없음을 구분한다. mode 없는 기존 빈 배열 요청만 전체로 해석한다.
  * 로그인 계정 유무와 무관하게 동작한다 (공개 링크만 쓰는 담당자도 배정 가능).
  */
 export const PUT = withAuth<Params>('cleaners/properties', async (req, { auth, params }) => {
-  const body = await readJson(req);
-  const propertyIds = Array.isArray(body.propertyIds)
-    ? [...new Set((body.propertyIds as unknown[]).filter((p): p is string => typeof p === 'string' && p.length > 0))]
-    : [];
+  const parsed = z.object({ propertyIds: z.array(z.string().min(1)).max(200), mode: z.enum(['all', 'selected', 'none']).optional() }).strict().safeParse(await readJson(req));
+  if (!parsed.success) throw fail(400, '담당 숙소와 배정 방식을 확인해 주세요.');
+  const mode = parsed.data.mode ?? (parsed.data.propertyIds.length ? 'selected' : 'all');
+  if (mode === 'selected' && !parsed.data.propertyIds.length) throw fail(400, '담당 숙소를 한 곳 이상 선택해 주세요.');
+  const propertyIds = mode === 'selected' ? [...new Set(parsed.data.propertyIds)] : [];
 
   const cleaner = await prisma.cleaner.findUnique({ where: { id: params.id }, select: { id: true, ownerId: true } });
   if (!cleaner) throw fail(404, '청소 담당자를 찾을 수 없습니다.');
@@ -22,9 +24,12 @@ export const PUT = withAuth<Params>('cleaners/properties', async (req, { auth, p
   if (propertyIds.length > 0) {
     const existing = await prisma.property.findMany({ where: { id: { in: propertyIds } }, select: { id: true } });
     if (existing.length !== propertyIds.length) throw fail(400, '존재하지 않는 지점이 포함되어 있습니다.');
+    const visible = await getVisiblePropertyIds(auth);
+    if (visible && propertyIds.some(id => !visible.includes(id))) throw fail(403, '관리할 수 있는 숙소만 배정할 수 있습니다.');
   }
 
   await prisma.$transaction([
+    prisma.cleaner.update({ where: { id: cleaner.id }, data: { noProperties: mode === 'none' } }),
     prisma.cleanerProperty.deleteMany({ where: { cleanerId: cleaner.id } }),
     ...(propertyIds.length
       ? [prisma.cleanerProperty.createMany({
@@ -34,5 +39,5 @@ export const PUT = withAuth<Params>('cleaners/properties', async (req, { auth, p
       : []),
   ]);
 
-  return ok({ propertyIds });
+  return ok({ propertyIds, mode });
 });

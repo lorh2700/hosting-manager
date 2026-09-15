@@ -5,6 +5,7 @@ import { withAuth, ok, created, fail, MESSAGES, readJson, str } from '@/lib/core
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { phoneSchema } from '@/lib/inquiry-notification-settings';
+import { normalizePhone, isSyntheticEmail, phoneToSyntheticEmail } from '@/lib/phone';
 
 const STATUSES = ['active', 'suspended', 'pending_invite'] as const;
 
@@ -98,7 +99,13 @@ export const PUT = withAuth('users', async (req, { auth }) => {
   const data: Record<string, unknown> = {};
   const displayName = str(body, 'displayName', { max: 100 });
   if (displayName !== undefined) data.displayName = displayName.trim();
-  if (typeof body.phone === 'string' || body.phone === null) data.phone = body.phone ? String(body.phone).trim().slice(0, 40) : null;
+  if (typeof body.phone === 'string' || body.phone === null) {
+    if (body.phone) {
+      const parsedPhone = phoneSchema.safeParse(body.phone);
+      if (!parsedPhone.success) throw fail(400, '휴대폰 번호를 확인해 주세요.');
+      data.phone = parsedPhone.data;
+    } else data.phone = null;
+  }
 
   if (auth.role === 'admin' && !isSelf) {
     const email = str(body, 'email');
@@ -126,16 +133,32 @@ export const PUT = withAuth('users', async (req, { auth }) => {
 
   if (Object.keys(data).length === 0 && propertyIds === null) throw fail(400, '변경할 수 있는 필드가 없습니다.');
 
-  const updated = Object.keys(data).length > 0
-    ? await prisma.user.update({ where: { id: targetId }, data })
-    : target;
-
-  if (propertyIds !== null) {
-    await prisma.userProperty.deleteMany({ where: { userId: targetId } });
-    if (propertyIds.length > 0) {
-      await prisma.userProperty.createMany({ data: propertyIds.map((pid) => ({ userId: targetId, propertyId: pid })) });
+  const linkedCleaner = await prisma.cleaner.findUnique({ where: { userId: targetId }, select: { id: true } });
+  const cleanerData: { name?: string; phone?: string | null } = {};
+  if (linkedCleaner) {
+    if (typeof data.displayName === 'string') {
+      if (!data.displayName) throw fail(400, '이름을 입력해 주세요.');
+      cleanerData.name = data.displayName;
+    }
+    if (data.phone !== undefined) {
+      const phone = data.phone ? normalizePhone(String(data.phone)) : null;
+      if ((data.phone && !phone) || (!phone && isSyntheticEmail(target.email))) throw fail(400, '전화번호를 확인해 주세요.');
+      const duplicate = phone ? await prisma.cleaner.findUnique({ where: { phone }, select: { id: true } }) : null;
+      if (duplicate && duplicate.id !== linkedCleaner.id) throw fail(409, '같은 연락처의 청소 담당자가 있습니다.');
+      cleanerData.phone = phone; data.phone = phone;
+      if (phone && isSyntheticEmail(target.email)) data.email = phoneToSyntheticEmail(phone);
     }
   }
+  if (propertyIds?.length && await prisma.property.count({ where: { id: { in: [...new Set(propertyIds)] } } }) !== new Set(propertyIds).size) throw fail(400, '존재하지 않는 숙소가 포함되어 있습니다.');
+  const updated = await prisma.$transaction(async tx => {
+    const saved = Object.keys(data).length ? await tx.user.update({ where: { id: targetId }, data }) : target;
+    if (linkedCleaner && Object.keys(cleanerData).length) await tx.cleaner.update({ where: { id: linkedCleaner.id }, data: cleanerData });
+    if (propertyIds !== null) {
+      await tx.userProperty.deleteMany({ where: { userId: targetId } });
+      if (propertyIds.length) await tx.userProperty.createMany({ data: [...new Set(propertyIds)].map(propertyId => ({ userId: targetId, propertyId })) });
+    }
+    return saved;
+  });
 
   return ok({
     id: updated.id,

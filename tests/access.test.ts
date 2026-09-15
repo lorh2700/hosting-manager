@@ -105,10 +105,10 @@ test('지점 배정: 로그인 계정이 없는 담당자도 배정할 수 있�
   actAsManager(['p1']);
   const ok = await callRoute(
     (req) => ASSIGN_PUT(req, { params: Promise.resolve({ id: 'cl-9' }) }),
-    makeRequest({ propertyIds: ['p1', 'p1', 'p2'] }),
+    makeRequest({ propertyIds: ['p1', 'p1'] }),
   );
   assert.equal(ok.status, 200, JSON.stringify(ok.body));
-  assert.deepEqual(db.cleanerProperty.map(a => a.propertyId).sort(), ['p1', 'p2']);
+  assert.deepEqual(db.cleanerProperty.map(a => a.propertyId).sort(), ['p1']);
 
   const bad = await callRoute(
     (req) => ASSIGN_PUT(req, { params: Promise.resolve({ id: 'cl-9' }) }),
@@ -192,6 +192,7 @@ test('신규 오픈 알림 대상: 알림 켠 담당자 중 이 숙소를 보는
     { id: 'c', name: '호스트본인', phone: '01000000003', publicToken: 'tc', ownerId: 'host-1', notifyNewOpen: false },
     { id: 'd', name: '남의담당자', phone: '01000000004', publicToken: 'td', ownerId: 'other', notifyNewOpen: true },
     { id: 'e', name: '링크없음', phone: '01000000005', publicToken: null, ownerId: 'host-1', notifyNewOpen: true },
+    { id: 'f', name: '배정 없음', phone: '01000000006', publicToken: 'tf', ownerId: 'host-1', notifyNewOpen: true, noProperties: true },
   ];
   db.cleanerProperty = [{ cleanerId: 'b', propertyId: 'p2' }];
 

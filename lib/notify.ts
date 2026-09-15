@@ -720,12 +720,13 @@ export async function notifyNewOpenCleanings(opts: {
       name: true,
       phone: true,
       publicToken: true,
+      noProperties: true,
       assignments: { select: { propertyId: true } },
     },
   });
 
   const eligible = cleaners.filter(c =>
-    c.assignments.length === 0 || c.assignments.some(a => a.propertyId === opts.propertyId),
+    !c.noProperties && (c.assignments.length === 0 || c.assignments.some(a => a.propertyId === opts.propertyId)),
   );
 
   if (eligible.length === 0) return;

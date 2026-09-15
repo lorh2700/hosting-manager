@@ -8,8 +8,9 @@ export interface CreateUserSeed { email: string; role: StaffRole; propertyIds: s
 export interface CreatedUser { id: string; email: string; displayName: string; phone: string; role: StaffRole; status: 'active'; propertyIds: string[]; createdAt?: string }
 const inputClass = 'mt-2 w-full border border-stone-200 bg-white px-4 py-2.5 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15';
 
-export default function CreateUserForm({ initial, properties, onCreated, onClose }: {
+export default function CreateUserForm({ initial, properties, onCreated, onClose, embedded = false, onSavingChange }: {
   initial: CreateUserSeed; properties: { id: string; name: string }[]; onCreated: (user: CreatedUser) => void; onClose: () => void;
+  embedded?: boolean; onSavingChange?: (saving: boolean) => void;
 }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState(initial.email);
@@ -29,6 +30,7 @@ export default function CreateUserForm({ initial, properties, onCreated, onClose
     setError('');
     if (password !== confirmation) { setError('비밀번호 확인이 일치하지 않습니다.'); return; }
     setSaving(true);
+    onSavingChange?.(true);
     try {
       const response = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ displayName: name, email, phone, password, role, propertyIds: role === 'manager' ? propertyIds : [] }) });
@@ -38,7 +40,7 @@ export default function CreateUserForm({ initial, properties, onCreated, onClose
       setPassword(''); setConfirmation(''); setVisible(false);
       onCreated(result);
     } catch (cause) { setError(cause instanceof Error ? cause.message : '등록 결과를 확인하지 못했습니다. 사용자 목록을 확인해 주세요.'); }
-    finally { setSaving(false); }
+    finally { setSaving(false); onSavingChange?.(false); }
   }
 
   function generatePassword() {
@@ -64,8 +66,8 @@ export default function CreateUserForm({ initial, properties, onCreated, onClose
     </div>
   </section>;
 
-  return <section className="border border-stone-300 bg-white p-5 sm:p-6" aria-labelledby="create-user-heading">
-    <h2 id="create-user-heading" className="text-sm font-medium text-stone-900">사용자 직접 등록</h2>
+  return <section className={embedded ? '' : 'border border-stone-300 bg-white p-5 sm:p-6'} aria-labelledby={embedded ? undefined : 'create-user-heading'}>
+    {!embedded && <h2 id="create-user-heading" className="text-sm font-medium text-stone-900">사용자 직접 등록</h2>}
     <p className="mt-2 text-sm leading-relaxed text-stone-500">등록 즉시 로그인할 수 있습니다. 이메일과 초기 비밀번호는 담당자에게 직접 전달해 주세요. 로그인 후 내 프로필에서 비밀번호를 변경할 수 있습니다.</p>
     <form onSubmit={submit} className="mt-5 space-y-5">
       <fieldset disabled={saving} className="space-y-5 disabled:opacity-60">
@@ -82,9 +84,9 @@ export default function CreateUserForm({ initial, properties, onCreated, onClose
           <button type="button" onClick={generatePassword} className="underline">비밀번호 자동 생성</button>
           <label className="flex items-center gap-2"><input type="checkbox" checked={visible} onChange={event => setVisible(event.target.checked)} />비밀번호 표시</label>
         </div>
-        <label className="block text-xs text-stone-600">역할<select value={role} onChange={event => setRole(event.target.value as StaffRole)} className={inputClass}>
+        {!embedded && <label className="block text-xs text-stone-600">역할<select value={role} onChange={event => setRole(event.target.value as StaffRole)} className={inputClass}>
           {(['manager', 'admin'] as StaffRole[]).map(value => <option key={value} value={value}>{ROLE_LABELS[value]}</option>)}
-        </select><span className="mt-2 block text-xs text-stone-500">{ROLE_DESCRIPTIONS[role]}</span></label>
+        </select><span className="mt-2 block text-xs text-stone-500">{ROLE_DESCRIPTIONS[role]}</span></label>}
         {role === 'manager' && <div>
           <p className="mb-3 text-xs text-stone-600">배정 숙소</p>
           <div className="flex flex-wrap gap-2">{properties.map(property => <button type="button" key={property.id} aria-pressed={propertyIds.includes(property.id)} onClick={() => setPropertyIds(current => current.includes(property.id) ? current.filter(id => id !== property.id) : [...current, property.id])} className={`border px-3 py-2 text-xs ${propertyIds.includes(property.id) ? 'border-[var(--brand)] bg-[var(--brand-tint)] text-[var(--brand-dark)]' : 'border-stone-200 text-stone-500'}`}>{property.name}</button>)}</div>
@@ -94,7 +96,7 @@ export default function CreateUserForm({ initial, properties, onCreated, onClose
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
       <div className="flex justify-end gap-3">
         <button type="button" disabled={saving} onClick={onClose} className="px-4 py-2 text-sm text-stone-500 disabled:opacity-50">취소</button>
-        <button type="submit" disabled={saving} className="bg-[var(--brand)] hover:bg-[var(--brand-dark)] px-6 py-2.5 text-sm text-white disabled:opacity-50">{saving ? '등록 중…' : '사용자 등록'}</button>
+        <button type="submit" disabled={saving} className="bg-[var(--brand)] hover:bg-[var(--brand-dark)] px-6 py-2.5 text-sm text-white disabled:opacity-50">{saving ? '등록 중…' : embedded ? '직원 등록' : '사용자 등록'}</button>
       </div>
     </form>
   </section>;

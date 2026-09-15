@@ -1,17 +1,17 @@
 import { randomBytes } from 'crypto';
-import bcrypt from 'bcryptjs';
+
 import { prisma } from '@/lib/prisma';
 import { type SessionAuth } from '@/lib/auth';
 import { canManageCleaner } from '@/lib/access';
 import { withAuth, ok, created, fail, MESSAGES, readJson, str, requireQuery } from '@/lib/core/http';
-import { lastFourDigits, normalizePhone, phoneToSyntheticEmail } from '@/lib/phone';
+import { normalizePhone, phoneToSyntheticEmail, isSyntheticEmail } from '@/lib/phone';
 
 function generatePublicToken(): string {
   return randomBytes(24).toString('base64url');
 }
 
 // 청소담당자 프로필은 만든 호스트(ownerId)와 관리자만 수정·삭제할 수 있다.
-// 전화번호 변경은 연결된 로그인 계정의 이메일·비밀번호까지 바꾸므로 특히 중요.
+// 연락처 변경은 연결된 계정에도 반영하되 비밀번호와 실제 이메일은 유지한다.
 function requireCleanerOwner(auth: SessionAuth, cleaner: { ownerId: string }): void {
   if (!canManageCleaner(auth, cleaner)) throw fail(403, MESSAGES.forbidden);
 }
@@ -126,27 +126,25 @@ export const PUT = withAuth('cleaners', async (req, { auth }) => {
 
   if (Object.keys(data).length === 0 && !loginStatus) throw fail(400, MESSAGES.noFields);
 
-  const cleaner = await prisma.cleaner.update({ where: { id }, data, include: INCLUDE });
-
-  if (before.userId) {
-    const userData: { email?: string; phone?: string | null; password?: string; status?: string } = {};
-    // 전화번호가 바뀌면 로그인 식별자(합성 이메일)와 뒷 4자리 비밀번호도 따라간다.
-    if (data.phone !== undefined && data.phone !== before.phone) {
-      const synthetic = data.phone ? phoneToSyntheticEmail(data.phone) : null;
-      const last4 = data.phone ? lastFourDigits(data.phone) : null;
-      if (synthetic && last4) {
-        userData.email = synthetic;
-        userData.phone = data.phone;
-        userData.password = await bcrypt.hash(last4, 12);
-      }
-    }
-    if (loginStatus) userData.status = loginStatus;
-    if (Object.keys(userData).length > 0) {
-      await prisma.user.update({ where: { id: before.userId }, data: userData });
-      if (cleaner.user && loginStatus) cleaner.user.status = loginStatus;
-    }
+  const linked = before.userId ? await prisma.user.findUnique({ where: { id: before.userId }, select: { email: true, role: true } }) : null;
+  if (linked && linked.role !== 'cleaner' && auth.role !== 'admin') throw fail(403, '이 직원 계정은 관리자만 수정할 수 있습니다.');
+  if (linked && data.phone === null && isSyntheticEmail(linked.email)) throw fail(400, '전화번호 로그인 계정의 연락처는 비워둘 수 없습니다.');
+  const userData: { email?: string; phone?: string | null; displayName?: string; status?: string } = {};
+  if (data.name !== undefined) userData.displayName = data.name;
+  if (data.phone !== undefined) {
+    userData.phone = data.phone;
+    if (linked && isSyntheticEmail(linked.email) && data.phone) userData.email = phoneToSyntheticEmail(data.phone)!;
   }
-
+  if (loginStatus) userData.status = loginStatus;
+  if (userData.email) {
+    const duplicate = await prisma.user.findUnique({ where: { email: userData.email }, select: { id: true } });
+    if (duplicate && duplicate.id !== before.userId) throw fail(409, '같은 전화번호의 로그인 계정이 있습니다.');
+  }
+  // Contact edits preserve passwords and real-email login identities.
+  const cleaner = await prisma.$transaction(async tx => {
+    if (before.userId && Object.keys(userData).length) await tx.user.update({ where: { id: before.userId }, data: userData });
+    return tx.cleaner.update({ where: { id }, data, include: INCLUDE });
+  });
   return ok(serialize(cleaner as CleanerRow));
 });
 

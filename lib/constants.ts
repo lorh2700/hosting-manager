@@ -9,9 +9,9 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 };
 
 export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
-  admin: '모든 숙소와 설정, 유저 관리까지 접근합니다.',
+  admin: '모든 숙소와 설정, 직원 관리까지 접근합니다.',
   manager: '배정된 숙소의 예약·청소·메시지만 관리합니다.',
-  cleaner: '청소 담당자 관리 화면에서 프로필과 함께 관리합니다.',
+  cleaner: '직원 관리에서 담당 숙소, 청소 알림과 로그인 계정을 관리합니다.',
 };
 
 /** 유저 관리 화면에서 초대·역할 변경이 가능한 역할 (청소담당자는 청소 담당자 화면에서) */

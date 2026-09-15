@@ -138,9 +138,10 @@ export async function notifyCheckoutRecipients(opts: {
   if (recipients.size === 0) {
     const eligible = await prisma.cleaner.findMany({
       where: { ownerId: property.ownerId, notifyNewOpen: true, phone: { not: null } },
-      select: { name: true, phone: true, assignments: { select: { propertyId: true } } },
+      select: { name: true, phone: true, noProperties: true, assignments: { select: { propertyId: true } } },
     });
     for (const c of eligible) {
+      if (c.noProperties) continue;
       if (c.assignments.length > 0 && !c.assignments.some(a => a.propertyId === opts.propertyId)) continue;
       if (c.phone) recipients.set(c.phone, c.name);
     }

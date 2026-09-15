@@ -50,7 +50,7 @@ const HOST_LINKS: NavItem[] = [
   { href: '/admin/guests', label: '고객 명부', icon: Users, roles: ['admin'] },
   { href: '/admin/bookings', label: '예약 요청', icon: BookOpen, roles: ['admin', 'manager'] },
   { href: '/admin/messages', label: '메시지', icon: MessageSquare, roles: ['admin', 'manager'] },
-  { href: '/admin/cleaners', label: '청소 담당자', icon: Users, roles: ['admin', 'manager'] },
+  { href: '/admin/staff', label: '직원 관리', icon: UserCog, roles: ['admin', 'manager'] },
   { href: '/admin/cleaning-requests', label: '청소 신청 관리', icon: Hand, roles: ['admin', 'manager'] },
   { href: '/admin/cleaning-report', label: '청소 보고서', icon: FileBarChart, roles: ['admin', 'manager'] },
 ];
@@ -62,7 +62,6 @@ const TOUR_LINKS: NavItem[] = [
 ];
 
 const SYSTEM_LINKS: NavItem[] = [
-  { href: '/admin/users', label: '유저 관리', icon: UserCog, roles: ['admin'] },
   { href: '/admin/api-clients', label: 'API 클라이언트', icon: KeyRound, roles: ['admin'] },
   { href: '/admin/settings/profile', label: '프로필', icon: Settings, roles: ['admin', 'manager', 'cleaner'] },
 ];

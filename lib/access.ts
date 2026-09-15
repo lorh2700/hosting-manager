@@ -47,8 +47,10 @@ export async function resolveCleaner(auth: SessionAuth): Promise<CleanerProfile 
   });
 }
 
-/** 담당자가 보는 숙소: 배정 지점이 있으면 그것, 없으면 소유 호스트의 모든 숙소. */
+/** 명시적 배정 없음은 빈 범위. 그 외에는 선택 지점 또는 소유 호스트의 전체 숙소. */
 export async function cleanerPropertyIds(cleaner: { id: string; ownerId: string }): Promise<string[]> {
+  const scope = await prisma.cleaner.findUnique({ where: { id: cleaner.id }, select: { noProperties: true } });
+  if (scope?.noProperties) return [];
   const assigned = await prisma.cleanerProperty.findMany({
     where: { cleanerId: cleaner.id },
     select: { propertyId: true },

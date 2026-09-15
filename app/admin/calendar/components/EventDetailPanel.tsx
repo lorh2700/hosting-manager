@@ -354,7 +354,7 @@ export function EventDetailPanel({
               ) : (
                 <p className="text-xs text-stone-500 text-center py-2">
                   등록된 담당자가 없습니다.{' '}
-                  <a href="/admin/cleaners" className="text-[var(--brand)] underline hover:text-[var(--brand-dark)] transition-colors">담당자 관리</a>
+                  <a href="/admin/staff" className="text-[var(--brand)] underline hover:text-[var(--brand-dark)] transition-colors">담당자 관리</a>
                   에서 먼저 추가하세요.
                 </p>
               )}

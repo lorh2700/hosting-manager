@@ -357,7 +357,7 @@ export default function OpsPage() {
               ))}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <Link href="/admin/cleaners" className="bg-white border border-stone-200 p-3 flex items-center gap-2 t-caption text-stone-700"><Users size={15} /> 청소 담당자 <ChevronRight size={14} className="ml-auto text-stone-400" /></Link>
+              <Link href="/admin/staff" className="bg-white border border-stone-200 p-3 flex items-center gap-2 t-caption text-stone-700"><Users size={15} /> 청소 담당자 <ChevronRight size={14} className="ml-auto text-stone-400" /></Link>
               <Link href="/admin/cleaning-report" className="bg-white border border-stone-200 p-3 flex items-center gap-2 t-caption text-stone-700"><FileBarChart size={15} /> 청소 보고서 <ChevronRight size={14} className="ml-auto text-stone-400" /></Link>
               <button type="button" onClick={() => setShowMaintenance(true)} className="bg-white border border-stone-200 p-3 flex items-center gap-2 t-caption text-stone-700 text-left"><Wrench size={15} /> 유지보수 등록 <ChevronRight size={14} className="ml-auto text-stone-400" /></button>
             </div>
