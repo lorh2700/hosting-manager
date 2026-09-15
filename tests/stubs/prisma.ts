@@ -47,7 +47,7 @@ function matchValue(actual: any, cond: any): boolean {
     return actual && typeof actual === 'object' ? matches(actual, cond) : true;
   }
   let ok = true;
-  if ('equals' in cond) ok = ok && actual === cond.equals;
+  if ('equals' in cond) ok = ok && (cond.mode === 'insensitive' && typeof actual === 'string' && typeof cond.equals === 'string' ? actual.toLowerCase() === cond.equals.toLowerCase() : actual === cond.equals);
   if ('not' in cond) ok = ok && (cond.not === null ? actual !== null && actual !== undefined : actual !== cond.not);
   if ('in' in cond) ok = ok && cond.in.includes(actual);
   if ('notIn' in cond) ok = ok && !cond.notIn.includes(actual);

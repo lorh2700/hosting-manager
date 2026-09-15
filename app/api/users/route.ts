@@ -1,9 +1,52 @@
 import { prisma } from '@/lib/prisma';
 import { normalizeRole } from '@/lib/access';
 import { STAFF_ROLES } from '@/lib/constants';
-import { withAuth, ok, fail, MESSAGES, readJson, str } from '@/lib/core/http';
+import { withAuth, ok, created, fail, MESSAGES, readJson, str } from '@/lib/core/http';
+import bcrypt from 'bcryptjs';
+import { z } from 'zod';
 
 const STATUSES = ['active', 'suspended', 'pending_invite'] as const;
+
+const createUserSchema = z.object({
+  displayName: z.string().trim().min(1, '이름을 입력해 주세요.').max(100),
+  email: z.string().trim().toLowerCase().email('올바른 이메일을 입력해 주세요.').max(200),
+  password: z.string().min(8, '초기 비밀번호는 8자 이상이어야 합니다.').max(72)
+    .refine(value => Buffer.byteLength(value, 'utf8') <= 72, '비밀번호가 너무 깁니다. 영문 72자 또는 한글 24자 이내로 입력해 주세요.'),
+  role: z.enum(['admin', 'manager']),
+  propertyIds: z.array(z.string().min(1)).max(200).default([]),
+}).strict();
+
+/** Admin-created accounts are immediately active; never replace the administrator's session. */
+export const POST = withAuth('users/create', async req => {
+  const parsed = createUserSchema.safeParse(await readJson(req));
+  if (!parsed.success) throw fail(400, parsed.error.issues[0]?.message || '사용자 정보를 확인해 주세요.');
+  const { email, password, displayName, role } = parsed.data;
+  const propertyIds = role === 'manager' ? [...new Set(parsed.data.propertyIds)] : [];
+  const emailWhere = { equals: email, mode: 'insensitive' as const };
+  if (await prisma.user.findFirst({ where: { email: emailWhere }, select: { id: true } })) throw fail(409, '이미 등록된 이메일입니다. 기존 계정을 확인해 주세요.');
+  if (await prisma.invitation.findFirst({ where: { email: emailWhere, status: 'pending', role: 'cleaner' }, select: { id: true } })) throw fail(400, '청소담당자 계정은 청소 담당자 관리에서 등록해 주세요.');
+  if (propertyIds.length) {
+    const count = await prisma.property.count({ where: { id: { in: propertyIds } } });
+    if (count !== propertyIds.length) throw fail(400, '선택한 숙소 중 존재하지 않는 숙소가 있습니다. 새로고침 후 다시 선택해 주세요.');
+  }
+  const hashed = await bcrypt.hash(password, 12);
+  try {
+    const user = await prisma.$transaction(async tx => {
+      const saved = await tx.user.create({ data: { email, password: hashed, displayName, role, status: 'active' } });
+      if (propertyIds.length) await tx.userProperty.createMany({ data: propertyIds.map(propertyId => ({ userId: saved.id, propertyId })) });
+      // Superseded links should no longer appear as pending or be used to register again.
+      await tx.invitation.updateMany({ where: { email: emailWhere, status: 'pending' }, data: { status: 'expired', expiresAt: new Date() } });
+      return saved;
+    });
+    return created({ id: user.id, email: user.email, displayName: user.displayName, role: user.role, status: user.status, propertyIds, createdAt: user.createdAt });
+  } catch (error) {
+    if (typeof error === 'object' && error !== null && 'code' in error) {
+      if (error.code === 'P2002') throw fail(409, '이미 등록된 이메일입니다. 기존 계정을 확인해 주세요.');
+      if (error.code === 'P2003') throw fail(400, '숙소 정보가 변경되었습니다. 새로고침 후 다시 등록해 주세요.');
+    }
+    throw error;
+  }
+}, { admin: true });
 
 /**
  * 유저 관리 목록: 관리자·매니저 계정만. 청소담당자 로그인 계정은 Cleaner 프로필과 함께

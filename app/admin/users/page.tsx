@@ -6,6 +6,7 @@ import { Save, UserCog, UserPlus, Copy, Check, Ban, ShieldCheck, Trash2, Clock, 
 import type { UserRole, UserStatus } from '@/lib/types';
 import { ROLE_LABELS, ROLE_DESCRIPTIONS, STAFF_ROLES, USER_STATUS_LABELS as STATUS_LABELS } from '@/lib/constants';
 import { toast, confirmDialog, SkeletonList } from '@/components/ui';
+import CreateUserForm, { type CreateUserSeed, type CreatedUser } from './CreateUserForm';
 
 /**
  * 유저 관리 — 관리자·매니저 계정만 다룬다.
@@ -33,6 +34,7 @@ interface InvitationRecord {
   createdAt: string;
   expiresAt: string;
   token: string;
+  propertyIds: string[];
 }
 
 interface Property {
@@ -89,6 +91,8 @@ export default function UsersPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [createSeed, setCreateSeed] = useState<CreateUserSeed | null>(null);
+  const [createFormKey, setCreateFormKey] = useState(0);
 
   // Invite form
   const [showInviteForm, setShowInviteForm] = useState(false);
@@ -132,6 +136,7 @@ export default function UsersPage() {
         createdAt: d.createdAt ?? '',
         expiresAt: d.expiresAt ?? '',
         token: d.token ?? '',
+        propertyIds: d.propertyIds ?? [],
       })));
     } catch (err) {
       console.error(err);
@@ -240,6 +245,7 @@ export default function UsersPage() {
         createdAt: data.createdAt,
         expiresAt: data.expiresAt,
         token: data.token,
+        propertyIds: data.propertyIds ?? [],
       }]);
       setInviteEmail('');
       setInvitePropertyIds([]);
@@ -263,6 +269,12 @@ export default function UsersPage() {
     setInvitePropertyIds(prev => prev.includes(propId) ? prev.filter(p => p !== propId) : [...prev, propId]);
   };
 
+  const userCreated = (record: CreatedUser) => {
+    setUsers(current => [record, ...current]);
+    setInvitations(current => current.map(invitation => invitation.email.toLowerCase() === record.email ? { ...invitation, status: 'expired' } : invitation));
+    toast.success(`${record.displayName} 계정을 등록했습니다. 바로 로그인할 수 있습니다.`);
+  };
+
   if (!isAdmin) {
     return <div className="text-stone-500 p-8">접근 권한이 없습니다.</div>;
   }
@@ -282,16 +294,21 @@ export default function UsersPage() {
           <p className="text-[12px] tracking-[0.3em] text-stone-500 mb-3 sm:mb-4">설정</p>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-light tracking-tight text-stone-900">유저 관리</h1>
           <p className="text-stone-500 mt-2 sm:mt-4 text-sm font-light tracking-wide">
-            관리자·매니저 계정과 가입 승인, 초대를 관리합니다. 청소담당자는 청소 담당자 관리에서 프로필과 함께 관리합니다.
+            관리자·매니저를 직접 등록하고 가입 승인, 초대를 관리합니다. 청소담당자는 청소 담당자 관리에서 프로필과 함께 관리합니다.
           </p>
         </div>
+        <div className="flex flex-wrap gap-2 shrink-0">
+        <button type="button" onClick={() => { setCreateFormKey(key => key + 1); setCreateSeed({ email: '', role: 'manager', propertyIds: [] }); setShowInviteForm(false); }} className="flex items-center justify-center gap-2 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white px-5 py-3 text-[13px] font-semibold">
+          <UserPlus size={14} /> 사용자 등록
+        </button>
         <button
           onClick={() => setShowInviteForm(!showInviteForm)}
-          className="flex items-center justify-center gap-2 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white px-6 py-3 text-[13px] uppercase tracking-widest font-semibold active:scale-[0.98] transition-all shrink-0"
+          className="flex items-center justify-center gap-2 border border-stone-300 text-stone-600 px-5 py-3 text-[13px] font-semibold hover:bg-stone-50"
         >
           <UserPlus size={14} />
           사용자 초대
         </button>
+        </div>
       </header>
 
       {/* 역할 안내 */}
@@ -303,6 +320,8 @@ export default function UsersPage() {
           </div>
         ))}
       </div>
+
+      {createSeed && <CreateUserForm key={createFormKey} initial={createSeed} properties={properties} onCreated={userCreated} onClose={() => setCreateSeed(null)} />}
 
       {/* Invite Form */}
       {showInviteForm && (
@@ -374,6 +393,8 @@ export default function UsersPage() {
                     {ROLE_LABELS[inv.role] ?? inv.role} &middot; 만료: {new Date(inv.expiresAt).toLocaleDateString('ko-KR')}
                   </p>
                 </div>
+                <div className="flex flex-wrap justify-end gap-2">
+                {inv.role !== 'cleaner' && <button type="button" onClick={() => { setCreateFormKey(key => key + 1); setCreateSeed({ email: inv.email, role: inv.role === 'admin' ? 'admin' : 'manager', propertyIds: inv.propertyIds }); setShowInviteForm(false); }} className="px-3 py-1.5 text-xs border border-[var(--brand)] text-[var(--brand-dark)] hover:bg-[var(--brand-tint)]">바로 등록</button>}
                 <button
                   onClick={() => copyInviteLink(inv.token)}
                   className="flex items-center gap-2 text-[12px] tracking-widest text-stone-500 hover:text-stone-900 transition-colors px-3 py-1.5 border border-stone-200 hover:border-stone-300"
@@ -381,6 +402,7 @@ export default function UsersPage() {
                   {copiedToken === inv.token ? <Check size={12} /> : <Copy size={12} />}
                   {copiedToken === inv.token ? '복사됨' : '링크 복사'}
                 </button>
+                </div>
               </div>
             ))}
           </div>
