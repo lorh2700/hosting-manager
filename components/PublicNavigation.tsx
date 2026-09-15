@@ -54,7 +54,7 @@ function Navigation({ pathname }: { pathname: string }) {
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <nav ref={navRef} aria-label={t("주 메뉴")} className="fixed top-0 left-0 right-0 z-50 bg-stone-950/95 lg:bg-stone-950/55 backdrop-blur-md border-b border-white/[0.06]">
+    <nav ref={navRef} aria-label={t("주 메뉴")} className={`fixed top-0 left-0 right-0 z-50 bg-stone-950/95 ${pathname === '/guide' ? 'lg:bg-stone-950/95' : 'lg:bg-stone-950/55'} backdrop-blur-md border-b border-white/[0.06]`}>
       <div className="flex justify-between items-center gap-3 px-4 sm:px-6 md:px-8 h-16 md:h-[72px]">
         <Link href="/" aria-label={t("void anchae 홈")} onClick={closeMenu} className="flex items-center shrink-0 max-sm:w-[110px] hover:opacity-80 transition-opacity">
           <Logo width={140} className="max-w-full" priority />
