@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const MAX_INQUIRY_RECIPIENTS = 10;
 
 // Accept Korean mobile numbers and +82 notation; reject arbitrary characters.
-const phoneSchema = z.string().trim().max(40)
+export const phoneSchema = z.string().trim().max(40)
   .regex(/^(?:\+82|0)[0-9 ()-]+$/, '휴대폰 번호를 확인해 주세요.')
   .transform(value => {
     const digits = value.replace(/\D/g, '');

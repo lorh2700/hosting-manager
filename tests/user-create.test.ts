@@ -7,7 +7,7 @@ import { db, resetDb } from './stubs/prisma';
 import { actAsAdmin, actAsManager, actAsCleaner, actAsAnonymous, authState } from './stubs/auth';
 import { makeRequest, callRoute } from './helpers/beds24-mock';
 
-const body = { displayName: ' 담당자 ', email: ' Staff@Example.com ', password: 'new-password-123', role: 'manager', propertyIds: ['p1', 'p1'] };
+const body = { displayName: ' 담당자 ', email: ' Staff@Example.com ', phone: '010-1234-5678', password: 'new-password-123', role: 'manager', propertyIds: ['p1', 'p1'] };
 beforeEach(() => { resetDb(); actAsAdmin(); db.property = [{ id: 'p1', name: '한옥' }]; });
 
 test('관리자 직접 등록은 활성 계정·암호화 비밀번호·숙소 배정을 만들고 즉시 로그인이 가능하다', async () => {
@@ -16,12 +16,14 @@ test('관리자 직접 등록은 활성 계정·암호화 비밀번호·숙소 �
   assert.equal(result.status, 201);
   assert.equal(result.body.email, 'staff@example.com'); assert.equal(result.body.displayName, '담당자');
   assert.equal(result.body.status, 'active'); assert.deepEqual(result.body.propertyIds, ['p1']);
+  assert.equal(result.body.phone, '01012345678'); assert.equal(db.user[0].phone, '01012345678');
   assert.equal(result.body.password, undefined); assert.equal(db.userProperty.length, 1);
   assert.notEqual(db.user[0].password, body.password);
   assert.equal(await bcrypt.compare(body.password, db.user[0].password), true);
   assert.equal(authState.auth, originalSession);
   const users = await callRoute(USERS, makeRequest({}));
   assert.equal(users.body[0].id, result.body.id);
+  assert.equal(users.body[0].phone, '01012345678');
   const login = await callRoute(LOGIN, makeRequest({ email: result.body.email, password: body.password }));
   assert.equal(login.status, 200); assert.equal(login.body.profile.status, 'active');
 });
@@ -34,8 +36,9 @@ test('동일 이메일 대기 초대는 종료하고 직접 지정한 역할·�
 });
 
 test('관리자는 별도 숙소 배정 없이 등록한다', async () => {
-  const result = await callRoute(CREATE, makeRequest({ ...body, role: 'admin' }));
+  const result = await callRoute(CREATE, makeRequest({ ...body, role: 'admin', phone: '+82 10-1234-5678' }));
   assert.equal(result.status, 201); assert.deepEqual(result.body.propertyIds, []);
+  assert.equal(result.body.phone, '01012345678');
   assert.equal((db.userProperty ?? []).length, 0);
 });
 
@@ -54,6 +57,9 @@ test('중복 이메일은 대소문자를 구분하지 않고 거부하며 기�
 });
 
 test('유효하지 않은 입력·숙소·청소담당자 계정은 사용자 생성 전에 거부한다', async () => {
+  for (const phone of [undefined, null, '', ' ', '010-123-4567', '02-1234-5678', '010abcdefgh']) {
+    assert.equal((await callRoute(CREATE, makeRequest({ ...body, phone }))).status, 400);
+  }
   for (const invalid of [null, [], { ...body, role: 'cleaner' }, { ...body, displayName: ' ' }, { ...body, email: 'invalid' }, { ...body, password: 'short' }, { ...body, password: '가'.repeat(25) }, { ...body, propertyIds: ['missing'] }, { ...body, status: 'active' }]) {
     assert.equal((await callRoute(CREATE, makeRequest(invalid))).status, 400);
   }

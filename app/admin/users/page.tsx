@@ -19,6 +19,7 @@ interface UserRecord {
   id: string;
   email: string;
   displayName: string;
+  phone?: string | null;
   role: UserRole;
   status: UserStatus;
   propertyIds: string[];
@@ -121,6 +122,7 @@ export default function UsersPage() {
         id: d.id,
         email: d.email ?? '',
         displayName: d.displayName ?? '',
+        phone: d.phone ?? null,
         role: d.role ?? 'manager',
         status: d.status ?? 'active',
         propertyIds: d.propertyIds ?? [],
@@ -489,6 +491,7 @@ export default function UsersPage() {
                         <span className="ml-2">&middot; 마지막 로그인: {new Date(record.lastLoginAt).toLocaleDateString('ko-KR')}</span>
                       )}
                     </p>
+                    {record.phone && <p className="text-stone-500 text-xs mt-1">휴대폰: {record.phone.replace(/^(010)(\d{4})(\d{4})$/, '$1-$2-$3')}</p>}
                   </div>
 
                   <div className="flex items-center gap-2">

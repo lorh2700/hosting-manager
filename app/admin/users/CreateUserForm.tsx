@@ -5,7 +5,7 @@ import { ROLE_LABELS, ROLE_DESCRIPTIONS } from '@/lib/constants';
 
 type StaffRole = 'admin' | 'manager';
 export interface CreateUserSeed { email: string; role: StaffRole; propertyIds: string[] }
-export interface CreatedUser { id: string; email: string; displayName: string; role: StaffRole; status: 'active'; propertyIds: string[]; createdAt?: string }
+export interface CreatedUser { id: string; email: string; displayName: string; phone: string; role: StaffRole; status: 'active'; propertyIds: string[]; createdAt?: string }
 const inputClass = 'mt-2 w-full border border-stone-200 bg-white px-4 py-2.5 text-sm text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15';
 
 export default function CreateUserForm({ initial, properties, onCreated, onClose }: {
@@ -13,6 +13,7 @@ export default function CreateUserForm({ initial, properties, onCreated, onClose
 }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState(initial.email);
+  const [phone, setPhone] = useState('');
   const [role, setRole] = useState(initial.role);
   const [propertyIds, setPropertyIds] = useState(initial.propertyIds);
   const [password, setPassword] = useState('');
@@ -30,7 +31,7 @@ export default function CreateUserForm({ initial, properties, onCreated, onClose
     setSaving(true);
     try {
       const response = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ displayName: name, email, password, role, propertyIds: role === 'manager' ? propertyIds : [] }) });
+        body: JSON.stringify({ displayName: name, email, phone, password, role, propertyIds: role === 'manager' ? propertyIds : [] }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || '사용자를 등록하지 못했습니다.');
       setCredentials({ email: result.email, password, name: result.displayName });
@@ -71,6 +72,7 @@ export default function CreateUserForm({ initial, properties, onCreated, onClose
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <label className="text-xs text-stone-600">이름<input autoFocus required maxLength={100} autoComplete="off" value={name} onChange={event => setName(event.target.value)} className={inputClass} placeholder="사용자 이름" /></label>
           <label className="text-xs text-stone-600">로그인 이메일<input required type="email" maxLength={200} autoComplete="off" value={email} onChange={event => setEmail(event.target.value)} className={inputClass} placeholder="user@example.com" /></label>
+          <label className="text-xs text-stone-600">휴대폰 번호 (필수)<input required type="tel" maxLength={40} autoComplete="off" value={phone} onChange={event => setPhone(event.target.value)} className={inputClass} placeholder="010-1234-5678" /><span className="mt-2 block text-xs text-stone-500">010으로 시작하는 번호를 입력해 주세요.</span></label>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <label className="text-xs text-stone-600">초기 비밀번호<input required type={visible ? 'text' : 'password'} autoComplete="new-password" minLength={8} maxLength={72} value={password} onChange={event => setPassword(event.target.value)} className={inputClass} placeholder="8자 이상 입력" /></label>

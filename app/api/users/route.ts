@@ -4,12 +4,14 @@ import { STAFF_ROLES } from '@/lib/constants';
 import { withAuth, ok, created, fail, MESSAGES, readJson, str } from '@/lib/core/http';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
+import { phoneSchema } from '@/lib/inquiry-notification-settings';
 
 const STATUSES = ['active', 'suspended', 'pending_invite'] as const;
 
 const createUserSchema = z.object({
   displayName: z.string().trim().min(1, '이름을 입력해 주세요.').max(100),
   email: z.string().trim().toLowerCase().email('올바른 이메일을 입력해 주세요.').max(200),
+  phone: phoneSchema,
   password: z.string().min(8, '초기 비밀번호는 8자 이상이어야 합니다.').max(72)
     .refine(value => Buffer.byteLength(value, 'utf8') <= 72, '비밀번호가 너무 깁니다. 영문 72자 또는 한글 24자 이내로 입력해 주세요.'),
   role: z.enum(['admin', 'manager']),
@@ -20,7 +22,7 @@ const createUserSchema = z.object({
 export const POST = withAuth('users/create', async req => {
   const parsed = createUserSchema.safeParse(await readJson(req));
   if (!parsed.success) throw fail(400, parsed.error.issues[0]?.message || '사용자 정보를 확인해 주세요.');
-  const { email, password, displayName, role } = parsed.data;
+  const { email, password, displayName, role, phone } = parsed.data;
   const propertyIds = role === 'manager' ? [...new Set(parsed.data.propertyIds)] : [];
   const emailWhere = { equals: email, mode: 'insensitive' as const };
   if (await prisma.user.findFirst({ where: { email: emailWhere }, select: { id: true } })) throw fail(409, '이미 등록된 이메일입니다. 기존 계정을 확인해 주세요.');
@@ -32,13 +34,13 @@ export const POST = withAuth('users/create', async req => {
   const hashed = await bcrypt.hash(password, 12);
   try {
     const user = await prisma.$transaction(async tx => {
-      const saved = await tx.user.create({ data: { email, password: hashed, displayName, role, status: 'active' } });
+      const saved = await tx.user.create({ data: { email, password: hashed, displayName, phone, role, status: 'active' } });
       if (propertyIds.length) await tx.userProperty.createMany({ data: propertyIds.map(propertyId => ({ userId: saved.id, propertyId })) });
       // Superseded links should no longer appear as pending or be used to register again.
       await tx.invitation.updateMany({ where: { email: emailWhere, status: 'pending' }, data: { status: 'expired', expiresAt: new Date() } });
       return saved;
     });
-    return created({ id: user.id, email: user.email, displayName: user.displayName, role: user.role, status: user.status, propertyIds, createdAt: user.createdAt });
+    return created({ id: user.id, email: user.email, displayName: user.displayName, phone: user.phone, role: user.role, status: user.status, propertyIds, createdAt: user.createdAt });
   } catch (error) {
     if (typeof error === 'object' && error !== null && 'code' in error) {
       if (error.code === 'P2002') throw fail(409, '이미 등록된 이메일입니다. 기존 계정을 확인해 주세요.');
