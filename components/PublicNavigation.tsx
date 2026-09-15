@@ -12,6 +12,7 @@ const NAV_LINKS = [
   { href: '/brand', label: '브랜드' },
   { href: '/#spaces', label: '공간' },
   { href: '/tours', label: '투어' },
+  { href: '/guide', label: '북촌 가이드' },
   { href: '/about', label: '입점 안내' },
 ];
 
@@ -81,7 +82,7 @@ function Navigation({ pathname }: { pathname: string }) {
         <div id="public-mobile-menu" className="lg:hidden max-h-[calc(100dvh-72px)] overflow-y-auto bg-stone-950 border-t border-white/10 px-4 py-4 shadow-2xl">
           {NAV_LINKS.map(link => (
             <Link key={link.href} href={link.href} onClick={closeMenu} aria-current={isActive(link.href) ? 'page' : undefined} className={`block px-3 py-4 rounded-lg text-base ${isActive(link.href) ? 'text-white' : 'text-stone-300 hover:text-white'}`}>
-              {link.label}
+              {t(link.label)}
             </Link>
           ))}
           <div className="flex gap-4 border-t border-white/10 mt-3 pt-3 text-xs text-stone-300">

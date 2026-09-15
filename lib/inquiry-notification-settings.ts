@@ -14,6 +14,7 @@ export const phoneSchema = z.string().trim().max(40)
 export const inquiryNotificationSettingsSchema = z.object({
   enabled: z.boolean(),
   recipients: z.array(z.object({
+    userId: z.string().min(1).optional(),
     name: z.string().trim().min(1, '수신자 이름을 입력해 주세요.').max(50, '이름은 50자 이내로 입력해 주세요.'),
     phone: phoneSchema,
   }).strict()).max(MAX_INQUIRY_RECIPIENTS, `수신자는 최대 ${MAX_INQUIRY_RECIPIENTS}명까지 등록할 수 있습니다.`),

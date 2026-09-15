@@ -139,6 +139,11 @@ export default function PublicPortal() {
         </div>
       </section>
       </main>
+      <section className="mx-6 mt-8 border-y border-stone-700 py-10 md:mx-12">
+        <Link href="/guide" className="mx-auto flex max-w-6xl items-center justify-between gap-6">
+          <div><p className="text-xs tracking-widest text-stone-400">BUKCHON GUIDE</p><h2 className="brand-serif mt-3 text-2xl">{language === 'en' ? 'Discover the neighborhood' : '북촌의 맛집, 투어, 여행지'}</h2><p className="mt-3 text-sm text-stone-400">{language === 'en' ? 'Find your next meal, walk and discovery.' : '머무는 동안 함께 즐길 동네의 장소들을 만나보세요.'}</p></div><ArrowUpRight aria-hidden="true" className="shrink-0" />
+        </Link>
+      </section>
 
       {/* Footer */}
       <footer className="border-t border-stone-800 py-12 px-6 md:px-12 mt-20">

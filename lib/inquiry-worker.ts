@@ -70,7 +70,7 @@ async function contextFor(job: InquiryJob) {
 async function queueAlerts(job: InquiryJob) {
   const recipients = await getInquiryNotificationRecipients(job.propertyId);
   if (!recipients.length) return;
-  await prisma.inquiryNotification.createMany({ data: recipients.map(recipient => ({ jobId: job.messageId, ...recipient })), skipDuplicates: true });
+  await prisma.inquiryNotification.createMany({ data: recipients.map(recipient => ({ jobId: job.messageId, name: recipient.name, phone: recipient.phone })), skipDuplicates: true });
 }
 
 async function escalate(job: InquiryJob, reason: string, summary = job.summary, draft = job.draft) {
