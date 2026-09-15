@@ -15,6 +15,7 @@ export default function InquiryNotificationSettings({ propertyId }: { propertyId
   const [saved, setSaved] = useState(emptySettings);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [saveError, setSaveError] = useState('');
   const [attempt, setAttempt] = useState(0);
@@ -31,6 +32,7 @@ export default function InquiryNotificationSettings({ propertyId }: { propertyId
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || '알림 수신자 설정을 불러오지 못했습니다.');
         const parsed = inquiryNotificationSettingsSchema.parse({ enabled: data.enabled, recipients: data.recipients });
+        if (!Array.isArray(data.members)) throw new Error('회원 목록을 불러오지 못했습니다. 페이지를 새로고침해 주세요.');
         if (!controller.signal.aborted) { setSettings(parsed); setSaved(parsed); setMembers(data.members); }
       } catch (error) {
         if (!controller.signal.aborted) setLoadError(error instanceof Error ? error.message : '알림 수신자 설정을 불러오지 못했습니다.');
@@ -43,23 +45,39 @@ export default function InquiryNotificationSettings({ propertyId }: { propertyId
 
   async function save(event: React.FormEvent) {
     event.preventDefault();
+    if (saving) return;
     setSaveError('');
     if (settings.recipients.some(recipient => !recipient.userId)) { setSaveError('각 수신자를 등록된 회원 중에서 선택해 주세요.'); return; }
-    const parsed = inquiryNotificationSettingsSchema.safeParse(settings);
-    if (!parsed.success) { setSaveError(parsed.error.issues[0].message); return; }
     setSaving(true);
     try {
       const response = await fetch(`/api/properties/${propertyId}/inquiry-notifications`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: parsed.data.enabled, recipients: parsed.data.recipients.map(recipient => ({ userId: recipient.userId })) }),
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: settings.enabled, recipients: settings.recipients.map(recipient => ({ userId: recipient.userId })) }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || '알림 수신자 설정을 저장하지 못했습니다.');
       const next = inquiryNotificationSettingsSchema.parse(data);
       setSettings(next); setSaved(next);
+      setMembers(current => current.map(member => {
+        const recipient = next.recipients.find(item => item.userId === member.userId);
+        return recipient ? { ...member, name: recipient.name, phone: recipient.phone } : member;
+      }));
       toast.success('고객 문의 알림 수신자가 저장되었습니다.');
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : '알림 수신자 설정을 저장하지 못했습니다.');
     } finally { setSaving(false); }
+  }
+
+  async function refreshMembers() {
+    if (refreshing) return;
+    setRefreshing(true); setSaveError('');
+    try {
+      const response = await fetch(`/api/properties/${propertyId}/inquiry-notifications`, { cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok || !Array.isArray(data.members)) throw new Error(data.error || '회원 목록을 불러오지 못했습니다.');
+      // Keep unsaved selections; only refresh the member directory.
+      setMembers(data.members);
+    } catch (cause) { setSaveError(cause instanceof Error ? cause.message : '회원 목록을 불러오지 못했습니다.'); }
+    finally { setRefreshing(false); }
   }
 
   function selectMember(index: number, userId: string) {
@@ -80,14 +98,20 @@ export default function InquiryNotificationSettings({ propertyId }: { propertyId
               이 숙소의 고객 문의 알림 받기
             </label>
             {!settings.enabled && <p className="text-xs text-stone-500">수신자를 저장해 두고 알림 수신만 꺼둘 수 있습니다.</p>}
+            <div className="flex flex-wrap items-center gap-3 text-xs"><a href="/admin/staff" target="_blank" rel="noopener noreferrer" className="underline">직원 정보 확인·수정 (새 창)</a><button type="button" onClick={refreshMembers} disabled={refreshing} className="min-h-10 underline disabled:opacity-40">{refreshing ? '회원 목록 갱신 중…' : '회원 목록 새로 불러오기'}</button></div>
+            {!members.length && <p role="status" className="rounded bg-amber-50 p-3 text-xs text-amber-900">선택할 수 있는 활성 회원이 없습니다. 직원 관리에서 관리자 계정 또는 이 숙소에 배정된 매니저 계정을 확인해 주세요.</p>}
             {settings.recipients.length === 0 && <p className="border border-dashed border-stone-200 p-5 text-sm text-stone-500">등록된 수신자가 없습니다. 아래에서 담당자를 추가하세요.</p>}
             {settings.recipients.map((recipient, index) => <div key={index} className="grid grid-cols-1 sm:grid-cols-[1fr_1.4fr_auto] gap-3 border-b border-stone-100 pb-4">
               <label className="block text-xs text-stone-600">수신자 이름
                 <select required value={recipient.userId || ''} onChange={event => selectMember(index, event.target.value)} className={`${fieldClass} mt-2`}>
                   <option value="">{recipient.name && !recipient.userId ? `${recipient.name} · 회원을 다시 선택해 주세요` : '회원을 선택하세요'}</option>
                   {recipient.userId && !members.some(member => member.userId === recipient.userId) && <option value={recipient.userId} disabled>선택한 회원의 상태·숙소 배정을 확인해 주세요</option>}
-                  {members.map(member => <option key={member.userId} value={member.userId} disabled={!member.phone || settings.recipients.some((item, i) => i !== index && item.userId === member.userId)}>{member.name} · {member.role === 'admin' ? '관리자' : '매니저'} · {member.phone || '휴대폰 미등록'}</option>)}
+                  {members.map(member => {
+                    const alreadySelected = settings.recipients.some((item, i) => i !== index && item.userId === member.userId);
+                    return <option key={member.userId} value={member.userId} disabled={alreadySelected}>{member.name} · {member.role === 'admin' ? '관리자' : '매니저'} · {member.phone || '휴대폰 등록·확인 필요'}{alreadySelected ? ' · 이미 선택됨' : ''}</option>;
+                  })}
                 </select>
+                {recipient.userId && members.some(member => member.userId === recipient.userId && !member.phone) && <span role="status" className="mt-2 block text-xs leading-5 text-amber-800">회원은 선택되었습니다. 저장하려면 직원 정보에 올바른 휴대폰 번호를 등록한 뒤 회원 목록을 새로 불러와 주세요.</span>}
               </label>
               <label className="block text-xs text-stone-600">카카오톡 휴대폰 번호
                 <input readOnly type="tel" value={recipient.userId ? (members.find(member => member.userId === recipient.userId)?.phone || '') : recipient.phone} placeholder="회원 선택 시 자동 입력" className={`${fieldClass} mt-2 bg-stone-50`} />

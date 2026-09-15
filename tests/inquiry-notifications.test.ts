@@ -76,3 +76,12 @@ test('없는 숙소·손상된 설정 및 기존 직접 입력 설정을 처리�
   assert.deepEqual(await getInquiryNotificationRecipients('p1'),[legacy]);
   assert.equal((await request(PUT,{enabled:true,recipients:[legacy]})).status,400);
 });
+
+test('번호 없는 회원 선택 후 연락처를 등록하면 같은 회원 ID로 저장할 수 있다', async () => {
+  const selected = { enabled: true, recipients: [{ userId: 'u5' }] };
+  const missing = await request(PUT, selected);
+  assert.equal(missing.status, 400); assert.match(missing.body.error, /휴대폰 번호/);
+  db.user.find(user => user.id === 'u5')!.phone = '010-5555-6666';
+  const saved = await request(PUT, selected);
+  assert.equal(saved.status, 200); assert.equal(saved.body.recipients[0].phone, '01055556666');
+});
