@@ -1,6 +1,8 @@
 import { beds24Post } from '@/lib/beds24';
 import { prisma } from '@/lib/prisma';
 import { withAuth, ok, fail, requireManage, readJson, str } from '@/lib/core/http';
+import { acquireInquirySend, releaseInquirySend } from '@/lib/inquiry-conversation';
+import { confirmedBeds24Message } from '@/lib/inquiry-delivery';
 
 /**
  * POST /api/beds24/messages/send
@@ -22,7 +24,7 @@ export const POST = withAuth('beds24/messages/send', async (req, { auth }) => {
 
   if (event) {
     propertyId = event.propertyId;
-    beds24BookingId = event.originalUid || null;
+    beds24BookingId = event.channelId === 'beds24' && /^\d+$/.test(event.originalUid || '') ? event.originalUid : null;
     guestName = (event.title || '게스트').replace(/ 예약$/, '');
   } else {
     const booking = await prisma.booking.findUnique({ where: { id: eventId } });
@@ -30,37 +32,45 @@ export const POST = withAuth('beds24/messages/send', async (req, { auth }) => {
   }
   if (!propertyId) throw fail(404, '예약을 찾을 수 없습니다.');
   requireManage(auth, propertyId);
+  const sendToken = event && beds24BookingId ? await acquireInquirySend(eventId, true) : null;
+  if (event && beds24BookingId && !sendToken) throw fail(409, '메시지를 전송 중입니다. 잠시 후 다시 보내 주세요.');
 
-  let deliveryStatus: 'sent' | 'failed' | 'local_only' = 'local_only';
-  let beds24Response: unknown = null;
-  let beds24Error: string | null = null;
+  try {
 
-  if (beds24BookingId) {
-    try {
-      // Beds24 v2 POST /bookings/messages — OTA 로의 forward 는 Beds24 가 채널 설정에 따라 처리.
-      // ⚠ Airbnb 도달에는 Beds24 Dashboard → Channels → Airbnb → Messaging 활성화가 필요.
-      beds24Response = await beds24Post('/bookings/messages', [{ bookingId: Number(beds24BookingId), message: text }]);
-      deliveryStatus = 'sent';
-      console.log('[beds24 send]', { bookingId: beds24BookingId, textLength: text.length, response: beds24Response });
-    } catch (err) {
-      beds24Error = err instanceof Error ? err.message : String(err);
-      console.error('[beds24 send] failed:', { bookingId: beds24BookingId, error: beds24Error });
-      deliveryStatus = 'failed';
+    let deliveryStatus: 'sent' | 'failed' | 'local_only' = 'local_only';
+    let beds24Response: unknown = null;
+    let beds24Error: string | null = null;
+
+    if (beds24BookingId) {
+      try {
+        // Beds24 v2 POST /bookings/messages — OTA 로의 forward 는 Beds24 가 채널 설정에 따라 처리.
+        // ⚠ Airbnb 도달에는 Beds24 Dashboard → Channels → Airbnb → Messaging 활성화가 필요.
+        beds24Response = await beds24Post('/bookings/messages', [{ bookingId: Number(beds24BookingId), message: text }]);
+        if (!confirmedBeds24Message(beds24Response)) throw new Error('Beds24에서 메시지 접수가 확인되지 않았습니다. 발송 내역을 확인해 주세요.');
+        deliveryStatus = 'sent';
+        console.log('[beds24 send]', { bookingId: beds24BookingId, textLength: text.length, response: beds24Response });
+      } catch (err) {
+        beds24Error = err instanceof Error ? err.message : String(err);
+        console.error('[beds24 send] failed:', { bookingId: beds24BookingId, error: beds24Error });
+        deliveryStatus = 'failed';
+      }
     }
+
+    const message = await prisma.message.create({
+      data: {
+        eventId,
+        propertyId,
+        guestName,
+        text,
+        sender: 'host',
+        read: true,
+        type: beds24BookingId ? 'message' : 'memo',
+        deliveryStatus,
+      },
+    });
+
+    return ok({ id: message.id, deliveryStatus, isBeds24: !!beds24BookingId, beds24Response, beds24Error });
+  } finally {
+    if (sendToken) await releaseInquirySend(eventId, sendToken);
   }
-
-  const message = await prisma.message.create({
-    data: {
-      eventId,
-      propertyId,
-      guestName,
-      text,
-      sender: 'host',
-      read: true,
-      type: beds24BookingId ? 'message' : 'memo',
-      deliveryStatus,
-    },
-  });
-
-  return ok({ id: message.id, deliveryStatus, isBeds24: !!beds24BookingId, beds24Response, beds24Error });
 });

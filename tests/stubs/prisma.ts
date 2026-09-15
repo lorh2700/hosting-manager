@@ -79,6 +79,8 @@ function flattenWhere(where: Row): Row {
 
 export function matches(row: Row, where: Row | undefined): boolean {
   for (const [k, v] of Object.entries(flattenWhere(where ?? {}))) {
+    if (k === 'inquiryJob' && v?.is === null) { if ((db.inquiryJob ?? []).some(job => job.messageId === row.id)) return false; continue; }
+    if (k === 'notifications' && v?.none) { if ((db.inquiryNotification ?? []).some(item => item.jobId === row.messageId && matches(item, v.none))) return false; continue; }
     if (k === 'AND') { if (!(Array.isArray(v) ? v : [v]).every((w: Row) => matches(row, w))) return false; continue; }
     if (k === 'OR') { if (!(v as Row[]).some(w => matches(row, w))) return false; continue; }
     if (k === 'NOT') { if ((Array.isArray(v) ? v : [v]).some((w: Row) => matches(row, w))) return false; continue; }
@@ -224,12 +226,38 @@ function collection(model: string) {
   };
 }
 
+function inquiryDefaults(model: string, data: Row): Row {
+  const now = new Date();
+  const defaults: Record<string, Row> = {
+    inquiryJob: { status: 'queued', leaseToken: null, leaseUntil: null, draft: '', summary: '', reason: '', evidence: [], knowledgeVersion: null, createdAt: now, updatedAt: now },
+    inquiryNotification: { status: 'pending', attempts: 0, nextAttemptAt: now, updatedAt: now },
+    inquiryConversation: { paused: false, reason: null, resumeAfter: null, sendToken: null, sendUntil: null, updatedAt: now },
+    inquiryAutomationSettings: { enabled: false, enabledAt: null, knowledge: '', updatedAt: now },
+    message: { type: 'message', automated: false, createdAt: now },
+  };
+  return { ...defaults[model], ...data };
+}
+
 export const prisma: any = new Proxy({}, {
   get(_target, name: string) {
     if (name === '$transaction') return (ops: Promise<any>[] | ((tx: any) => Promise<any>)) => (typeof ops === 'function' ? ops(prisma) : Promise.all(ops));
     if (name === '$queryRaw') return async () => [];
     if (typeof name !== 'string' || name.startsWith('then')) return undefined;
-    return collection(name);
+    const base = collection(name);
+    if (!name.startsWith('inquiry') && name !== 'message') return base;
+    return {
+      ...base,
+      create: (args: Row) => base.create({ ...args, data: inquiryDefaults(name, args.data) }),
+      createMany: (args: Row) => {
+        let data = args.data;
+        if (args.skipDuplicates) data = data.filter((item: Row) => !(db[name] ?? []).some(row =>
+          name === 'inquiryJob' ? row.messageId === item.messageId : name === 'inquiryNotification' ? row.jobId === item.jobId && row.phone === item.phone : row.id === item.id));
+        return base.createMany({ ...args, data: data.map((item: Row) => inquiryDefaults(name, item)) });
+      },
+      upsert: (args: Row) => base.upsert({ ...args, create: inquiryDefaults(name, args.create), update: { ...args.update, ...(Object.keys(args.update).length ? { updatedAt: new Date() } : {}) } }),
+      update: (args: Row) => base.update({ ...args, data: { ...args.data, updatedAt: new Date() } }),
+      updateMany: (args: Row) => base.updateMany({ ...args, data: { ...args.data, updatedAt: new Date() } }),
+    };
   },
 });
 

@@ -1,6 +1,6 @@
 import { beds24Get, describeBeds24Error } from '@/lib/beds24';
 import { prisma } from '@/lib/prisma';
-import { withAuth, withErrors, ok, fail, MESSAGES, cronOrSession, visibleScope, requireQuery } from '@/lib/core/http';
+import { withAuth, withErrors, ok, fail, MESSAGES, cronOrSession, visibleScope, requireQuery, requireManage } from '@/lib/core/http';
 
 /**
  * GET /api/beds24/messages?bookingId=123  → Fetch messages for a specific Beds24 booking
@@ -61,14 +61,17 @@ async function fetchPropertyMessages(beds24PropId: string, maxAgeDays: number): 
 }
 
 export const POST = withErrors('beds24/messages', async (req) => {
-  await cronOrSession(req);
+  const auth = await cronOrSession(req);
 
   const body = (await req.json().catch(() => ({}))) as { propertyIds?: string[]; maxAgeDays?: number };
   const maxAgeDays = Math.min(90, Math.max(1, Number(body.maxAgeDays) || DEFAULT_MAX_AGE_DAYS));
+  const scopedIds = auth ? await visibleScope(auth, body.propertyIds) : body.propertyIds;
+  if (auth && scopedIds) for (const id of scopedIds) requireManage(auth, id);
+  if (auth && scopedIds?.length === 0) return ok({ synced: 0, propertiesChecked: 0 });
 
   const properties = await prisma.property.findMany({
-    where: body.propertyIds?.length
-      ? { id: { in: body.propertyIds }, beds24PropId: { not: null } }
+    where: scopedIds?.length
+      ? { id: { in: scopedIds }, beds24PropId: { not: null } }
       : { beds24PropId: { not: null } },
     select: { id: true, name: true, beds24PropId: true },
   });
@@ -154,7 +157,9 @@ export const POST = withErrors('beds24/messages', async (req) => {
         if (!text) continue;
 
         const rawTime = msg.time || msg.datetime;
-        const createdAt = rawTime ? new Date(rawTime) : new Date();
+        // Unknown timestamps must never make historical messages look newly received to the AI.
+        const parsedTime = rawTime ? Date.parse(rawTime) : NaN;
+        const createdAt = Number.isFinite(parsedTime) ? new Date(parsedTime) : new Date(0);
         const beds24MessageId = msg.id != null ? String(msg.id) : null;
         const senderType = (msg.source || msg.type || msg.from || '').toLowerCase();
         const sender = senderType.includes('guest') ? 'guest' : 'host';

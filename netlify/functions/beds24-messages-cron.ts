@@ -10,11 +10,13 @@ const handler = async () => {
     console.error('[beds24-messages-cron] Missing URL env');
     return new Response('Missing URL', { status: 500 });
   }
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) return new Response('Missing CRON_SECRET', { status: 500 });
 
   try {
     const res = await fetch(`${baseUrl}/.netlify/functions/beds24-messages-background`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'x-cron-secret': cronSecret },
     });
     console.log(`[beds24-messages-cron] background trigger -> ${res.status}`);
     return new Response('Triggered', { status: 200 });

@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { MessageSquare, Send, ChevronRight, RefreshCw, Loader2 } from 'lucide-react';
 import WelcomepadChatPanel from './WelcomepadChatPanel';
+import InquiryAutomationPanel from './InquiryAutomationPanel';
 import { SkeletonList, Skeleton } from '@/components/ui';
 import { useRefetchOnReturn } from '@/lib/hooks/useRefetchOnReturn';
 
@@ -19,6 +20,8 @@ interface Message {
   sender: 'host' | 'guest';
   createdAt: string;
   read: boolean;
+  automated?: boolean;
+  deliveryStatus?: string;
   source?: string;             // 'beds24' | undefined (local)
   beds24MessageType?: string;  // 'guest' | 'host' | 'internalNote' | 'system'
 }
@@ -448,6 +451,7 @@ function MessagesContent() {
               </div>
             </div>
 
+            <InquiryAutomationPanel key={selectedConv.eventId} eventId={selectedConv.eventId} revision={messages.length} onUseDraft={setInputText} />
             <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3">
               {selectedConv.eventDescription && (() => {
                 const filtered = selectedConv.eventDescription
@@ -492,6 +496,7 @@ function MessagesContent() {
                           Beds24 · {msg.beds24MessageType || msg.sender}
                         </p>
                       )}
+                      {msg.automated && <p className="mb-1 text-[11px] opacity-80">GPT 자동답변{msg.deliveryStatus === 'unknown' || msg.deliveryStatus === 'sending' ? ' · 발송 내역 확인 필요' : ''}</p>}
                       <p className="whitespace-pre-wrap break-words">{msg.text}</p>
                       <p className={`text-[12px] mt-1 ${isHost ? 'text-white/70' : 'text-stone-400'}`}>
                         {formatTime(msg.createdAt)}

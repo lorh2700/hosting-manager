@@ -6,6 +6,8 @@ import { useParams, usePathname, useRouter } from 'next/navigation';
 import { ArrowLeft, Save, Trash2, Copy, Check, Link as LinkIcon } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { toast } from '@/components/ui';
+import InquiryNotificationSettings from './InquiryNotificationSettings';
+import InquiryAutomationSettings from './InquiryAutomationSettings';
 
 interface Property {
   id: string;
@@ -333,6 +335,9 @@ export default function PropertySettingsPage() {
           </div>
         </div>
       </div>
+
+      <InquiryNotificationSettings key={id} propertyId={id} />
+      <InquiryAutomationSettings key={`automation-${id}`} propertyId={id} />
 
       <div className="bg-red-50 border border-red-200 p-8 max-w-3xl mt-12">
         <h2 className="text-lg font-light tracking-wide text-red-600 mb-2">위험 구역</h2>

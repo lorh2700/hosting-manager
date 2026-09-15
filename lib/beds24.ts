@@ -281,7 +281,7 @@ function stripQuery(path: string) {
 }
 
 // 단일 fetch 실행 + 429 시 1회 재시도. 네트워크 실패/타임아웃은 Beds24NetworkError 로 감싼다.
-async function fetchBeds24(method: string, path: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+async function fetchBeds24(method: string, path: string, init: RequestInit, timeoutMs: number, noRetry = false): Promise<Response> {
   const url = path.startsWith('http') ? path : `${BEDS24_BASE_URL}${path}`;
   const logPath = stripQuery(path);
 
@@ -295,7 +295,7 @@ async function fetchBeds24(method: string, path: string, init: RequestInit, time
 
   let res = await doFetch();
 
-  if (res.status === 429) {
+  if (res.status === 429 && !noRetry) {
     const credit = parseCreditHeaders(res);
     const retryAfter = Number(res.headers.get('retry-after') ?? '');
     // 리셋까지 남은 시간: resets-in 우선, 없으면 Retry-After.
@@ -317,6 +317,8 @@ async function fetchBeds24(method: string, path: string, init: RequestInit, time
 }
 
 export interface Beds24RequestOptions {
+  /** Background inquiry jobs persist send intent; keep a single bounded attempt. */
+  noRetry?: boolean;
   /** 개별 HTTP 요청 타임아웃 (기본 12s). */
   timeoutMs?: number;
 }
@@ -336,9 +338,9 @@ async function beds24Request(
   });
 
   let token = await getBeds24Token();
-  let res = await fetchBeds24(method, path, build(token), timeoutMs);
+  let res = await fetchBeds24(method, path, build(token), timeoutMs, opts.noRetry);
 
-  if (res.status === 401) {
+  if (res.status === 401 && !opts.noRetry) {
     // 캐시된 토큰이 만료/폐기된 경우 — 강제 갱신 후 1회 재시도.
     // (401 은 요청이 처리되지 않았다는 뜻이므로 POST 도 안전하게 재시도 가능)
     console.warn('[beds24] 401 from API — refreshing token and retrying once', { method, path: stripQuery(path) });

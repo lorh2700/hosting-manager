@@ -93,8 +93,83 @@ model Property {
   cameraSnapshots      CameraSnapshot[]
   welcomepadConfig     WelcomepadConfig?
   laundryBatches       LaundryBatch[]
+  inquiryNotificationSettings InquiryNotificationSettings?
+  inquiryAutomationSettings InquiryAutomationSettings?
 
   @@map("properties")
+}
+
+// 숙소별 고객 문의 알림 수신 설정. 전화번호는 관리 권한이 있는 전용 API에서만 노출한다.
+model InquiryNotificationSettings {
+  propertyId String @id @map("property_id")
+  enabled Boolean @default(false)
+  recipients Json @default("[]")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@map("inquiry_notification_settings")
+}
+
+model InquiryAutomationSettings {
+  propertyId String @id @map("property_id")
+  enabled Boolean @default(false)
+  enabledAt DateTime? @map("enabled_at")
+  knowledge String @default("")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  @@map("inquiry_automation_settings")
+}
+
+model InquiryConversation {
+  eventId String @id @map("event_id")
+  paused Boolean @default(false)
+  reason String?
+  resumeAfter DateTime? @map("resume_after")
+  sendToken String? @map("send_token")
+  sendUntil DateTime? @map("send_until")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  @@map("inquiry_conversations")
+}
+
+model InquiryJob {
+  messageId String @id @map("message_id")
+  eventId String @map("event_id")
+  propertyId String @map("property_id")
+  status String @default("queued")
+  leaseToken String? @map("lease_token")
+  leaseUntil DateTime? @map("lease_until")
+  draft String @default("")
+  summary String @default("")
+  reason String @default("")
+  evidence Json @default("[]")
+  knowledgeVersion DateTime? @map("knowledge_version")
+  outboundId String? @map("outbound_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  notifications InquiryNotification[]
+  @@index([status, createdAt])
+  @@index([eventId, createdAt])
+  @@map("inquiry_jobs")
+}
+
+model InquiryNotification {
+  id String @id @default(uuid())
+  jobId String @map("job_id")
+  phone String
+  name String
+  status String @default("pending")
+  attempts Int @default(0)
+  nextAttemptAt DateTime @default(now()) @map("next_attempt_at")
+  providerMessageId String? @map("provider_message_id")
+  error String?
+  updatedAt DateTime @updatedAt @map("updated_at")
+  job InquiryJob @relation(fields: [jobId], references: [messageId], onDelete: Cascade)
+  @@unique([jobId, phone])
+  @@index([status, nextAttemptAt])
+  @@map("inquiry_notifications")
 }
 
 model LaundryBatch {
@@ -224,6 +299,8 @@ model Event {
 
   property Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   messages Message[]
+  inquiryConversation InquiryConversation?
+  inquiryJobs InquiryJob[]
 
   @@unique([propertyId, channelId, originalUid])
   @@index([propertyId, type])
@@ -534,6 +611,8 @@ model Message {
   type              String   @default("message") // message, memo
   deliveryStatus    String?  @map("delivery_status") // sent, failed, local_only
   createdAt         DateTime @default(now()) @map("created_at")
+  automated         Boolean @default(false)
+  inquiryJob        InquiryJob?
 
   event    Event?    @relation(fields: [eventId], references: [id])
   property Property? @relation(fields: [propertyId], references: [id])
