@@ -1,6 +1,15 @@
 -- Run during a maintenance window with a verified database backup.
 -- Optional staff_identity_map overrides MUST be reviewed by a person, never matched by name.
-BEGIN;
+-- Execute this entire DO statement, never a selected fragment.
+-- A single statement keeps the migration atomic even in autocommit SQL editors.
+DO $staff_identity$ BEGIN
+IF to_regclass('public.legacy_cleaners') IS NOT NULL
+  OR to_regclass('public.staff_identity_users_before') IS NOT NULL
+  OR EXISTS (SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='users'
+      AND column_name IN ('owner_id','public_token','notify_new_open')) THEN
+  RAISE EXCEPTION 'Staff identity migration already or partially applied; run scripts/check-staff-identity-state.sql and review before retrying';
+END IF;
 LOCK TABLE users, cleaners, cleaner_properties, user_properties, cleanings, invitations IN ACCESS EXCLUSIVE MODE;
 
 CREATE TABLE IF NOT EXISTS staff_identity_map (
@@ -65,17 +74,16 @@ UPDATE users u SET phone=COALESCE(NULLIF(u.phone,''),c.phone),
 FROM cleaners c JOIN staff_identity_map m ON m.cleaner_id=c.id WHERE u.id=m.user_id;
 UPDATE users SET public_token=replace(gen_random_uuid()::text || gen_random_uuid()::text,'-','') WHERE public_token IS NULL;
 
-CREATE TEMP TABLE staff_old_scope ON COMMIT DROP AS
+-- A shared scope must not silently grant a manager new reservation/management access.
+DO $$ BEGIN
+  IF EXISTS(WITH old_scope AS (
 SELECT m.user_id,p.property_id FROM cleaners c JOIN staff_identity_map m ON m.cleaner_id=c.id
 JOIN cleaner_properties p ON p.cleaner_id=c.id WHERE NOT c.no_properties
 UNION
 SELECT m.user_id,p.id FROM cleaners c JOIN staff_identity_map m ON m.cleaner_id=c.id
 JOIN properties p ON p.owner_id=c.owner_id
-WHERE NOT c.no_properties AND NOT EXISTS(SELECT 1 FROM cleaner_properties cp WHERE cp.cleaner_id=c.id);
-
--- A shared scope must not silently grant a manager new reservation/management access.
-DO $$ BEGIN
-  IF EXISTS(SELECT 1 FROM staff_old_scope s JOIN users u ON u.id=s.user_id
+WHERE NOT c.no_properties AND NOT EXISTS(SELECT 1 FROM cleaner_properties cp WHERE cp.cleaner_id=c.id)
+  ) SELECT 1 FROM old_scope s JOIN users u ON u.id=s.user_id
     WHERE u.role NOT IN ('admin','super_admin','cleaner') AND NOT EXISTS(
       SELECT 1 FROM user_properties up WHERE up.user_id=u.id AND up.property_id=s.property_id)) THEN
     RAISE EXCEPTION 'Manager cleaning scope exceeds management scope; review shared property assignments first';
@@ -84,7 +92,15 @@ END $$;
 -- Cleaner-only roles inherit their effective old scope exactly; empty stays empty.
 DELETE FROM user_properties up USING users u, staff_identity_map m WHERE up.user_id=u.id AND u.id=m.user_id AND u.role='cleaner';
 INSERT INTO user_properties (user_id,property_id)
-SELECT s.user_id,s.property_id FROM staff_old_scope s JOIN users u ON u.id=s.user_id WHERE u.role='cleaner'
+WITH old_scope AS (
+  SELECT m.user_id,p.property_id FROM cleaners c JOIN staff_identity_map m ON m.cleaner_id=c.id
+  JOIN cleaner_properties p ON p.cleaner_id=c.id WHERE NOT c.no_properties
+  UNION
+  SELECT m.user_id,p.id FROM cleaners c JOIN staff_identity_map m ON m.cleaner_id=c.id
+  JOIN properties p ON p.owner_id=c.owner_id
+  WHERE NOT c.no_properties AND NOT EXISTS(SELECT 1 FROM cleaner_properties cp WHERE cp.cleaner_id=c.id)
+)
+SELECT s.user_id,s.property_id FROM old_scope s JOIN users u ON u.id=s.user_id WHERE u.role='cleaner'
 ON CONFLICT DO NOTHING;
 
 ALTER TABLE cleanings DROP CONSTRAINT cleanings_cleaner_id_fkey;
@@ -124,4 +140,4 @@ END $$;
 
 DELETE FROM users u USING staff_identity_map m WHERE u.id=m.source_user_id AND m.source_user_id<>m.user_id;
 UPDATE staff_identity_map SET migrated_at=CURRENT_TIMESTAMP;
-COMMIT;
+END $staff_identity$;

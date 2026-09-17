@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 
 const migration = await readFile(new URL('../prisma/migrations/20260917020000_users_staff_identity/migration.sql', import.meta.url), 'utf8');
+const diagnostic = await readFile(new URL('../scripts/check-staff-identity-state.sql', import.meta.url), 'utf8');
 async function fixture() {
   const db = new PGlite();
   await db.exec(`
@@ -38,7 +39,16 @@ async function fixture() {
 test('실제 PostgreSQL: 전화번호·계정·숙소·일정 링크와 외래키를 users로 이관한다', async () => {
   const db = await fixture();
   try {
-    await db.exec(migration);
+    // The extended query protocol accepts one statement only, as in an autocommit editor.
+    const before = (await db.query<Record<string, unknown>>(diagnostic)).rows[0];
+    assert.equal(before.old_cleaners_exists, true);
+    assert.deepEqual(before.added_user_columns, []);
+    assert.equal(before.cleaning_assignee_table, 'cleaners');
+    await db.query(migration);
+    const after = (await db.query<Record<string, unknown>>(diagnostic)).rows[0];
+    assert.equal(after.old_cleaners_exists, false);
+    assert.equal(after.legacy_cleaners_exists, true);
+    assert.equal(after.cleaning_assignee_table, 'users');
     assert.deepEqual((await db.query<Record<string, unknown>>('SELECT cleaner_id FROM cleanings ORDER BY id')).rows, [{ cleaner_id: 'manager' }, { cleaner_id: 'staff-cn' }, { cleaner_id: 'worker' }]);
     assert.deepEqual((await db.query<Record<string, unknown>>("SELECT phone,password,role,public_token FROM users WHERE id='manager'")).rows[0], { phone: '01011112222', password: 'manager-password', role: 'manager', public_token: 'manager-link' });
     assert.deepEqual((await db.query<Record<string, unknown>>("SELECT status,password,public_token FROM users WHERE id='staff-cn'")).rows[0], { status: 'no_account', password: '', public_token: 'link-only' });
@@ -47,6 +57,16 @@ test('실제 PostgreSQL: 전화번호·계정·숙소·일정 링크와 외래�
     assert.equal((await db.query<Record<string, unknown>>('SELECT count(*)::int AS count FROM legacy_cleaners')).rows[0].count, 3);
     await assert.rejects(db.exec("INSERT INTO cleanings VALUES ('bad','cw','p1')"));
     await db.exec("INSERT INTO cleanings VALUES ('direct-manager','manager','p1')");
+  } finally { await db.close(); }
+});
+
+test('실제 PostgreSQL: 이전 실행의 일부 컬럼이 남아 있으면 변경 전에 중단한다', async () => {
+  const db = await fixture();
+  try {
+    await db.exec('ALTER TABLE users ADD COLUMN owner_id TEXT');
+    await assert.rejects(db.query(migration), /already or partially applied/);
+    assert.equal((await db.query<Record<string, unknown>>("SELECT cleaner_id FROM cleanings WHERE id='job-m'")).rows[0].cleaner_id, 'cm');
+    assert.equal((await db.query<Record<string, unknown>>(diagnostic)).rows[0].identity_map_exists, false);
   } finally { await db.close(); }
 });
 
@@ -76,7 +96,7 @@ for (const [label, setup, expected] of [
   try {
     await db.exec(setup);
     await assert.rejects(db.exec(migration), expected);
-    await db.exec('ROLLBACK');
+    // A failed single statement must roll back without a separate ROLLBACK command.
     assert.equal((await db.query<Record<string, unknown>>("SELECT cleaner_id FROM cleanings WHERE id='job-m'")).rows[0].cleaner_id, 'cm');
     assert.equal((await db.query<Record<string, unknown>>("SELECT count(*)::int AS count FROM information_schema.columns WHERE table_name='users' AND column_name='public_token'")).rows[0].count, 0);
     assert.equal((await db.query<Record<string, unknown>>('SELECT count(*)::int AS count FROM cleaners')).rows[0].count, 3);
