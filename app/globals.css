@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@source "./guest";
+@source "./admin/guest-services";
 
 :root {
   --brand: #A66B3D;

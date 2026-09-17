@@ -1,0 +1,39 @@
+'use client';
+import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useAuth } from '@/components/AuthProvider';
+import { serviceStatuses, serviceTransitions, guestGuideSlugs, guestGuide, type ServiceStatus } from '@/lib/guest-guide';
+import { confirmDialog } from '@/components/ui';
+import { guestLanguageAdminNames, guestLanguages, guestLanguageNames, type GuestLanguage } from '@/lib/guest-languages';
+
+type Row={id:string;propertyId:string;guestName:string;email:string;phone:string;arrivalDate:string;arrivalTime:string;flightNumber:string;passengers:number;luggage:number;message:string;language:string;status:ServiceStatus;quotedPrice:number;internalNote:string;version:number;createdAt:string;property:{name:string}};
+const labels:Record<ServiceStatus,string>={requested:'요청 접수',contacted:'확인·연락 중',confirmed:'예약 확정',cancelled:'취소'};
+const button='min-h-11 rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm disabled:opacity-50';
+function RequestCard({row,onSaved}:{row:Row;onSaved:()=>void}){
+  const [note,setNote]=useState(row.internalNote),[status,setStatus]=useState(row.status),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  async function save(){
+    if(busy)return;
+    if(status!==row.status && status==='confirmed' && !(await confirmDialog({title:'픽업 예약 확정',message:'차량·인원·수하물과 최종 요금을 확인하고 고객에게 안내하셨나요? 이 버튼은 고객에게 메시지를 자동 발송하지 않습니다.',confirmLabel:'확인 후 확정'})))return;
+    if(status!==row.status && status==='cancelled' && !(await confirmDialog({title:'픽업 요청 취소',message:'고객에게 취소 내용을 별도로 안내해 주세요. 취소 후에는 이 화면에서 다시 확정할 수 없습니다.',confirmLabel:'취소 처리',danger:true})))return;
+    setBusy(true);setError('');
+    try{const res=await fetch('/api/guest-services',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:row.id,version:row.version,status,internalNote:note})});const data=await res.json();if(!res.ok)throw Error(data.error||'저장하지 못했습니다.');onSaved();}
+    catch(e){setError((e as Error).message);}finally{setBusy(false);}
+  }
+  return <article className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs text-stone-500">{row.property.name} · 인천공항 → 숙소</p><h2 className="mt-2 text-xl">{row.guestName}</h2><p className="mt-2 text-sm">{row.arrivalDate} {row.arrivalTime} KST · {row.flightNumber}</p></div><span className={`rounded-full px-3 py-2 text-xs ${row.status==='requested'?'bg-amber-50 text-amber-800':'bg-stone-100 text-stone-700'}`}>{labels[row.status]}</span></div>
+    <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2"><div><dt className="text-xs text-stone-500">연락처</dt><dd className="mt-1 break-all"><a className="underline" href={`mailto:${row.email}`}>{row.email}</a><br/><a className="underline" href={`tel:${row.phone.replace(/[^+\d]/g,'')}`}>{row.phone}</a></dd></div><div><dt className="text-xs text-stone-500">탑승 정보</dt><dd className="mt-1">{row.passengers}명 · 짐 {row.luggage}개 · {guestLanguageAdminNames[row.language]??row.language}<br/>접수 시 안내 금액 {row.quotedPrice.toLocaleString()}원</dd></div></dl>
+    {row.message&&<p className="mt-4 whitespace-pre-wrap rounded-xl bg-stone-50 p-4 text-sm leading-6">{row.message}</p>}
+    <p className="mt-4 break-all text-xs text-stone-400">접수 번호 {row.id}</p>
+    <fieldset disabled={busy} className="mt-5 border-t border-stone-100 pt-5"><label className="block text-sm">담당자 메모 <span className="text-xs text-stone-500">(고객에게 표시되지 않습니다)</span><textarea rows={3} maxLength={2000} className="mt-2 w-full rounded-xl border border-stone-300 p-3" value={note} onChange={e=>setNote(e.target.value)} placeholder="차량·요금 확인, 연락 내용 등을 기록하세요. 예약 확정 시 필수입니다."/></label><div className="mt-3 flex flex-wrap items-center gap-3"><label className="text-sm">처리 상태 <select className="ml-2 min-h-11 rounded-xl border border-stone-300 p-2" value={status} onChange={e=>setStatus(e.target.value as ServiceStatus)}>{[row.status,...serviceTransitions[row.status]].map(s=><option key={s} value={s}>{labels[s]}</option>)}</select></label><button type="button" disabled={busy||(status===row.status&&note===row.internalNote)} onClick={()=>void save()} className={button}>{busy?'저장 중…':'변경 저장'}</button></div></fieldset>{error&&<p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
+  </article>;
+}
+export default function GuestServices(){
+  const [linkLanguage,setLinkLanguage]=useState<GuestLanguage>('en'); const [linkSlug,setLinkSlug]=useState<string>('byulha'); const {user,profile}=useAuth();const [rows,setRows]=useState<Row[]>([]),[total,setTotal]=useState(0),[page,setPage]=useState(1),[status,setStatus]=useState('requested'),[loading,setLoading]=useState(true),[error,setError]=useState(''),[copied,setCopied]=useState(false);
+  const load=useCallback(async()=>{setLoading(true);setError('');try{const res=await fetch(`/api/guest-services?page=${page}&status=${status}`,{cache:'no-store'});const data=await res.json();if(!res.ok)throw Error(data.error||'요청 목록을 불러오지 못했습니다.');setRows(data.rows);setTotal(data.total);}catch(e){setError((e as Error).message);}finally{setLoading(false);}},[page,status]);
+  useEffect(()=>{if(user&&profile?.role!=='cleaner')void load();},[user,profile?.role,load]);
+  return <div className="mx-auto max-w-5xl space-y-6"><header><p className="text-xs tracking-widest text-stone-500">GUEST SERVICES</p><h1 className="mt-2 text-3xl">게스트 픽업 요청</h1><p className="mt-3 text-sm leading-6 text-stone-600">접수 → 확인·연락 → 예약 확정 순서로 처리합니다. 차량과 최종 요금 확인 및 고객 연락은 담당자가 별도로 진행해 주세요.</p><div className="mt-5 flex flex-wrap gap-3"><label className="text-sm">공유할 숙소 <select value={linkSlug} onChange={e=>{setLinkSlug(e.target.value);setCopied(false);}} className={button}>{guestGuideSlugs.map(slug=><option key={slug} value={slug}>{guestGuide(slug)?.name}</option>)}</select></label><label className="text-sm">언어 <select value={linkLanguage} onChange={e=>{setLinkLanguage(e.target.value as GuestLanguage);setCopied(false);}} className={button}>{guestLanguages.map(l=><option key={l} value={l}>{guestLanguageNames[l]}</option>)}</select></label><Link href={`/guest/${linkSlug}?lang=${linkLanguage}`} target="_blank" rel="noreferrer" className={button}>안내 페이지 열기</Link><button className={button} onClick={async()=>{try{await navigator.clipboard.writeText(`${location.origin}/guest/${linkSlug}?lang=${linkLanguage}`);setCopied(true);}catch{setError('링크를 복사하지 못했습니다. 안내 페이지를 열어 주소를 복사해 주세요.');}}}>{copied?'링크 복사됨':'게스트용 링크 복사'}</button></div></header>
+    <div className="flex flex-wrap gap-2" aria-label="요청 상태 필터">{['',...serviceStatuses].map(s=><button key={s} className={`${button} ${status===s?'!bg-stone-900 text-white':''}`} aria-pressed={status===s} onClick={()=>{setPage(1);setStatus(s);}}>{s?labels[s as ServiceStatus]:'전체'}</button>)}<button className={button} disabled={loading} onClick={()=>void load()}>새로고침</button></div>
+    {error?<div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-red-800">{error}<button className="ml-3 underline" onClick={()=>void load()}>다시 시도</button></div>:loading?<p role="status" className="py-10">요청을 불러오는 중…</p>:rows.length?<><p className="text-sm text-stone-500">총 {total}건 · {page}페이지</p>{rows.map(row=><RequestCard key={`${row.id}:${row.version}`} row={row} onSaved={()=>void load()}/>)}<div className="flex justify-between"><button className={button} disabled={page===1} onClick={()=>setPage(p=>p-1)}>이전</button><button className={button} disabled={page*30>=total} onClick={()=>setPage(p=>p+1)}>다음</button></div></>:<div className="rounded-2xl border border-dashed border-stone-300 p-10 text-center"><p className="text-stone-500">해당 상태의 요청이 없습니다.</p>{page>1&&<button className={`${button} mt-3`} onClick={()=>setPage(1)}>첫 페이지로</button>}</div>}
+  </div>;
+}
+
+

@@ -22,6 +22,7 @@ import {
   CalendarCheck,
   Hand,
   KeyRound,
+  Plane,
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { Logo } from '@/components/Logo';
@@ -45,6 +46,7 @@ const COMMON_TOP: NavItem[] = [
 ];
 
 const HOST_LINKS: NavItem[] = [
+  { href: '/admin/guest-services', label: '게스트 픽업 요청', icon: Plane, roles: ['admin', 'manager'] },
   { href: '/admin/laundry', label: '세탁 관리', icon: Briefcase, roles: ['admin', 'manager'] },
   { href: '/admin/properties', label: '숙소 관리', icon: HomeIcon, roles: ['admin', 'manager'] },
   { href: '/admin/calendar', label: '예약 달력', mobileLabel: '예약', icon: Calendar, roles: ['admin', 'manager'] },

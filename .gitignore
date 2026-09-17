@@ -12,3 +12,5 @@ coverage/
 
 .next-manager/
 .next-manager-ux/
+.next-guest-preview/
+.next-guest-build/

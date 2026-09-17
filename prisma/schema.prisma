@@ -114,6 +114,7 @@ model Property {
   laundryBatches       LaundryBatch[]
   inquiryNotificationSettings InquiryNotificationSettings?
   inquiryAutomationSettings InquiryAutomationSettings?
+  guestServiceRequests GuestServiceRequest[]
 
   @@map("properties")
 }
@@ -831,4 +832,32 @@ model Beds24TokenCache {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("beds24_token_cache")
+}
+
+// Pre-arrival concierge requests. A request is not a confirmed booking/payment.
+model GuestServiceRequest {
+  id String @id
+  propertyId String @map("property_id")
+  kind String @default("airport_pickup")
+  guestName String @map("guest_name")
+  email String
+  phone String
+  arrivalDate String @map("arrival_date")
+  arrivalTime String @map("arrival_time")
+  flightNumber String @map("flight_number")
+  passengers Int
+  luggage Int
+  message String @default("")
+  language String @default("en")
+  status String @default("requested")
+  quotedPrice Int @map("quoted_price")
+  requestHash String @map("request_hash")
+  consentAt DateTime @default(now()) @map("consent_at")
+  internalNote String @default("") @map("internal_note")
+  version Int @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  property Property @relation(fields:[propertyId], references:[id], onDelete:Restrict)
+  @@index([propertyId, status, createdAt])
+  @@map("guest_service_requests")
 }
