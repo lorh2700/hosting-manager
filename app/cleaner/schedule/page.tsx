@@ -25,8 +25,8 @@ export default function CleanerSchedulePage(){
  const today=todayKst(),cutoff=addDaysToDateStr(today,28);
  async function read(url:string){const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw Error('일정을 불러오지 못했습니다. 다시 시도해주세요.');return res.json();}
  async function load(){if(!user)return;setRefreshing(true);try{
-   const [props,applications,me]=await Promise.all([read('/api/properties'),read('/api/cleaning-applications'),read('/api/cleaners/me')]);
-   const rows=props.length?await read(`/api/cleanings?propertyIds=${props.map((p:{id:string})=>p.id).join(',')}`):[];
+   const [props,applications,me]=await Promise.all([read('/api/properties?work=cleaner'),read('/api/cleaning-applications?mine=true'),read('/api/cleaners/me')]);
+   const rows=props.length?await read(`/api/cleanings?work=cleaner&propertyIds=${props.map((p:{id:string})=>p.id).join(',')}`):[];
    const names:Record<string,string>=Object.fromEntries(props.map((p:{id:string;name:string})=>[p.id,p.name]));
    setAssigned(rows.filter((c:Cleaning)=>me.cleaner?.id&&c.cleanerId===me.cleaner.id).map((c:Cleaning)=>({...c,propertyName:names[c.propertyId]||'숙소'})));
    setProperties(props);setApps(applications.filter((a:Application)=>a.applicantId===user.id));
@@ -36,7 +36,7 @@ export default function CleanerSchedulePage(){
  useEffect(()=>{if(user&&profile)void load();},[user,profile]);
  useRefetchOnReturn(load,{enabled:!selected&&!applying});
  async function apply(){if(!selected||applying)return;setApplying(true);try{
-   const res=await fetch('/api/cleaning-applications',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cleaningId:selected.id,applicantName:profile?.displayName})});
+   const res=await fetch('/api/cleaning-applications?mine=true',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cleaningId:selected.id,applicantName:profile?.displayName})});
    const data=await res.json();if(!res.ok)throw Error(data.error||'신청하지 못했습니다.');
    setCleanings(rows=>rows.filter(c=>c.id!==selected.id));setSelected(null);toast.success('배정이 완료되었습니다. 내 신청 내역에서 확인하세요.');await load();
  }catch(e){toast.error((e as Error).message);await load();}finally{setApplying(false);}}

@@ -1,6 +1,6 @@
 export type Scope = 'all' | 'selected' | 'none';
 export type Role = 'admin' | 'manager' | 'cleaner';
-export interface Staff { key: string; userId: string; cleanerId: string | null; name: string; email: string; phone: string; role: Role; status: string; propertyIds: string[]; scope: Scope; ownerId: string | null; notifyNewOpen: boolean; publicToken: string | null; loginIdentifier: string }
+export interface Staff { key: string; userId: string; cleanerId: string | null; name: string; email: string; phone: string; role: Role; roles: Role[]; managementPropertyIds: string[]; status: string; propertyIds: string[]; scope: Scope; ownerId: string | null; notifyNewOpen: boolean; publicToken: string | null; loginIdentifier: string }
 export interface Property { id: string; name: string; ownerId: string }
 export const field = 'mt-2 w-full border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/30';
 export const button = 'min-h-11 border border-stone-300 px-4 py-2 text-sm disabled:opacity-40';

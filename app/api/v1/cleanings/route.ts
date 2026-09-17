@@ -1,3 +1,4 @@
+import { staffDirectory, eligibleStaff } from '@/lib/staff-directory';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireApiClient, propertyScopeFilter, type ApiClient } from '@/lib/api-auth';
@@ -46,7 +47,7 @@ export async function GET(req: Request) {
         ? { date: { gte: q.from, lte: q.to } }
         : {}),
     },
-    include: { cleaner: { select: { name: true, phone: true } } },
+    include: { cleaner: { select: { displayName: true, phone: true } } },
     orderBy: { date: 'asc' },
     take: q.limit,
   });
@@ -90,11 +91,11 @@ export async function POST(req: Request) {
 
   // cleanerId 검증 (내부 풀 사용 시)
   if (data.cleanerId) {
-    const exists = await prisma.cleaner.findUnique({
+    const exists = await staffDirectory.findUnique({
       where: { id: data.cleanerId },
       select: { id: true },
     });
-    if (!exists) {
+    if (!exists || !(await eligibleStaff(data.propertyId)).some(user => user.id === data.cleanerId)) {
       return NextResponse.json(
         { error: 'BadRequest', code: 'cleaner_not_found' },
         { status: 400 },
@@ -107,7 +108,7 @@ export async function POST(req: Request) {
   // 멱등성: 동일 (externalSource, externalId) 면 update
   const existing = await prisma.cleaning.findFirst({
     where: { externalSource, externalId: data.externalId },
-    include: { cleaner: { select: { name: true, phone: true } } },
+    include: { cleaner: { select: { displayName: true, phone: true } } },
   });
   if (existing) {
     const updated = await prisma.cleaning.update({
@@ -122,7 +123,7 @@ export async function POST(req: Request) {
         supplies: data.supplies ?? null,
         notes: data.notes ?? null,
       },
-      include: { cleaner: { select: { name: true, phone: true } } },
+      include: { cleaner: { select: { displayName: true, phone: true } } },
     });
     return NextResponse.json(serializeCleaning(updated), { status: 200 });
   }
@@ -130,7 +131,7 @@ export async function POST(req: Request) {
   // First-write-wins 충돌 검사 — 같은 (propertyId, date) 슬롯이 이미 점유?
   const slotConflict = await prisma.cleaning.findFirst({
     where: { propertyId: data.propertyId, date: data.date },
-    include: { cleaner: { select: { name: true, phone: true } } },
+    include: { cleaner: { select: { displayName: true, phone: true } } },
   });
   if (slotConflict) {
     return NextResponse.json(
@@ -159,7 +160,7 @@ export async function POST(req: Request) {
       // 파트너가 push 한 청소 — 예약 취소 정리(origin='auto') 대상이 아니다.
       origin: 'external',
     },
-    include: { cleaner: { select: { name: true, phone: true } } },
+    include: { cleaner: { select: { displayName: true, phone: true } } },
   });
 
   return NextResponse.json(serializeCleaning(created), { status: 201 });

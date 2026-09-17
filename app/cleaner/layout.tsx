@@ -80,7 +80,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
     <div className="flex min-h-dvh bg-stone-50 font-sans text-stone-900 selection:bg-[var(--brand)]/20">
       {showAdminNavigation && <div className="hidden md:block shrink-0"><Sidebar /></div>}
       <div className="flex-1 min-w-0">
-      {showAdminNavigation && <div className="flex items-center justify-between gap-3 border-b bg-white px-4 py-2"><span className="text-xs text-stone-500">청소 담당자 업무 미리보기</span><Link href="/admin" className="inline-flex min-h-11 items-center rounded-xl border border-stone-300 px-4 text-sm font-medium">관리자 화면으로</Link></div>}
+      {showAdminNavigation && <div className="flex items-center justify-between gap-3 border-b bg-white px-4 py-2"><span className="text-xs text-stone-500">내 청소 업무 · 관리 권한 유지</span><Link href="/admin" className="inline-flex min-h-11 items-center rounded-xl border border-stone-300 px-4 text-sm font-medium">관리자 화면으로</Link></div>}
       <header className="bg-white border-b border-stone-200 px-5 py-4 flex items-center justify-between">
         <Link href="/cleaner" className="inline-flex items-center hover:opacity-80 transition-opacity" aria-label="void anchae 청소 홈">
           <Logo width={120} variant="black" priority />

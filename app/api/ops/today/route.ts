@@ -1,3 +1,4 @@
+import { listAssignees } from '@/lib/staff-directory';
 import { readStayOptions } from '@/lib/payments/stay-options';
 import { prisma } from '@/lib/prisma';
 import { withAuth, ok, visibleScope } from '@/lib/core/http';
@@ -94,7 +95,7 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
     }),
     prisma.cleaning.findMany({
       where: { propertyId: { in: propIds }, date: today },
-      include: { cleaner: { select: { id: true, name: true } } },
+      include: { cleaner: { select: { id: true, displayName: true } } },
       orderBy: { createdAt: 'desc' },
     }),
     checkoutStatusByProperty(propIds, today),
@@ -103,9 +104,7 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
       orderBy: { capturedAt: 'desc' },
       select: { id: true, propertyId: true, capturedAt: true, storagePath: true, leaving: true, verdict: true },
     }),
-    auth.role === 'admin'
-      ? prisma.cleaner.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } })
-      : prisma.cleaner.findMany({ where: { ownerId: auth.session.userId }, select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+    listAssignees(auth),
     prisma.cleaningApplication.count({ where: { status: 'pending', propertyId: { in: propIds } } }),
     prisma.cleaningIssue.count({ where: { status: { in: ['open', 'in_progress'] }, propertyId: { in: propIds } } }),
     prisma.supplyTodo.count({ where: { done: false, propertyId: { in: propIds } } }),
@@ -190,7 +189,7 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
       name: p.name,
       readyMessage: getRoomReadyMessage(properties as unknown as CalendarProperty[], p.id),
       hasWork: !!cl || checkouts.length > 0 || checkins.length > 0,
-      cleaning: cl ? { id: cl.id, status: cl.status, cleanerId: cl.cleanerId, cleanerName: cl.cleaner?.name ?? null, supplies: cl.supplies, notes: cl.notes } : null,
+      cleaning: cl ? { id: cl.id, status: cl.status, cleanerId: cl.cleanerId, cleanerName: cl.cleaner?.displayName ?? null, supplies: cl.supplies, notes: cl.notes } : null,
       checkoutStatus: checkoutStatus[p.id] ?? null,
       checkouts,
       checkins,

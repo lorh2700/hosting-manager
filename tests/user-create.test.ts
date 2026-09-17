@@ -45,9 +45,10 @@ test('관리자는 별도 숙소 배정 없이 등록한다', async () => {
 test('관리자 외에는 직접 등록할 수 없다', async () => {
   for (const actor of [() => actAsManager(['p1']), () => actAsCleaner(['p1']), actAsAnonymous]) {
     actor();
+    const count = (db.user ?? []).length;
     assert.equal((await callRoute(CREATE, makeRequest(body))).status, actor === actAsAnonymous ? 401 : 403);
+    assert.equal((db.user ?? []).length, count);
   }
-  assert.equal((db.user ?? []).length, 0);
 });
 
 test('중복 이메일은 대소문자를 구분하지 않고 거부하며 기존 계정을 변경하지 않는다', async () => {

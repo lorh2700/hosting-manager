@@ -1,11 +1,11 @@
 import { prisma } from '@/lib/prisma';
 import { normalizeRole } from '@/lib/access';
-import { STAFF_ROLES } from '@/lib/constants';
+import { randomBytes } from 'crypto';
 import { withAuth, ok, created, fail, MESSAGES, readJson, str } from '@/lib/core/http';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { phoneSchema } from '@/lib/inquiry-notification-settings';
-import { normalizePhone, isSyntheticEmail, phoneToSyntheticEmail } from '@/lib/phone';
+import { isSyntheticEmail, phoneToSyntheticEmail } from '@/lib/phone';
 
 const STATUSES = ['active', 'suspended', 'pending_invite'] as const;
 
@@ -35,7 +35,7 @@ export const POST = withAuth('users/create', async req => {
   const hashed = await bcrypt.hash(password, 12);
   try {
     const user = await prisma.$transaction(async tx => {
-      const saved = await tx.user.create({ data: { email, password: hashed, displayName, phone, role, status: 'active' } });
+      const saved = await tx.user.create({ data: { email, password: hashed, displayName, phone, role, status: 'active', publicToken: randomBytes(24).toString('base64url') } });
       if (propertyIds.length) await tx.userProperty.createMany({ data: propertyIds.map(propertyId => ({ userId: saved.id, propertyId })) });
       // Superseded links should no longer appear as pending or be used to register again.
       await tx.invitation.updateMany({ where: { email: emailWhere, status: 'pending' }, data: { status: 'expired', expiresAt: new Date() } });
@@ -89,12 +89,13 @@ export const PUT = withAuth('users', async (req, { auth }) => {
   const body = await readJson(req);
   const targetId = str(body, 'id') || auth.session.userId;
   const isSelf = targetId === auth.session.userId;
-  if (!isSelf && auth.role !== 'admin') throw fail(403, MESSAGES.forbidden);
+
 
   const target = isSelf ? auth.user : await prisma.user.findUnique({ where: { id: targetId } });
-  if (!target) throw fail(404, MESSAGES.notFound);
+  if (!target) throw fail(auth.role === 'admin' ? 404 : 403, MESSAGES.notFound);
   const targetRole = normalizeRole(target.role);
-  if (!isSelf && targetRole === 'cleaner') throw fail(400, '청소담당자 계정은 청소 담당자 관리에서 변경합니다.');
+  const canEditOwned = auth.role === 'manager' && targetRole === 'cleaner' && target.ownerId === auth.session.userId;
+  if (!isSelf && auth.role !== 'admin' && !canEditOwned) throw fail(403, MESSAGES.forbidden);
 
   const data: Record<string, unknown> = {};
   const displayName = str(body, 'displayName', { max: 100 });
@@ -116,7 +117,7 @@ export const PUT = withAuth('users', async (req, { auth }) => {
     }
     const role = str(body, 'role');
     if (role !== undefined) {
-      if (!(STAFF_ROLES as readonly string[]).includes(role)) throw fail(400, '유효하지 않은 역할입니다.');
+      if (!['admin', 'manager', 'cleaner'].includes(role)) throw fail(400, '유효하지 않은 역할입니다.');
       data.role = role;
     }
     const status = str(body, 'status');
@@ -126,33 +127,30 @@ export const PUT = withAuth('users', async (req, { auth }) => {
     }
   }
 
+  if (canEditOwned && typeof body.status === 'string' && ['active', 'suspended'].includes(body.status)) {
+    if (target.status === 'no_account' && body.status === 'active') throw fail(400, '먼저 로그인 비밀번호를 발급해 주세요.');
+    data.status = body.status;
+  }
+
   const effectiveRole = (data.role as string | undefined) ?? targetRole;
-  const propertyIds = auth.role === 'admin' && effectiveRole === 'manager' && Array.isArray(body.propertyIds)
+  const propertyIds = !isSelf && (auth.role === 'admin' || canEditOwned) && effectiveRole !== 'admin' && Array.isArray(body.propertyIds)
     ? (body.propertyIds as unknown[]).filter((p): p is string => typeof p === 'string' && p.length > 0)
     : null;
 
-  if (Object.keys(data).length === 0 && propertyIds === null) throw fail(400, '변경할 수 있는 필드가 없습니다.');
 
-  const linkedCleaner = await prisma.cleaner.findUnique({ where: { userId: targetId }, select: { id: true } });
-  const cleanerData: { name?: string; phone?: string | null } = {};
-  if (linkedCleaner) {
-    if (typeof data.displayName === 'string') {
-      if (!data.displayName) throw fail(400, '이름을 입력해 주세요.');
-      cleanerData.name = data.displayName;
-    }
-    if (data.phone !== undefined) {
-      const phone = data.phone ? normalizePhone(String(data.phone)) : null;
-      if ((data.phone && !phone) || (!phone && isSyntheticEmail(target.email))) throw fail(400, '전화번호를 확인해 주세요.');
-      const duplicate = phone ? await prisma.cleaner.findUnique({ where: { phone }, select: { id: true } }) : null;
-      if (duplicate && duplicate.id !== linkedCleaner.id) throw fail(409, '같은 연락처의 청소 담당자가 있습니다.');
-      cleanerData.phone = phone; data.phone = phone;
-      if (phone && isSyntheticEmail(target.email)) data.email = phoneToSyntheticEmail(phone);
-    }
+
+  if (data.phone !== undefined && data.email === undefined && isSyntheticEmail(target.email)) {
+    if (!data.phone) throw fail(400, '전화번호 로그인 계정의 연락처는 비워둘 수 없습니다.');
+    data.email = phoneToSyntheticEmail(String(data.phone));
   }
+  if (propertyIds && auth.role !== 'admin' && propertyIds.some(id => !auth.propertyIds?.includes(id))) throw fail(403, '관리할 수 있는 숙소만 배정할 수 있습니다.');
+  if (typeof body.notifyNewOpen === 'boolean') data.notifyNewOpen = body.notifyNewOpen;
+  if (body.notifyNewOpen === true && !target.publicToken) data.publicToken = randomBytes(24).toString('base64url');
+  if (body.regenerateToken === true) data.publicToken = randomBytes(24).toString('base64url');
+  if (!Object.keys(data).length && propertyIds === null) throw fail(400, '변경할 수 있는 필드가 없습니다.');
   if (propertyIds?.length && await prisma.property.count({ where: { id: { in: [...new Set(propertyIds)] } } }) !== new Set(propertyIds).size) throw fail(400, '존재하지 않는 숙소가 포함되어 있습니다.');
   const updated = await prisma.$transaction(async tx => {
     const saved = Object.keys(data).length ? await tx.user.update({ where: { id: targetId }, data }) : target;
-    if (linkedCleaner && Object.keys(cleanerData).length) await tx.cleaner.update({ where: { id: linkedCleaner.id }, data: cleanerData });
     if (propertyIds !== null) {
       await tx.userProperty.deleteMany({ where: { userId: targetId } });
       if (propertyIds.length) await tx.userProperty.createMany({ data: [...new Set(propertyIds)].map(propertyId => ({ userId: targetId, propertyId })) });

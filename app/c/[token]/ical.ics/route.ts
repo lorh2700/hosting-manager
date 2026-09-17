@@ -1,3 +1,4 @@
+import { staffDirectory } from '@/lib/staff-directory';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -41,7 +42,7 @@ interface RouteParams {
 export async function GET(_req: Request, { params }: RouteParams) {
   const { token } = await params;
 
-  const cleaner = await prisma.cleaner.findUnique({ where: { publicToken: token } });
+  const cleaner = await staffDirectory.findUnique({ where: { publicToken: token } });
   if (!cleaner) {
     return new Response('Not Found', { status: 404 });
   }

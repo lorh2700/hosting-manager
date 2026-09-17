@@ -19,6 +19,7 @@ export interface SessionUser {
 }
 
 export interface SessionProfile {
+  cleanerId?: string;
   role: UserRole;
   propertyIds: string[];
   displayName: string;
@@ -79,9 +80,11 @@ export async function getSession(): Promise<{ user: SessionUser; profile: Sessio
 
   if (!dbUser) return null;
 
+
   return {
     user: { id: dbUser.id, email: dbUser.email },
     profile: {
+      cleanerId: dbUser.id,
       role: normalizeRole(dbUser.role),
       propertyIds: dbUser.properties.map((p) => p.propertyId),
       displayName: dbUser.displayName || dbUser.email,

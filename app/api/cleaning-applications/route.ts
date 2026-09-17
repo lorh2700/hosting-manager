@@ -1,4 +1,6 @@
+import { staffDirectory } from '@/lib/staff-directory';
 import { prisma } from '@/lib/prisma';
+import { getCleaningPropertyIds } from '@/lib/access';
 import { notifyHostOfCleaningApplication } from '@/lib/notify';
 import {
   withAuth, ok, created, fail, MESSAGES,
@@ -11,7 +13,7 @@ export const GET = withAuth('cleaning-applications', async (req, { auth }) => {
   const requested = idList(req, 'propertyIds');
   const where: Record<string, unknown> = {};
 
-  if (auth.role === 'cleaner') {
+  if (auth.role === 'cleaner' || query(req, 'mine') === 'true') {
     // 청소담당자는 배정 지점과 무관하게 자기 신청만 본다.
     where.applicantId = auth.session.userId;
     if (requested) where.propertyId = { in: requested };
@@ -52,9 +54,9 @@ export const POST = withAuth('cleaning-applications', async (req, { auth }) => {
   if (!cleaning) throw fail(404, MESSAGES.notFound);
 
   // 보이는 지점에만 신청할 수 있다 (청소담당자: 배정 지점, 매니저: 배정 숙소, 관리자: 전체).
-  await requireVisible(auth, cleaning.propertyId);
+  if (!(await getCleaningPropertyIds(auth)).includes(cleaning.propertyId)) throw fail(403, '청소 담당 숙소에만 신청할 수 있습니다.');
 
-  if (auth.role === 'cleaner') {
+  {
     if (cleaning.cleanerId) throw fail(400, '이미 다른 담당자에게 배정된 청소입니다.');
     // 동일 (propertyId, date) 슬롯에 배정된 sibling 행이 있으면 이 미배정 행은 유령 잔재 — 신청 차단해 이중 배정 방지.
     const siblingClaimed = await prisma.cleaning.findFirst({
@@ -64,12 +66,12 @@ export const POST = withAuth('cleaning-applications', async (req, { auth }) => {
     if (siblingClaimed) throw fail(400, '이 날짜의 청소는 이미 다른 담당자에게 배정되었습니다.');
   }
 
-  // Resolve User.id → Cleaner.id (required for FK on cleanings.cleaner_id)
-  const cleaner = await prisma.cleaner.findUnique({
+  // The assignee ID is the existing User.id.
+  const cleaner = await staffDirectory.findUnique({
     where: { userId: auth.session.userId },
     select: { id: true, name: true },
   });
-  if (!cleaner) throw fail(422, '청소 담당자 프로필이 없습니다. 관리자에게 등록을 요청하세요.');
+  if (!cleaner) throw fail(422, '직원 계정을 찾을 수 없습니다.');
 
   // Prevent duplicate active applications from the same cleaner.
   const existing = await prisma.cleaningApplication.findFirst({

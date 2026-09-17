@@ -44,7 +44,7 @@ export default function CleanerCalendarPage() {
     if (!user || !profile) return;
     (async () => {
       try {
-        const propsRes = await fetch('/api/properties');
+        const propsRes = await fetch('/api/properties?work=cleaner');
         const propsData = await propsRes.json();
         const propNames: Record<string, string> = {};
         const propertyIds: string[] = [];
@@ -56,7 +56,7 @@ export default function CleanerCalendarPage() {
 
         const [meRes, cleaningsRes, cleanersRes] = await Promise.all([
           fetch('/api/cleaners/me'),
-          fetch(`/api/cleanings?propertyIds=${propertyIds.join(',')}`),
+          fetch(`/api/cleanings?work=cleaner&propertyIds=${propertyIds.join(',')}`),
           fetch('/api/cleaners'),
         ]);
         const meData = meRes.ok ? await meRes.json() : { cleaner: null };

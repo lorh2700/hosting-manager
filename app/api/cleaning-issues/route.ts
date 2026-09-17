@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { getCleaningPropertyIds } from '@/lib/access';
 import {
   withAuth, ok, created, fail, MESSAGES,
   requireManage, requireVisible, visibleScope, readJson, str, idList, query,
@@ -7,7 +8,7 @@ import {
 export const GET = withAuth('cleaning-issues', async (req, { auth }) => {
   const where: Record<string, unknown> = {};
   // 청소매니저는 자기 호스트의 숙소 이슈를, 호스트는 담당 숙소 이슈를 본다.
-  const visible = await visibleScope(auth, idList(req, 'propertyIds'));
+  const visible = query(req, 'work') === 'cleaner' ? await getCleaningPropertyIds(auth, idList(req, 'propertyIds')) : await visibleScope(auth, idList(req, 'propertyIds'));
   if (visible !== null) {
     if (visible.length === 0) return ok([]);
     where.propertyId = { in: visible };
@@ -23,7 +24,7 @@ export const POST = withAuth('cleaning-issues', async (req, { auth }) => {
   const category = str(body, 'category', { required: true, max: 50 })!;
   const description = str(body, 'description', { required: true, max: 4000 })!;
   // 이슈 신고는 청소매니저도 자기 호스트의 숙소에 할 수 있다.
-  await requireVisible(auth, propertyId);
+  if (!(await getCleaningPropertyIds(auth)).includes(propertyId)) await requireVisible(auth, propertyId);
 
   const urgency = str(body, 'urgency');
   const issue = await prisma.cleaningIssue.create({

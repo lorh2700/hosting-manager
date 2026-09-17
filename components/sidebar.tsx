@@ -41,6 +41,7 @@ const MOBILE_PRIMARY = ['/admin', '/admin/calendar', '/admin/messages'];
 
 const COMMON_TOP: NavItem[] = [
   { href: '/admin', label: '오늘', mobileLabel: '오늘', icon: Home, roles: ['admin', 'manager'] },
+  { href: '/cleaner', label: '내 청소 업무', icon: ClipboardList, roles: ['admin', 'manager'] },
 ];
 
 const HOST_LINKS: NavItem[] = [

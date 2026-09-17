@@ -1,3 +1,4 @@
+import { staffDirectory } from '@/lib/staff-directory';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
@@ -38,7 +39,7 @@ export default async function CleanerPublicCalendar({ params, searchParams }: Pa
   const { token } = await params;
   const { m } = await searchParams;
 
-  const cleaner = await prisma.cleaner.findUnique({
+  const cleaner = await staffDirectory.findUnique({
     where: { publicToken: token },
   });
   if (!cleaner) notFound();

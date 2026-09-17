@@ -194,7 +194,7 @@ type CleaningRow = {
   hasIssue: boolean; createdAt: Date;
   externalSource: string | null; externalId: string | null;
   externalCleanerName: string | null; externalCleanerPhone: string | null;
-  cleaner?: { name: string; phone: string | null } | null;
+  cleaner?: { displayName: string | null; phone: string | null } | null;
 };
 
 export function serializeCleaning(c: CleaningRow): CleaningResponse {
@@ -202,7 +202,7 @@ export function serializeCleaning(c: CleaningRow): CleaningResponse {
   let cleanerPhone: string | null = null;
   let cleanerSource: 'internal' | 'external' | null = null;
   if (c.cleaner) {
-    cleanerName = c.cleaner.name;
+    cleanerName = c.cleaner.displayName;
     cleanerPhone = c.cleaner.phone;
     cleanerSource = 'internal';
   } else if (c.externalCleanerName) {

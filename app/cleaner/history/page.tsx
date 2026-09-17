@@ -33,7 +33,7 @@ export default function CleanerHistoryPage() {
     if (!user || !profile) return;
     try {
       // Fetch properties
-      const propsRes = await fetch('/api/properties');
+      const propsRes = await fetch('/api/properties?work=cleaner');
       const propsData = await propsRes.json();
       const propNames: Record<string, string> = {};
       const propertyIds: string[] = [];
@@ -49,13 +49,11 @@ export default function CleanerHistoryPage() {
       const myCleanerId: string | null = meData?.cleaner?.id ?? null;
 
       // Fetch cleanings
-      const cleaningsRes = await fetch(`/api/cleanings?propertyIds=${propertyIds.join(',')}`);
+      const cleaningsRes = await fetch(`/api/cleanings?work=cleaner&propertyIds=${propertyIds.join(',')}`);
       const cleaningsData = await cleaningsRes.json();
 
       // Filter by cleanerId if not super_admin
-      const filteredCleanings = profile.role === 'admin'
-        ? cleaningsData
-        : myCleanerId
+      const filteredCleanings = myCleanerId
           ? cleaningsData.filter((c: { cleanerId?: string }) => c.cleanerId === myCleanerId)
           : [];
 

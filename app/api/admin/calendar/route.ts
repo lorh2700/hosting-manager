@@ -1,3 +1,4 @@
+import { listAssignees } from '@/lib/staff-directory';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { withAuth, query } from '@/lib/core/http';
@@ -58,9 +59,7 @@ export const GET = withAuth('admin/calendar', async (req, { auth }) => {
       select: { id: true, propertyId: true, date: true, cleanerId: true, status: true, supplies: true },
       orderBy: { date: 'desc' },
     }),
-    auth.isAdmin
-      ? prisma.cleaner.findMany({ select: { id: true, name: true, phone: true } })
-      : prisma.cleaner.findMany({ where: { ownerId: auth.session.userId }, select: { id: true, name: true, phone: true } }),
+    listAssignees(auth),
   ]);
   timings.queries = Date.now() - tQueries;
 

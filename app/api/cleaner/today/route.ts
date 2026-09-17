@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { withAuth, ok, visibleScope } from '@/lib/core/http';
-import { resolveCleaner } from '@/lib/access';
+import { resolveCleaner, getCleaningPropertyIds } from '@/lib/access';
 import { todayKst, addDaysToDateStr } from '@/lib/dates';
 import { readStayOptions } from '@/lib/payments/stay-options';
 import { checkoutStatusByProperty } from '@/lib/checkout';
@@ -34,7 +34,8 @@ export const GET = withAuth('cleaner/today', async (_req, { auth }) => {
   const from = addDaysToDateStr(today, -PAST_DAYS);
   const to = addDaysToDateStr(today, FUTURE_DAYS);
 
-  const [visible, me] = await Promise.all([visibleScope(auth), resolveCleaner(auth)]);
+  const me = await resolveCleaner(auth);
+  const visible = me ? await getCleaningPropertyIds(auth) : await visibleScope(auth);
   const properties = await prisma.property.findMany({
     where: visible === null ? {} : { id: { in: visible } },
     select: { id: true, name: true },
@@ -51,7 +52,7 @@ export const GET = withAuth('cleaner/today', async (_req, { auth }) => {
   const [cleanings, events, bookings, checkoutToday] = await Promise.all([
     prisma.cleaning.findMany({
       where: { propertyId: { in: propIds }, date: { gte: from, lte: to } },
-      include: { cleaner: { select: { id: true, name: true } } },
+      include: { cleaner: { select: { id: true, displayName: true } } },
       orderBy: { date: 'asc' },
     }),
     prisma.event.findMany({
@@ -107,13 +108,13 @@ export const GET = withAuth('cleaner/today', async (_req, { auth }) => {
     .filter(c => c.date === today)
     .map((c): TodayCleaningEntry => ({
       id: c.id, propertyId: c.propertyId, propertyName: propName[c.propertyId] ?? '',
-      date: c.date, cleanerId: c.cleanerId, cleanerName: c.cleaner?.name ?? null,
+      date: c.date, cleanerId: c.cleanerId, cleanerName: c.cleaner?.displayName ?? null,
       status: c.status === 'done' ? 'done' : 'pending',
       isMine: !!me && c.cleanerId === me.id,
     }))
     .sort((a, b) => a.propertyName.localeCompare(b.propertyName));
 
-  const mine = auth.role !== 'cleaner' ? cleanings : me ? cleanings.filter(c => c.cleanerId === me.id) : [];
+  const mine = me ? cleanings.filter(c => c.cleanerId === me.id) : auth.role !== 'cleaner' ? cleanings : [];
   const tasks: TodayTask[] = mine.map(c => ({
     cleaningId: c.id, propertyId: c.propertyId, propertyName: propName[c.propertyId] ?? '',
     date: c.date, guestName: guestByKey[`${c.propertyId}_${c.date}`] ?? '',

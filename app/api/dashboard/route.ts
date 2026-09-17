@@ -1,3 +1,4 @@
+import { listAssignees } from '@/lib/staff-directory';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { addDays, endOfMonth, format, startOfMonth } from 'date-fns';
@@ -57,9 +58,7 @@ export const GET = withAuth('dashboard', async (_req, { auth }) => {
       where: { propertyId: { in: propIds }, date: { gte: rangeStart, lte: rangeEnd } },
       select: { propertyId: true, date: true, cleanerId: true, status: true, isOpen: true },
     }),
-    auth.isAdmin
-      ? prisma.cleaner.findMany({ select: { id: true, name: true } })
-      : prisma.cleaner.findMany({ where: { ownerId: auth.session.userId }, select: { id: true, name: true } }),
+    listAssignees(auth),
     prisma.message.count({ where: { sender: 'guest', read: false, propertyId: { in: propIds } } }),
     prisma.supplyTodo.count({ where: { done: false, propertyId: { in: propIds } } }),
     prisma.cleaningIssue.count({ where: { status: { in: ['open', 'in_progress'] }, propertyId: { in: propIds } } }),

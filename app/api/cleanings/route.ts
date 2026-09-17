@@ -1,4 +1,6 @@
+import { staffDirectory, requireAssignee } from '@/lib/staff-directory';
 import { prisma } from '@/lib/prisma';
+import { canManageProperty, resolveCleaner, getCleaningPropertyIds } from '@/lib/access';
 import { notifyCleaningAssigned, notifyCleaningCancelled, type CleaningCancelReason } from '@/lib/notify';
 import {
   withAuth, ok, created, fail, MESSAGES, DATE_RE,
@@ -11,14 +13,14 @@ async function notifyAssignmentByCleaningId(cleaningId: string) {
       where: { id: cleaningId },
       include: {
         property: { select: { name: true } },
-        cleaner: { select: { name: true, phone: true, publicToken: true } },
+        cleaner: { select: { displayName: true, phone: true, publicToken: true } },
       },
     });
     if (!cleaning?.cleaner?.phone || !cleaning.cleaner.publicToken) return;
 
     const result = await notifyCleaningAssigned({
       cleanerPhone: cleaning.cleaner.phone,
-      cleanerName: cleaning.cleaner.name,
+      cleanerName: cleaning.cleaner.displayName || '직원',
       cleanerToken: cleaning.cleaner.publicToken,
       items: [{ propertyName: cleaning.property?.name ?? '숙소', date: cleaning.date }],
     });
@@ -31,7 +33,7 @@ async function notifyAssignmentByCleaningId(cleaningId: string) {
 async function notifyCancellationToCleaner(opts: { cleanerId: string; propertyId: string; date: string; reason: CleaningCancelReason }) {
   try {
     const [cleaner, property] = await Promise.all([
-      prisma.cleaner.findUnique({ where: { id: opts.cleanerId }, select: { name: true, phone: true } }),
+      staffDirectory.findUnique({ where: { id: opts.cleanerId }, select: { name: true, phone: true } }),
       prisma.property.findUnique({ where: { id: opts.propertyId }, select: { name: true } }),
     ]);
     if (!cleaner?.phone) return;
@@ -84,7 +86,7 @@ export const GET = withAuth('cleanings', async (req, { auth }) => {
 
   // 읽기 범위 한 규칙 (lib/access): 관리자 전체, 매니저 배정 숙소, 청소담당자 배정 지점.
   // 청소 신청(isOpen=true)도 같은 범위다 — 보이는 지점에만 신청할 수 있다.
-  const ids = await visibleScope(auth, requested);
+  const ids = query(req, 'work') === 'cleaner' ? await getCleaningPropertyIds(auth, requested) : await visibleScope(auth, requested);
   if (ids !== null) {
     if (ids.length === 0) return ok([]);
     where.propertyId = { in: ids };
@@ -96,7 +98,7 @@ export const GET = withAuth('cleanings', async (req, { auth }) => {
 
   let cleanings = await prisma.cleaning.findMany({
     where,
-    include: { cleaner: true, applications: true },
+    include: { cleaner: { select: { id: true, displayName: true, phone: true } }, applications: true },
     orderBy: { date: 'desc' },
   });
 
@@ -112,7 +114,7 @@ export const GET = withAuth('cleanings', async (req, { auth }) => {
     cleanings = cleanings.filter(c => !claimedSet.has(`${c.propertyId}|${c.date}`));
   }
 
-  return ok(cleanings);
+  return ok(cleanings.map(c => ({ ...c, cleaner: c.cleaner ? { id: c.cleaner.id, name: c.cleaner.displayName, phone: c.cleaner.phone } : null })));
 });
 
 export const POST = withAuth('cleanings', async (req, { auth }) => {
@@ -123,6 +125,7 @@ export const POST = withAuth('cleanings', async (req, { auth }) => {
   requireManage(auth, propertyId);
 
   const cleanerId = str(body, 'cleanerId') || null;
+  if (cleanerId) await requireAssignee(cleanerId, propertyId);
   const cleaning = await prisma.cleaning.create({
     data: {
       propertyId,
@@ -154,8 +157,13 @@ export const PUT = withAuth('cleanings', async (req, { auth }) => {
 
   const before = await prisma.cleaning.findUnique({ where: { id }, select: { cleanerId: true, propertyId: true, date: true } });
   if (!before) throw fail(404, MESSAGES.notFound);
-  requireManage(auth, before.propertyId);
+  if (!canManageProperty(auth, before.propertyId)) {
+    const me = await resolveCleaner(auth);
+    if (!me || before.cleanerId !== me.id) throw fail(403, MESSAGES.forbidden);
+    if (Object.keys(data).some(key => !['status', 'completionNote', 'completedAt', 'hasIssue'].includes(key))) throw fail(403, '본인 청소의 완료·문제 상태만 변경할 수 있습니다.');
+  }
 
+  if (data.cleanerId) await requireAssignee(data.cleanerId, before.propertyId);
   const cleaning = await prisma.cleaning.update({ where: { id }, data });
 
   const cleanerChanged = 'cleanerId' in data && cleaning.cleanerId !== before.cleanerId;

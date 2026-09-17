@@ -20,7 +20,8 @@ beforeEach(() => {
   db.user = [{ id: 'host-1', email: 'host@test', role: 'admin', phone: '01011112222', displayName: 'Host' }];
   db.property = [{ id: propertyId, name: '운와당', ownerId: 'host-1', status: 'active' }];
   db.event = [{ id: 'event-1', propertyId, type: 'reservation', endDate: todayKst(), startDate: addDaysToDateStr(todayKst(), -2) }];
-  db.cleaner = [{ id: 'cleaner-1', ownerId: 'host-1', name: 'Cleaner', phone: '01033334444', notifyNewOpen: true }];
+  db.user.push(...[{ id: 'cleaner-1', ownerId: 'host-1', name: 'Cleaner', phone: '01033334444', notifyNewOpen: true }].map(u => ({ ...u, displayName: u.name, role: 'cleaner', status: 'active' })));
+  db.userProperty = [{ userId: 'cleaner-1', propertyId: 'p1' }];
   db.cleaning = [{ id: 'cleaning-1', propertyId, date: todayKst(), cleanerId: 'cleaner-1', status: 'pending' }];
 });
 

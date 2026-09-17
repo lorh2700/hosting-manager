@@ -1,9 +1,10 @@
 import { prisma } from '@/lib/prisma';
+import { getCleaningPropertyIds } from '@/lib/access';
 import { withAuth, ok, created, fail, MESSAGES, visibleScope, readJson, str, int } from '@/lib/core/http';
 
 /** 읽기 범위 한 규칙: 관리자 전체, 매니저 배정 숙소, 청소담당자 배정 지점(없으면 호스트 숙소 전부). */
 export const GET = withAuth('properties', async (_req, { auth }) => {
-  const visible = await visibleScope(auth);
+  const visible = new URL(_req.url).searchParams.get('work') === 'cleaner' ? await getCleaningPropertyIds(auth) : await visibleScope(auth);
   if (visible === null) return ok(await prisma.property.findMany({ orderBy: { createdAt: 'desc' } }));
   if (visible.length === 0) return ok([]);
   return ok(await prisma.property.findMany({ where: { id: { in: visible } }, orderBy: { createdAt: 'desc' } }));

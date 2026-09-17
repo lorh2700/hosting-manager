@@ -1,3 +1,4 @@
+import { staffDirectory, requireAssignee } from '@/lib/staff-directory';
 import { prisma } from '@/lib/prisma';
 import { withAuth, ok, fail, MESSAGES, requireManage } from '@/lib/core/http';
 
@@ -7,7 +8,7 @@ type Params = { id: string };
  * Approve a cleaning application.
  *
  * Atomically:
- *   1. Resolves the applicant (User.id) → Cleaner.id
+ *   1. Resolves the applicant User.id as the assignee
  *   2. Marks the application as approved
  *   3. Assigns the cleaner to the cleaning + closes it (isOpen=false)
  *   4. Auto-rejects every other pending application for the same cleaning
@@ -24,11 +25,12 @@ export const POST = withAuth<Params>('cleaning-applications/approve', async (_re
     throw fail(409, `이미 처리된 신청입니다. (현재 상태: ${application.status})`);
   }
 
-  const cleaner = await prisma.cleaner.findUnique({
+  const cleaner = await staffDirectory.findUnique({
     where: { userId: application.applicantId },
     select: { id: true, name: true },
   });
-  if (!cleaner) throw fail(422, '신청자의 청소 담당자 프로필이 없습니다. 먼저 청소 담당자로 등록해주세요.');
+  if (!cleaner) throw fail(422, '신청자의 직원 계정을 찾을 수 없습니다.');
+  await requireAssignee(cleaner.id, application.propertyId);
 
   const now = new Date();
   await prisma.$transaction([

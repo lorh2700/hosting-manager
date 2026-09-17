@@ -9,6 +9,7 @@ interface AuthUser {
 }
 
 interface UserProfile {
+  cleanerId?: string;
   role: UserRole;
   propertyIds: string[];
   displayName: string;

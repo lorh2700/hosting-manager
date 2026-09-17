@@ -1,3 +1,4 @@
+import { eligibleStaff } from '@/lib/staff-directory';
 /**
  * 체크아웃 확인 도메인.
  *
@@ -131,18 +132,13 @@ export async function notifyCheckoutRecipients(opts: {
 
   const cleanings = await prisma.cleaning.findMany({
     where: { propertyId: opts.propertyId, date: opts.date, cleanerId: { not: null } },
-    select: { cleaner: { select: { name: true, phone: true } } },
+    select: { cleaner: { select: { displayName: true, phone: true } } },
   });
-  for (const c of cleanings) if (c.cleaner?.phone) recipients.set(c.cleaner.phone, c.cleaner.name);
+  for (const c of cleanings) if (c.cleaner?.phone) recipients.set(c.cleaner.phone, c.cleaner.displayName || '직원');
 
   if (recipients.size === 0) {
-    const eligible = await prisma.cleaner.findMany({
-      where: { ownerId: property.ownerId, notifyNewOpen: true, phone: { not: null } },
-      select: { name: true, phone: true, noProperties: true, assignments: { select: { propertyId: true } } },
-    });
+    const eligible = (await eligibleStaff(opts.propertyId)).filter(c => c.notifyNewOpen && c.phone);
     for (const c of eligible) {
-      if (c.noProperties) continue;
-      if (c.assignments.length > 0 && !c.assignments.some(a => a.propertyId === opts.propertyId)) continue;
       if (c.phone) recipients.set(c.phone, c.name);
     }
   }

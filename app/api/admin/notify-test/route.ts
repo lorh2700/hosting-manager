@@ -1,3 +1,4 @@
+import { staffDirectory } from '@/lib/staff-directory';
 import { prisma } from '@/lib/prisma';
 import { notifyCleaningAssigned, TEMPLATES, getNotifier } from '@/lib/notify';
 import { withAuth, ok, fail, str } from '@/lib/core/http';
@@ -21,7 +22,7 @@ export const POST = withAuth('admin/notify-test', async (req, { auth }) => {
   let cleanerToken: string | null;
 
   if (cleanerId) {
-    const c = await prisma.cleaner.findUnique({ where: { id: cleanerId }, select: { name: true, phone: true, publicToken: true } });
+    const c = await staffDirectory.findUnique({ where: { id: cleanerId }, select: { name: true, phone: true, publicToken: true } });
     if (!c) throw fail(404, 'cleaner not found');
     cleanerName = c.name; cleanerPhone = c.phone; cleanerToken = c.publicToken;
   } else if (phone) {
@@ -29,7 +30,7 @@ export const POST = withAuth('admin/notify-test', async (req, { auth }) => {
     cleanerPhone = phone;
     cleanerToken = 'test-token';
   } else {
-    const c = await prisma.cleaner.findFirst({
+    const c = await staffDirectory.findFirst({
       where: { phone: { not: null }, publicToken: { not: null } },
       select: { name: true, phone: true, publicToken: true },
     });

@@ -28,7 +28,7 @@ function seedBookingsPage(bookings: unknown[]) {
 beforeEach(() => {
   resetDb(); resetNotify(); resetFetch(); invalidateBeds24Token();
   db.property = [{ id: P, name: '안온재', ownerId: 'host-1' }];
-  db.cleaner = [cleanerRow];
+  db.user = [{ ...cleanerRow, displayName: cleanerRow.name }];
 });
 
 test('예약이 사라진 자동 생성 청소는 배정돼 있어도 삭제하고 취소 문자를 보낸다; 완료·수동·외부·과거 건은 보존', async () => {

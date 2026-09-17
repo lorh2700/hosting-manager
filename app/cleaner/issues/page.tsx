@@ -42,7 +42,7 @@ export default function CleanerIssuesPage() {
     if (!user || !profile) return;
     try {
       // Fetch properties
-      const propsRes = await fetch('/api/properties');
+      const propsRes = await fetch('/api/properties?work=cleaner');
       const propsData = await propsRes.json();
       const propNames: Record<string, string> = {};
       const propList: { id: string; name: string }[] = [];
@@ -55,7 +55,7 @@ export default function CleanerIssuesPage() {
 
       // Fetch issues
       const propertyIds = propList.map(p => p.id);
-      const issuesRes = await fetch(`/api/cleaning-issues?propertyIds=${propertyIds.join(',')}`);
+      const issuesRes = await fetch(`/api/cleaning-issues?work=cleaner&propertyIds=${propertyIds.join(',')}`);
       const issuesData = await issuesRes.json();
 
       // Filter to only issues reported by current user

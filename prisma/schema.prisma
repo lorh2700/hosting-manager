@@ -22,8 +22,13 @@ model User {
 
   properties      UserProperty[]
   ownedProperties Property[]
-  cleaners        Cleaner[]      @relation("OwnedCleaners")
-  cleanerAccount  Cleaner?       @relation("CleanerAccount")
+  ownerId         String? @map("owner_id")
+  owner           User? @relation("StaffOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  staff           User[] @relation("StaffOwner")
+  publicToken     String? @unique @map("public_token")
+  notifyNewOpen   Boolean @default(false) @map("notify_new_open")
+  cleanings       Cleaning[]
+  staffInvitations Invitation[] @relation("StaffInvitations")
   invitationsSent Invitation[]   @relation("InvitedBy")
   tourOperators   TourOperator[] @relation("OwnedTourOperators")
   tours           Tour[]         @relation("OwnedTours")
@@ -32,6 +37,21 @@ model User {
 }
 
 // ── 사용자-숙소 연결 ──
+/// 직원 계정 병합 이력. 삭제된 ID도 유지하기 위해 User 외래키를 두지 않는다.
+/// snapshot에는 비밀번호·세션·개인 일정 토큰을 저장하지 않는다.
+model StaffMerge {
+  id           String   @id @default(uuid())
+  sourceUserId String   @unique @map("source_user_id")
+  targetUserId String   @map("target_user_id")
+  cleanerId    String   @map("cleaner_id")
+  performedBy  String   @map("performed_by")
+  snapshot     Json
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([targetUserId])
+  @@map("staff_merges")
+}
+
 model UserProperty {
   userId     String @map("user_id")
   propertyId String @map("property_id")
@@ -88,7 +108,6 @@ model Property {
   cleaningIssues       CleaningIssue[]
   cleaningApplications CleaningApplication[]
   syncLogs             SyncLog[]
-  cleanerAssignments   CleanerProperty[]
   checkoutSignals      CheckoutSignal[]
   cameraSnapshots      CameraSnapshot[]
   welcomepadConfig     WelcomepadConfig?
@@ -430,27 +449,6 @@ model GuestReservation {
 }
 
 // ── 청소 담당자 ──
-model Cleaner {
-  id            String   @id @default(uuid())
-  name          String
-  phone         String?  @unique
-  publicToken   String?  @unique @map("public_token")
-  userId        String?  @unique @map("user_id")
-  ownerId       String   @map("owner_id")
-  /// 신규 오픈 청소 알림톡 수신 여부 (호스트 본인 프로필 등은 끈다)
-  notifyNewOpen Boolean  @default(true) @map("notify_new_open")
-  noProperties  Boolean  @default(false) @map("no_properties")
-  createdAt     DateTime @default(now()) @map("created_at")
-
-  owner       User              @relation("OwnedCleaners", fields: [ownerId], references: [id])
-  user        User?             @relation("CleanerAccount", fields: [userId], references: [id], onDelete: SetNull)
-  cleanings   Cleaning[]
-  invitations Invitation[]      @relation("CleanerInvitations")
-  /// 담당 지점. 비어 있으면 소유 호스트의 모든 숙소.
-  assignments CleanerProperty[]
-
-  @@map("cleaners")
-}
 
 /// 체크아웃 신호. 같은 숙소·날짜에 여러 출처(호스트 확인, 패드 셀프 체크아웃, 게스트 답장, 카메라, 문 센서)가 쌓인다.
 /// "확인됨" = host 또는 guest_pad 신호가 하나라도 있음. 카드에는 신호가 모두 표시된다.
@@ -499,16 +497,6 @@ model CameraSnapshot {
 }
 
 /// 청소담당자 ↔ 숙소 배정. 화면 표시·청소 신청·신규 오픈 알림이 모두 이 한 규칙을 쓴다.
-model CleanerProperty {
-  cleanerId  String @map("cleaner_id")
-  propertyId String @map("property_id")
-
-  cleaner  Cleaner  @relation(fields: [cleanerId], references: [id], onDelete: Cascade)
-  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-
-  @@id([cleanerId, propertyId])
-  @@map("cleaner_properties")
-}
 
 // ── 청소 일정 ──
 model Cleaning {
@@ -541,7 +529,7 @@ model Cleaning {
   createdAt      DateTime  @default(now()) @map("created_at")
 
   property     Property              @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  cleaner      Cleaner?              @relation(fields: [cleanerId], references: [id], onDelete: SetNull)
+  cleaner      User?              @relation(fields: [cleanerId], references: [id], onDelete: SetNull)
   applications CleaningApplication[]
   issues       CleaningIssue[]
 
@@ -671,7 +659,7 @@ model Invitation {
   createdAt   DateTime @default(now()) @map("created_at")
 
   inviter User?    @relation("InvitedBy", fields: [invitedBy], references: [id])
-  cleaner Cleaner? @relation("CleanerInvitations", fields: [cleanerId], references: [id], onDelete: SetNull)
+  cleaner User? @relation("StaffInvitations", fields: [cleanerId], references: [id], onDelete: SetNull)
 
   @@map("invitations")
 }

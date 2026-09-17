@@ -2,119 +2,109 @@ import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import bcrypt from 'bcryptjs';
 import { db, resetDb } from './stubs/prisma';
-import { actAsAdmin, actAsManager, actAsCleaner, actAsAnonymous, authState } from './stubs/auth';
-import { makeRequest, callRoute } from './helpers/beds24-mock';
-import { GET, POST } from '../app/api/staff/route';
-import { PUT as CLEANER_PUT } from '../app/api/cleaners/route';
-import { PUT as USER_PUT } from '../app/api/users/route';
-import { PUT as SCOPE } from '../app/api/cleaners/[id]/properties/route';
+import { actAsAdmin, actAsManager, actAsCleaner, authState } from './stubs/auth';
+import { callRoute, makeRequest } from './helpers/beds24-mock';
+import { GET as STAFF, POST as CREATE } from '../app/api/staff/route';
+import { PUT as UPDATE } from '../app/api/users/route';
+import { GET as ASSIGNEES } from '../app/api/cleaners/route';
+import { POST as ASSIGN, PUT as COMPLETE } from '../app/api/cleanings/route';
+import { POST as APPLY } from '../app/api/cleaning-applications/route';
 import { POST as RESET } from '../app/api/cleaners/[id]/reset-password/route';
-import { cleanerPropertyIds } from '../lib/access';
+import { getVisiblePropertyIds, getCleaningPropertyIds, canManageProperty } from '../lib/access';
+import { POST as REGISTER } from '../app/api/auth/register/route';
+import { POST as INVITE } from '../app/api/cleaners/[id]/invite/route';
 
-const input = { name: '청소 직원', phone: '010-1234-5678', mode: 'selected', propertyIds: ['p1'], loginEnabled: true, notifyNewOpen: true };
-const scoped = (handler: typeof SCOPE, body: unknown, id = 'c1') => callRoute(req => handler(req, { params: Promise.resolve({ id }) }), makeRequest(body));
 beforeEach(() => {
-  resetDb(); actAsAdmin();
-  db.property = [{ id: 'p1', name: '숙소 A', ownerId: 'host-1' }, { id: 'p2', name: '숙소 B', ownerId: 'other' }];
-  db.user = [{ id: 'admin-1', displayName: '관리자', phone: '01011112222', email: 'admin@test.com', password: 'secret', role: 'admin', status: 'active' }];
+  resetDb(); actAsManager(['p1']);
+  db.user = [{ ...authState.auth.user, displayName: '민들레', phone: '01011112222', password: 'secret', publicToken: 'keep' }, { id: 'admin-1', role: 'admin', status: 'active', email: 'admin@test.com', displayName: '관리자', password: 'admin-secret' }];
+  db.property = [{ id: 'p1', name: '담당 숙소', ownerId: 'host-1' }, { id: 'p2', name: '다른 숙소', ownerId: 'other' }];
+  db.userProperty = [{ userId: 'host-1', propertyId: 'p1' }];
 });
 
-test('통합 목록은 연결된 청소 계정을 한 번만 표시하고 계정 없는 담당자를 포함한다', async () => {
-  db.user.push({ id: 'u1', displayName: '계정 이름', phone: '01033334444', email: '01033334444@cleaner.va', role: 'cleaner', status: 'active', password: 'hidden' });
-  db.cleaner = [{ id: 'c1', name: '청소 직원', phone: '01033334444', userId: 'u1', ownerId: 'host-1', noProperties: false }, { id: 'c2', name: '링크 직원', userId: null, ownerId: 'other', noProperties: true }];
-  const result = await callRoute(GET, makeRequest({}));
-  assert.equal(result.status, 200); assert.equal(result.body.staff.length, 3);
-  assert.equal(result.body.staff.filter((row: any) => row.userId === 'u1').length, 1);
-  const link = result.body.staff.find((row: any) => row.cleanerId === 'c2');
-  assert.equal(link.status, 'no_account'); assert.equal(link.scope, 'none');
-  assert.equal(JSON.stringify(result.body).includes('hidden'), false); assert.equal(JSON.stringify(result.body).includes('secret'), false);
+test('users만 등록된 매니저가 별도 역할 추가 없이 청소 담당자 목록에 나타난다', async () => {
+  const staff = (await callRoute(STAFF, makeRequest({}))).body.staff;
+  assert.equal(staff.length, 1); assert.equal(staff[0].userId, 'host-1'); assert.deepEqual(staff[0].roles, ['manager']);
+  const people = (await callRoute(ASSIGNEES, makeRequest({}))).body;
+  assert.ok(people.some((u: any) => u.id === 'host-1'));
+  assert.doesNotMatch(JSON.stringify(people), /secret/);
+  assert.equal(db.cleaner, undefined);
 });
 
-test('매니저는 본인이 등록한 청소 직원만 조회하고 청소·익명 계정은 거부한다', async () => {
-  db.cleaner = [{ id: 'c1', name: '내 직원', userId: null, ownerId: 'host-1' }, { id: 'c2', name: '다른 직원', userId: null, ownerId: 'other' }];
-  actAsManager(['p1']);
-  const result = await callRoute(GET, makeRequest({}));
-  assert.deepEqual(result.body.staff.map((row: any) => row.cleanerId), ['c1']);
-  assert.deepEqual(result.body.properties.map((row: any) => row.id), ['p1']);
-  actAsCleaner(['p1']); assert.equal((await callRoute(GET, makeRequest({}))).status, 403); assert.equal((await callRoute(POST, makeRequest(input))).status, 403);
-  actAsAnonymous(); assert.equal((await callRoute(GET, makeRequest({}))).status, 401);
+test('관리와 청소는 같은 숙소 배정이며 빈 배정은 접근 없음이다', async () => {
+  assert.deepEqual(await getVisiblePropertyIds(authState.auth), ['p1']);
+  assert.deepEqual(await getCleaningPropertyIds(authState.auth), ['p1']);
+  assert.equal(canManageProperty(authState.auth, 'p2'), false);
+  actAsCleaner([]); assert.deepEqual(await getCleaningPropertyIds(authState.auth), []);
+  actAsAdmin(); assert.deepEqual((await getCleaningPropertyIds(authState.auth)).sort(), ['p1', 'p2']);
 });
 
-test('청소 직원 등록은 프로필·로그인·배정을 함께 만들고 초기 비밀번호를 암호화한다', async () => {
-  const result = await callRoute(POST, makeRequest(input));
-  assert.equal(result.status, 201);
-  const c = db.cleaner[0]; const user = db.user.find(row => row.id === c.userId)!;
-  assert.equal(user.role, 'cleaner'); assert.equal(user.email, '01012345678@cleaner.va');
-  assert.equal(await bcrypt.compare(result.body.initialPassword, user.password), true);
-  assert.notEqual(result.body.initialPassword, '5678');
-  assert.deepEqual(db.cleanerProperty.map(row => row.propertyId), ['p1']);
-  assert.equal(c.noProperties, false); assert.ok(c.publicToken);
+test('매니저가 직접 신청·완료하고 사용자 ID가 청소에 저장된다', async () => {
+  db.cleaning = [{ id: 'job', propertyId: 'p1', date: '2026-10-01', cleanerId: null, status: 'pending', isOpen: true }];
+  assert.equal((await callRoute(APPLY, makeRequest({ cleaningId: 'job' }))).status, 201);
+  assert.equal(db.cleaning[0].cleanerId, 'host-1'); assert.equal(db.cleaningApplication[0].applicantId, 'host-1');
+  assert.equal((await callRoute(COMPLETE, makeRequest({ id: 'job', status: 'done' }))).status, 200);
+  assert.equal(db.user[0].role, 'manager'); assert.equal(db.user[0].password, 'secret');
 });
 
-test('로그인 없는 직원 및 명시적 배정 없음을 저장하고 기존 전체 배정은 유지한다', async () => {
-  const result = await callRoute(POST, makeRequest({ ...input, loginEnabled: false, mode: 'none', propertyIds: [] }));
-  assert.equal(result.status, 201); assert.equal(result.body.initialPassword, null); assert.equal(db.user.length, 1);
-  assert.equal(db.cleaner[0].userId, null); assert.deepEqual(await cleanerPropertyIds(db.cleaner[0] as any), []);
-  db.cleaner.push({ id: 'legacy', name: '기존', ownerId: 'host-1' });
-  assert.deepEqual(await cleanerPropertyIds({ id: 'legacy', ownerId: 'host-1' }), ['p1']);
+test('직접 배정은 숙소 범위 밖·중지된 직원을 거부한다', async () => {
+  db.user.push({ id: 'out', role: 'cleaner', status: 'active', email: 'out@test.com' });
+  actAsAdmin();
+  assert.equal((await callRoute(ASSIGN, makeRequest({ propertyId: 'p1', date: '2026-10-01', cleanerId: 'out' }))).status, 400);
+  db.user[0].status = 'suspended';
+  assert.equal((await callRoute(ASSIGN, makeRequest({ propertyId: 'p1', date: '2026-10-01', cleanerId: 'host-1' }))).status, 400);
 });
 
-test('회원 등록은 범위 밖 숙소·중복 연락처·잘못된 입력을 거부한다', async () => {
-  actAsManager(['p1']);
-  assert.equal((await callRoute(POST, makeRequest({ ...input, propertyIds: ['p2'] }))).status, 403);
-  for (const body of [{ ...input, phone: 'bad' }, { ...input, propertyIds: [] }, { ...input, role: 'admin' }]) assert.equal((await callRoute(POST, makeRequest(body))).status, 400);
-  db.user.push({ id: 'existing', phone: '01012345678', email: 'existing@test.com' });
-  assert.equal((await callRoute(POST, makeRequest(input))).status, 409);
-  assert.equal((db.cleaner || []).length, 0);
-});
-
-test('배정 없음·선택·전체 전환은 청소 이력과 일정 링크를 보존한다', async () => {
-  db.cleaner = [{ id: 'c1', name: '청소', ownerId: 'host-1', publicToken: 'keep', noProperties: false }];
-  db.cleaning = [{ id: 'history', cleanerId: 'c1', propertyId: 'p1' }];
-  assert.equal((await scoped(SCOPE, { mode: 'none', propertyIds: [] })).status, 200);
-  assert.deepEqual(await cleanerPropertyIds({ id: 'c1', ownerId: 'host-1' }), []);
-  assert.equal((await scoped(SCOPE, { mode: 'selected', propertyIds: [] })).status, 400);
-  assert.equal((await scoped(SCOPE, { mode: 'selected', propertyIds: ['p2'] })).status, 200);
-  assert.deepEqual(await cleanerPropertyIds({ id: 'c1', ownerId: 'host-1' }), ['p2']);
-  assert.equal((await scoped(SCOPE, { mode: 'all', propertyIds: [] })).status, 200);
-  assert.deepEqual(await cleanerPropertyIds({ id: 'c1', ownerId: 'host-1' }), ['p1']);
-  assert.equal(db.cleaner[0].publicToken, 'keep'); assert.equal(db.cleaning[0].id, 'history');
-  actAsManager(['p1']); assert.equal((await scoped(SCOPE, { mode: 'selected', propertyIds: ['p2'] })).status, 403);
-});
-
-test('청소 프로필 연락처 수정은 연결 계정을 동기화하고 비밀번호·실제 이메일을 보존한다', async () => {
-  db.user.push({ id: 'u1', role: 'cleaner', email: 'real@example.com', password: 'unchanged', displayName: '이전', phone: '01033334444' });
-  db.cleaner = [{ id: 'c1', name: '이전', phone: '01033334444', userId: 'u1', ownerId: 'host-1', publicToken: 'keep' }];
-  assert.equal((await callRoute(CLEANER_PUT, makeRequest({ id: 'c1', name: '새 이름', phone: '010-5555-6666' }))).status, 200);
-  assert.equal(db.user[1].displayName, '새 이름'); assert.equal(db.user[1].phone, '01055556666');
-  assert.equal(db.user[1].email, 'real@example.com'); assert.equal(db.user[1].password, 'unchanged'); assert.equal(db.cleaner[0].publicToken, 'keep');
-  db.user[1].email = '01055556666@cleaner.va';
-  await callRoute(CLEANER_PUT, makeRequest({ id: 'c1', phone: '01077778888' }));
-  assert.equal(db.user[1].email, '01077778888@cleaner.va'); assert.equal(db.user[1].password, 'unchanged');
-});
-
-test('전화번호 충돌은 프로필을 변경하지 않고 로그인 재발급은 타 계정을 가져오지 않는다', async () => {
-  db.cleaner = [{ id: 'c1', name: '청소', phone: '01033334444', userId: null, ownerId: 'host-1' }];
-  db.user.push({ id: 'collision', email: '01033334444@cleaner.va', role: 'admin', password: 'keep' });
-  const result = await scoped(RESET, {});
-  assert.equal(result.status, 409); assert.equal(db.user[1].password, 'keep'); assert.equal(db.cleaner[0].userId, null);
-});
-
-test('계정에서 수정한 청소 담당자 본인 정보도 프로필에 동기화된다', async () => {
+test('청소 전용 직원은 본인 완료만 가능하고 예약 관리 권한은 없다', async () => {
   actAsCleaner(['p1']);
-  db.user.push({ ...authState.auth.user });
-  // actAsCleaner installs the linked profile; use its actual IDs.
-  const c = db.cleaner[0];
-  const result = await callRoute(USER_PUT, makeRequest({ displayName: '본인 변경', phone: '010-9999-8888' }));
-  assert.equal(result.status, 200); assert.equal(c.name, '본인 변경'); assert.equal(c.phone, '01099998888');
+  db.cleaning = [{ id: 'own', propertyId: 'p1', cleanerId: 'cleaner-1' }, { id: 'other', propertyId: 'p1', cleanerId: 'host-1' }];
+  assert.equal((await callRoute(COMPLETE, makeRequest({ id: 'own', status: 'done' }))).status, 200);
+  assert.equal((await callRoute(COMPLETE, makeRequest({ id: 'other', status: 'done' }))).status, 403);
+  assert.equal((await callRoute(COMPLETE, makeRequest({ id: 'own', cleanerId: 'host-1' }))).status, 403);
+  assert.equal(canManageProperty(authState.auth, 'p1'), false);
 });
 
-test('로그인 재발급은 기존 실제 이메일과 청소 프로필 연결을 보존한다', async () => {
-  db.user.push({ id: 'u1', role: 'cleaner', email: 'real@example.com', password: 'old', status: 'suspended' });
-  db.cleaner = [{ id: 'c1', name: '청소', phone: '01033334444', userId: 'u1', ownerId: 'host-1', publicToken: 'keep' }];
-  const result = await scoped(RESET, {});
-  assert.equal(result.status, 200); assert.equal(result.body.created, false);
-  assert.equal(await bcrypt.compare(result.body.initialPassword, db.user[1].password), true);
-  assert.equal(db.user[1].email, 'real@example.com'); assert.equal(db.user[1].status, 'active');
-  assert.equal(db.cleaner[0].userId, 'u1'); assert.equal(db.cleaner[0].publicToken, 'keep');
+test('전화번호 변경은 users 하나만 수정하고 기존 로그인 비밀번호·이메일·일정 링크를 유지한다', async () => {
+  assert.equal((await callRoute(UPDATE, makeRequest({ displayName: '민들레', phone: '010-9999-8888' }))).status, 200);
+  assert.equal(db.user[0].phone, '01099998888'); assert.equal(db.user[0].password, 'secret'); assert.equal(db.user[0].email, 'host@test'); assert.equal(db.user[0].publicToken, 'keep');
+  assert.equal(db.cleaner, undefined);
+});
+
+test('로그인 없는 직원도 users에 한 번 생성하며 비밀번호 발급은 같은 row를 활성화한다', async () => {
+  const result = await callRoute(CREATE, makeRequest({ name: '새 직원', phone: '01033334444', mode: 'selected', propertyIds: ['p1'], loginEnabled: false, notifyNewOpen: true }));
+  assert.equal(result.status, 201);
+  const person = db.user.find(u => u.id === result.body.cleanerId)!;
+  assert.equal(person.status, 'no_account'); assert.equal(person.password, ''); assert.equal(db.cleaner, undefined);
+  const count = db.user.length;
+  const reset = await callRoute(req => RESET(req, { params: Promise.resolve({ id: person.id }) }), makeRequest({}));
+  assert.equal(reset.status, 200); assert.equal(db.user.length, count); assert.equal(person.status, 'active');
+  assert.equal(await bcrypt.compare(reset.body.initialPassword, person.password), true);
+});
+
+test('관리자만 관리 역할을 바꾸고 매니저는 자신의 청소 직원을 관리한다', async () => {
+  db.user.push({ id: 'staff', role: 'cleaner', status: 'active', ownerId: 'host-1', email: 'staff@test.com' });
+  assert.equal((await callRoute(UPDATE, makeRequest({ id: 'staff', phone: '01044445555', role: 'admin' }))).status, 200);
+  assert.equal(db.user[2].role, 'cleaner');
+  assert.equal((await callRoute(UPDATE, makeRequest({ id: 'staff', propertyIds: ['p2'] }))).status, 403);
+  actAsAdmin(); assert.equal((await callRoute(UPDATE, makeRequest({ id: 'staff', role: 'manager', propertyIds: ['p1'] }))).status, 200);
+  assert.equal(db.user[2].role, 'manager');
+});
+
+test('이메일 초대 수락은 로그인 없는 User를 활성화하고 청소 이력·숙소를 유지한다', async () => {
+  db.user.push({ id: 'link-staff', email: 'staff-link@staff.invalid', password: '', displayName: '초대 직원', role: 'cleaner', status: 'no_account', ownerId: 'host-1', publicToken: 'keep-link', phone: '01033334444' });
+  db.userProperty.push({ userId: 'link-staff', propertyId: 'p1' });
+  db.cleaning = [{ id: 'past', cleanerId: 'link-staff', propertyId: 'p1' }];
+  db.invitation = [{ id: 'invite', email: 'invited@example.com', role: 'cleaner', status: 'pending', cleanerId: 'link-staff', invitedBy: 'host-1', expiresAt: new Date(Date.now() + 60000) }];
+  const count = db.user.length;
+  const result = await callRoute(REGISTER, makeRequest({ email: 'invited@example.com', password: 'safe-password', displayName: '초대 직원' }));
+  assert.equal(result.status, 200, JSON.stringify(result.body));
+  assert.equal(result.body.user.id, 'link-staff'); assert.equal(db.user.length, count);
+  assert.deepEqual(result.body.profile.propertyIds, ['p1']);
+  assert.equal(db.cleaning[0].cleanerId, 'link-staff'); assert.equal(db.user[2].publicToken, 'keep-link');
+  assert.equal(db.user[2].phone, '01033334444'); assert.equal(db.user[2].status, 'active');
+});
+
+test('매니저는 본인이 등록했어도 관리 역할로 승격된 직원의 로그인 초대를 발급할 수 없다', async () => {
+  db.user.push({ id: 'promoted', email: 'promoted@staff.invalid', password: '', role: 'admin', status: 'no_account', ownerId: 'host-1' });
+  const result = await callRoute(req => INVITE(req, { params: Promise.resolve({ id: 'promoted' }) }), makeRequest({ email: 'promoted@example.com' }));
+  assert.equal(result.status, 403); assert.equal((db.invitation || []).length, 0);
 });

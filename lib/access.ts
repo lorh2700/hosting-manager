@@ -1,11 +1,11 @@
+import { staffDirectory } from '@/lib/staff-directory';
 /**
  * 권한·범위 판정을 한곳에 모은다. 라우트는 이 파일의 함수만 쓰고 role 문자열을 직접 비교하지 않는다.
  *
  *  역할 3종
  *   - admin   관리자: 모든 숙소
  *   - manager 매니저: UserProperty 에 배정된 숙소
- *   - cleaner 청소담당자: Cleaner 프로필(userId 연결)이 정체성. 배정 지점(CleanerProperty)이 있으면 그것만,
- *              없으면 소유 호스트의 모든 숙소. 화면 표시·청소 신청·알림 대상이 전부 이 한 규칙이다.
+ *   - cleaner 청소담당자: users의 직원. UserProperty에 배정된 숙소의 청소 업무만 수행한다.
  *
  *  DB 에 남아 있을 수 있는 옛 값(super_admin/host/viewer)은 normalizeRole 이 흡수하므로
  *  마이그레이션 전후 어느 쪽이든 같은 결과가 나온다.
@@ -34,30 +34,31 @@ export interface CleanerProfile {
   name: string;
   phone: string | null;
   publicToken: string | null;
-  ownerId: string;
+  ownerId: string | null;
   notifyNewOpen: boolean;
 }
 
-/** 세션 사용자의 청소담당자 프로필. userId 연결만 인정한다 (전화번호 폴백 없음). */
+/** 기존 청소 화면용 직원 DTO. User 자체가 담당자이며 별도 프로필은 없다. */
 export async function resolveCleaner(auth: SessionAuth): Promise<CleanerProfile | null> {
-  if (auth.role !== 'cleaner') return null;
-  return prisma.cleaner.findUnique({
+  return staffDirectory.findUnique({
     where: { userId: auth.session.userId },
     select: { id: true, name: true, phone: true, publicToken: true, ownerId: true, notifyNewOpen: true },
   });
 }
 
-/** 명시적 배정 없음은 빈 범위. 그 외에는 선택 지점 또는 소유 호스트의 전체 숙소. */
-export async function cleanerPropertyIds(cleaner: { id: string; ownerId: string }): Promise<string[]> {
-  const scope = await prisma.cleaner.findUnique({ where: { id: cleaner.id }, select: { noProperties: true } });
-  if (scope?.noProperties) return [];
-  const assigned = await prisma.cleanerProperty.findMany({
-    where: { cleanerId: cleaner.id },
-    select: { propertyId: true },
-  });
-  if (assigned.length > 0) return assigned.map(a => a.propertyId);
-  const owned = await prisma.property.findMany({ where: { ownerId: cleaner.ownerId }, select: { id: true } });
-  return owned.map(p => p.id);
+/** Personal cleaning and management use the same user/property identity. */
+export async function getCleaningPropertyIds(auth: SessionAuth, requested?: string[] | null): Promise<string[]> {
+  const cleaner = await resolveCleaner(auth);
+  const ids = cleaner ? await cleanerPropertyIds(cleaner) : [];
+  return requested?.length ? ids.filter(id => requested.includes(id)) : ids;
+}
+
+/** All roles use UserProperty. Admin has all properties; an empty list means none. */
+export async function cleanerPropertyIds(person: { id: string; ownerId?: string | null }): Promise<string[]> {
+  const user = await prisma.user.findUnique({ where: { id: person.id }, select: { role: true } });
+  if (!user) return [];
+  if (normalizeRole(user.role) === 'admin') return (await prisma.property.findMany({ select: { id: true } })).map(p => p.id);
+  return (await prisma.userProperty.findMany({ where: { userId: person.id }, select: { propertyId: true } })).map(p => p.propertyId);
 }
 
 /**
@@ -102,6 +103,6 @@ export async function isPropertyOwnerOrAdmin(auth: SessionAuth, propertyId: stri
 }
 
 /** 청소담당자 프로필의 수정 권한: 관리자 또는 그 프로필을 만든 호스트. */
-export function canManageCleaner(auth: SessionAuth, cleaner: { ownerId: string }): boolean {
+export function canManageCleaner(auth: SessionAuth, cleaner: { ownerId: string | null }): boolean {
   return auth.role === 'admin' || cleaner.ownerId === auth.session.userId;
 }

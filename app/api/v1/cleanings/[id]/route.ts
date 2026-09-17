@@ -1,3 +1,4 @@
+import { staffDirectory, eligibleStaff } from '@/lib/staff-directory';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireApiClient, propertyScopeFilter } from '@/lib/api-auth';
@@ -12,7 +13,7 @@ import { notifyCleaningCancelled, type CleaningCancelReason } from '@/lib/notify
 async function findCleaning(id: string, auth: { propertyIds: string[] }) {
   return prisma.cleaning.findFirst({
     where: { id, ...propertyScopeFilter({ ...auth, id: '', name: '', keyPrefix: '', scopes: [] }) },
-    include: { cleaner: { select: { name: true, phone: true } } },
+    include: { cleaner: { select: { displayName: true, phone: true } } },
   });
 }
 
@@ -64,11 +65,11 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 
   // cleanerId 검증
   if (data.cleanerId) {
-    const exists = await prisma.cleaner.findUnique({
+    const exists = await staffDirectory.findUnique({
       where: { id: data.cleanerId },
       select: { id: true },
     });
-    if (!exists) {
+    if (!exists || !(await eligibleStaff(existing.propertyId)).some(user => user.id === data.cleanerId)) {
       return NextResponse.json(
         { error: 'BadRequest', code: 'cleaner_not_found' },
         { status: 400 },
@@ -90,7 +91,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const updated = await prisma.cleaning.update({
     where: { id },
     data: { ...data, ...completedAtUpdate },
-    include: { cleaner: { select: { name: true, phone: true } } },
+    include: { cleaner: { select: { displayName: true, phone: true } } },
   });
 
   if (previous?.cleanerId && previous.cleanerId !== updated.cleanerId) {
@@ -103,7 +104,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 type CleanerNotifyInfo = {
   cleanerId: string | null;
   date: string;
-  cleaner: { name: string; phone: string | null } | null;
+  cleaner: { displayName: string | null; phone: string | null } | null;
   property: { name: string } | null;
 };
 
@@ -113,7 +114,7 @@ async function loadCleanerNotifyInfo(cleaningId: string): Promise<CleanerNotifyI
     select: {
       cleanerId: true,
       date: true,
-      cleaner: { select: { name: true, phone: true } },
+      cleaner: { select: { displayName: true, phone: true } },
       property: { select: { name: true } },
     },
   });
@@ -124,7 +125,7 @@ async function sendCancelNotice(info: CleanerNotifyInfo, reason: CleaningCancelR
   try {
     const result = await notifyCleaningCancelled({
       cleanerPhone: info.cleaner.phone,
-      cleanerName: info.cleaner.name,
+      cleanerName: info.cleaner.displayName || '직원',
       propertyName: info.property?.name ?? '숙소',
       date: info.date,
       reason,

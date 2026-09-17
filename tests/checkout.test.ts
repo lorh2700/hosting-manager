@@ -24,12 +24,12 @@ beforeEach(() => {
   resetNotify();
   db.user = [{ id: 'host-1', email: 'host@test', role: 'admin', phone: '01011112222', displayName: '도영' }];
   db.property = [{ id: 'p1', name: '안온재', ownerId: 'host-1', welcomepadKey: 'anon' }];
-  db.cleaner = [
+  db.user.push(...[
     { id: 'cl-1', name: '민들레', phone: '01033334444', ownerId: 'host-1', notifyNewOpen: true },
     { id: 'cl-2', name: '윤나', phone: '01055556666', ownerId: 'host-1', notifyNewOpen: true },
     { id: 'cl-3', name: '조용', phone: '01077778888', ownerId: 'host-1', notifyNewOpen: false },
-  ];
-  db.cleanerProperty = [{ cleanerId: 'cl-2', propertyId: 'p-other' }];
+  ].map(u => ({ ...u, displayName: u.name, role: 'cleaner', status: 'active' })));
+  db.userProperty = [{ userId: 'cl-1', propertyId: 'p1' }, { userId: 'cl-2', propertyId: 'p-other' }, { userId: 'cl-3', propertyId: 'p1' }];
   db.event = [{ id: 'ev-1', propertyId: 'p1', type: 'reservation', originalUid: 'B123', startDate: '2026-09-01', endDate: todayKst() }];
 });
 

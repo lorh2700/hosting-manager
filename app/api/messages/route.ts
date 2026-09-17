@@ -1,3 +1,4 @@
+import { staffDirectory } from '@/lib/staff-directory';
 import { prisma } from '@/lib/prisma';
 import { withAuth, ok, created, fail, MESSAGES, requireManage, readJson, str, idList, query } from '@/lib/core/http';
 
@@ -11,7 +12,7 @@ export const GET = withAuth('messages', async (req, { auth }) => {
     if (requested) where.propertyId = { in: requested };
   } else if (auth.role === 'cleaner') {
     // 청소담당자는 자기가 배정된 청소가 있는 숙소의 메시지만 본다 (배정 지점보다 좁은 규칙).
-    const myCleaner = await prisma.cleaner.findUnique({ where: { userId: auth.session.userId }, select: { id: true } });
+    const myCleaner = await staffDirectory.findUnique({ where: { userId: auth.session.userId }, select: { id: true } });
     if (!myCleaner) return ok([]);
     const myCleanings = await prisma.cleaning.findMany({
       where: { cleanerId: myCleaner.id }, select: { propertyId: true }, distinct: ['propertyId'],

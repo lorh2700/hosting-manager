@@ -41,16 +41,13 @@ export function actAsCleaner(assignedPropertyIds: string[] = [], opts: { withPro
     user: { id: 'cleaner-1', email: 'cleaner@test', role: 'cleaner', status: 'active', phone: '01000000000' },
     session: { userId: 'cleaner-1', email: 'cleaner@test' },
   };
-  db.cleaner ??= [];
-  if (opts.withProfile === false) {
-    db.cleaner = db.cleaner.filter(c => c.id !== 'cl-1');
-    return;
-  }
-  if (!db.cleaner.some(c => c.id === 'cl-1')) {
-    db.cleaner.push({ id: 'cl-1', name: '청소', phone: '01000000000', publicToken: 'tok-1', userId: 'cleaner-1', ownerId: 'host-1', notifyNewOpen: true });
-  }
-  db.cleanerProperty = (db.cleanerProperty ?? []).filter(a => a.cleanerId !== 'cl-1');
-  for (const pid of assignedPropertyIds) db.cleanerProperty.push({ cleanerId: 'cl-1', propertyId: pid });
+  db.user ??= [];
+  db.userProperty = (db.userProperty ?? []).filter(a => a.userId !== 'cleaner-1');
+  db.user = db.user.filter(u => u.id !== 'cleaner-1');
+  if (opts.withProfile === false) return;
+  db.user.push({ ...authState.auth.user, displayName: '청소', publicToken: 'tok-1', ownerId: 'host-1', notifyNewOpen: true });
+  for (const propertyId of assignedPropertyIds) db.userProperty.push({ userId: 'cleaner-1', propertyId });
+
 }
 
 export function actAsAnonymous() {

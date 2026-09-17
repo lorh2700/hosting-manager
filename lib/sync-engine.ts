@@ -377,7 +377,7 @@ export async function ensureCleaningsForProperty(propertyId: string): Promise<st
       id: true,
       date: true,
       cleanerId: true,
-      cleaner: { select: { name: true, phone: true } },
+      cleaner: { select: { displayName: true, phone: true } },
       property: { select: { name: true } },
     },
   });
@@ -390,7 +390,7 @@ export async function ensureCleaningsForProperty(propertyId: string): Promise<st
       if (!o.cleanerId || !o.cleaner?.phone) continue;
       await notifyCleaningCancelled({
         cleanerPhone: o.cleaner.phone,
-        cleanerName: o.cleaner.name,
+        cleanerName: o.cleaner.displayName || '직원',
         propertyName: o.property?.name ?? '숙소',
         date: o.date,
         reason: 'deleted',

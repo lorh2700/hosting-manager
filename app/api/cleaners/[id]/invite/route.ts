@@ -1,3 +1,4 @@
+import { staffDirectory } from '@/lib/staff-directory';
 import { randomBytes } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { canManageCleaner } from '@/lib/access';
@@ -17,10 +18,11 @@ export const POST = withAuth<Params>('cleaners/invite', async (req, { auth, para
   const body = await readJson(req);
   const email = str(body, 'email', { required: true, max: 200 })!.trim().toLowerCase();
 
-  const cleaner = await prisma.cleaner.findUnique({ where: { id: params.id }, select: { id: true, userId: true, ownerId: true } });
+  const cleaner = await staffDirectory.findUnique({ where: { id: params.id }, select: { id: true, userId: true, ownerId: true } });
   if (!cleaner) throw fail(404, '청소 담당자를 찾을 수 없습니다.');
   if (!canManageCleaner(auth, cleaner)) throw fail(403, MESSAGES.forbidden);
-  if (cleaner.userId) throw fail(409, '이미 로그인 계정과 연결된 담당자입니다.');
+  if (auth.role !== 'admin' && cleaner.role !== 'cleaner') throw fail(403, '관리 계정의 로그인 초대는 관리자만 발급할 수 있습니다.');
+  if (cleaner.status !== 'no_account') throw fail(409, '이미 로그인 계정과 연결된 담당자입니다.');
 
   if (await prisma.user.findUnique({ where: { email } })) throw fail(409, '이미 가입된 이메일입니다.');
   if (await prisma.invitation.findFirst({ where: { email, status: 'pending' } })) throw fail(409, '이미 대기중인 초대가 있습니다.');
@@ -28,7 +30,7 @@ export const POST = withAuth<Params>('cleaners/invite', async (req, { auth, para
   const invitation = await prisma.invitation.create({
     data: {
       email,
-      role: 'cleaner',
+      role: cleaner.role,
       propertyIds: [],
       invitedBy: auth.session.userId,
       cleanerId: cleaner.id,

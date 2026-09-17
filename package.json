@@ -44,6 +44,7 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@netlify/functions": "^5.2.0",
     "@netlify/plugin-nextjs": "^5.15.9",
     "@tailwindcss/postcss": "4.1.11",

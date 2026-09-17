@@ -44,31 +44,29 @@ export const POST = withErrors('auth/register', async (req) => {
     role = normalizeRole(validInvitation.role);
     status = 'active';
     propertyIds = role === 'manager' ? ((validInvitation.propertyIds as string[]) ?? []) : [];
-    await prisma.invitation.update({ where: { id: validInvitation.id }, data: { status: 'accepted' } });
+
   }
 
-  const user = await prisma.user.create({ data: { email, password: hashed, displayName: displayName || email, role, status } });
-
-  if (propertyIds.length > 0) {
-    await prisma.userProperty.createMany({ data: propertyIds.map((pid) => ({ userId: user.id, propertyId: pid })) });
-  }
-
-  // 청소담당자는 프로필(Cleaner)이 정체성: 초대가 가리키는 프로필에 연결하고, 없으면 초대한 호스트 아래 새 프로필을 만든다.
-  if (role === 'cleaner' && validInvitation) {
-    if (validInvitation.cleanerId) {
-      await prisma.cleaner.update({ where: { id: validInvitation.cleanerId }, data: { userId: user.id } });
-    } else {
-      const ownerId = validInvitation.invitedBy
-        ?? (await prisma.user.findFirst({ where: { role: { in: ['admin', 'super_admin'] } }, select: { id: true } }))?.id;
-      if (ownerId) {
-        await prisma.cleaner.create({
-          data: { userId: user.id, name: user.displayName || user.email, ownerId, publicToken: randomBytes(24).toString('base64url') },
-        });
-      } else {
-        console.warn('[register] no host found to own cleaner profile for', user.email);
-      }
+  const user = await prisma.$transaction(async tx => {
+    if (validInvitation) {
+      const claim = await tx.invitation.updateMany({ where: { id: validInvitation.id, status: 'pending', expiresAt: { gt: new Date() } }, data: { status: 'accepted' } });
+      if (claim.count !== 1) throw fail(409, '이미 사용했거나 만료된 초대입니다.');
     }
-  }
+    // Link-only staff already have a User. Activate that row rather than create a second account.
+    if (validInvitation?.cleanerId) {
+      const existing = await tx.user.findUnique({ where: { id: validInvitation.cleanerId } });
+      if (!existing || existing.status !== 'no_account' || normalizeRole(existing.role) !== role) throw fail(409, '이미 로그인이 활성화되었거나 역할이 변경된 직원입니다.');
+      const activated = await tx.user.updateMany({ where: { id: existing.id, status: 'no_account', role: existing.role }, data: { email, password: hashed, status: 'active', displayName: displayName || existing.displayName || email } });
+      if (activated.count !== 1) throw fail(409, '직원 로그인 상태가 변경되었습니다.');
+      return tx.user.findUniqueOrThrow({ where: { id: existing.id } });
+    }
+    const saved = await tx.user.create({ data: { email, password: hashed, displayName: displayName || email, role, status,
+      ownerId: validInvitation?.invitedBy || null, publicToken: randomBytes(24).toString('base64url'),
+    } });
+    if (propertyIds.length) await tx.userProperty.createMany({ data: propertyIds.map(propertyId => ({ userId: saved.id, propertyId })) });
+    return saved;
+  });
+  propertyIds = (await prisma.userProperty.findMany({ where: { userId: user.id }, select: { propertyId: true } })).map(p => p.propertyId);
 
   await setSessionCookie(await signToken({ userId: user.id, email: user.email }));
 

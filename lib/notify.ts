@@ -1,3 +1,4 @@
+import { eligibleStaff } from '@/lib/staff-directory';
 import { createHmac, randomBytes } from 'crypto';
 import { prisma } from '@/lib/prisma';
 
@@ -708,26 +709,7 @@ export async function notifyNewOpenCleanings(opts: {
 
   // 대상 = 소유 호스트의 담당자 중 알림 수신이 켜져 있고, 이 숙소를 볼 수 있는 사람
   // (배정 지점이 없으면 호스트의 모든 숙소 → 대상, 있으면 이 숙소가 포함될 때만).
-  const cleaners = await prisma.cleaner.findMany({
-    where: {
-      ownerId: property.ownerId,
-      notifyNewOpen: true,
-      phone: { not: null },
-      publicToken: { not: null },
-    },
-    select: {
-      id: true,
-      name: true,
-      phone: true,
-      publicToken: true,
-      noProperties: true,
-      assignments: { select: { propertyId: true } },
-    },
-  });
-
-  const eligible = cleaners.filter(c =>
-    !c.noProperties && (c.assignments.length === 0 || c.assignments.some(a => a.propertyId === opts.propertyId)),
-  );
+  const eligible = (await eligibleStaff(opts.propertyId)).filter(c => c.notifyNewOpen && c.phone && c.publicToken);
 
   if (eligible.length === 0) return;
 

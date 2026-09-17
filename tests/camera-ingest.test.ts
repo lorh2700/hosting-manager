@@ -39,7 +39,8 @@ beforeEach(() => {
     { id: 'p2', name: '안온재', ownerId: 'host-1', slug: 'anon', welcomepadKey: 'anon', cameraName: null, cameraNotes: null },
   ];
   db.event = [{ id: 'ev-1', propertyId: 'p1', type: 'reservation', startDate: '2026-09-04', endDate: '2026-09-06' }];
-  db.cleaner = [{ id: 'cl-1', name: '민들레', phone: '01033334444', ownerId: 'host-1', notifyNewOpen: true }];
+  db.user.push(...[{ id: 'cl-1', name: '민들레', phone: '01033334444', ownerId: 'host-1', notifyNewOpen: true }].map(u => ({ ...u, displayName: u.name, role: 'cleaner', status: 'active' })));
+  db.userProperty = [{ userId: 'cl-1', propertyId: 'p1' }];
   db.cleaning = [{ id: 'c1', propertyId: 'p1', date: '2026-09-06', cleanerId: 'cl-1', status: 'pending' }];
 });
 

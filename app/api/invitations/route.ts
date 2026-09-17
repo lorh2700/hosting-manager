@@ -1,3 +1,4 @@
+import { staffDirectory } from '@/lib/staff-directory';
 import { randomBytes } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { withAuth, ok, created, fail, readJson, str } from '@/lib/core/http';
@@ -28,10 +29,10 @@ export const POST = withAuth('invitations', async (req, { auth }) => {
 
   if (role === 'cleaner' && !cleanerId) throw fail(400, '청소담당자는 청소 담당자 관리에서 프로필을 만든 뒤 초대하세요.');
   if (cleanerId) {
-    if (role !== 'cleaner') throw fail(400, 'cleanerId는 cleaner 역할에만 사용할 수 있습니다.');
-    const cleaner = await prisma.cleaner.findUnique({ where: { id: cleanerId }, select: { id: true, userId: true } });
+    const cleaner = await staffDirectory.findUnique({ where: { id: cleanerId }, select: { id: true, userId: true } });
     if (!cleaner) throw fail(404, '청소 담당자를 찾을 수 없습니다.');
-    if (cleaner.userId) throw fail(409, '이미 로그인 계정과 연결된 담당자입니다.');
+    if (cleaner.role !== role) throw fail(400, '직원에게 지정된 관리 역할로 초대해 주세요.');
+    if (cleaner.status !== 'no_account') throw fail(409, '이미 로그인 계정과 연결된 담당자입니다.');
   }
 
   if (await prisma.user.findUnique({ where: { email } })) throw fail(409, '이미 가입된 이메일입니다.');
