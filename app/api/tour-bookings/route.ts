@@ -27,7 +27,7 @@ export const GET = withAuth('tour-bookings', async (req, { auth }) => {
     totalPrice: b.totalPrice ? Number(b.totalPrice) : null,
     status: b.status, forwardedAt: b.forwardedAt, message: b.message, source: b.source, createdAt: b.createdAt,
     tour: { id: b.tour.id, title: b.tour.title, operator: b.tour.operator },
-    schedule: b.schedule,
+    schedule: b.schedule ?? { date: b.requestedDate!, startTime: b.requestedTime! },
     durationOption: b.durationOption
       ? { id: b.durationOption.id, label: b.durationOption.label, durationMin: b.durationOption.durationMin, price: Number(b.durationOption.price) }
       : null,
@@ -130,7 +130,7 @@ export const PUT = withAuth('tour-bookings', async (req, { auth }) => {
     if (before.status !== 'cancelled') {
       await prisma.$transaction([
         prisma.tourBooking.update({ where: { id }, data: { status: 'cancelled' } }),
-        prisma.tourSchedule.update({ where: { id: before.scheduleId }, data: { bookedCount: { decrement: before.guests } } }),
+        ...(before.scheduleId ? [prisma.tourSchedule.update({ where: { id: before.scheduleId }, data: { bookedCount: { decrement: before.guests } } })] : []),
       ]);
     }
     return ok({ success: true });

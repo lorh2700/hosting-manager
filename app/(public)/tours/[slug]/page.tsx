@@ -4,8 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, Clock, Users as UsersIcon, MapPin, Compass, Loader2, Check } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
-import { ko } from 'date-fns/locale';
+import { todayKst } from '@/lib/dates';
 
 interface Slot {
   id: string;
@@ -67,7 +66,8 @@ export default function PublicTourDetailPage() {
   const { slug } = useParams() as { slug: string };
   const [tour, setTour] = useState<PublicTourDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
+  const [requestedDate, setRequestedDate] = useState('');
+  const [requestedTime, setRequestedTime] = useState('');
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [tierCounts, setTierCounts] = useState<Record<string, number>>({});
   const [guests, setGuests] = useState(1);
@@ -98,18 +98,6 @@ export default function PublicTourDetailPage() {
     })();
   }, [slug]);
 
-  const slotsByDate = useMemo(() => {
-    if (!tour) return new Map<string, Slot[]>();
-    const map = new Map<string, Slot[]>();
-    tour.slots.forEach(s => {
-      const list = map.get(s.date) ?? [];
-      list.push(s);
-      map.set(s.date, list);
-    });
-    return map;
-  }, [tour]);
-
-  const selectedSlot = tour?.slots.find(s => s.id === selectedSlotId) ?? null;
   const selectedOption = tour?.durationOptions.find(o => o.id === selectedOptionId) ?? null;
   const hasTiers = (tour?.ticketTiers.length ?? 0) > 0;
 
@@ -141,8 +129,16 @@ export default function PublicTourDetailPage() {
   };
 
   const submit = async () => {
-    if (!selectedSlotId || !name) {
-      setError('이름과 시간을 선택해주세요.');
+    if (!requestedDate || !requestedTime || !name.trim() || !phone.trim()) {
+      setError('희망 날짜·시간, 이름과 연락처를 입력해주세요.');
+      return;
+    }
+    if (new Date(`${requestedDate}T${requestedTime}:00+09:00`).getTime() <= Date.now()) {
+      setError('희망 날짜와 시간을 미래 일정으로 선택해주세요.');
+      return;
+    }
+    if (effectiveCount > (tour?.maxGroupSize ?? 50)) {
+      setError('투어 최대 인원을 확인해주세요.');
       return;
     }
     if (hasTiers && tierTotalCount === 0) {
@@ -173,7 +169,9 @@ export default function PublicTourDetailPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          scheduleId: selectedSlotId,
+          tourId: tour?.id,
+          requestedDate,
+          requestedTime,
           durationOptionId: selectedOptionId,
           tickets,
           language,
@@ -185,7 +183,7 @@ export default function PublicTourDetailPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? '예약에 실패했습니다.');
+        setError(data.error ?? '예약문의 접수에 실패했습니다.');
         return;
       }
       setSuccess(true);
@@ -226,9 +224,9 @@ export default function PublicTourDetailPage() {
           <div className="w-14 h-14 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto mb-6">
             <Check size={26} className="text-emerald-400" />
           </div>
-          <h2 className="text-2xl font-light tracking-tight mb-3">예약이 접수되었습니다</h2>
+          <h2 className="text-2xl font-light tracking-tight mb-3">예약문의가 접수되었습니다</h2>
           <p className="text-stone-400 text-sm mb-8 font-light leading-relaxed">
-            운영업체에 자동으로 통보되며, 확정 후 입력하신 연락처로 안내드립니다.
+            아직 예약이 확정되지 않았습니다. 희망 일정의 예약 가능 여부를 확인한 후, 입력하신 연락처로 최종 예약 확정을 메시지로 안내드립니다.
           </p>
           <Link
             href="/tours"
@@ -286,7 +284,7 @@ export default function PublicTourDetailPage() {
           </div>
 
           <div className="bg-stone-900/40 border border-white/[0.08] p-6 sm:p-8 lg:sticky lg:top-28 self-start">
-            <h2 className="text-xs uppercase tracking-[0.25em] text-stone-400 mb-5">예약</h2>
+            <h2 className="text-xs uppercase tracking-[0.25em] text-stone-400 mb-5">예약문의</h2>
 
             {/* Course / duration option selector */}
             {tour.durationOptions.length > 0 ? (
@@ -331,42 +329,15 @@ export default function PublicTourDetailPage() {
             )}
 
             <div className="mb-5">
-              <label className="block text-[10px] uppercase tracking-widest text-stone-400 mb-2">날짜 · 시간</label>
-              {tour.slots.length === 0 ? (
-                <p className="text-xs text-stone-500 py-3">예약 가능한 슬롯이 없습니다.</p>
-              ) : (
-                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                  {Array.from(slotsByDate.entries()).map(([date, slots]) => (
-                    <div key={date}>
-                      <p className="text-[11px] text-stone-400 font-medium tracking-wide mb-1.5">
-                        {format(parseISO(date), 'M월 d일 (E)', { locale: ko })}
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {slots.map(s => {
-                          const isSelected = selectedSlotId === s.id;
-                          return (
-                            <button
-                              key={s.id}
-                              type="button"
-                              onClick={() => setSelectedSlotId(s.id)}
-                              className={`text-xs px-3 py-1.5 border transition-colors ${
-                                isSelected
-                                  ? 'bg-white text-stone-900 border-white'
-                                  : 'bg-transparent text-stone-200 border-white/15 hover:border-white/40'
-                              }`}
-                            >
-                              {s.startTime}
-                              <span className={`ml-1.5 text-[10px] ${isSelected ? 'text-stone-500' : 'text-stone-500'}`}>
-                                ({s.remaining}석)
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <p className="mb-4 text-sm leading-6 text-stone-300">희망 일정을 선택해 예약을 문의해주세요. 운영 일정 확인 후 예약 가능 여부와 최종 예약 확정을 메시지로 안내드립니다.</p>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="text-xs text-stone-400">희망 날짜 (한국 시간)
+                  <input type="date" required min={todayKst()} value={requestedDate} onChange={e => setRequestedDate(e.target.value)} className="mt-2 w-full min-w-0 border border-white/20 bg-stone-950 p-3 text-sm text-white [color-scheme:dark]" />
+                </label>
+                <label className="text-xs text-stone-400">희망 시간
+                  <input type="time" required value={requestedTime} onChange={e => setRequestedTime(e.target.value)} className="mt-2 w-full min-w-0 border border-white/20 bg-stone-950 p-3 text-sm text-white [color-scheme:dark]" />
+                </label>
+              </div>
             </div>
 
             {/* Tier counters or single guest input */}
@@ -419,7 +390,7 @@ export default function PublicTourDetailPage() {
                   <input
                     type="number"
                     min="1"
-                    max={selectedSlot?.remaining ?? tour.maxGroupSize ?? 99}
+                    max={tour.maxGroupSize ?? 50}
                     value={guests}
                     onChange={e => setGuests(Math.max(1, Number(e.target.value) || 1))}
                     className="w-full bg-stone-950/60 border border-white/10 text-stone-100 px-3 py-2.5 text-sm focus:outline-none focus:border-white/40 transition-colors"
@@ -427,7 +398,7 @@ export default function PublicTourDetailPage() {
                 </div>
                 {totalPrice !== null && (
                   <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-stone-400 mb-2">총 금액</label>
+                    <label className="block text-[10px] uppercase tracking-widest text-stone-400 mb-2">예상 금액</label>
                     <div className="px-3 py-2.5 text-sm font-medium border border-white/10 bg-stone-950/40 text-stone-100">
                       {totalPrice.toLocaleString()}원
                     </div>
@@ -490,7 +461,7 @@ export default function PublicTourDetailPage() {
             <div className="space-y-3 mb-5">
               <input type="text" placeholder="이름 *" value={name} onChange={e => setName(e.target.value)}
                 className="w-full bg-stone-950/60 border border-white/10 text-stone-100 placeholder:text-stone-500 px-4 py-3 text-sm focus:outline-none focus:border-white/40 transition-colors" />
-              <input type="tel" placeholder="연락처 (선택, 010-0000-0000)" value={phone} onChange={e => setPhone(e.target.value)}
+              <input type="tel" placeholder="메시지 받을 연락처 * (국가번호 포함 가능)" value={phone} onChange={e => setPhone(e.target.value)}
                 className="w-full bg-stone-950/60 border border-white/10 text-stone-100 placeholder:text-stone-500 px-4 py-3 text-sm focus:outline-none focus:border-white/40 transition-colors" />
               <input type="email" placeholder="이메일 (선택)" value={email} onChange={e => setEmail(e.target.value)}
                 className="w-full bg-stone-950/60 border border-white/10 text-stone-100 placeholder:text-stone-500 px-4 py-3 text-sm focus:outline-none focus:border-white/40 transition-colors" />
@@ -502,14 +473,14 @@ export default function PublicTourDetailPage() {
 
             <button
               onClick={submit}
-              disabled={submitting || !selectedSlotId || !name}
+              disabled={submitting || !requestedDate || !requestedTime || !name.trim() || !phone.trim()}
               className="w-full bg-white hover:bg-stone-200 disabled:bg-stone-700 disabled:text-stone-500 text-stone-900 py-3.5 text-xs uppercase tracking-widest font-medium transition-colors flex items-center justify-center gap-2"
             >
-              {submitting ? '예약 중...' : <>예약하기 <ArrowRight size={13} /></>}
+              {submitting ? '문의 접수 중...' : <>예약문의하기 <ArrowRight size={13} /></>}
             </button>
 
             <p className="text-[10px] text-stone-500 mt-3 text-center tracking-wide">
-              예약 후 운영업체 확정 시 연락드립니다
+              문의 접수만으로 예약이 확정되지 않습니다. 최종 확정은 메시지로 안내드립니다
             </p>
           </div>
         </div>

@@ -49,7 +49,7 @@ export default function PublicToursPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-stone-400 mb-4">Bukchon Tours</p>
         <h1 className="text-4xl md:text-5xl font-light tracking-tight mb-5">북촌의 시간을 거닐다</h1>
         <p className="text-stone-300 max-w-xl mx-auto text-sm md:text-base font-light">
-          한옥마을 주변의 한복, 가이드, 공예 체험을 한곳에서 예약하세요.
+          한옥마을 주변의 투어와 체험을 문의하세요. 희망 일정을 접수하면 예약 가능 여부와 최종 확정을 메시지로 안내드립니다.
         </p>
       </header>
 
@@ -79,8 +79,9 @@ export default function PublicToursPage() {
                       className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-stone-700">
-                      <Compass size={48} strokeWidth={1} />
+                    <div className="relative w-full h-full">
+                      <img src="/images/guide/bukchon.jpg" alt="북촌 한옥마을 골목 풍경" loading="lazy" className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500" />
+                      <span className="absolute bottom-3 left-3 bg-black/60 px-2 py-1 text-[10px] text-white">북촌 풍경 · 참고 이미지</span>
                     </div>
                   )}
                 </div>
@@ -90,6 +91,7 @@ export default function PublicToursPage() {
                       {CATEGORY_LABELS[tour.category] ?? tour.category}
                     </p>
                   )}
+                  <p className="mb-2 text-xs text-[#d8c3a4]">희망 일정으로 예약문의</p>
                   <h2 className="text-lg font-medium tracking-tight mb-2 text-stone-50">{tour.title}</h2>
                   {tour.description && (
                     <p className="text-sm text-stone-300 font-light line-clamp-2 mb-4">{tour.description}</p>

@@ -5,14 +5,13 @@ import { usePublicLanguage, PublicLanguageSwitch } from '@/components/PublicLang
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { Menu, X } from 'lucide-react';
+import { ChevronDown, Menu, X } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 
 const NAV_LINKS = [
   { href: '/brand', label: '브랜드' },
   { href: '/#spaces', label: '공간' },
   { href: '/tours', label: '투어' },
-  { href: '/guide', label: '북촌 가이드' },
   { href: '/about', label: '입점 안내' },
 ];
 
@@ -24,9 +23,28 @@ export function PublicNavigation() {
 function Navigation({ pathname }: { pathname: string }) {
   const { t } = usePublicLanguage();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
+  const tourRef = useRef<HTMLDivElement>(null);
+  const tourToggleRef = useRef<HTMLButtonElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const navRef = useRef<HTMLElement>(null);
   const closeMenu = () => setMobileOpen(false);
+
+  useEffect(() => {
+    if (!tourOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Node && !tourRef.current?.contains(event.target)) setTourOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { setTourOpen(false); tourToggleRef.current?.focus(); }
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [tourOpen]);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -61,6 +79,15 @@ function Navigation({ pathname }: { pathname: string }) {
         </Link>
         <div className="hidden lg:flex items-center gap-5 text-sm">
           {NAV_LINKS.map(link => (
+            link.href === '/tours' ? <div key={link.href} ref={tourRef} className="relative" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setTourOpen(false); }}>
+              <div className="flex items-center">
+                <Link href="/tours" aria-current={isActive('/tours') ? 'page' : undefined} className={`py-3 ${isActive('/tours') || isActive('/guide') ? 'text-white' : 'text-stone-300 hover:text-white'}`}>{t('투어')}</Link>
+                <button ref={tourToggleRef} type="button" aria-label={t('투어')} aria-expanded={tourOpen} aria-controls="public-tour-submenu" onClick={() => setTourOpen(value => !value)} className="flex min-h-11 min-w-11 items-center justify-center text-stone-300 hover:text-white"><ChevronDown size={15} className={`transition-transform ${tourOpen ? 'rotate-180' : ''}`} /></button>
+              </div>
+              {tourOpen && <div id="public-tour-submenu" className="absolute left-0 top-full w-44 border border-white/10 bg-stone-950 p-2 shadow-xl">
+                <Link href="/guide" aria-current={isActive('/guide') ? 'page' : undefined} onClick={() => setTourOpen(false)} className="block px-4 py-3 text-stone-200 hover:bg-white/10 hover:text-white">{t('북촌 가이드')}</Link>
+              </div>}
+            </div> :
             <Link key={link.href} href={link.href} aria-current={isActive(link.href) ? 'page' : undefined} className={`py-3 transition-colors ${isActive(link.href) ? 'text-white' : 'text-stone-300 hover:text-white'}`}>
               {t(link.label)}
             </Link>
@@ -81,6 +108,10 @@ function Navigation({ pathname }: { pathname: string }) {
       {mobileOpen && (
         <div id="public-mobile-menu" className="lg:hidden max-h-[calc(100dvh-72px)] overflow-y-auto bg-stone-950 border-t border-white/10 px-4 py-4 shadow-2xl">
           {NAV_LINKS.map(link => (
+            link.href === '/tours' ? <div key={link.href}>
+              <Link href="/tours" onClick={closeMenu} aria-current={isActive('/tours') ? 'page' : undefined} className="block rounded-lg px-3 py-4 text-base text-stone-200">{t('투어')}</Link>
+              <div className="mb-2 ml-5 border-l border-white/20 pl-3"><Link href="/guide" onClick={closeMenu} aria-current={isActive('/guide') ? 'page' : undefined} className={`block rounded-lg px-3 py-3 text-sm ${isActive('/guide') ? 'bg-white/10 text-white' : 'text-stone-400 hover:text-white'}`}>{t('북촌 가이드')}</Link></div>
+            </div> :
             <Link key={link.href} href={link.href} onClick={closeMenu} aria-current={isActive(link.href) ? 'page' : undefined} className={`block px-3 py-4 rounded-lg text-base ${isActive(link.href) ? 'text-white' : 'text-stone-300 hover:text-white'}`}>
               {t(link.label)}
             </Link>

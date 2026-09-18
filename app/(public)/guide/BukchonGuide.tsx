@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowUpRight, Compass, MapPin, Search, Utensils } from 'lucide-react';
 import { usePublicLanguage } from '@/components/PublicLanguage';
-import { guideEntries, RESTAURANT_SOURCE, type GuideCategory } from '@/lib/bukchon-guide';
+import { guideEntries, guideImages, RESTAURANT_SOURCE, type GuideCategory } from '@/lib/bukchon-guide';
 
 export default function BukchonGuide() {
   const { language } = usePublicLanguage();
@@ -33,7 +34,13 @@ export default function BukchonGuide() {
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{filtered.map(entry => {
         const Icon = entry.category === 'food' ? Utensils : entry.category === 'tour' ? Compass : MapPin;
         const external = entry.href.startsWith('https://');
-        return <article key={entry.id} className="flex flex-col border border-stone-300 bg-[#faf8f3] p-6 md:p-7">
+        const photo = guideImages[entry.id];
+        return <article key={entry.id} className="group flex flex-col overflow-hidden border border-stone-300 bg-[#faf8f3]">
+          <div className="relative aspect-[4/3] overflow-hidden bg-stone-200">
+            <Image src={photo.src} alt={entry.category === 'food' ? `${entry.tag[language]} · ${en ? 'reference image' : '참고 이미지'}` : entry.category === 'tour' ? (en ? 'Hanok lanes in Bukchon' : '북촌 한옥마을 골목 풍경') : entry.name[language]} fill sizes="(min-width: 1024px) 360px, (min-width: 640px) 50vw, 100vw" className="object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
+            {entry.category === 'food' && <span className="absolute bottom-3 left-3 bg-black/60 px-2 py-1 text-[10px] text-white">{en ? 'Food reference image' : '음식 참고 이미지'}</span>}
+          </div>
+          <div className="flex flex-1 flex-col p-6 md:p-7">
           <div className="mb-8 flex items-center justify-between text-[#65725e]"><Icon size={24} strokeWidth={1.3} aria-hidden="true" /><span className="text-xs">{entry.tag[language]}</span></div>
           <h2 className="brand-serif text-xl">{entry.name[language]}</h2>
           {!en && <p className="mt-1 text-xs text-stone-500">{entry.name.en}</p>}
@@ -42,10 +49,16 @@ export default function BukchonGuide() {
             <Link href={entry.href} target={external ? '_blank' : undefined} rel={external ? 'noopener noreferrer' : undefined} className="inline-flex min-h-11 items-center gap-2 text-sm underline-offset-4 hover:underline" aria-label={`${entry.name[language]} · ${entry.category === 'food' ? (en ? 'Open map' : '지도 보기') : (en ? 'View details' : '안내 보기')}${external ? (en ? ' (new tab)' : ' (새 창)') : ''}`}>{entry.category === 'food' ? (en ? 'Open map' : '지도 보기') : (en ? 'View details' : '안내 보기')}<ArrowUpRight size={16} aria-hidden="true" /></Link>
             <span className="text-[11px] text-stone-500">{entry.category === 'food' ? (en ? 'Naver Map' : '네이버 지도') : entry.id === 'anchae-tours' ? 'void anchae' : (en ? 'Official guide' : '공식 안내')}</span>
           </div>
+          </div>
         </article>;
       })}</div>
       {!filtered.length && <div className="py-16 text-center"><p className="text-stone-600">{en ? 'No matches. Try another name or category.' : '검색 결과가 없습니다. 다른 이름이나 분류로 찾아보세요.'}</p><button type="button" onClick={() => { setQuery(''); setCategory('all'); }} className="mt-5 min-h-11 underline">{en ? 'Show all' : '전체 보기'}</button></div>}
       <aside className="mt-12 border-t border-stone-300 pt-8 text-sm leading-7 text-stone-600">
+        <details className="mb-6 text-xs">
+          <summary className="cursor-pointer py-2">{en ? 'Photo credits' : '사진 출처'}</summary>
+          <p className="mt-2">{en ? 'Food images illustrate the cuisine and are not photos of the listed restaurants. Images are cropped for display.' : '음식 사진은 메뉴 이해를 돕는 참고 이미지이며 해당 매장의 실제 사진이 아닙니다. 사진은 카드 비율에 맞춰 잘라 표시합니다.'}</p>
+          <ul className="mt-3 space-y-1">{guideEntries.map(entry => { const photo = guideImages[entry.id]; return <li key={entry.id}><a href={photo.source} target="_blank" rel="noopener noreferrer" className="underline">{entry.name[language]}</a> · {photo.author} · <a href={photo.licenseUrl} target="_blank" rel="noopener noreferrer" className="underline">{photo.license}</a></li>; })}</ul>
+        </details>
         <h2 className="font-medium text-stone-900">{en ? 'Before you go' : '방문 전 확인해 주세요'}</h2>
         <p className="mt-2">{en ? 'Check current hours, closures and booking availability through the linked map or official guide. Bukchon is a residential neighborhood: walk quietly and follow posted visiting restrictions.' : '영업시간·휴무·예약 가능 여부는 연결된 지도와 공식 안내에서 확인해 주세요. 북촌은 주민이 생활하는 마을입니다. 조용히 걸으며 현장의 방문시간 및 출입 안내를 따라 주세요.'}</p>
         <p className="mt-4 text-xs">{en ? 'Restaurant selection: ' : '맛집 목록 출처: '}<a href={RESTAURANT_SOURCE} target="_blank" rel="noopener noreferrer" className="underline">Restaurant Recommendations</a>{en ? ' · Tourism information: ' : ' · 관광정보: '}<a href="https://hanok.seoul.go.kr/front/kor/town/town01.do" target="_blank" rel="noopener noreferrer" className="underline">{en ? 'Seoul Hanok Portal' : '서울한옥포털'}</a> · <a href="https://korean.visitseoul.net/mvp/서울전통코스_/34902" target="_blank" rel="noopener noreferrer" className="underline">Visit Seoul</a></p>

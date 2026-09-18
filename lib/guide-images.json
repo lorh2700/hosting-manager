@@ -1,0 +1,72 @@
+{
+  "samgyetang": {
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "src": "/images/guide/samgyetang.jpg",
+    "license": "CC0",
+    "source": "https://commons.wikimedia.org/wiki/File:Samgye-tang_2.jpg",
+    "author": "wizdata"
+  },
+  "kalguksu": {
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+    "src": "/images/guide/kalguksu.jpg",
+    "license": "CC BY 4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Haemul-kal-guksu.jpg",
+    "author": "행복한 초록개구리"
+  },
+  "bagel": {
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+    "src": "/images/guide/bagel.jpg",
+    "license": "CC BY 4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Bagel_with_sesame_3.jpg",
+    "author": "Shisma"
+  },
+  "bossam": {
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+    "src": "/images/guide/bossam.jpg",
+    "license": "CC BY-SA 2.0",
+    "source": "https://commons.wikimedia.org/wiki/File:KOCIS_BOSSAM,_napa_wraps_with_pork_(4618280268).jpg",
+    "author": "Korea.net / Korean Culture and Information Service"
+  },
+  "korean": {
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.5",
+    "src": "/images/guide/korean.jpg",
+    "license": "CC BY-SA 2.5",
+    "source": "https://commons.wikimedia.org/wiki/File:Han-jeongsik.jpg",
+    "author": "TheDream 더 드림 더드림"
+  },
+  "soba": {
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+    "src": "/images/guide/soba.jpg",
+    "license": "CC BY-SA 2.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Dried_soba_noodles_by_FotoosVanRobin.jpg",
+    "author": "FotoosVanRobin"
+  },
+  "temple": {
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+    "src": "/images/guide/temple.jpg",
+    "license": "CC BY-SA 2.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Korea-Seoul-Insadong-Sanchon-02.jpg",
+    "author": "Julie"
+  },
+  "bukchon": {
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "src": "/images/guide/bukchon.jpg",
+    "license": "CC0",
+    "source": "https://commons.wikimedia.org/wiki/File:Bukchon_Hanok_Village_01.jpg",
+    "author": "Bgag"
+  },
+  "palace": {
+    "licenseUrl": "http://www.kogl.or.kr/info/licenseType1.do",
+    "src": "/images/guide/palace.jpg",
+    "license": "KOGL Type 1",
+    "source": "https://commons.wikimedia.org/wiki/File:%EA%B4%91%ED%99%94%EB%AC%B8_%EC%9B%94%EB%8C%80.jpg",
+    "author": "서울관광 아카이브"
+  },
+  "insadong": {
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "src": "/images/guide/insadong.jpg",
+    "license": "CC BY-SA 4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Insa-dong_%EC%9D%B8%EC%82%AC%EB%8F%99_October_1_2020_20.jpg",
+    "author": "S h y numis"
+  }
+}

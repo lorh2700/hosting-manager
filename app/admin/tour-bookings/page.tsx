@@ -42,7 +42,7 @@ function formatDuration(min: number): string {
 
 const STATUS_TABS = [
   { value: '', label: '전체' },
-  { value: 'pending', label: '대기' },
+  { value: 'pending', label: '문의 접수' },
   { value: 'forwarded', label: '전달완료' },
   { value: 'confirmed', label: '확정' },
   { value: 'cancelled', label: '취소' },
@@ -57,7 +57,7 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  pending: '대기',
+  pending: '문의 접수',
   forwarded: '전달완료',
   confirmed: '확정',
   cancelled: '취소',
@@ -130,7 +130,7 @@ function TourBookingsContent() {
         <div>
           <p className="text-[13px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">투어 호스팅</p>
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-900">투어 예약 관리</h1>
-          <p className="text-stone-500 mt-2 text-sm">예약 상태를 변경하고 운영업체에 전달하세요.</p>
+          <p className="text-stone-500 mt-2 text-sm">희망 일정의 운영 가능 여부를 확인하고, 고객에게 메시지로 최종 확정을 안내한 뒤 예약 상태를 변경하세요.</p>
         </div>
         <Link
           href="/admin/tours"

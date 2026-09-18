@@ -199,7 +199,7 @@ export async function authorizeTourBooking(
   bookingId: string,
   userId: string,
   opts: { isAdmin?: boolean } = {},
-): Promise<{ tourId: string; ownerId: string; scheduleId: string; guests: number; status: string } | null> {
+): Promise<{ tourId: string; ownerId: string; scheduleId: string | null; guests: number; status: string } | null> {
   const b = await prisma.tourBooking.findUnique({
     where: { id: bookingId },
     select: {

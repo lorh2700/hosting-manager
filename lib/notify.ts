@@ -611,6 +611,7 @@ export async function notifyTourHostOfBooking(opts: {
  *  - SOLAPI_TPL_TOUR_BOOKING_GUEST template isn't configured
  */
 export async function notifyTourGuestOfBooking(opts: {
+  inquiry?: boolean;
   guestPhone: string | null;
   guestName: string;
   tourTitle: string;
@@ -641,20 +642,20 @@ export async function notifyTourGuestOfBooking(opts: {
   // Plain-text version — used both as SMS failover and as the message
   // when no alimtalk template is configured.
   const smsText =
-    `[void anchae 투어 예약 확인]\n` +
-    `${opts.guestName}님, 예약이 접수되었습니다.\n\n` +
+    `[void anchae 투어 예약문의]\n` +
+    `${opts.guestName}님, 예약문의가 접수되었습니다.\n\n` +
     `투어: ${opts.tourTitle}\n` +
     `일정: ${variables.투어일} ${opts.startTime}\n` +
     `코스: ${variables.코스시간}\n` +
     `인원: ${variables.예약인원}\n` +
     `금액: ${variables.총금액}\n` +
     `모임: ${variables.모임장소}\n\n` +
-    `운영업체 확정 후 다시 안내드립니다.`;
+    `아직 예약이 확정되지 않았습니다. 예약 가능 여부와 최종 확정은 메시지로 안내드립니다.`;
 
   const templateId = TEMPLATES.TOUR_BOOKING_GUEST;
   const notifier = getNotifier();
 
-  if (!templateId) {
+  if (opts.inquiry || !templateId) {
     // No alimtalk template registered → send straight SMS.
     console.warn('[notify] SOLAPI_TPL_TOUR_BOOKING_GUEST not set; sending plain SMS instead');
     return notifier.sendSms({ to: opts.guestPhone, text: smsText }).catch(err => {

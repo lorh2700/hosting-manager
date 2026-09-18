@@ -43,6 +43,15 @@ export default function PublicPortal() {
     }
   }
 
+  const visibleSlugs = PROPERTY_DISPLAY_ORDER.filter(slug => {
+    const property = PROPERTY_DISPLAY[slug];
+    if (!property || property.status === 'closed') return false;
+    if (!search) return true;
+    return !searching && !searchError && property.status === 'active'
+      && results.some(result => result.slug === slug && result.status === 'available');
+  });
+  const hasSearchErrors = searchError || results.some(result => result.status === 'error');
+
   return (
     <div className="min-h-screen bg-[#171b18] text-stone-50 selection:bg-stone-400/20 font-sans">
       <a href="#find-stay" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-4 focus:z-[60] focus:bg-white focus:text-stone-900 focus:p-4">{t("숙소 예약으로 바로가기")}</a>
@@ -63,12 +72,13 @@ export default function PublicPortal() {
           {search ? <p>{search.checkIn} — {search.checkOut} · {search.guests}{en ? ' guests' : '명'} <button type="button" onClick={() => { controller.current?.abort(); controller.current = null; setSearching(false); setSearch(null); setResults([]); setSearchError(false); }} className="ml-4 min-h-11 underline">{en ? 'Clear search' : '전체 숙소 보기'}</button></p> : <p>{en ? 'From rates · 2 guests, per night. Final rates vary by date and options.' : '기준요금 · 2인 / 1박부터. 날짜와 옵션에 따라 최종 요금이 달라집니다.'}</p>}
           {searching && <p role="status">{en ? 'Checking live rates and availability…' : '실시간 요금과 예약 가능 여부를 확인하고 있습니다…'}</p>}
           {search && results.some(r => r.status === 'available' && !r.includesAllFees) && <p>{en ? 'Any additional mandatory fees will be confirmed at checkout.' : '별도 필수 요금이 있는 경우 결제 단계에서 확인할 수 있습니다.'}</p>}
-          {searchError && <p role="alert">{en ? 'Some information could not be loaded. Please retry or check the stay details.' : '일부 정보를 불러오지 못했습니다. 다시 검색하거나 숙소 상세에서 확인해주세요.'}</p>}
-          {search && !searching && !searchError && results.length > 0 && results.every(r => r.status === 'unavailable') && <p>{en ? 'No stays match these dates and guests. Please try another date.' : '선택한 날짜와 인원에 맞는 숙소가 없습니다. 다른 날짜로 검색해주세요.'}</p>}
+          {search && !searching && hasSearchErrors && <p role="alert">{en ? 'Availability could not be confirmed for some stays. Only confirmed available stays are shown.' : '일부 지점의 예약 가능 여부를 확인하지 못했습니다. 예약 가능한 것으로 확인된 지점만 표시합니다.'} <button type="button" onClick={() => findStays(search)} className="ml-3 min-h-11 underline">{en ? 'Retry search' : '다시 검색'}</button></p>}
+          {search && !searching && !hasSearchErrors && visibleSlugs.length === 0 && <p>{en ? 'No stays match these dates and guests. Please try another date or guest count.' : '선택한 날짜와 인원에 체크인 가능한 지점이 없습니다. 날짜나 인원을 변경해 검색해주세요.'}</p>}
+          {search && !searching && visibleSlugs.length > 0 && <p>{en ? `${visibleSlugs.length} stays available for your dates and guests.` : `선택한 날짜와 인원에 예약 가능한 지점 ${visibleSlugs.length}곳입니다.`}</p>}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-10 md:gap-y-14">
-          {PROPERTY_DISPLAY_ORDER.filter(slug => PROPERTY_DISPLAY[slug]?.status !== 'closed').map((slug) => {
+          {visibleSlugs.map((slug) => {
             const p = PROPERTY_DISPLAY[slug];
             if (!p) return null;
             const isComingSoon = p.status === 'coming_soon';

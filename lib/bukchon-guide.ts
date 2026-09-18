@@ -1,3 +1,13 @@
+import images from './guide-images.json';
+
+export const guideImages: Record<string, (typeof images)['bukchon']> = {
+  tosokchon: images.samgyetang, hwangsaengga: images.kalguksu,
+  'london-bagel': images.bagel, cheonha: images.bossam, aehorak: images.korean,
+  mijin: images.soba, balwoo: images.temple, 'anchae-tours': images.bukchon,
+  'walking-tour': images.bukchon, bukchon: images.bukchon,
+  palaces: images.palace, insadong: images.insadong,
+};
+
 export type GuideCategory = 'food' | 'tour' | 'place';
 type Copy = { ko: string; en: string };
 export interface GuideEntry { id: string; category: GuideCategory; name: Copy; tag: Copy; description: Copy; href: string; source: string }
@@ -12,7 +22,7 @@ export const guideEntries: GuideEntry[] = [
   { id: 'aehorak', category: 'food', name: { ko: '애호락', en: 'Ae Horak' }, tag: { ko: '한식', en: 'Korean dining' }, description: { ko: '정갈하게 차려낸 계절 요리를 즐기는 한식 식사.', en: 'Thoughtfully presented Korean dishes with seasonal ingredients.' }, href: 'https://naver.me/xrSQBZ0r', source: RESTAURANT_SOURCE },
   { id: 'mijin', category: 'food', name: { ko: '광화문 미진', en: 'Gwanghwamun Mijin' }, tag: { ko: '메밀국수', en: 'Buckwheat noodles' }, description: { ko: '시원한 메밀국수로 가볍고 산뜻하게 즐기는 한 끼.', en: 'Cold buckwheat noodles for a light, refreshing meal.' }, href: 'https://naver.me/5mI0aN2M', source: RESTAURANT_SOURCE },
   { id: 'balwoo', category: 'food', name: { ko: '발우공양', en: 'Balwoo Gongyang' }, tag: { ko: '사찰음식', en: 'Temple cuisine' }, description: { ko: '계절 식재료를 중심으로 한국 사찰음식을 경험하는 곳.', en: 'Discover Korean temple cuisine built around seasonal ingredients.' }, href: 'https://naver.me/Fr7palKq', source: RESTAURANT_SOURCE },
-  { id: 'anchae-tours', category: 'tour', name: { ko: '안채 투어 · 체험', en: 'Anchae tours & experiences' }, tag: { ko: '투어 예약', en: 'Book an experience' }, description: { ko: '현재 운영 중인 투어와 체험의 일정, 내용, 예약 가능 여부를 확인하세요.', en: 'Explore available experiences, schedules and booking options.' }, href: '/tours', source: '/tours' },
+  { id: 'anchae-tours', category: 'tour', name: { ko: '안채 투어 · 체험', en: 'Anchae tours & experiences' }, tag: { ko: '예약문의', en: 'Booking inquiry' }, description: { ko: '투어와 체험의 희망 일정을 문의하세요. 예약 가능 여부와 최종 확정은 메시지로 안내드립니다.', en: 'Request your preferred date and time. Availability and final confirmation will be sent by message.' }, href: '/tours', source: '/tours' },
   { id: 'walking-tour', category: 'tour', name: { ko: '서울도보해설관광', en: 'Seoul guided walking tours' }, tag: { ko: '문화관광해설사 동행', en: 'Guided cultural walk' }, description: { ko: '북촌 한옥마을 등 서울의 명소를 해설사와 함께 걷는 프로그램. 공식 사이트에서 코스와 예약을 확인하세요.', en: 'Explore routes including Bukchon Hanok Village with a cultural guide. Check the official site for reservations.' }, href: 'https://dobo.visitseoul.net/main/index', source: 'https://dobo.visitseoul.net/main/index' },
   { id: 'bukchon', category: 'place', name: { ko: '북촌 한옥마을', en: 'Bukchon Hanok Village' }, tag: { ko: '한옥 · 골목 산책', en: 'Hanok · Neighborhood walks' }, description: { ko: '경복궁과 창덕궁 사이, 한옥과 주민의 일상이 이어지는 동네를 천천히 둘러보세요.', en: 'Discover a living hanok neighborhood between Gyeongbokgung and Changdeokgung palaces.' }, href: hanok, source: hanok },
   { id: 'palaces', category: 'place', name: { ko: '경복궁 · 창덕궁', en: 'Gyeongbokgung & Changdeokgung' }, tag: { ko: '궁궐 · 전통문화', en: 'Palaces · Heritage' }, description: { ko: '북촌 여행에 궁궐 관람을 더해 보세요. 궁별 관람 및 예매 안내를 확인하고 일정을 정하세요.', en: 'Pair your Bukchon visit with a palace. Check admission and booking details before planning your day.' }, href: culture, source: culture },

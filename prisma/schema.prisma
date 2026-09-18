@@ -790,7 +790,9 @@ model TourSchedule {
 model TourBooking {
   id               String    @id @default(uuid())
   tourId           String    @map("tour_id")
-  scheduleId       String    @map("schedule_id")
+  scheduleId       String?   @map("schedule_id")
+  requestedDate    String?   @map("requested_date")
+  requestedTime    String?   @map("requested_time")
   durationOptionId String?   @map("duration_option_id")
   bookingId        String?   @map("booking_id") // 숙박 Booking과 느슨한 연결
   name             String
@@ -814,7 +816,7 @@ model TourBooking {
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
   tour           Tour                @relation(fields: [tourId], references: [id])
-  schedule       TourSchedule        @relation(fields: [scheduleId], references: [id])
+  schedule       TourSchedule?       @relation(fields: [scheduleId], references: [id])
   durationOption TourDurationOption? @relation(fields: [durationOptionId], references: [id], onDelete: SetNull)
 
   @@index([tourId, status])

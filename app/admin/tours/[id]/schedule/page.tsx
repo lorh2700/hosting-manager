@@ -131,7 +131,7 @@ export default function TourSchedulePage() {
         // filter to this slot's bookings
         const filtered = all
           .filter((b: { scheduleId?: string; schedule?: { date: string; startTime: string } }) =>
-            b.schedule?.date === slot.date && b.schedule?.startTime === slot.startTime,
+            b.scheduleId === slot.id,
           );
         setSlotBookings(filtered);
       }
