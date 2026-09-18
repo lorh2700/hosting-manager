@@ -1,5 +1,7 @@
 'use client';
 
+import { PropertyNavigation } from '@/components/PropertyNavigation';
+
 /**
  * 숙소 복도 카메라 — 날짜별 스냅샷과 AI 판정.
  * 오늘 화면 카드는 체크아웃이 있는 날에만 사진을 보여주므로, 언제든 확인할 수 있는 전용 화면.
@@ -87,6 +89,8 @@ export default function PropertyCameraPage() {
           title={propertyName ? `${propertyName} 복도` : '복도 카메라'}
           description="카메라가 사람을 감지해 보낸 사진과, 체크아웃 시간대의 AI 판정입니다. 사진은 30일 뒤 자동 삭제됩니다."
         />
+
+        <PropertyNavigation propertyId={id} />
 
         {diagnostic && <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-stone-700">{diagnostic}</p>}
         <div className="flex items-center gap-2">

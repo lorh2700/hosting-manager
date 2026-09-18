@@ -1,10 +1,12 @@
 'use client';
 
+import { PropertyNavigation } from '@/components/PropertyNavigation';
+
 import { CancelReservationButton } from '@/components/CancelReservationButton';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { useParams, usePathname, useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, RefreshCw, Calendar as CalendarIcon, X, AlertTriangle, MessageSquare, CalendarPlus, Wrench } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { CreateReservationModal } from '@/app/admin/calendar/components/CreateReservationModal';
@@ -42,7 +44,6 @@ interface ReservationEvent {
 
 export default function CalendarPage() {
   const { id } = useParams() as { id: string };
-  const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
   const [property, setProperty] = useState<Property | null>(null);
@@ -401,26 +402,7 @@ export default function CalendarPage() {
         </div>
       </header>
 
-      {/* Sub-menu Tabs */}
-      <div className="flex gap-1 bg-stone-50 p-1 border border-stone-200">
-        {[
-          { href: `/admin/properties/${id}`, label: '캘린더', active: pathname === `/admin/properties/${id}` },
-          { href: `/admin/properties/${id}/channels`, label: '채널 연결', active: pathname === `/admin/properties/${id}/channels` },
-          { href: `/admin/properties/${id}/settings`, label: '숙소 설정', active: pathname === `/admin/properties/${id}/settings` },
-          { href: `/admin/properties/${id}/camera`, label: '복도 카메라', active: pathname === `/admin/properties/${id}/camera` },
-          { href: `/admin/properties/${id}/checkout-qr`, label: '체크아웃 QR', active: pathname === `/admin/properties/${id}/checkout-qr` },
-        ].map(tab => (
-          <Link
-            key={tab.href}
-            href={tab.href}
-            className={`flex-1 text-center px-4 py-2 text-[13px] tracking-widest font-medium transition-colors ${
-              tab.active ? 'bg-[var(--brand)] text-white' : 'text-stone-500 hover:text-stone-700'
-            }`}
-          >
-            {tab.label}
-          </Link>
-        ))}
-      </div>
+      <PropertyNavigation propertyId={id} />
 
       {groupedConflicts.length > 0 && (
         <div className="border border-red-200 bg-red-50 overflow-hidden mb-2">

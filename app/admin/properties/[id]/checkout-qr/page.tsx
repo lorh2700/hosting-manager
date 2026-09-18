@@ -1,5 +1,7 @@
 'use client';
 
+import { PropertyNavigation } from '@/components/PropertyNavigation';
+
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -28,6 +30,7 @@ export default function CheckoutQrPage() {
   return <div className="max-w-xl mx-auto space-y-6 pb-nav px-4">
     <Link href={`/admin/properties/${id}`} className="inline-flex min-h-11 items-center text-sm underline">숙소로 돌아가기</Link>
     <div><h1 className="text-2xl font-semibold">게스트 체크아웃 QR</h1><p className="text-sm text-stone-500 mt-2">숙소 안내문에 붙여 계속 사용할 수 있는 고정 QR입니다.</p></div>
+    <PropertyNavigation propertyId={id} />
     {error && <div role="alert"><p className="text-red-700">{error}</p><button onClick={() => setRetry(value => value + 1)} className="min-h-11 underline">다시 불러오기</button></div>}
     {!qr && !error && <p role="status">QR을 준비하고 있습니다…</p>}
     {qr && <>

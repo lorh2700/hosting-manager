@@ -1,8 +1,10 @@
 'use client';
 
+import { PropertyNavigation } from '@/components/PropertyNavigation';
+
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useParams, usePathname } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { ArrowLeft, Save, CheckCircle2, XCircle, Copy, Trash2 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { toast, confirmDialog } from '@/components/ui';
@@ -24,7 +26,6 @@ interface ChannelConnection {
 
 export default function ChannelsPage() {
   const { id } = useParams() as { id: string };
-  const pathname = usePathname();
   const { user } = useAuth();
   const [property, setProperty] = useState<Property | null>(null);
   const [channels, setChannels] = useState<ChannelConnection[]>([]);
@@ -173,18 +174,7 @@ export default function ChannelsPage() {
         </div>
       </header>
 
-      {/* Sub-menu Tabs */}
-      <div className="flex border-b border-stone-200 mb-8">
-        <Link href={`/admin/properties/${id}`} className={`px-6 py-4 text-[13px] tracking-widest font-semibold border-b-2 transition-colors ${pathname === `/admin/properties/${id}` ? 'border-[var(--brand)] text-stone-900' : 'border-transparent text-stone-500 hover:text-stone-900 hover:border-stone-300'}`}>
-          캘린더
-        </Link>
-        <Link href={`/admin/properties/${id}/channels`} className={`px-6 py-4 text-[13px] tracking-widest font-semibold border-b-2 transition-colors ${pathname === `/admin/properties/${id}/channels` ? 'border-[var(--brand)] text-stone-900' : 'border-transparent text-stone-500 hover:text-stone-900 hover:border-stone-300'}`}>
-          채널 연결
-        </Link>
-        <Link href={`/admin/properties/${id}/settings`} className={`px-6 py-4 text-[13px] tracking-widest font-semibold border-b-2 transition-colors ${pathname === `/admin/properties/${id}/settings` ? 'border-[var(--brand)] text-stone-900' : 'border-transparent text-stone-500 hover:text-stone-900 hover:border-stone-300'}`}>
-          숙소 설정
-        </Link>
-      </div>
+      <PropertyNavigation propertyId={id} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
         {/* Left Column: Add New Channel Form */}

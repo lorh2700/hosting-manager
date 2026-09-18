@@ -1,8 +1,10 @@
 'use client';
 
+import { PropertyNavigation } from '@/components/PropertyNavigation';
+
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useParams, usePathname, useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Save, Trash2, Copy, Check, Link as LinkIcon } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { toast } from '@/components/ui';
@@ -29,7 +31,6 @@ interface Property {
 
 export default function PropertySettingsPage() {
   const { id } = useParams() as { id: string };
-  const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
 
@@ -167,18 +168,7 @@ export default function PropertySettingsPage() {
         </div>
       </header>
 
-      {/* Sub-menu Tabs */}
-      <div className="flex border-b border-stone-200 mb-8">
-        <Link href={`/admin/properties/${id}`} className={`px-6 py-4 text-[13px] tracking-widest font-semibold border-b-2 transition-colors ${pathname === `/admin/properties/${id}` ? 'border-[var(--brand)] text-stone-900' : 'border-transparent text-stone-500 hover:text-stone-900 hover:border-stone-300'}`}>
-          캘린더
-        </Link>
-        <Link href={`/admin/properties/${id}/channels`} className={`px-6 py-4 text-[13px] tracking-widest font-semibold border-b-2 transition-colors ${pathname === `/admin/properties/${id}/channels` ? 'border-[var(--brand)] text-stone-900' : 'border-transparent text-stone-500 hover:text-stone-900 hover:border-stone-300'}`}>
-          채널 연결
-        </Link>
-        <Link href={`/admin/properties/${id}/settings`} className={`px-6 py-4 text-[13px] tracking-widest font-semibold border-b-2 transition-colors ${pathname === `/admin/properties/${id}/settings` ? 'border-[var(--brand)] text-stone-900' : 'border-transparent text-stone-500 hover:text-stone-900 hover:border-stone-300'}`}>
-          숙소 설정
-        </Link>
-      </div>
+      <PropertyNavigation propertyId={id} />
 
       <div className="bg-white border border-stone-200 p-8 max-w-3xl">
         <h2 className="text-lg font-light tracking-wide text-stone-900 mb-8">기본 정보</h2>
