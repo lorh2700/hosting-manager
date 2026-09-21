@@ -1,6 +1,8 @@
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
+  // Netlify background functions are bundled as CommonJS.
+  moduleFormat = "cjs"
 }
 
 datasource db {

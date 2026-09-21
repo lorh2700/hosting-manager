@@ -24,6 +24,7 @@ test('rollout excludes old, cancelled, blocked and nameless bookings', () => {
 test('link resolves to this reservation; repeat sync reuses existing info item', () => {
   const update = planInvitationInfo(booking, event, config, now)!;
   const url = new URL(update.infoItems[0].text);
+  assert.ok(url.href.length < 150);
   assert.equal(url.searchParams.get('lang'), 'ko');
   assert.equal(openInvitation(url.pathname.split('/').at(-1)!, config.secret, now)?.id, event.id);
   assert.equal(planInvitationInfo({ ...booking, infoItems: [{ ...update.infoItems[0], id: 99 }] }, event, config, now), null);
