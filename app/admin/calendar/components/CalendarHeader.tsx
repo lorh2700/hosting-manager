@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import type { ProcessedEvent } from '../types';
 
 interface CalendarHeaderProps {
+  mobileWeekly?: boolean;
   viewDate: Date;
   prevMonth: () => void;
   nextMonth: () => void;
@@ -15,7 +16,7 @@ interface CalendarHeaderProps {
 }
 
 export function CalendarHeader({
-  viewDate, prevMonth, nextMonth, goToday,
+  viewDate, prevMonth, nextMonth, goToday, mobileWeekly = false,
   unassignedCleanings, sortedUnassigned, openModal,
 }: CalendarHeaderProps) {
   const [syncing, setSyncing] = useState(false);
@@ -56,6 +57,7 @@ export function CalendarHeader({
           <p className="text-stone-500 mt-2 text-sm">날짜별 예약과 청소 일정을 확인하세요</p>
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
+          <div className={mobileWeekly ? 'hidden md:flex items-center gap-1.5' : 'flex items-center gap-1.5'}>
           <button aria-label="이전 달" onClick={prevMonth} className={navBtnCls}>
             <ChevronLeft size={16} />
           </button>
@@ -68,6 +70,7 @@ export function CalendarHeader({
           <button onClick={goToday} className={pillBtnCls + ' ml-1 sm:ml-2'}>
             오늘
           </button>
+          </div>
           <button
             onClick={handleSyncAll}
             disabled={syncing}

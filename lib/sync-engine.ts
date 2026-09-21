@@ -1,4 +1,5 @@
 import { bedsResidenceCountry } from '@/lib/guest-region';
+import { syncBeds24Invitations } from '@/lib/beds24-invitations';
 import { saveGuestReservation, reservationKey, indexGuestSafely } from '@/lib/guest-history';
 import { createHash } from 'crypto';
 import { prisma } from '@/lib/prisma';
@@ -444,6 +445,7 @@ export async function ensureCleaningsForProperty(propertyId: string): Promise<st
 // ─── Beds24 API Sync ───────────────────────────────────────────────────────
 
 interface Beds24SyncResult {
+  invitationsPublished?: number;
   total: number;
   eventsCreated: number;
   eventsUpdated: number;
@@ -484,6 +486,7 @@ export async function syncBeds24Property(
         `sync bookings ${beds24PropId} p${page}`,
         () => beds24Get('/bookings', {
           propertyId: String(beds24PropId),
+          ...(process.env.BEDS24_INVITATIONS_ENABLED === 'true' ? { includeInfoItems: 'true' } : {}),
           departureFrom: fromStr,
           departureTo: toStr,
           page: String(page),
@@ -703,7 +706,13 @@ export async function syncBeds24Property(
     });
   }
 
-  return { total: newEvents.length, eventsCreated, eventsUpdated, eventsRemoved };
+  const invitations = await syncBeds24Invitations(propertyId, beds24PropId, allBookings).catch(() => {
+    console.error('[beds24-invitations] sync configuration or database failure', { propertyId });
+    return { published: 0, failed: 1 };
+  });
+  return { total: newEvents.length, eventsCreated, eventsUpdated, eventsRemoved,
+    ...(invitations.failed ? { error: `초대장 링크 저장 실패 ${invitations.failed}건 (다음 동기화에서 재시도)` } : {}),
+    invitationsPublished: invitations.published };
 }
 
 /**

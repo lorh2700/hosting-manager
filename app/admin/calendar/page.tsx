@@ -7,11 +7,12 @@ import { useEventModal } from './hooks/useEventModal';
 import { CalendarHeader } from './components/CalendarHeader';
 import { PropertyFilter } from './components/PropertyFilter';
 import { CalendarGrid } from './components/CalendarGrid';
+import { MobileWeeklyCalendar } from './components/MobileWeeklyCalendar';
 import { EventDetailPanel } from './components/EventDetailPanel';
 import { SupplyTodoList } from './components/SupplyTodoList';
 
 export default function UnifiedCalendarPage() {
-  const [mobileView, setMobileView] = useState<'bars' | 'daily'>('bars');
+  const [mobileView, setMobileView] = useState<'weekly' | 'bars' | 'daily'>('weekly');
   const data = useCalendarData();
   const modal = useEventModal({
     user: data.user,
@@ -33,6 +34,7 @@ export default function UnifiedCalendarPage() {
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <CalendarHeader
+        mobileWeekly={mobileView === 'weekly'}
         viewDate={data.viewDate}
         prevMonth={data.prevMonth}
         nextMonth={data.nextMonth}
@@ -50,7 +52,7 @@ export default function UnifiedCalendarPage() {
 
       <div className="md:hidden">
         <div className="flex gap-2" role="group" aria-label="캘린더 보기 방식">
-          {([['bars', '투숙기간 막대'], ['daily', '날짜별 목록']] as const).map(([view, label]) => (
+          {([['weekly', '주간'], ['bars', '월간'], ['daily', '날짜별 목록']] as const).map(([view, label]) => (
             <button key={view} type="button" aria-pressed={mobileView === view}
               onClick={() => setMobileView(view)}
               className={`min-h-11 flex-1 rounded-xl border px-3 py-2 text-sm font-medium ${mobileView === view ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-200 bg-white text-stone-600'}`}>
@@ -60,6 +62,11 @@ export default function UnifiedCalendarPage() {
         </div>
         {mobileView === 'bars' && <p className="mt-3 text-xs leading-5 text-stone-500">막대로 체크인부터 체크아웃까지 확인하세요. 좌우로 밀어 날짜를 보고, 막대를 누르면 예약 상세가 열립니다.</p>}
       </div>
+
+      {mobileView === 'weekly' && <div className="md:hidden"><MobileWeeklyCalendar
+        viewDate={data.viewDate} today={data.today} onDateChange={data.setViewDate}
+        properties={data.activeProperties} eventsByProp={data.eventsByProp} openModal={modal.openModal}
+      /></div>}
 
       <div className={mobileView === 'daily' ? 'md:hidden' : 'hidden'}><MobileBookingCalendar key={data.viewDate.getTime()} month={data.viewDate} today={data.today}
         events={Array.from(data.eventsByProp.values()).flat().filter(e => data.activeProperties.some(p => p.id === e.propertyId)).map(e => ({ ...e, propertyName: e.propName, cleaningDone: e.status === 'done' }))}

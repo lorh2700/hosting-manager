@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import GuestInvitationLink from '@/components/GuestInvitationLink';
 import { CancelReservationButton } from '@/components/CancelReservationButton';
 import { ChevronLeft, ChevronRight, X, Save, Trash2, Send, CheckCircle, RefreshCw, Tag as TagIcon, Plus, Ban, Wrench } from 'lucide-react';
 import type { SelectedEvent, ProcessedEvent, Cleaner, SupplyTodo, ModalMessage } from '../types';
@@ -197,6 +198,7 @@ export function EventDetailPanel({
         </div>
 
         {/* 객실정비 해제 */}
+        {!isBlock && isLoggedIn && <GuestInvitationLink key={selectedEvent.eventId} reservationId={selectedEvent.eventId}/>}
         {!isBlock && ['beds24', 'direct'].includes(selectedEvent.channelId) && <CancelReservationButton eventId={selectedEvent.eventId} source={selectedEvent.source} channelId={selectedEvent.channelId} description={`${selectedEvent.propertyName} · ${selectedEvent.title}\n${selectedEvent.start} ~ ${selectedEvent.end}`} onCancelled={onReservationCancelled} />}
         {isMaintenance && onReleaseMaintenance && (
           <div className="border-t border-stone-200 pt-5 space-y-2">

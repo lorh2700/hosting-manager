@@ -242,6 +242,6 @@ export function useCalendarData() {
     processedEvents, activeProperties, eventsByProp,
     unassignedCleanings, sortedUnassigned,
     allSupplyTodos, setAllSupplyTodos,
-    toggleProp, prevMonth, nextMonth, goToday,
+    toggleProp, prevMonth, nextMonth, goToday, setViewDate,
   };
 }

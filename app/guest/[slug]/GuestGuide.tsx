@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import GuestInvitation from '@/components/GuestInvitation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowDown, ArrowUpRight, Check, Clock3, MapPin, Plane, Luggage, CarFront, Loader2 } from 'lucide-react';
@@ -15,7 +16,7 @@ type Tour={id:string;slug:string;title:string;description:string|null;images:str
 const field='mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-3 py-3 text-base text-stone-900 outline-none focus:border-[#31594c] focus:ring-2 focus:ring-[#31594c]/20';
 const focus='focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#31594c]';
 
-export default function GuestGuide({guide,initialLanguage}:{guide:Guide;initialLanguage:GuestLanguage}){
+export default function GuestGuide({guide,initialLanguage,invitationPreview=false,reservation,invitationKey}:{guide:Guide;initialLanguage:GuestLanguage;invitationPreview?:boolean;reservation?:{guestName:string;checkIn:string;checkOut:string;guests:number|null};invitationKey?:string}){
   const [lang,setLang]=useState<GuestLanguage>(initialLanguage); const base=guestGuideCopy[lang];
   const propertyName=lang==='ko'?guide.name:guide.nameEn;
   const t={...base,
@@ -47,11 +48,13 @@ export default function GuestGuide({guide,initialLanguage}:{guide:Guide;initialL
   }
   const mapUrl=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(guide.address)}`;
   return <div lang={lang==='zh'?'zh-Hans':lang} className="min-h-screen bg-[#f7f5ef] text-[#233e34] selection:bg-[#dbe5d8]">
+    <GuestInvitation name={propertyName} slug={guide.slug} language={lang} preview={invitationPreview} guestName={reservation?.guestName} stay={reservation?`${reservation.checkIn} → ${reservation.checkOut}`:undefined} invitationKey={invitationKey}/>
     <header className="mx-auto flex max-w-6xl flex-wrap gap-4 items-center justify-between px-5 py-6 sm:px-8">
       <Link href="/" className={`text-lg tracking-[.12em] ${focus}`}>void anchae<span className="ml-3 hidden text-[10px] uppercase tracking-[.2em] text-stone-500 sm:inline">{t.guideLabel}</span></Link>
       <label className="flex items-center gap-2 text-xs text-stone-600">{t.language}<select aria-label={t.language} value={lang} onChange={e=>chooseLanguage(e.target.value as GuestLanguage)} className={`min-h-11 rounded-full border border-stone-300 bg-transparent px-4 py-2 text-sm text-[#233e34] ${focus}`}>{guestLanguages.map(l=><option key={l} value={l}>{guestLanguageNames[l]}</option>)}</select></label>
     </header>
     <main>
+      {reservation&&<section aria-label={lang==='ko'?'내 예약':'Your reservation'} className="mx-auto max-w-6xl px-5 py-6 sm:px-8"><div className="rounded-2xl border border-stone-300 bg-white p-6"><p className="text-xs tracking-widest text-stone-500">YOUR STAY</p><h2 className="mt-3 break-words font-serif text-2xl">{reservation.guestName}{lang==='ko'?'님, 환영합니다':''}</h2><p className="mt-3 text-sm">{propertyName} · {reservation.checkIn} → {reservation.checkOut}</p><p className="mt-2 text-sm text-stone-600">{Math.round((Date.parse(reservation.checkOut)-Date.parse(reservation.checkIn))/86400000)} {lang==='ko'?'박':lang==='ja'?'泊':lang==='zh'?'晚':'nights'}{reservation.guests!==null?` · ${reservation.guests} ${lang==='ko'?'명':lang==='en'?'guests':'人'}`:''}</p></div></section>}
       <section className="mx-auto grid max-w-6xl gap-8 px-5 pb-10 pt-8 sm:px-8 md:grid-cols-[1.1fr_1fr] md:items-center md:gap-14 md:pb-16">
         <div><p className="mb-6 text-[10px] font-semibold tracking-[.22em] text-[#667d60]">{t.tag}</p><h1 style={lang !== 'en' ? {fontSize: 'clamp(2rem, 3.3vw, 2.6rem)', wordBreak: 'keep-all'} : undefined} className="whitespace-pre-line font-serif text-[clamp(2.3rem,5vw,4.25rem)] leading-[1.14] tracking-tight">{t.title}</h1><p className="mt-6 max-w-md text-sm leading-7 text-stone-600 sm:text-base">{t.intro}</p><div className="mt-8 flex flex-wrap gap-3"><a href="#essentials" className={`inline-flex min-h-12 items-center gap-3 rounded-full bg-[#233e34] px-6 text-sm text-white ${focus}`}>{t.stay}<ArrowDown size={15}/></a><a href="#pickup" className={`inline-flex min-h-12 items-center gap-3 rounded-full border border-stone-300 px-6 text-sm ${focus}`}>{t.pickup}<ArrowUpRight size={15}/></a></div><p className="mt-8 flex items-center gap-2 text-xs text-stone-500"><MapPin size={14}/>{propertyName} · {t.region}</p></div>
         <div className="relative h-[340px] overflow-hidden rounded-t-[150px] rounded-b-2xl sm:h-[430px]"><Image src={guide.image} alt={propertyName} fill priority sizes="(max-width: 767px) 100vw, 480px" className="object-cover"/><div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-7 pt-20 text-white"><p className="text-xs uppercase tracking-[.2em]">{t.home}</p><p className="mt-2 font-serif text-3xl">{propertyName}</p></div></div>

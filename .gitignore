@@ -14,3 +14,12 @@ coverage/
 .next-manager-ux/
 .next-guest-preview/
 .next-guest-build/
+.next-invitation-preview/
+
+# Local working files
+/tmp/guest-assets/
+/tmp/hanji-update/
+/tmp/inquiry-diagnose*.cjs
+
+# Local Next.js preview builds
+/.next-*/

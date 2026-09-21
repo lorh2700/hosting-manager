@@ -34,9 +34,10 @@
     "**/*.tsx",
     ".next-manager-ux/types/**/*.ts",
     ".next-manager/types/**/*.ts",
+    ".next-menu-preview/types/**/*.ts",
     ".next/types/**/*.ts",
     "next-env.d.ts",
-    ".next-menu-preview/types/**/*.ts"
+    ".next-invitation-preview/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

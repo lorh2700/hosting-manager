@@ -23,6 +23,7 @@ export async function runBeds24Sync() {
       propertyId: p.id, propertyName: p.name, total: r.total,
       eventsCreated: r.eventsCreated, eventsUpdated: r.eventsUpdated, eventsRemoved: r.eventsRemoved,
       durationMs: Date.now() - started, error: r.error,
+      invitationsPublished: r.invitationsPublished ?? 0,
     });
   }
 
