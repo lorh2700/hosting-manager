@@ -74,7 +74,7 @@ function Navigation({ pathname }: { pathname: string }) {
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <nav ref={navRef} aria-label={t("주 메뉴")} className={`fixed top-0 left-0 right-0 z-50 transition-[padding] duration-300 motion-reduce:transition-none ${tourOpen ? 'lg:pb-28' : 'lg:pb-0'} bg-stone-950/95 ${pathname === '/guide' ? 'lg:bg-stone-950/95' : 'lg:bg-stone-950/55'} backdrop-blur-md border-b border-white/[0.06]`}>
+    <nav ref={navRef} aria-label={t("주 메뉴")} className={`fixed top-0 left-0 right-0 z-50 transition-[padding] duration-300 motion-reduce:transition-none ${tourOpen ? 'lg:pb-40' : 'lg:pb-0'} bg-stone-950/95 ${pathname.startsWith('/guide') ? 'lg:bg-stone-950/95' : 'lg:bg-stone-950/55'} backdrop-blur-md border-b border-white/[0.06]`}>
       <div className="flex justify-between items-center gap-3 px-4 sm:px-6 md:px-8 h-16 md:h-[72px]">
         <Link href="/" aria-label={t("void anchae 홈")} onClick={closeMenu} className="flex items-center shrink-0 max-sm:w-[110px] hover:opacity-80 transition-opacity">
           <Logo width={140} className="max-w-full" priority />
@@ -87,7 +87,8 @@ function Navigation({ pathname }: { pathname: string }) {
               </button>
               <div id="public-tour-submenu" data-open={tourOpen} aria-hidden={!tourOpen} inert={!tourOpen} className={`${styles.submenu} absolute left-0 top-full w-56`}><div className={styles.content}>
                 <Link href="/tours" aria-current={isActive('/tours') ? 'page' : undefined} onClick={() => setTourOpen(false)} className="block px-3 py-3 text-stone-300 transition-colors hover:text-white focus-visible:text-white">{t('투어 둘러보기')}</Link>
-                <Link href="/guide" aria-current={isActive('/guide') ? 'page' : undefined} onClick={() => setTourOpen(false)} className="block px-3 py-3 text-stone-300 transition-colors hover:text-white focus-visible:text-white">{t('북촌 가이드')}</Link>
+                <Link href="/guide" aria-current={pathname === '/guide' ? 'page' : undefined} onClick={() => setTourOpen(false)} className="block px-3 py-3 text-stone-300 transition-colors hover:text-white focus-visible:text-white">{t('북촌 가이드')}</Link>
+                <Link href="/guide/yeongju" aria-current={isActive('/guide/yeongju') ? 'page' : undefined} onClick={() => setTourOpen(false)} className="block px-3 py-3 text-stone-300 transition-colors hover:text-white focus-visible:text-white">{t('영주 가이드')}</Link>
               </div></div>
             </div> :
             <Link key={link.href} href={link.href} aria-current={isActive(link.href) ? 'page' : undefined} className={`py-3 transition-colors ${isActive(link.href) ? 'text-white' : 'text-stone-300 hover:text-white'}`}>
@@ -116,7 +117,8 @@ function Navigation({ pathname }: { pathname: string }) {
               </button>
               <div id="public-mobile-tour-submenu" data-open={mobileTourOpen} aria-hidden={!mobileTourOpen} inert={!mobileTourOpen} className={styles.submenu}><div className={`${styles.content} pl-4`}>
                 <Link href="/tours" onClick={closeMenu} aria-current={isActive('/tours') ? 'page' : undefined} className="block px-3 py-3 text-sm text-stone-300 hover:text-white">{t('투어 둘러보기')}</Link>
-                <Link href="/guide" onClick={closeMenu} aria-current={isActive('/guide') ? 'page' : undefined} className={`block px-3 py-3 text-sm ${isActive('/guide') ? 'text-white' : 'text-stone-300 hover:text-white'}`}>{t('북촌 가이드')}</Link>
+                <Link href="/guide" onClick={closeMenu} aria-current={pathname === '/guide' ? 'page' : undefined} className={`block px-3 py-3 text-sm ${isActive('/guide') ? 'text-white' : 'text-stone-300 hover:text-white'}`}>{t('북촌 가이드')}</Link>
+                <Link href="/guide/yeongju" onClick={closeMenu} aria-current={isActive('/guide/yeongju') ? 'page' : undefined} className={`block px-3 py-3 text-sm ${isActive('/guide/yeongju') ? 'text-white' : 'text-stone-300 hover:text-white'}`}>{t('영주 가이드')}</Link>
               </div></div>
             </div> :
             <Link key={link.href} href={link.href} onClick={closeMenu} aria-current={isActive(link.href) ? 'page' : undefined} className={`block px-3 py-4 rounded-lg text-base ${isActive(link.href) ? 'text-white' : 'text-stone-300 hover:text-white'}`}>

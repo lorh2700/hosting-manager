@@ -16,8 +16,8 @@ export function PropertyFilter({ properties, activeProps, toggleProp }: Property
         {properties.map(p => {
           const on = activeProps.has(p.id);
           return (
-            <button key={p.id} onClick={() => toggleProp(p.id)}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium transition-all"
+            <button key={p.id} aria-pressed={on} onClick={() => toggleProp(p.id)}
+              className="flex min-h-11 items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium transition-all"
               style={{
                 backgroundColor: on ? hexToRgba(p.color, 0.18) : 'rgb(245,245,244)',
                 color: on ? '#1c1917' : 'rgb(120,113,108)',
@@ -30,7 +30,7 @@ export function PropertyFilter({ properties, activeProps, toggleProp }: Property
         })}
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-stone-500">
+      <div className="hidden md:flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-stone-500">
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-emerald-500" />
           전체 예약 가능

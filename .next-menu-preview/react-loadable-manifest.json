@@ -1,4 +1,16 @@
 {
+  "app\\admin\\_components\\TodayWorkspace.tsx -> @/app/admin/calendar/components/CreateMaintenanceModal": {
+    "id": "app\\admin\\_components\\TodayWorkspace.tsx -> @/app/admin/calendar/components/CreateMaintenanceModal",
+    "files": [
+      "static/chunks/_app-pages-browser_app_admin_calendar_components_CreateMaintenanceModal_tsx.js"
+    ]
+  },
+  "app\\admin\\page.tsx -> ./_components/TourDashboard": {
+    "id": "app\\admin\\page.tsx -> ./_components/TourDashboard",
+    "files": [
+      "static/chunks/_app-pages-browser_app_admin__components_TourDashboard_tsx.js"
+    ]
+  },
   "components\\ChannelTalk.tsx -> @channel.io/channel-web-sdk-loader": {
     "id": "components\\ChannelTalk.tsx -> @channel.io/channel-web-sdk-loader",
     "files": [

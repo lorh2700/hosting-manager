@@ -1,5 +1,6 @@
 'use client';
 
+import MobileBookingCalendar from '@/components/MobileBookingCalendar';
 import { useCalendarData } from './hooks/useCalendarData';
 import { useEventModal } from './hooks/useEventModal';
 import { CalendarHeader } from './components/CalendarHeader';
@@ -45,7 +46,10 @@ export default function UnifiedCalendarPage() {
         toggleProp={data.toggleProp}
       />
 
-      <CalendarGrid
+      <div className="md:hidden"><MobileBookingCalendar key={data.viewDate.getTime()} month={data.viewDate} today={data.today}
+        events={Array.from(data.eventsByProp.values()).flat().filter(e => data.activeProperties.some(p => p.id === e.propertyId)).map(e => ({ ...e, propertyName: e.propName, cleaningDone: e.status === 'done' }))}
+        onEventClick={id => { const event = Array.from(data.eventsByProp.values()).flat().find(e => e.id === id); if (event) modal.openModal(event); }} /></div>
+      <div className="hidden md:block"><CalendarGrid
         weeks={data.weeks}
         viewDate={data.viewDate}
         today={data.today}
@@ -53,6 +57,8 @@ export default function UnifiedCalendarPage() {
         eventsByProp={data.eventsByProp}
         openModal={modal.openModal}
       />
+
+      </div>
 
       <SupplyTodoList
         allSupplyTodos={data.allSupplyTodos}

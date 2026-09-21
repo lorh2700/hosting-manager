@@ -44,25 +44,25 @@ export function CalendarHeader({
     }
   };
 
-  const navBtnCls = 'p-2.5 text-stone-500 hover:text-stone-900 bg-stone-100 hover:bg-stone-200 transition-colors';
-  const pillBtnCls = 'px-3 sm:px-3.5 py-2 text-xs font-medium text-stone-700 bg-stone-100 hover:bg-stone-200 hover:text-stone-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5';
+  const navBtnCls = 'min-h-11 min-w-11 rounded-xl p-2.5 text-stone-500 hover:text-stone-900 bg-stone-100 hover:bg-stone-200 transition-colors';
+  const pillBtnCls = 'min-h-11 rounded-xl px-3 sm:px-3.5 py-2 text-xs font-medium text-stone-700 bg-stone-100 hover:bg-stone-200 hover:text-stone-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5';
 
   return (
     <>
-      <header className="pb-6 border-b border-stone-200 flex flex-col sm:flex-row gap-4 sm:items-end sm:justify-between">
+      <header className="pb-4 border-b border-stone-200 flex flex-col sm:flex-row gap-4 sm:items-end sm:justify-between">
         <div>
           <p className="text-[13px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">캘린더</p>
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-900">통합 캘린더</h1>
-          <p className="text-stone-500 mt-2 text-sm">모든 숙소의 투숙 및 청소 일정</p>
+          <p className="text-stone-500 mt-2 text-sm">날짜별 예약과 청소 일정을 확인하세요</p>
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
-          <button onClick={prevMonth} className={navBtnCls}>
+          <button aria-label="이전 달" onClick={prevMonth} className={navBtnCls}>
             <ChevronLeft size={16} />
           </button>
           <span className="text-stone-900 font-semibold text-base px-3 sm:px-4 min-w-[110px] sm:min-w-[140px] text-center tabular-nums">
             {viewDate.getFullYear()}년 {viewDate.getMonth() + 1}월
           </span>
-          <button onClick={nextMonth} className={navBtnCls}>
+          <button aria-label="다음 달" onClick={nextMonth} className={navBtnCls}>
             <ChevronRight size={16} />
           </button>
           <button onClick={goToday} className={pillBtnCls + ' ml-1 sm:ml-2'}>
@@ -71,7 +71,7 @@ export function CalendarHeader({
           <button
             onClick={handleSyncAll}
             disabled={syncing}
-            title="Beds24 전체 동기화"
+            title="Beds24 전체 동기화" aria-label="Beds24 전체 동기화"
             className={pillBtnCls}
           >
             <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />

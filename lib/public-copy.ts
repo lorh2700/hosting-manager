@@ -1,5 +1,6 @@
 export const publicCopy: Record<string, string> = {
   '투어 둘러보기': 'Explore tours',
+  '영주 가이드': 'Yeongju guide',
   '북촌 가이드': 'Bukchon guide',
   '10월 오픈 예정':'Opening in October',
   '예약 가능 여부를 확인 중입니다.':'Checking availability.', '판매 가능한 객실이 없습니다.':'No rooms are available.', '체크인이 제한된 날짜입니다.':'Check-in is not available on this date.', '1~30박 일정을 선택해주세요.':'Choose a stay of 1–30 nights.', '체크아웃 가능 여부를 확인 중입니다.':'Checking check-out availability.', '체크아웃이 제한된 날짜입니다.':'Check-out is not available on this date.', '일정 중 판매 가능한 객실이 없는 날짜가 있습니다.':'A room is unavailable on one or more selected nights.', '취소·환불 규정에 동의해주세요.':'Please agree to the cancellation and refund policy.',

@@ -1,0 +1,90 @@
+{
+  "sosu": {
+    "src": "/images/guide/yeongju/sosu.webp",
+    "source": "https://commons.wikimedia.org/wiki/File:Sosu_Seowon_(7).jpg",
+    "author": "Kyle",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+    "reference": false
+  },
+  "buseok": {
+    "src": "/images/guide/yeongju/buseok.webp",
+    "source": "https://commons.wikimedia.org/wiki/File:Buseoksa_Temple_03.jpg",
+    "author": "Bernard Gagnon",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "reference": false
+  },
+  "ginseng": {
+    "src": "/images/guide/yeongju/ginseng.webp",
+    "source": "https://commons.wikimedia.org/wiki/File:Insam_(ginseng).jpg",
+    "author": "국립국어원",
+    "license": "CC BY-SA 2.0 kr",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0/kr/deed.en",
+    "reference": true
+  },
+  "fox": {
+    "src": "/images/guide/yeongju/fox.webp",
+    "source": "https://commons.wikimedia.org/wiki/File:Korean_fox.jpeg",
+    "author": "양병국, Korean National Institute of Biological Resources",
+    "license": "KOGL Type 1",
+    "licenseUrl": "http://www.kogl.or.kr/info/licenseType1.do",
+    "reference": true
+  },
+  "muk": {
+    "src": "/images/guide/yeongju/muk.webp",
+    "source": "https://commons.wikimedia.org/wiki/File:Korean_buckwheat_jelly-Memil_muksabal-01.jpg",
+    "author": "kiyong2",
+    "license": "CC BY-SA 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+    "reference": true
+  },
+  "donuts": {
+    "src": "/images/guide/yeongju/donuts.webp",
+    "source": "https://commons.wikimedia.org/wiki/File:Coffee_and_doughnuts_-_California.jpg",
+    "author": "Max Braun",
+    "license": "CC BY-SA 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+    "reference": true
+  },
+  "yeonhwa": {
+    "src": "/images/guide/yeongju/yeonhwa.webp",
+    "source": "https://commons.wikimedia.org/wiki/File:Korean_rice_cake_Korean_tteok.jpg",
+    "author": "Startandstar",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "reference": true
+  },
+  "beef": {
+    "src": "/images/guide/yeongju/beef.webp",
+    "source": "https://commons.wikimedia.org/wiki/File:Korean_Barbecue,_Beef.jpg",
+    "author": "Jo Hanshin",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "reference": true
+  },
+  "cheonghwa": {
+    "src": "/images/guide/yeongju/cheonghwa.webp",
+    "source": "https://commons.wikimedia.org/wiki/File:Jajangmyeon_-_2019_-_Emanuele_Oddo.jpg",
+    "author": "Emanuele Oddo",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "reference": true
+  },
+  "hangyeol": {
+    "src": "/images/guide/yeongju/hangyeol.webp",
+    "source": "https://commons.wikimedia.org/wiki/File:Cheonggukjang-jjigae.jpg",
+    "author": "차차PD",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+    "reference": true
+  },
+  "naengmyeon": {
+    "src": "/images/guide/yeongju/naengmyeon.webp",
+    "source": "https://commons.wikimedia.org/wiki/File:KOCIS_Mul-naengmyeon,_Chilled_Buckwheat_Noodle_Soup_(4594756202).jpg",
+    "author": "Korea.net / Korean Culture and Information Service",
+    "license": "CC BY-SA 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+    "reference": true
+  }
+}

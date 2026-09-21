@@ -26,6 +26,10 @@ export default function BukchonGuide() {
       </div>
     </header>
     <section aria-label={en ? 'Explore the guide' : '북촌 가이드 둘러보기'} className="mx-auto max-w-6xl px-6 py-10 md:px-8 md:py-14">
+      <nav aria-label={en?'Guide region':'가이드 지역'} className="mb-8 flex gap-2 text-sm">
+        <Link href="/guide" aria-current="page" className="rounded-full bg-[#252e29] px-5 py-3 text-white">{en?'Bukchon':'북촌'}</Link>
+        <Link href="/guide/yeongju" className="rounded-full border border-stone-300 px-5 py-3">{en?'Yeongju':'영주'}</Link>
+      </nav>
       <div className="flex flex-col justify-between gap-6 border-b border-stone-300 pb-7 lg:flex-row lg:items-center">
         <div className="flex flex-wrap gap-2" role="group" aria-label={en ? 'Categories' : '분류'}>{categories.map(item => <button key={item.id} type="button" aria-pressed={category === item.id} onClick={() => setCategory(item.id)} className={`min-h-11 rounded-full border px-5 text-sm transition-colors ${category === item.id ? 'border-[#252e29] bg-[#252e29] text-white' : 'border-stone-300 hover:border-stone-600'}`}>{item[language]} <span className="ml-1 opacity-60">{item.id === 'all' ? guideEntries.length : guideEntries.filter(entry => entry.category === item.id).length}</span></button>)}</div>
         <label className="flex items-center gap-3 border-b border-stone-500 py-3"><Search size={17} aria-hidden="true" /><span className="sr-only">{en ? 'Search places or food' : '장소명 또는 음식 검색'}</span><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder={en ? 'Search places or food' : '장소명 또는 음식 검색'} className="w-full bg-transparent text-sm outline-none focus-visible:ring-2 focus-visible:ring-stone-500 lg:w-52" /></label>

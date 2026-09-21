@@ -1,6 +1,7 @@
 {
-  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/api/auth/me/route": "app/api/auth/me/route.js",
+  "/login/page": "app/login/page.js",
+  "/(public)/page": "app/(public)/page.js",
   "/(public)/tours/page": "app/(public)/tours/page.js",
-  "/(public)/guide/page": "app/(public)/guide/page.js",
-  "/(public)/page": "app/(public)/page.js"
+  "/(public)/guide/yeongju/page": "app/(public)/guide/yeongju/page.js"
 }

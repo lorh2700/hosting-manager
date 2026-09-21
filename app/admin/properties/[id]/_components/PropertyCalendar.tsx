@@ -1,5 +1,8 @@
 'use client';
 
+import { useState } from 'react';
+import MobileBookingCalendar from '@/components/MobileBookingCalendar';
+import { todayKst } from '@/lib/dates';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -46,8 +49,20 @@ function blockLabel(source?: string) {
 }
 
 export default function PropertyCalendar({ events, onEventClick }: Props) {
-  return (
-    <FullCalendar
+  const [month, setMonth] = useState(() => new Date(`${todayKst()}T12:00:00`));
+  return (<>
+    <div className="space-y-4 md:hidden">
+      <div className="flex items-center justify-between gap-2">
+        <button aria-label="이전 달" className="min-h-11 min-w-11 rounded-xl bg-stone-100" onClick={() => setMonth(d => new Date(d.getFullYear(), d.getMonth()-1, 1))}>‹</button>
+        <h2 className="font-semibold">{month.getFullYear()}년 {month.getMonth()+1}월</h2>
+        <button aria-label="다음 달" className="min-h-11 min-w-11 rounded-xl bg-stone-100" onClick={() => setMonth(d => new Date(d.getFullYear(), d.getMonth()+1, 1))}>›</button>
+        <button className="min-h-11 rounded-xl bg-stone-100 px-3 text-sm" onClick={() => setMonth(new Date(`${todayKst()}T12:00:00`))}>오늘</button>
+      </div>
+      <MobileBookingCalendar key={month.getTime()} month={month} today={todayKst()}
+        events={events.map(e => ({ id:e.id, title:e.title, start:e.start.slice(0,10), end:e.end.slice(0,10), type:e.extendedProps.type }))}
+        onEventClick={id => { const e=events.find(e => e.id===id); if(e) onEventClick({ title:e.title, start:new Date(e.start), end:new Date(e.end), type:e.extendedProps.type, channelName:e.extendedProps.channelName, channelId:e.extendedProps.channelId, description:e.extendedProps.description, color:e.backgroundColor, eventId:e.extendedProps.eventId, source:e.extendedProps.source }); }} />
+    </div>
+    <div className="hidden md:block"><FullCalendar
       plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
       initialView="dayGridMonth"
       headerToolbar={{
@@ -90,6 +105,6 @@ export default function PropertyCalendar({ events, onEventClick }: Props) {
           </div>
         </div>
       )}
-    />
-  );
+    /></div>
+  </>);
 }
