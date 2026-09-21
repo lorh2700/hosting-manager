@@ -49,7 +49,7 @@ export default function YeongjuGuide() {
         const alt=photo?.reference?(e.id==='fox'?(en?'Korean fox — reference photo':'한국 여우 · 참고 사진'):e.id==='ginseng'?(en?'Ginseng root — reference photo':'인삼 뿌리 · 참고 사진'):`${en?e.tagEn:e.tagKo} · ${referenceLabel}`):(en?e.nameEn:e.nameKo);
         return <article key={e.id} className="group flex flex-col overflow-hidden border border-stone-300 bg-[#faf8f3]">
           {photo ? <div className="relative aspect-[4/3] overflow-hidden bg-stone-200">
-            <Image src={photo.src} alt={alt} fill sizes="(min-width: 1024px) 350px, (min-width: 640px) 50vw, 100vw" className={`object-cover motion-safe:transition-transform motion-safe:duration-500 motion-safe:group-hover:scale-105 ${e.id==='fox'?'object-bottom':''}`} />
+            <Image src={photo.src} alt={alt} fill sizes="(min-width: 1024px) 350px, (min-width: 640px) 50vw, 100vw" style={e.id==='seonbi'||e.id==='museom'?{objectFit:'contain'}:undefined} className={`object-cover ${e.id==='seonbi'||e.id==='museom'?'':'motion-safe:transition-transform motion-safe:duration-500 motion-safe:group-hover:scale-105'} ${e.id==='fox'?'object-bottom':''}`} />
             {photo.reference&&<span className="absolute bottom-3 left-3 rounded-full px-3 py-1.5 text-[11px] text-white" style={{backgroundColor:'rgba(0,0,0,0.68)'}}>{referenceLabel}</span>}
           </div> : <div className="flex aspect-[4/3] flex-col items-center justify-center gap-4 bg-[#e8eadd] text-[#65725e]" aria-hidden="true"><MapPin size={40} strokeWidth={1}/><span className="brand-serif text-2xl">{en?e.nameEn:e.nameKo}</span></div>}
           <div className="flex flex-1 flex-col p-6 md:p-7">

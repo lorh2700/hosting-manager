@@ -86,5 +86,21 @@
     "license": "CC BY-SA 2.0",
     "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
     "reference": true
+  },
+  "seonbi": {
+    "src": "/images/guide/yeongju/seonbi.webp",
+    "source": "https://korean1.visitkorea.or.kr/kor/nphotogallery/photo.kto?func_name=photo_view&newphotoDTO.photo_code=1617022201911018k",
+    "author": "ⓒ한국관광공사 사진갤러리-김지호",
+    "license": "공공누리 제1유형",
+    "licenseUrl": "https://www.kogl.or.kr/info/licenseType1.do",
+    "reference": false
+  },
+  "museom": {
+    "src": "/images/guide/yeongju/museom.webp",
+    "source": "https://english1.visitkorea.or.kr/enu/nphotogallery/photo.kto?func_name=photo_view&newphotoDTO.photo_code=1617033202111007k",
+    "author": "ⓒ한국관광공사 사진갤러리-Anjinho Film",
+    "license": "공공누리 제1유형",
+    "licenseUrl": "https://www.kogl.or.kr/info/licenseType1.do",
+    "reference": false
   }
 }

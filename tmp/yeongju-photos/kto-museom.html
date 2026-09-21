@@ -1,0 +1,767 @@
+<!DOCTYPE HTML>
+
+
+
+
+
+
+
+
+
+
+
+<!-- java lib -->
+
+
+<!-- itis lib -->
+
+<!-- itis -->
+
+
+
+
+
+
+
+
+
+
+
+	
+	
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta content="width=device-width" name="viewport"/>
+<title>Pictures of Korea | Photo Gallery | Official Korea Tourism Organization</title>
+<meta name="keywords" content="">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+<link rel="stylesheet" type="text/css" href="/enu/tt/pr_gallery/new_photo_gallery/css/common.css" media="all" />
+
+<script src="/enu/tt/pr_gallery/new_photo_gallery/js/jquery-3.5.1.min.js"></script>
+<script src="/enu/tt/pr_gallery/new_photo_gallery/js/swiper.js"></script>
+<script src="/enu/tt/pr_gallery/new_photo_gallery/js/common.js"></script>
+<script src="/enu/tt/pr_gallery/new_photo_gallery/js/main.js"></script>
+
+<script>
+    jQuery(document).ready(function(){
+        createCookie("9XL6agszBOKgHbujDVtuaQNZDL3Yhk4lo1mY9paet715UHYtTPkqVBE7LfJJuaWx","http://tong.visitkorea.or.kr/cms/resource_photo/68/2950268_image3_1.jpg|100.0|66.61787|영주 무섬마을|1617033202111007k@@","1617033202111007k");
+    });
+
+    function goPhotoView(page,subj_cd,zone_cd,tit_cd,Photocd) {
+        var form = document.photoView;
+
+        document.getElementById("newphotoDTO.photo_code").value = Photocd;
+        document.getElementById("newphotoDTO.page").value       = page;
+        document.getElementById("newphotoDTO.subj_cd").value    = subj_cd;
+        document.getElementById("newphotoDTO.tit_cd").value     = tit_cd;
+        document.getElementById("newphotoDTO.zone_cd").value    = zone_cd;
+        form.submit();
+    }
+		
+	// 사진코드복사 __210106 이후 사진상세에 나오는 복사는 아래 function 사용
+	function photoCdcopy(photo_cd){
+		$('#clip_tmp').val(photo_cd);
+		$('#clip_tmp').select();
+		var successful = document.execCommand('copy');
+		if(successful){
+			 alert("Photo Number Copied");
+		}else{
+			 alert("copy to clipboard failed");
+		}		
+	}	
+</script>
+
+</head>
+<body>
+    <form name="photoView" method="post" action="/enu/nphotogallery/photo.kto">
+		<input type="hidden" id="func_name" name="func_name" value="photo_view" /> 
+		<input type="hidden" id="newphotoDTO.sub_menu" name="newphotoDTO.sub_menu" value="new" /> 
+		<input type="hidden" id="newphotoDTO.sub_menu_detail" name="newphotoDTO.sub_menu_detail" value="" /> 
+		<input type="hidden" id="newphotoDTO.searchWord" name="newphotoDTO.searchWord" value="" /> 
+		<input type="hidden" id="newphotoDTO.tit_title" name="newphotoDTO.tit_title" value="" /> 
+		<input type="hidden" id="newphotoDTO.photo_code" name="newphotoDTO.photo_code" value="" /> 
+		<input type="hidden" id="newphotoDTO.page" name="newphotoDTO.page" value="" /> 
+		<input type="hidden" id="newphotoDTO.subj_cd" name="newphotoDTO.subj_cd" value="" /> 
+		<input type="hidden" id="newphotoDTO.tit_cd" name="newphotoDTO.tit_cd" value="" /> 
+		<input type="hidden" id="newphotoDTO.zone_cd" name="newphotoDTO.zone_cd" value="" /> 
+		<input type="hidden" name="depth2_name" value="New Photos" /> 
+		<input type="hidden" name="depth2_url" value="/enu/tt/pr_gallery/new_photo_gallery/menu_new_photo/new_photo_list_g.jsp" /> 
+		<input type="hidden" name="depth3_name" value="" /> 
+		<input type="hidden" name="depth3_url" value="" /> 
+		<input type="text" id="clip_tmp" style="position:absolute;top:-2000px;" />
+		<input type="submit" style="display: none" />
+	</form>
+
+	<!-- 공통 시작 -->
+	<!-- TopBanner -->
+	
+	<section class="topBanner"  id="topBanner01" style="display: none;">
+		<div class="bnrArea">
+			<h1>How to use <span>Photo Gallery</span></h1>
+			<p>Please be sure to check the information related to the photo gallery usage guide and usage guide by type!</p>
+		</div>
+		<div class="topBanner_box">
+			<button class="topClose">Close</button><br />
+			<p class="check"><input type="checkbox" id ="topBanner01Chk"/><label>&nbsp;Do not show again today</label></p>
+		</div>
+	</section>
+	<!-- // TopBanner -->
+	
+	<!-- Header -->
+	<header class="Header">
+		
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-EELR981ZHD"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-EELR981ZHD');
+</script>
+
+<script type="text/javascript">
+
+	var token = '';
+
+	function fnLinkSitePopup() {
+		
+		
+
+		var linkSiteApiId = "JIj8_ugIZNvofjU3Mxwc7A" ;
+		var req_url = "https://pass.knto.or.kr/eng/login/login" + "?linkSiteApiId="; 
+	
+		//투어원패스 팝업 셋팅
+		var uri = req_url + linkSiteApiId;
+		var popupName = "";
+		var options = "width=560, height=600"; //팝업사이즈
+	
+		//투어원패스 팝업 호출
+		var win = window.open(uri, name, options);
+		return win;
+	}
+
+	function fnSiteMove(site_url, pni_token) {
+	
+		if(pni_token != "") {
+			window.open(site_url + "?pni_token=" + pni_token);
+		} else {
+			window.open(site_url);
+		}
+		window.close();
+	}
+
+
+	
+	function fnLogout() {
+		
+		if( token != '' ) {
+			//if( confirm( '로그아웃 하시겠습니까?' ) ) {
+				location.href="https://english1.visitkorea.or.kr/enu/tt/pr_gallery/new_photo_gallery/include/logout.jsp";
+			//}
+		
+		} else {
+			alert( 'Please log in.' );
+		}
+	}
+	
+	function fnMyPage(){
+
+
+		var loginDataNo;
+
+		
+
+		loginDataNo = '';
+		
+		if( token != '' && loginDataNo != '') {
+			location.href="/enu/nphotogallery/photoMemb.kto?func_name=myInfo";	
+		}else{
+			alert( 'Please log in.' );
+		}
+	}
+
+        var urlchk = document.location.href ;
+        if (urlchk.indexOf('/include/header_ssot.jsp') >= 0) {
+            document.location.href = 'https://english1.visitkorea.or.kr/enu/tt/pr_gallery/new_photo_gallery/main/main_ssot.jsp';
+        }
+	
+
+
+	// 브라우저 보안정책 관련 TOP 로그인 처리
+	window.addEventListener('message', function(event) {
+		if (event.origin === 'https://pass.knto.or.kr' && event.data.type === 'login_success') {
+			var redirectUrl = event.data.redirectUrl;
+			window.location.href = redirectUrl;
+		}
+	}, false);
+
+</script>
+
+		<div class="wrap">
+			<div>
+				<ul class="link">					
+					<li class="loc"><a href="https://knto.or.kr/eng" target="_blank" title="Visit Korea [Go to New Window]">Korea Tourism Organization</a></li>
+					<li class="vk"><a href="http://english.visitkorea.or.kr" target="_blank" title="Visit Korea [Go to New Window]">Visit Korea</a></li>
+					<li class="lang"><a href="http://korean1.visitkorea.or.kr/kor/tt/pr_gallery/new_photo_gallery/main/main_ssot.jsp" title="Go to Korean">KOREAN</a></li>
+				</ul>
+			</div>
+			<div class="logo">
+				<a href="https://english1.visitkorea.or.kr/enu/tt/pr_gallery/new_photo_gallery/main/main_ssot.jsp" title="Photo Gallery">
+					<img src="/enu/tt/pr_gallery/new_photo_gallery/images/common/mainLogo_en.png" alt="Photo Gallery"/>	
+				</a>					
+			</div>
+			<div class="visitkorea_year">
+				<img src="/enu/tt/pr_gallery/new_photo_gallery/images/visitkorea_year.png" alt="Visit Korea Year 2023-2024">   
+			</div>
+
+			<!-- 검색박스 -->
+			<div class="search_area">
+				
+				<!--s: KONAN SEARCH -->
+				
+
+
+
+
+
+
+
+
+
+
+
+
+	<form id=AKCFrm method="get" name="frmSearch" action="/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp">
+			<input type="hidden" name="category" value="" />
+         	<input type="hidden" name="pageSize" value="" />
+         	<input type="hidden" name="sort" value="" />
+         	
+			<!-- 사진갤러리 전용 -->
+			<input id="query" name="query" type="hidden" value=""/>
+			<input type="hidden" name="GROUPYN" value="" /><!-- 그룹유무 -->
+         	<input type="hidden" name="alias" value="" /><!-- 그룹코드 담을거 -->
+			<input type="hidden" name="image_type" value=""/>
+			<input type="hidden" name="category_big" value=""/>
+			<input type="hidden" name="category_mid" value=""/>
+			<input type="hidden" name="TIT_title" value=""/>
+			<input type="hidden" name="TIT_title_name" value="null"/>
+			<input type="hidden" name="category_ko" value=""/>			
+			<input type="hidden" name="category_en" value=""/>
+			<input type="hidden" name="search_type" value="word" />    	
+			<input type="hidden" name="startDate" value=""/>
+			<input type="hidden" name="endDate" value="" />
+			<input type="hidden" name="listCount" value="12"/>
+			<input type="hidden" name="endDate" value="" />       
+			<input type="hidden" name="area_code" value="" />
+			<input type="hidden" name="area_type" value="map" />       
+			<input type="hidden" name="depth" value="" />
+			<input type="hidden" name="sortField" value="" />
+			<input type="hidden" name="group_id" value="" />
+			<input type="hidden" name="reSrchFlag"  id="reSrchFlag"  />
+	<input type='hidden' name="preKwd" value="null">
+
+	<div class="box">
+		<input type="text" placeholder="Please enter your search term!" autocomplete="off"  name="kwd" id="AKCKwd"  onkeypress="if(event.keyCode==13){goSearch();return false;}"/>
+		<button class="btnSearch" onclick="goSearch();return false;"><img src="/enu/tt/pr_gallery/new_photo_gallery/images/common/icon/icon_search.png" alt="검색"/></button>
+	</div>
+	
+	<!-- 카테고리 -->
+	<div class="selectbox">
+		<dl class="mainSelect">
+			<dt><a href="#"><span>All Caregory</span></a></dt>
+			<dd id="categoryList">		
+				<ul>	
+					<li><a href="#">All Caregory</a></li>
+<li id='cate_top_1110'><a href='#'>Nature</a><ul class='de2'><li id='cate_sub_1111'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=11&category_en=Mountains&category_ko=산&listCount=12'>Mountains</a></li><li id='cate_sub_1112'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=12&category_en=Recreation Forests/ Forests&category_ko=휴양림/숲&listCount=12'>Recreation Forests/ Forests</a></li><li id='cate_sub_1113'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=13&category_en=Rocks/ Rock Formations / Cliffs&category_ko=바위/기암/절벽&listCount=12'>Rocks/ Rock Formations / Cliffs</a></li><li id='cate_sub_1114'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=14&category_en=Falls / Waterfalls&category_ko=폭포&listCount=12'>Falls / Waterfalls</a></li><li id='cate_sub_1115'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=15&category_en=Valleys&category_ko=계곡&listCount=12'>Valleys</a></li><li id='cate_sub_1116'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=16&category_en=Lakes/Reservoirs/Ponds&category_ko=호수/저수지/연못&listCount=12'>Lakes/Reservoirs/Ponds</a></li><li id='cate_sub_1117'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=17&category_en=Rivers/Streams&category_ko=강/하천&listCount=12'>Rivers/Streams</a></li><li id='cate_sub_1118'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=18&category_en=Sea/Beaches&category_ko=바다/해변&listCount=12'>Sea/Beaches</a></li><li id='cate_sub_1119'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=19&category_en=Islands&category_ko=섬&listCount=12'>Islands</a></li><li id='cate_sub_1120'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=20&category_en=Caves&category_ko=동굴&listCount=12'>Caves</a></li><li id='cate_sub_1121'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=21&category_en=Mineral Springs&category_ko=약수터&listCount=12'>Mineral Springs</a></li><li id='cate_sub_1122'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=22&category_en=Animals, Plants&category_ko=동식물&listCount=12'>Animals, Plants</a></li><li id='cate_sub_1123'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=23&category_en=Natural Monuments&category_ko=천연기념물&listCount=12'>Natural Monuments</a></li><li id='cate_sub_1124'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=24&category_en=Rural Landscape&category_ko=농어촌 풍경&listCount=12'>Rural Landscape</a></li><li id='cate_sub_1125'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=25&category_en=Sky / Clouds&category_ko=하늘/구름&listCount=12'>Sky / Clouds</a></li></ul></li><li id='cate_top_1210'><a href='#'>History/ Relic</a><ul class='de2'><li id='cate_sub_1211'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=12&category_mid=11&category_en=Palaces&category_ko=고궁&listCount=12'>Palaces</a></li><li id='cate_sub_1212'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=12&category_mid=12&category_en=Historic Site&category_ko=사적지&listCount=12'>Historic Site</a></li><li id='cate_sub_1213'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=12&category_mid=13&category_en=Traditional Hanok&category_ko=전통한옥&listCount=12'>Traditional Hanok</a></li><li id='cate_sub_1214'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=12&category_mid=14&category_en=Ancient Tombs/ Royal Tombs/ Burial Site&category_ko=고분/왕릉/묘&listCount=12'>Ancient Tombs/ Royal Tombs/ Burial Site</a></li><li id='cate_sub_1215'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=12&category_mid=15&category_en=Historic Shrines&category_ko=유물&listCount=12'>Historic Shrines</a></li><li id='cate_sub_1216'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=12&category_mid=16&category_en=House&category_ko=생가&listCount=12'>House</a></li><li id='cate_sub_1217'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=12&category_mid=17&category_en=Battlefield&category_ko=전적지&listCount=12'>Battlefield</a></li><li id='cate_sub_1218'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=12&category_mid=18&category_en=Memorial Hall&category_ko=기념관&listCount=12'>Memorial Hall</a></li><li id='cate_sub_1219'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=12&category_mid=19&category_en=Memorial Monument&category_ko=기념비&listCount=12'>Memorial Monument</a></li><li id='cate_sub_1220'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=12&category_mid=20&category_en=Statue&category_ko=동상&listCount=12'>Statue</a></li></ul></li><li id='cate_top_1310'><a href='#'>Folk/Tradition</a><ul class='de2'><li id='cate_sub_1311'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=13&category_mid=11&category_en=Traditional Customs&category_ko=전통행사의식&listCount=12'>Traditional Customs</a></li><li id='cate_sub_1312'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=13&category_mid=12&category_en=Traditional Manners/Hanbok (traditional clothing)&category_ko=예절/한복&listCount=12'>Traditional Manners/Hanbok (traditional clothing)</a></li><li id='cate_sub_1313'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=13&category_mid=13&category_en=Folk Games&category_ko=민속놀이&listCount=12'>Folk Games</a></li><li id='cate_sub_1314'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=13&category_mid=14&category_en=Folk Festival&category_ko=민속문화제&listCount=12'>Folk Festival</a></li><li id='cate_sub_1315'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=13&category_mid=15&category_en=Folk Villages/Traditional Villages&category_ko=민속마을/전통마을&listCount=12'>Folk Villages/Traditional Villages</a></li><li id='cate_sub_1316'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=13&category_mid=16&category_en=Folk Arts&category_ko=민속공예&listCount=12'>Folk Arts</a></li><li id='cate_sub_1317'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=13&category_mid=17&category_en=Architectural Styles&category_ko=건축양식&listCount=12'>Architectural Styles</a></li><li id='cate_sub_1318'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=13&category_mid=18&category_en=Hangeul / Calligraphy&category_ko=한글/서예&listCount=12'>Hangeul / Calligraphy</a></li></ul></li><li id='cate_top_1410'><a href='#'>Religion</a><ul class='de2'><li id='cate_sub_1411'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=14&category_mid=11&category_en=Temples&category_ko=사찰&listCount=12'>Temples</a></li><li id='cate_sub_1412'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=14&category_mid=12&category_en=Buddha Statues&category_ko=불상&listCount=12'>Buddha Statues</a></li><li id='cate_sub_1413'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=14&category_mid=13&category_en=Pagodas&category_ko=탑&listCount=12'>Pagodas</a></li><li id='cate_sub_1414'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=14&category_mid=14&category_en=Churches&category_ko=교회&listCount=12'>Churches</a></li><li id='cate_sub_1415'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=14&category_mid=15&category_en=Sacred Grounds&category_ko=성지&listCount=12'>Sacred Grounds</a></li><li id='cate_sub_1416'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=14&category_mid=16&category_en=Temples / Mosques&category_ko=사원&listCount=12'>Temples / Mosques</a></li><li id='cate_sub_1417'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=14&category_mid=17&category_en=Folk Religion&category_ko=민간신앙&listCount=12'>Folk Religion</a></li><li id='cate_sub_1418'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=14&category_mid=18&category_en=Ceremonies/ Traditions / Games&category_ko=예식/전례/놀이&listCount=12'>Ceremonies/ Traditions / Games</a></li><li id='cate_sub_1419'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=14&category_mid=19&category_en=Religious Facilities&category_ko=종교시설&listCount=12'>Religious Facilities</a></li></ul></li><li id='cate_top_1510'><a href='#'>Arts</a><ul class='de2'><li id='cate_sub_1511'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=15&category_mid=11&category_en=Classical Dance&category_ko=전통무용&listCount=12'>Classical Dance</a></li><li id='cate_sub_1512'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=15&category_mid=12&category_en=Mask Dance&category_ko=탈춤&listCount=12'>Mask Dance</a></li><li id='cate_sub_1513'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=15&category_mid=13&category_en=Gugak (Korean Classical Music)&category_ko=국악&listCount=12'>Gugak (Korean Classical Music)</a></li><li id='cate_sub_1514'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=15&category_mid=14&category_en=Performances&category_ko=공연&listCount=12'>Performances</a></li></ul></li><li id='cate_top_1610'><a href='#'>Cultural Facilities</a><ul class='de2'><li id='cate_sub_1611'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=16&category_mid=11&category_en=Museums&category_ko=박물관&listCount=12'>Museums</a></li><li id='cate_sub_1612'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=16&category_mid=12&category_en=Exhibition Halls&category_ko=전시관&listCount=12'>Exhibition Halls</a></li><li id='cate_sub_1613'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=16&category_mid=13&category_en=Performance Halls / Theaters&category_ko=공연장/극장&listCount=12'>Performance Halls / Theaters</a></li><li id='cate_sub_1614'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=16&category_mid=14&category_en=Cultural Space&category_ko=복합문화공간&listCount=12'>Cultural Space</a></li><li id='cate_sub_1615'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=16&category_mid=15&category_en=Training Center / Experience Center&category_ko=전수관/체험학습장&listCount=12'>Training Center / Experience Center</a></li><li id='cate_sub_1616'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=16&category_mid=16&category_en=Culture Centers&category_ko=문화원&listCount=12'>Culture Centers</a></li><li id='cate_sub_1617'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=16&category_mid=17&category_en=Observatory&category_ko=전망대&listCount=12'>Observatory</a></li><li id='cate_sub_1618'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=16&category_mid=18&category_en=Theme Park&category_ko=테마파크&listCount=12'>Theme Park</a></li><li id='cate_sub_1619'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=16&category_mid=19&category_en=Tourism Information Center&category_ko=관광안내센타&listCount=12'>Tourism Information Center</a></li></ul></li><li id='cate_top_1710'><a href='#'>Festivals / Events</a><ul class='de2'><li id='cate_sub_1711'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=17&category_mid=11&category_en=Festivals&category_ko=축제&listCount=12'>Festivals</a></li><li id='cate_sub_1712'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=17&category_mid=12&category_en=Events&category_ko=행사&listCount=12'>Events</a></li><li id='cate_sub_1713'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=17&category_mid=13&category_en=International Conferences&category_ko=국제회의&listCount=12'>International Conferences</a></li></ul></li><li id='cate_top_1810'><a href='#'>Modernization of Korea</a><ul class='de2'><li id='cate_sub_1811'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=18&category_mid=11&category_en=City Views&category_ko=도시전경&listCount=12'>City Views</a></li><li id='cate_sub_1812'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=18&category_mid=12&category_en=Industrial Facilities&category_ko=산업시설&listCount=12'>Industrial Facilities</a></li><li id='cate_sub_1813'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=18&category_mid=13&category_en=Science and Techonology&category_ko=과학기술&listCount=12'>Science and Techonology</a></li><li id='cate_sub_1814'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=18&category_mid=14&category_en=IT Experience Center&category_ko=IT체험관&listCount=12'>IT Experience Center</a></li></ul></li><li id='cate_top_1910'><a href='#'>Themed Tourism</a><ul class='de2'><li id='cate_sub_1911'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=19&category_mid=11&category_en=Hallyu (Korean Wave)&category_ko=한류&listCount=12'>Hallyu (Korean Wave)</a></li><li id='cate_sub_1912'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=19&category_mid=12&category_en=Walking Tourism&category_ko=걷기여행&listCount=12'>Walking Tourism</a></li><li id='cate_sub_1913'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=19&category_mid=13&category_en=Beauty Tourism&category_ko=미용관광&listCount=12'>Beauty Tourism</a></li><li id='cate_sub_1914'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=19&category_mid=14&category_en=Medical Tourism&category_ko=의료관광&listCount=12'>Medical Tourism</a></li><li id='cate_sub_1915'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=19&category_mid=15&category_en=DMZ / Security Tourism&category_ko=DMZ/안보관광&listCount=12'>DMZ / Security Tourism</a></li><li id='cate_sub_1916'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=19&category_mid=16&category_en=Experiential Tourism&category_ko=체험관광&listCount=12'>Experiential Tourism</a></li><li id='cate_sub_1917'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=19&category_mid=17&category_en=Cultural Villages&category_ko=문화마을&listCount=12'>Cultural Villages</a></li><li id='cate_sub_1918'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=19&category_mid=18&category_en=Drive Corse Road&category_ko=드라이브 코스&listCount=12'>Drive Corse Road</a></li><li id='cate_sub_1919'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=19&category_mid=19&category_en=Bike Tour&category_ko=자전거여행&listCount=12'>Bike Tour</a></li><li id='cate_sub_1920'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=19&category_mid=20&category_en=Camping&category_ko=캠핑&listCount=12'>Camping</a></li><li id='cate_sub_1921'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=19&category_mid=21&category_en=Train Trip&category_ko=기차여행&listCount=12'>Train Trip</a></li><li id='cate_sub_1922'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=19&category_mid=22&category_en=Eco Tourism&category_ko=생태관광&listCount=12'>Eco Tourism</a></li></ul></li><li id='cate_top_2010'><a href='#'>Accommodations / Leisure / Sports</a><ul class='de2'><li id='cate_sub_2011'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=11&category_en=Hotels/Inns&category_ko=호텔/장&listCount=12'>Hotels/Inns</a></li><li id='cate_sub_2012'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=12&category_en=Condominiums / Pensions&category_ko=콘도/펜션&listCount=12'>Condominiums / Pensions</a></li><li id='cate_sub_2013'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=13&category_en=Guesthouses&category_ko=게스트하우스&listCount=12'>Guesthouses</a></li><li id='cate_sub_2014'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=14&category_en=Resorts&category_ko=리조트&listCount=12'>Resorts</a></li><li id='cate_sub_2015'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=15&category_en=Hot Springs / Spas / Jjimjilbang&category_ko=온천/스파/찜질방&listCount=12'>Hot Springs / Spas / Jjimjilbang</a></li><li id='cate_sub_2016'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=16&category_en=Parks&category_ko=공원&listCount=12'>Parks</a></li><li id='cate_sub_2017'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=17&category_en=Recreational Areas&category_ko=유원지&listCount=12'>Recreational Areas</a></li><li id='cate_sub_2018'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=18&category_en=Ferries&category_ko=유람선&listCount=12'>Ferries</a></li><li id='cate_sub_2019'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=19&category_en=Cable Cars&category_ko=케이블카&listCount=12'>Cable Cars</a></li><li id='cate_sub_2020'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=20&category_en=Casinos&category_ko=카지노&listCount=12'>Casinos</a></li><li id='cate_sub_2021'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=21&category_en=Golf&category_ko=골프&listCount=12'>Golf</a></li><li id='cate_sub_2022'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=22&category_en=Ski&category_ko=스키&listCount=12'>Ski</a></li><li id='cate_sub_2023'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=23&category_en=Leisure/Facilities&category_ko=레저/시설&listCount=12'>Leisure/Facilities</a></li><li id='cate_sub_2024'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=24&category_en=Sports/facilities&category_ko=스포츠/시설&listCount=12'>Sports/facilities</a></li></ul></li><li id='cate_top_2110'><a href='#'>Life </a><ul class='de2'><li id='cate_sub_2111'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=21&category_mid=11&category_en=Foods&category_ko=음식&listCount=12'>Foods</a></li><li id='cate_sub_2112'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=21&category_mid=12&category_en=Restaurants&category_ko=요식업소&listCount=12'>Restaurants</a></li><li id='cate_sub_2113'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=21&category_mid=13&category_en=Cafes/ Clubs&category_ko=카페/클럽&listCount=12'>Cafes/ Clubs</a></li><li id='cate_sub_2114'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=21&category_mid=14&category_en=Shopping Malls&category_ko=쇼핑몰&listCount=12'>Shopping Malls</a></li><li id='cate_sub_2115'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=21&category_mid=15&category_en=Duty Free Shops&category_ko=면세점&listCount=12'>Duty Free Shops</a></li><li id='cate_sub_2116'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=21&category_mid=16&category_en=Stores / Products&category_ko=상점/상품&listCount=12'>Stores / Products</a></li><li id='cate_sub_2117'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=21&category_mid=17&category_en=Markets&category_ko=시장&listCount=12'>Markets</a></li><li id='cate_sub_2118'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=21&category_mid=18&category_en=Specialty Products&category_ko=특산물&listCount=12'>Specialty Products</a></li><li id='cate_sub_2119'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=21&category_mid=19&category_en=Transportations Facilities&category_ko=교통시설&listCount=12'>Transportations Facilities</a></li><li id='cate_sub_2120'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=21&category_mid=20&category_en=Streets&category_ko=거리풍경&listCount=12'>Streets</a></li><li id='cate_sub_2121'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=21&category_mid=21&category_en=Education&category_ko=교육시설&listCount=12'>Education</a></li><li id='cate_sub_2122'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=21&category_mid=22&category_en=Life / Amenities &category_ko=생활상/편의시설&listCount=12'>Life / Amenities </a></li></ul></li><li id='cate_top_2210'><a href='#'>Etc.</a><ul class='de2'><li id='cate_sub_2211'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=22&category_mid=11&category_en=Korea Tourism Organization&category_ko=관광공사&listCount=12'>Korea Tourism Organization</a></li><li id='cate_sub_2212'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=22&category_mid=12&category_en=Public Organizations&category_ko=공공기관&listCount=12'>Public Organizations</a></li><li id='cate_sub_2213'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=22&category_mid=13&category_en=Taegukgi / Flags&category_ko=태극기/만국기&listCount=12'>Taegukgi / Flags</a></li><li id='cate_sub_2214'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=22&category_mid=14&category_en=Korea Tourism Photo Contest&category_ko=대한민국 관광사진공모전&listCount=12'>Korea Tourism Photo Contest</a></li><li id='cate_sub_2215'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=22&category_mid=15&category_en=Korea Tourism Poster Contest&category_ko=대한민국 관광포스터공모전&listCount=12'>Korea Tourism Poster Contest</a></li><li id='cate_sub_2216'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=22&category_mid=16&category_en=River Photo Contest &category_ko=우리강 사진공모전&listCount=12'>River Photo Contest </a></li><li id='cate_sub_2217'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=22&category_mid=17&category_en=Regional Contests&category_ko=지자체공모전&listCount=12'>Regional Contests</a></li><li id='cate_sub_2218'><a href='/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=22&category_mid=18&category_en=Etc.&category_ko=기타&listCount=12'>Etc.</a></li></ul></li>	
+				</ul>
+			</dd>
+		</dl>
+	</div>	
+	
+	<!-- // 카테고리 -->
+	<button type="button" class="btn red" onclick="location.href='/enu/nphotogallery/photo.kto?func_name=search_condition'">Search<br />Conditions</button>    	
+</form> 
+
+
+
+<!-- s:자동완성 -->
+<div id="AKCDiv" style="left: 0px; top: 45px; position: absolute; z-index: 300;">
+	<iframe name="AKCIfrm" id="AKCIfrm" src="/enu/tt/pr_gallery/new_photo_gallery/ksearch/akc.html" style="width:260px;height:0px;">
+	</iframe>
+</div>
+<!-- e:자동완성 -->	 		
+	
+<form name="newphotoForm" id="newphotoForm" method="post" action="/enu/nphotogallery/photo.kto">
+     <input type="hidden" id="func_name"                   name="func_name"    value="">
+     <input type="hidden" id="newphotoDTO.photo_code_sub"      name="newphotoDTO.photo_code" value="">
+    <input type="submit" style="display: none"/>
+</form>        
+  
+<script>
+    function goSearch() {
+    	//document.frmSearch.reSrchFlag.checked = false;
+    	document.frmSearch.reSrchFlag.value = false;
+           var search_one = document.frmSearch.kwd.value;
+           var search_photo_cd = "";
+           if(search_one.length == 17){
+            search_photo_cd = search_one.substring(0,15);
+           } else if(search_one.length == 16){
+            search_photo_cd = search_one.substring(0,14);
+           } 
+           if((search_one.length == 17 || search_one.length == 16) && /[0-9]/.test(search_photo_cd)) {
+            document.getElementById("newphotoDTO.photo_code_sub").value = search_one;
+            document.newphotoForm.func_name.value = "search_photo_cd";
+            document.newphotoForm.submit();
+           }else{
+			var keyword = document.frmSearch.kwd.value;
+			//var reg = /[\{\}\[\]\/?.,;:|\)*~`!^\-_+<>@\#$%&\\\=\(]/g;
+			var reg = /[%]/g;
+			if(reg.test(keyword)) {
+				keyword = keyword.replace(reg,"");
+			}
+        	document.frmSearch.query.value = keyword;
+            //document.getElementById("query").value = document.getElementById("query_s").value;
+            document.frmSearch.submit();
+           }
+    }
+</script>
+
+
+
+
+       
+				<!--e: KONAN SEARCH --> 
+				
+			</div>
+			<!-- // 검색박스 -->
+			
+			<form name="loginForm" id="loginForm" method="post" action="">
+				<input type="hidden" name="param1" value="param1_value" />	<!-- 추가 파라미터가 있을 경우 -->
+				<input type="hidden" name="param2" value="param2_value" />	<!-- 추가 파라미터가 있을 경우 -->
+			</form>
+			
+			<form name="ssoForm" id="ssoForm" target="_blank" method="post" action="">
+				<input type="hidden" name="pni_token" value="" />	<!-- 토큰 -->
+			</form>
+			
+			<form name="selfPageForm" id="selfPageForm" method="post" action="">
+				<input type="hidden" name="pname" id="pname" />
+				<input type="hidden" name="link_type" id="link_type" />
+			</form>
+			
+			<div class="loginBox">				
+				<button class="btn btnMypage" onclick="fnMyPage();">MY PAGE</button>
+				
+				<button class="btn btnLogin" onclick="fnLinkSitePopup();">LOGIN</button>
+				
+			</div>			
+	    </div>
+			
+		<!--<ul>
+			 <li>
+				<span>ErrorCode : </span>
+				<br/>
+				<span>사용자 아이피 : </span>
+				<br/>
+				<span>Agent 도메인 : korea1.visitkorea.or.kr</span>
+				<br/>
+				<span>Agent 아이디 : knto-photo</span>
+				<br/><br/>
+				<span>인증 토큰 : <br/> </span>
+				<br/>
+				<span>챌린지 : <br/> </span>
+				<br/>
+				<span>사용자 정보 : <br/> </span>
+				<br/>
+			</li>
+			<li id="autologout" style="display:none;"><span>자동 로그아웃<br/></span><span class="cont" id="countdown"></span></li>
+		</ul>	-->		
+	</header>
+	<!-- // Header -->
+
+	<!-- Menu -->
+	<nav class="mainNav">
+		
+
+<ul>
+	<li class="new"><a href="/enu/tt/pr_gallery/new_photo_gallery/menu_new_photo/new_photo_list_g.jsp?vTyp=viewVer">New Photos</a></li>
+	<li class="best"><a href="/enu/nphotogallery/photo.kto?func_name=best_list&newphotoDTO.key=week">Hot Photos</a></li>
+	<li class="awards"><a href="/enu/tt/pr_gallery/new_photo_gallery/menu_contest/contest_list_g.jsp?vTyp=viewVer&menu=photo&leftSelect=all">Award winners</a></li>
+	<li class="year"><a href="/enu/tt/pr_gallery/new_photo_gallery/menu_plan/plan_list_sub.jsp?vTyp=viewVer">Annual Project Photos</a></li>
+	<li class="recom"><a href="/enu/tt/pr_gallery/new_photo_gallery/menu_recommend/recommend_list_g.jsp?vTyp=viewVer">Recommendation Photos</a></li>
+</ul>
+	</nav>
+	<!-- //Menu -->
+	<!-- // 공통 끝 -->
+
+	<!-- Content -->
+	<section class="subPage">
+		<h2 class="hidden">subPage</h2>
+		<!-- navigation -->
+		<nav class="subNav">
+			<ul>
+		
+				<li class="home"><a href="/enu/tt/pr_gallery/new_photo_gallery/main/main.jsp">Home</a></li>
+		
+				<li><a href="/enu/tt/pr_gallery/new_photo_gallery/menu_new_photo/new_photo_list_g.jsp">New Photos</a></li>
+		
+				<li><a href="#">Detailed information</a></li>
+		
+			</ul>
+		</nav>
+		<!-- // navigation -->
+		<!-- 사진 상세 보기 -->
+		<section class="viewDetail">
+			<h4 class="detailTit">Yeongju Museom Village
+				<!-- 수상작일 경우 -->
+		
+				<!-- // 수상작일 경우 -->
+			</h4>
+			<!-- 썸네일 영역 -->
+
+			<!-- // 썸네일 영역 -->
+			<div class="picView">
+				<img src="http://tong.visitkorea.or.kr/cms/resource_photo/68/2950268_image2_1.jpg" alt="영주 무섬마을">
+			</div>
+
+			<!-- 사진 정보 -->
+			<section class="pictureInfo">
+				<h2 class="hidden">pictureInfo</h2>
+				<p>Image Information</p>
+				<table class="tb2">
+					<caption>사진번호, 촬영지역, 촬영일, 촬영자 안내표입니다.</caption>
+					<colgroup>
+						<col style="width:40%;" />
+						<col style="width:60%;" />
+					</colgroup>
+					<tbody>
+						<tr>
+							<th class="tFirst" scope="row">No.</th>
+							<td class="tLast" style="line-height:20px;"><span>1617033202111007k</span>
+							<!--<a href="#" onclick="copyHtml('1617033202111007k','photocd')">Copy</a>-->
+							<a href="#" onclick="photoCdcopy('1617033202111007k')" >Copy</a>
+							</td>
+						</tr>
+						<tr>
+							<th class="tFirst" scope="row">Location of Photos</th>
+							<td class="tLast">Gyeongsangbuk-do Yeongju-si Munsu-myeon</td>
+						</tr>
+						<tr>
+							<th class="tFirst" scope="row">Date</th>
+							<td class="tLast">2021. 11.</td>
+						</tr>
+						<tr>
+							<th class="tFirst" scope="row">Photographer</th>
+							<td class="tLast">Anjinho Film</td>
+						</tr>
+					</tbody>
+				</table>
+
+				<table class="tb2 tC">
+					<caption>Resolution guide table by standard</caption>
+					<thead>
+						<tr>
+							<th class="tFirst" scope="col">Size</th>
+							<th scope="col">Pixels</th>
+							<th scope="col">KB</th>
+<!-- 							<th class="tLast" scope="col">Resolution</th> -->
+						</tr>
+					</thead>
+					<tbody>
+		
+				<tr>
+					<td class="tFirst">Small</td>
+					<td>1,280 x 853</td>
+					<td>             218KB</td>
+
+				</tr>
+		
+				<tr>
+					<td class="tFirst">Medium</td>
+					<td>2,126 x 1,416</td>
+					<td>             578KB</td>
+
+				</tr>
+		
+					</tbody>
+				</table>
+		
+				<div>
+					<span class="fL">
+		
+					<img src="/enu/tt/pr_gallery/new_photo_gallery/images/common/popup/popInfo_tb1_en.png" alt="omwImg" />
+							
+					</span>
+					<button class="btn btnShop" onclick="img_cart_add_view('1617033202111007k',1,'16','17','033'); return false;">Add to Photo Cart</button>					
+					<p class="picTxt">This work may be used under the conditions of "Korea Open Government License Type 1"</p>
+					<p class="list03">The user can freely use the public work without fee, and can change it to create secondary work.</p>
+				</div>
+			</section>
+			<!-- // 사진 정보 -->
+			<!-- 2020-12-02 -->
+			<section style="padding-top:10px;clear:both;">
+				<h2 class="hidden">Keyword</h2>
+				<p class="picTxt2">Keyword</p>
+				
+						<span class="word"><a href="/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?preKwd=&kwd=Yeongju Museom Village&search_type=word" title="Yeongju Museom Village">Yeongju Museom Village</a></span>
+				
+						<span class="word"><a href="/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?preKwd=&kwd= Gyeongsangbuk-do Yeongju-si&search_type=word" title=" Gyeongsangbuk-do Yeongju-si"> Gyeongsangbuk-do Yeongju-si</a></span>
+				
+						<span class="word"><a href="/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?preKwd=&kwd= National Folklore Cultural Heritage 278&search_type=word" title=" National Folklore Cultural Heritage 278"> National Folklore Cultural Heritage 278</a></span>
+				
+						<span class="word"><a href="/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?preKwd=&kwd= Experience Village&search_type=word" title=" Experience Village"> Experience Village</a></span>
+				
+						<span class="word"><a href="/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?preKwd=&kwd= Single Log Bridge&search_type=word" title=" Single Log Bridge"> Single Log Bridge</a></span>
+				
+						<span class="word"><a href="/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?preKwd=&kwd= Drone Photography&search_type=word" title=" Drone Photography"> Drone Photography</a></span>
+				
+						<span class="word"><a href="/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?preKwd=&kwd= Drone Shot&search_type=word" title=" Drone Shot"> Drone Shot</a></span>
+				
+						<span class="word"><a href="/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?preKwd=&kwd= Aerial Photography&search_type=word" title=" Aerial Photography"> Aerial Photography</a></span>
+				
+						<span class="word"><a href="/enu/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?preKwd=&kwd= Aerial Shot&search_type=word" title=" Aerial Shot"> Aerial Shot</a></span>
+				
+
+				<p class="picTxt2">Copyright Information</p>
+				<ul class="list03">
+					<li>
+						Copyrights to this photo belong to the KTO or the photographer (image provider)<br />
+						<span class="fRed">photos must be cited in the following format when used: <strong>ⓒKorea Tourism Organization-photographer</strong></span><br />
+					</li>
+					<li>This photo may be distributed to 3rd party without proper approval.</li>
+				</ul>
+			</section>
+			<!-- // 2020-12-02 -->			
+		</section>
+		<!-- // 사진 상세 보기 -->
+	</section>
+	<!-- // Content -->
+
+	<!-- Footer 하단공통-->
+	<footer>
+		<section class="Footer">
+			<h2 class="hidden">Footer</h2>
+			
+
+
+
+
+	<div class="wrap">
+		<span class="logo"><img src="/enu/tt/pr_gallery/new_photo_gallery/images/common/footerLogo_en.png" alt="한국관광공사" /></span>
+		<div class="mid">
+			<p>Korea Tourism Organization Headquarters Segye-ro 10, Wonju-si, Gangwon State, Korea 26464</p>
+			<p>Copyright ⓒ KOREA TOURISM ORGANIZATION. All Right Reserved</p>
+		</div>
+		<button type="button" class="help">Terms and Conditions of Use</button>
+		<div class="related">
+			<a href="#site">Related Site</a>
+			<ul id="site" style="opacity: 0; display: none;">
+				<li><a title="[새창]" target="_blank" href="https://knto.or.kr/eng">About KTO</a></li>
+				<li><a title="[새창]" target="_blank" href="http://english.visitkorea.or.kr">Visit Korea</a></li>
+			</ul>
+		</div>				
+		<p class="last">Copyright ⓒ KOREA TOURISM ORGANIZATION. All Right Reserved</p>
+	</div>
+
+		</section>
+	</footer>
+	<!-- //Footer -->
+	
+	<!-- Quick 하단공통-->
+	<div style="width:1200px; margin:0 auto;">
+			<section class="quick">
+				<h2 class="hidden">quick</h2>
+				
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+			
+				
+				<section class="recently">
+					<h4>Seen Today</h4>
+					<div class="area" id="quickbar_today">
+						<ul>
+							
+						</ul>
+					</div>
+				</section>
+			
+			</section>
+	</div>
+	<!-- // Quick -->
+	
+	<!-- // Content -->
+	
+	<!-- Popup 하단공통-->
+	<section class="pop">
+		<h2 class="hidden">pop</h2>
+		
+		<div class="pop_info">
+			<div class="pTit">
+				<h1>How to Use Our <span>Photo Gallery</span></h1>
+				<p>Please be sure to check the information related to the photo gallery usage guide and usage guide by type!</p>
+			</div>
+			<div class="pCont">
+				<ul class="tab">
+					<li id="tab1" class="on">Instructions &amp; Copyright Information</li>
+					<li id="tab2">Information by Category</li>
+				</ul>
+
+				<!-- 이용방법 및 저작권 안내 -->
+				<div class="tab1">
+					<ul class="flow">
+						<li><span class="num">01</span><p>Login</p></li>
+						<li><span class="num">02</span><p>Shopping cart</p></li>
+						<li><span class="num">03</span><p>Select photo<br />and size</p></li>
+						<li><span class="num">04</span><p>Fill out<br />request form</p></li>
+						<li><span class="num">05</span><p>Copyrignt agreement</p></li>
+						<li><span class="num">06</span><p>Submit</p></li>
+					</ul>
+
+					<div class="clear">
+						<div class="box sec1">
+							<h4>How to use and copyright information</h4>
+							<div class="mid">
+								<ul class="list01">
+									<li>Sign up/registration required to use and download photos from the KTO Photo Gallery.</li>
+									<li>Limit of 20 photo downloads per day.</li>
+									<li>Copyrights to all photos belong to the Korea Tourism Organization (KTO).<br />Approval to download photos DOES NOT include copyrights.</li>
+									<li>Images provided by the KTO Photo Gallery must be used for requested purposes only.<br />If you with to use image for other purposes, please re-submit request.</li>
+									<li>Photos with the "Korea Open Goverment License (KOGL)" logo must be used according to KOGL rules and regulations. Photos without the KOGL logo must follow rules and regulations set by the Korea Tourism Organization. contact the KTO Photo Gallery for details.</li>
+									<li>Photos may be downloaded until 30 days from day of approval, and will be automatically deleted from shopping cart after 30 days.</li>
+									<li>Downloaded photos may not be distributed to 3rd party without the consent of KTO.</li>
+									<li>All downloaded photos must be cited as "©Korea Tourism Organization-photographer" when used.</li>
+									<li>KTO is not responsible for any disputes or complications incurred regarding illegal duplication of photos, or abuse of rules and regulations of download agreement.</li>
+									<li>Using download photos in pornography, adult materials, drugs, gambling or other materials considered obscene or morally unacceptable is a clear infringement of copyright, and user is solely responsible.</li>
+									<li>Selling downloaded photos is prohibited.</li>
+									<li>If found that photos are being used against KTO's operational purposes, all agreements and contracts will be rescinded, and user is liable for all costs and expenses incurred in tracking and deleting photos.</li>
+								</ul>
+							</div>
+						</div>
+						<div class="box sec2">
+							<h4>Copyright protection policy</h4>
+							<div class="mid">
+								<p>
+									Photos with the KOGL logo must comply with rules and regulations of KOGL. Photos without the KOGL logo must contact KTO’s photo gallery.
+								</p>
+
+								<ul>
+									<li><strong>Question</strong> : +82 33-738-3363 </li>
+									<li><strong>Mail</strong> : <a href="mailto:photogallery@knto.or.kr" title="[Send Mail]">photogallery@knto.or.kr</a></li>
+								</ul>
+							</div>
+						</div>
+					</div>
+				</div>
+				<!-- // 이용방법 및 저작권 안내 -->
+				<!-- 유형별 이용안내 -->
+				<div class="tab2">
+					<p>※ The range of use is different for each type, so please check and use.</p>
+					<table class="tb1">
+						<caption>User Guide by Type Table</caption>
+						<thead>
+							<tr>
+								<th class="tFirst" scope="col">Type</th>
+								<th scope="col">Logo</th>
+								<th scope="col">Attribution</th>
+								<th scope="col">Commercial Use</th>
+								<th class="tLast" scope="col">Revision</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td class="tFirst">KOGL Type 1</td>
+								<td><img src="/enu/tt/pr_gallery/new_photo_gallery/images/common/popup/popInfo_tb1_en.png" alt="KOGL Type 1 image" /></td>
+								<td>Must specify<br />source of work</td>
+								<td class="agree"></td>
+								<td class="tLast">Photos may be modified /<br />revised if necessary.</td>
+							</tr>
+							<tr>
+								<td class="tFirst">KOGL Type 2</td>
+								<td><img src="/enu/tt/pr_gallery/new_photo_gallery/images/common/popup/popInfo_tb2_en.png" alt="KOGL Type 2 image" /></td>
+								<td>Must specify<br />source of work</td>
+								<td class="dis"></td>
+								<td class="tLast">Photos may be modified /<br />revised if necessary.</td>
+							</tr>
+							<tr>
+								<td class="tFirst">KOGL Type 3</td>
+								<td><img src="/enu/tt/pr_gallery/new_photo_gallery/images/common/popup/popInfo_tb3_en.png" alt="KOGL Type 3 image" /></td>
+								<td>Must specify<br />source of work</td>
+								<td class="agree"></td>
+								<td class="tLast red">Photos may not be modified /<br />revised if necessary.</td>
+							</tr>
+							<tr>
+								<td class="tFirst">KOGL Type 4</td>
+								<td><img src="/enu/tt/pr_gallery/new_photo_gallery/images/common/popup/popInfo_tb4_en.png" alt="KOGL Type 4 image" /></td>
+								<td>Must specify<br />source of work</td>
+								<td class="dis"></td>
+								<td class="tLast red">Photo may not be modified /<br/>recised if necessary.</td>
+							</tr>
+							<tr>
+								<td class="tFirst">Not for Download</td>
+								<td><img src="/enu/tt/pr_gallery/new_photo_gallery/images/common/popup/popInfo_tb5_en.png" alt="Not for Downaload image" /></td>
+								<td class="tLast red" colspan="3">Photo not for download. Available on KTO's photos gallery for viewing purposes only.</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+				<!-- // 유형별 이용안내 -->
+				<p class="pClose"><button type="button" class="btn btnClose">Close</button></p>
+			</div>
+		</div>
+	</section>
+	<!-- // Popup -->
+</body>
+</html>

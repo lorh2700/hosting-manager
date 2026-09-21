@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="ko">
+	<head>
+		<title>선비촌</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        <link rel="icon" href="/WebContent/design/common/img/favicon.ico" type="image/x-icon">
+		<link rel="icon" type="image/png" sizes="32x32" href="/WebContent/design/common/img/favicon-32x32.png">
+		<link rel="icon" type="image/png" sizes="16x16" href="/WebContent/design/common/img/favicon-16x16.png">
+		<link rel="apple-touch-icon" sizes="180x180" href="/WebContent/design/common/img/apple-touch-icon.png">
+		<link rel="manifest" href="/WebContent/design/common/img/site.webmanifest">
+
+
+        <!--공통 스타일 시작-->
+        <link rel="stylesheet" href="/WebContent/design/common/css/common.css">
+        <link rel="stylesheet" href="/WebContent/design/common/css/slick.min.css">
+        <link rel="stylesheet" href="/WebContent/design/common/template/css.css">
+        <link rel="stylesheet" href="/WebContent/design/common/css/godo.css">
+        <link rel="stylesheet" href="/WebContent/design/sunbichon/css/layout.css">
+        <script src="/WebContent/design/common/js/jquery-3.7.1.min.js"></script>
+        <script src="/WebContent/design/common/js/jquery-ui.min.js"></script>
+        <script src="/WebContent/design/common/js/util.js"></script>
+        <script src="/WebContent/design/common/js/slick.min.js"></script>
+        <script src="/WebContent/design/common/template/js.js"></script>
+        <script src="/WebContent/design/sunbichon/js/layout.js"></script>
+        <script src="/WebContent/design/common/js/ie11CustomProperties.min.js"></script>
+        <script src="https://ssl.daumcdn.net/dmaps/map_js_init/roughmapLoader.js"></script>
+        <script src="/WebContent/design/sunbi/js/map.js"></script>
+        <!--공통 스타일 끝-->
+        <link rel="stylesheet" href="/WebContent/design/sunbichon/css/main.css">
+        <script src="/WebContent/design/sunbichon/js/main.js"></script>
+	</head>
+
+    <body>
+        <div id="common_popup_layer_wrap">
+    <div id="common_popup_layer">
+        <div>
+            <div class="wrap">
+                <div class="control">
+                    <div class="btn">
+                        <a href="#" class="prev">이전</a>
+                        <a href="#" class="stop">정지</a>
+                        <a href="#" class="play">재생</a>
+                        <a href="#" class="next">다음</a>
+                    </div>
+                    <div class="pager">
+                        <span class="current"></span>
+                        <span class="total"></span>
+                    </div>
+                </div>
+                <ul class="slide">
+
+                <li><a 
+                        target="_self" >
+                        <img src="/uploadFiles/link/20260429/62D985B699E142FCA8BCF98196655DBF.jpg" alt="선비문화테마파크 선비촌 관람 안내 : 시설 정비 및 환경개선 공사로 인해 2025년 11월 12일(수)부터 선비촌 관람이 제한됩니다. / 소수서원&amp;amp;amp;middot;소수박물관 정상 운영 / 선비촌 매표소 정상 운연(입장 불가 안내 진행) / 입장료 : 기존 할인요금 적용 / 이용에 불편을 드려 죄송합니다. "  /></a>
+                    </li>
+                </ul>
+                <div class="close">
+                    <a href="" class="day">오늘 하루 열지 않기</a>
+                    <a href="" class="once">닫기</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<link rel="stylesheet" href="/WebContent/design/common/css/slick.min.css">
+<style>
+	#common_popup_layer {position:fixed; top:0; left:0; width:100%; height:100vh; z-index:500; opacity:0; visibility:hidden; transition:all 0.5s;}
+	#common_popup_layer::before {content:''; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7);}
+	#common_popup_layer > div {position:absolute; top:50%; left:50%; width:100%; height:100%; padding:40rem 0; overflow-y:auto; overflow-x:hidden; transform:translate(-50%, -50%);}
+	#common_popup_layer .wrap {position:relative; z-index:1; padding:0; max-width:500rem;}
+	#common_popup_layer.on {opacity:1; visibility:visible;}
+	#common_popup_layer.on .wrap {animation:fadeInUp 1s;}
+	#common_popup_layer .control {background:#fff; display:flex; align-items:center; width:180rem; justify-content:center; margin:0 auto; border-radius:100rem; padding:8rem 25rem 8rem 15rem;}
+	#common_popup_layer .btn {margin-right:15rem;}
+	#common_popup_layer .pager {position:relative; display:flex; align-items:center; margin:0 -14rem;}
+	#common_popup_layer .pager::before {content:''; position:absolute; top:50%; left:50%; width:1px; height:10px; background:#111111; transform:translate(-50%, -50%) rotate(35deg); }
+	#common_popup_layer .pager span {display:block; padding:0 14rem}
+	#common_popup_layer .pager span.current {color:#3356F1;font-weight:600;}
+	#common_popup_layer .control {margin-bottom:20rem;}
+	#common_popup_layer .control .btn {display:flex; align-items:center;}
+	#common_popup_layer .control .btn a {display:block; position:relative; width:24rem; height:24rem; text-indent:-9999px;  background:url('/WebContent/design/common/img/common_control.svg') no-repeat 0 0/400% auto;}
+	#common_popup_layer .control .btn a.prev {background-position:0 0;}
+	#common_popup_layer .control .btn a.stop {background-position:33.333% 0;}
+	#common_popup_layer .control .btn a.play {background-position:66.666% 0; display:none;}
+	#common_popup_layer .control .btn a.next {background-position:99.999% 0;}
+	#common_popup_layer .close {background:#fff; display:flex; position:relative; border-radius:25rem; border-top-left-radius:0; border-top-right-radius:0;}
+	#common_popup_layer .close::before {content:''; position:absolute; top:50%; left:50%; width:1px; height:12px; background:#656565; transform:translate(-50%, -50%)}
+	#common_popup_layer .close a {width:50%; display: flex; align-items: center; justify-content: center; font-weight:500; padding:16rem 10rem;}
+	#common_popup_layer .slick-list {border-radius:25rem; border-bottom-left-radius:0; border-bottom-right-radius:0;}
+	#common_popup_layer .slick-list img {width:100%;}
+	@media all and (max-width:599px){
+	#common_popup_layer .wrap {width:calc(100% - 40rem);}
+	#common_popup_layer .close a {font-size:15rem; padding:12rem 5rem;}
+	}
+</style>
+
+<script src="/WebContent/design/common/js/slick.min.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        var $layer = $('#common_popup_layer .slide');
+        $layer.on('init', function (event, slick) {
+            $('#common_popup_layer .current').text(slick.currentSlide + 1);
+            $('#common_popup_layer .total').text(slick.slideCount);
+        })
+            .slick({
+                useAutoplayToggleButton: false,
+                slidesToShow: 1,
+                slidesToScroll: 1,
+                autoplay: true,
+                autoplaySpeed: 3000,
+                infinite: true,
+                prevArrow: $('#common_popup_layer .prev'),
+                nextArrow: $('#common_popup_layer .next'),
+                adaptiveHeight: true,
+            })
+            .on('beforeChange', function (event, slick, currentSlide, nextSlide) {
+                $('#common_popup_layer .current').text(slick.currentSlide + 1);
+            })
+            .on('afterChange', function (event, slick, currentSlide, nextSlide) {
+                $('#common_popup_layer .current').text(slick.currentSlide + 1);
+            })
+        $('#common_popup_layer .control .stop').on('click', function () {
+            $layer.slick('slickPause');
+            return false;
+        });
+        $('#common_popup_layer .control .play').click(function () {
+            $layer.slick('slickPlay');
+            return false;
+        });
+        if ($('#common_popup_layer .slide .slick-slide li').length == 1) {
+            $('#common_popup_layer .control').attr('style', 'display:none')
+        }
+        $('#common_popup_layer .control .btn').each(function () {
+            $(this).children('.stop').click(function () {
+                $(this).hide();
+                $(this).siblings('.play').show();
+                return false;
+            });
+            $(this).children('.play').click(function () {
+                $(this).hide();
+                $(this).siblings('.stop').show();
+                return false;
+            });
+        });
+        var toggleMainPopup = function () {
+            var handleCookie = {
+                setCookie: function (name, val, exp) {
+                    var date = new Date();
+                    date.setTime(date.getTime() + exp * 24 * 60 * 60 * 1000);
+                    console.log(name + "=" + val + ";expires=" + date.toUTCString() + ";path=/");
+                    document.cookie = name + "=" + val + ";expires=" + date.toUTCString() + ";";
+                },
+                getCookie: function (name) {
+                    var value = document.cookie.match("(^|;) ?" + name + "=([^;]*)(;|$)");
+                    return value ? value[2] : null;
+                }
+            };
+            console.log(handleCookie.getCookie("today"));
+            if (handleCookie.getCookie("today") == "y") {
+                $("#common_popup_layer").removeClass("on");
+                $("html, body").removeClass("noScroll");
+                $layer.slick('slickPause');
+            } else {
+                $("#common_popup_layer").addClass("on");
+                $("html, body").addClass("noScroll");
+                $layer.slick('slickPlay');
+            }
+            $("#common_popup_layer").on("click", ".day", function () {
+                handleCookie.setCookie("today", "y", 1);
+                $(this).parents(".on").removeClass("on");
+                $("html, body").removeClass("noScroll");
+                $layer.slick('slickPause');
+                return false;
+            });
+        }
+        toggleMainPopup();
+        $('#common_popup_layer .once').click(function () {
+            $("#common_popup_layer").removeClass("on");
+            $("html, body").removeClass("noScroll");
+            $layer.slick('slickPause');
+            return false;
+        });
+        if ($('#common_popup_layer_wrap').children().length === 0) {
+            $("html, body").removeClass("noScroll");
+        }
+    });
+</script>
+
+<div id="skipBtn">
+            <a href="#container">본문 바로가기</a>
+        </div>
+        <header id="header">
+   			<div class="wrap">
+    <h1 class="logo"><a href="./main.do">선비촌</a></h1>
+
+    <nav class="pc_nav ver3">
+        <h2 class="hidden">주메뉴</h2>
+        <ul class="depth1">
+<li >
+		<a href="/sunbichon/page.do?mnu_code=sc01" target="_self" class="on">
+		<span>선비촌 소개</span></a>
+
+		<div class="depth2_wrap">
+				<div class="wrap">
+					<dl>
+						<dt>선비촌 소개</dt>
+						<dd>선비촌 소개</dd>
+					</dl>
+					<ul class="depth2">
+						<li >
+							<a href="/sunbichon/page.do?mnu_code=sc0101" target="_self" class="off">
+							<span>인사말</span></a>
+							</li>
+						<li >
+							<a href="/sunbichon/page.do?mnu_code=sc0102" target="_self" class="off">
+							<span>이용안내</span></a>
+							</li>
+						<li >
+							<a href="/sunbichon/page.do?mnu_code=sc0105" target="_self" class="off">
+							<span>찾아오시는 길 </span></a>
+							</li>
+						<li >
+							<a href="/sunbichon/page.do?mnu_code=sc0106" target="_self" class="off">
+							<span>선비문화테마파크 소개</span></a>
+							<ul class="depth3">
+							<li><a href="/sunbichon/page.do?mnu_code=sc010601" target="_self" class="off">
+									<span>선비문화테마파크</span></a>
+								</li>
+							<li><a href="/sunbichon/page.do?mnu_code=sc010602" target="_self" class="off">
+									<span>BI</span></a>
+								</li>
+							<li><a href="/sunbichon/page.do?mnu_code=sc010603" target="_self" class="off">
+									<span>캐릭터 소개</span></a>
+								</li>
+							</ul>
+							</li>
+						</ul>
+				</div>
+			</div>
+		</li>
+<li >
+		<a href="/sunbichon/page.do?mnu_code=sc02" target="_self" class="off">
+		<span>시설 안내</span></a>
+
+		<div class="depth2_wrap">
+				<div class="wrap">
+					<dl>
+						<dt>시설 안내</dt>
+						<dd>시설 안내</dd>
+					</dl>
+					<ul class="depth2">
+						<li >
+							<a href="/sunbichon/page.do?mnu_code=sc0202" target="_self" class="off">
+							<span>체험</span></a>
+							</li>
+						<li >
+							<a href="/sunbichon/page.do?mnu_code=sc0203" target="_self" class="off">
+							<span>대관</span></a>
+							</li>
+						<li >
+							<a href="/sunbichon/page.do?mnu_code=sc0204" target="_self" class="off">
+							<span>전통혼례 / 스몰웨딩 / 돌잔치</span></a>
+							</li>
+						</ul>
+				</div>
+			</div>
+		</li>
+<li >
+		<a href="/sunbichon/page.do?mnu_code=sc03" target="_self" class="off">
+		<span>고택소개</span></a>
+
+		<div class="depth2_wrap">
+				<div class="wrap">
+					<dl>
+						<dt>고택소개</dt>
+						<dd>고택소개</dd>
+					</dl>
+					<ul class="depth2">
+						<li >
+							<a href="/sunbichon/page.do?mnu_code=sc0304" target="_self" class="off">
+							<span>배치도</span></a>
+							</li>
+						<li >
+							<a href="/sunbichon/page.do?mnu_code=sc0301" target="_self" class="off">
+							<span>수신제가</span></a>
+							</li>
+						<li >
+							<a href="/sunbichon/page.do?mnu_code=sc0302" target="_self" class="off">
+							<span>우도불우빈</span></a>
+							</li>
+						<li >
+							<a href="/sunbichon/page.do?mnu_code=sc0303" target="_self" class="off">
+							<span>예약하기</span></a>
+							</li>
+						</ul>
+				</div>
+			</div>
+		</li>
+<li >
+		<a href="/sunbichon/page.do?mnu_code=sc05" target="_self" class="off">
+		<span>커뮤니티</span></a>
+
+		<div class="depth2_wrap">
+				<div class="wrap">
+					<dl>
+						<dt>커뮤니티</dt>
+						<dd>커뮤니티</dd>
+					</dl>
+					<ul class="depth2">
+						<li >
+							<a href="/sunbichon/page.do?mnu_code=sc0501" target="_self" class="off">
+							<span>공지사항 </span></a>
+							</li>
+						<li >
+							<a href="/sunbichon/page.do?mnu_code=sc0502" target="_self" class="off">
+							<span>보도자료</span></a>
+							</li>
+						</ul>
+				</div>
+			</div>
+		</li>
+<li >
+		<a href="/sunbichon/page.do?mnu_code=sc04" target="_self" class="off">
+		<span>갤러리</span></a>
+
+		<div class="depth2_wrap">
+				<div class="wrap">
+					<dl>
+						<dt>갤러리</dt>
+						<dd>갤러리</dd>
+					</dl>
+					<ul class="depth2">
+						<li >
+							<a href="/sunbichon/page.do?mnu_code=sc0401" target="_self" class="off">
+							<span>갤러리(사진/영상)</span></a>
+							</li>
+						</ul>
+				</div>
+			</div>
+		</li>
+</ul>
+</nav>
+    <div class="nav_bg"></div>
+
+    <div class="right">
+        <a href="/withseonbi/index.html" target="_blank" title="새창열림" class="go_link">선비문화테마파크</a>
+        <a href="" id="search_open"><span>검색</span></a>
+    		<div id="search_area">
+    			<div class="search_area_wrap">
+    				<form id="searchFrm" name="searchFrm" method="get" target="_blank" action="/search/front/Search.jsp">
+    					<label for="searchStr">검색어 입력</label>
+    					<input type="text" id="searchStr" name="qt" value="" placeholder="검색어를 입력해주세요.">
+    					<input type="hidden" id="preKwds" name="preKwds" value="">
+    					<a href="#self" class="submit" onclick="searchKwd()" title="새창열림">검색</a>
+    				</form>
+    				<div class="search_keyword">
+    					<a href="#self" onclick="searchKeyword('김상진가옥')">김상진가옥</a>
+    					<a href="#self" onclick="searchKeyword('전통혼례')">전통혼례</a>
+    					<a href="#self" onclick="searchKeyword('대관')">대관</a>
+    				</div>
+    				<a href="" id="search_close">통합검색창 닫기</a>
+    			</div>
+    		</div>
+        <div class="lang toggle">
+            <a href="" title="열기">Lang</a>
+            <div class="list">
+              <a href="#self" onclick="translatePage('ko'); return false;">한국어</a>
+              <a href="#self" onclick="translatePage('en'); return false;">English</a>
+              <a href="#self" onclick="translatePage('ja'); return false;">日本語</a>
+              <a href="#self" onclick="translatePage('zh-CN'); return false;">中文</a>
+            </div>
+        </div>
+        <a href="" class="sitemap pc">사이트맵</a>
+        <a href="" id="m_nav_open" class="sitemap mobile" title="열기">메뉴</a>
+    </div>
+    <script>
+    function searchKwd()
+    {
+      if( $("#searchStr").val() == "" )
+      {
+        alert('검색어를 입력하여 주십시요');
+        $("#searchStr").focus();
+        return false;
+      }
+
+      $("#searchFrm").submit();
+    }
+
+    function searchKeyword(qt)
+    {
+        $("#searchStr").val(qt);
+      $("#searchFrm").submit();
+    }
+    </script>
+    <!-- 숨겨진 구글 번역 위젯 -->
+    <div id="google_translate_element" style="display:none;"></div>
+    <script>
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+                pageLanguage: 'ko',
+                includedLanguages: 'ko,zh-CN,zh-TW,ja,en',
+                autoDisplay: false
+            }, 'google_translate_element');
+        }
+
+        function translatePage(lang) {
+            var selectElement = document.querySelector('.goog-te-combo');
+            if (selectElement) {
+                selectElement.value = lang;
+                selectElement.dispatchEvent(new Event('change'));
+                updateActiveButton(lang);
+            }
+        }
+
+        function restoreOriginal() {
+            translatePage('ko');
+        }
+
+        function updateActiveButton(lang) {
+            var buttons = document.querySelectorAll('.language_div a:not(.close_btn)');
+            buttons.forEach(function(btn) {
+                btn.classList.remove('active');
+            });
+
+            var langMap = {'en': 'ENG', 'ja': 'JPN', 'zh-CN': 'CHN'};
+            buttons.forEach(function(btn) {
+                if (btn.textContent.trim() === langMap[lang]) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+    </script>
+    <script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+    <!-- //Google 번역 -->
+
+    <nav class="m_nav ver1">
+        <h2 class="hidden">주메뉴</h2>
+        <div>
+            <div class="site_name"><strong>선비촌</strong> 홈페이지에 오신 것을 환영합니다.</div>
+            <ul class="link_list slide_type"><!-- 슬라이드 메뉴 타입 -->
+            <li>
+              <a href="" title="열림" class="more">관련사이트</a>
+              <div>
+                <a href="/withseonbi/index.html" target="_blank" title="새창열림" class="more">선비문화테마파크</a>
+              </div>
+            </li>
+            <li>
+              <a href="" title="열림" class="more">Language</a>
+              <div>
+                <a href="#self" onclick="translatePage('ko'); return false;">한국어</a>
+                <a href="#self" onclick="translatePage('en'); return false;">English</a>
+                <a href="#self" onclick="translatePage('ja'); return false;">日本語</a>
+                <a href="#self" onclick="translatePage('zh-CN'); return false;">中文</a>
+              </div>
+            </li>
+          </ul>
+            <ul class="link_list"> <!-- 고정 메뉴 타입 -->
+              <li><a class="youtube" href="https://www.youtube.com/@withseonbi " target="_blank" title="유튜브 새창열림">유튜브</a></li>
+              <li><a class="instagram" href="https://www.instagram.com/withseonbi " target="_blank" title="인스타그램 새창열림">인스타그램</a></li>
+              <li><a class="facebook" href="https://www.facebook.com/withseonbi" target="_blank" title="페이스북 새창열림">페이스북</a></li>
+            </ul>
+            <ul class="depth1">
+<li class="has">
+		<a href="/sunbichon/page.do?mnu_code=sc01" target="_self" class="on">
+		<span>선비촌 소개</span></a>
+
+		<div class="depth2_wrap">
+				<div class="wrap">
+					<dl>
+						<dt>선비촌 소개</dt>
+						<dd>선비촌 소개</dd>
+					</dl>
+					<ul class="depth2">
+						<li class="has">
+							<a href="/sunbichon/page.do?mnu_code=sc0101" target="_self" class="off">
+							<span>인사말</span></a>
+							</li>
+						<li class="has">
+							<a href="/sunbichon/page.do?mnu_code=sc0102" target="_self" class="off">
+							<span>이용안내</span></a>
+							</li>
+						<li class="has">
+							<a href="/sunbichon/page.do?mnu_code=sc0105" target="_self" class="off">
+							<span>찾아오시는 길 </span></a>
+							</li>
+						<li class="has">
+							<a href="/sunbichon/page.do?mnu_code=sc0106" target="_self" class="off">
+							<span>선비문화테마파크 소개</span></a>
+							<ul class="depth3">
+							<li><a href="/sunbichon/page.do?mnu_code=sc010601" target="_self" class="off">
+									<span>선비문화테마파크</span></a>
+								</li>
+							<li><a href="/sunbichon/page.do?mnu_code=sc010602" target="_self" class="off">
+									<span>BI</span></a>
+								</li>
+							<li><a href="/sunbichon/page.do?mnu_code=sc010603" target="_self" class="off">
+									<span>캐릭터 소개</span></a>
+								</li>
+							</ul>
+							</li>
+						</ul>
+				</div>
+			</div>
+		</li>
+<li class="has">
+		<a href="/sunbichon/page.do?mnu_code=sc02" target="_self" class="off">
+		<span>시설 안내</span></a>
+
+		<div class="depth2_wrap">
+				<div class="wrap">
+					<dl>
+						<dt>시설 안내</dt>
+						<dd>시설 안내</dd>
+					</dl>
+					<ul class="depth2">
+						<li class="has">
+							<a href="/sunbichon/page.do?mnu_code=sc0202" target="_self" class="off">
+							<span>체험</span></a>
+							</li>
+						<li class="has">
+							<a href="/sunbichon/page.do?mnu_code=sc0203" target="_self" class="off">
+							<span>대관</span></a>
+							</li>
+						<li class="has">
+							<a href="/sunbichon/page.do?mnu_code=sc0204" target="_self" class="off">
+							<span>전통혼례 / 스몰웨딩 / 돌잔치</span></a>
+							</li>
+						</ul>
+				</div>
+			</div>
+		</li>
+<li class="has">
+		<a href="/sunbichon/page.do?mnu_code=sc03" target="_self" class="off">
+		<span>고택소개</span></a>
+
+		<div class="depth2_wrap">
+				<div class="wrap">
+					<dl>
+						<dt>고택소개</dt>
+						<dd>고택소개</dd>
+					</dl>
+					<ul class="depth2">
+						<li class="has">
+							<a href="/sunbichon/page.do?mnu_code=sc0304" target="_self" class="off">
+							<span>배치도</span></a>
+							</li>
+						<li class="has">
+							<a href="/sunbichon/page.do?mnu_code=sc0301" target="_self" class="off">
+							<span>수신제가</span></a>
+							</li>
+						<li class="has">
+							<a href="/sunbichon/page.do?mnu_code=sc0302" target="_self" class="off">
+							<span>우도불우빈</span></a>
+							</li>
+						<li class="has">
+							<a href="/sunbichon/page.do?mnu_code=sc0303" target="_self" class="off">
+							<span>예약하기</span></a>
+							</li>
+						</ul>
+				</div>
+			</div>
+		</li>
+<li class="has">
+		<a href="/sunbichon/page.do?mnu_code=sc05" target="_self" class="off">
+		<span>커뮤니티</span></a>
+
+		<div class="depth2_wrap">
+				<div class="wrap">
+					<dl>
+						<dt>커뮤니티</dt>
+						<dd>커뮤니티</dd>
+					</dl>
+					<ul class="depth2">
+						<li class="has">
+							<a href="/sunbichon/page.do?mnu_code=sc0501" target="_self" class="off">
+							<span>공지사항 </span></a>
+							</li>
+						<li class="has">
+							<a href="/sunbichon/page.do?mnu_code=sc0502" target="_self" class="off">
+							<span>보도자료</span></a>
+							</li>
+						</ul>
+				</div>
+			</div>
+		</li>
+<li class="has">
+		<a href="/sunbichon/page.do?mnu_code=sc04" target="_self" class="off">
+		<span>갤러리</span></a>
+
+		<div class="depth2_wrap">
+				<div class="wrap">
+					<dl>
+						<dt>갤러리</dt>
+						<dd>갤러리</dd>
+					</dl>
+					<ul class="depth2">
+						<li class="has">
+							<a href="/sunbichon/page.do?mnu_code=sc0401" target="_self" class="off">
+							<span>갤러리(사진/영상)</span></a>
+							</li>
+						</ul>
+				</div>
+			</div>
+		</li>
+</ul>
+<a href="" id="m_nav_close"><span>닫기</span></a>
+        </div>
+    </nav>
+    <div class="nav_bg"></div>
+
+</div>
+</header>
+
+         <main id="container">
+
+            <div class="visual">
+                <div class="slide_group">
+                    <ul class="slide">
+                        <li style="background-image:url('/WebContent/design/sunbichon/img/main/vis1.jpg')"></li>
+                    </ul>
+                </div>
+                <div class="wrap">
+                    <div class="slogan">
+                        <p class="md">선조들의 고귀한 정신과 삶의 지혜가 깃든</p>
+                        <p class="lg">영주 선비촌</p>
+                    </div>
+                </div>
+                <a href="" class="scroll">scroll</a>
+            </div>
+
+            <article class="house">
+                <h2 class="hidden">고택소개</h2>
+                <div class="wrap basic_layout">
+                    <div class="slide_group left">
+                        <ul class="slide">
+                            <li>
+                                <div class="group">
+                                    <div class="img"><img src="/WebContent/design/sunbichon/img/main/house1.jpg" alt="김문기 가옥 사랑방"></div>
+                                    <!-- <a href="/reserve/page.do?mnu_code=rsrv0202&clsfTy=LDGM&rsvt_clsf_cd=SBC_LDG&&rsvt_cd=LDGM000027&cmd=4" class="reserve" target="_blank" title="새창열림">예약<br>하기</a> -->
+                                </div>
+                                <p class="tit">김문기 가옥 사랑방</p>
+                            </li>
+                            <li>
+                                <div class="group">
+                                    <div class="img"><img src="/WebContent/design/sunbichon/img/main/house2.jpg" alt="김문기 가옥 안방"></div>
+                                    <!-- <a href="/reserve/page.do?mnu_code=rsrv0202&clsfTy=LDGM&rsvt_clsf_cd=SBC_LDG&&rsvt_cd=LDGM000026&cmd=4" class="reserve" target="_blank" title="새창열림">예약<br>하기</a> -->
+                                </div>
+                                <p class="tit">김문기 가옥 안방</p>
+                            </li>
+                            <li>
+                                <div class="group">
+                                    <div class="img"><img src="/WebContent/design/sunbichon/img/main/house3.jpg" alt="김상진 가옥 독채"></div>
+                                    <!-- <a href="/reserve/page.do?mnu_code=rsrv0202&clsfTy=LDGM&rsvt_clsf_cd=SBC_LDG&&rsvt_cd=LDGM000030&cmd=4" class="reserve" target="_blank" title="새창열림">예약<br>하기</a> -->
+                                </div>
+                                <p class="tit">김상진 가옥 독채</p>
+                            </li>
+                            <li>
+                                <div class="group">
+                                    <div class="img"><img src="/WebContent/design/sunbichon/img/main/house4.jpg" alt="김세기 가옥 독채"></div>
+                                    <!-- <a href="/reserve/page.do?mnu_code=rsrv0202&clsfTy=LDGM&rsvt_clsf_cd=SBC_LDG&&rsvt_cd=LDGM000031&cmd=4" class="reserve" target="_blank" title="새창열림">예약<br>하기</a> -->
+                                </div>
+                                <p class="tit">김세기 가옥 독채</p>
+                            </li>
+                            <li>
+                                <div class="group">
+                                    <div class="img"><img src="/WebContent/design/sunbichon/img/main/house4.jpg" alt="두암 고택 독채"></div>
+                                    <!-- <a href="/reserve/page.do?mnu_code=rsrv0202&clsfTy=LDGM&rsvt_clsf_cd=SBC_LDG&&rsvt_cd=LDGM000032&cmd=4" class="reserve" target="_blank" title="새창열림">예약<br>하기</a> -->
+                                </div>
+                                <p class="tit">두암 고택 독채</p>
+                            </li>
+                            <li>
+                                <div class="group">
+                                    <div class="img"><img src="/WebContent/design/sunbichon/img/main/house4.jpg" alt="만죽재 독채"></div>
+                                    <!-- <a href="/reserve/page.do?mnu_code=rsrv0202&clsfTy=LDGM&rsvt_clsf_cd=SBC_LDG&&rsvt_cd=LDGM000033&cmd=4" class="reserve" target="_blank" title="새창열림">예약<br>하기</a> -->
+                                </div>
+                                <p class="tit">만죽재 독채</p>
+                            </li>
+                            <li>
+                                <div class="group">
+                                    <div class="img"><img src="/WebContent/design/sunbichon/img/main/house4.jpg" alt="인동장씨 종택 독채"></div>
+                                    <!-- <a href="/reserve/page.do?mnu_code=rsrv0202&clsfTy=LDGM&rsvt_clsf_cd=SBC_LDG&&rsvt_cd=LDGM000034&cmd=4" class="reserve" target="_blank" title="새창열림">예약<br>하기</a> -->
+                                </div>
+                                <p class="tit">인동장씨 종택 독채</p>
+                            </li>
+                            <li>
+                                <div class="group">
+                                    <div class="img"><img src="/WebContent/design/sunbichon/img/main/house4.jpg" alt="해우당고택 독채"></div>
+                                    <!-- <a href="/reserve/page.do?mnu_code=rsrv0202&clsfTy=LDGM&rsvt_clsf_cd=SBC_LDG&&rsvt_cd=LDGM000035&cmd=4" class="reserve" target="_blank" title="새창열림">예약<br>하기</a> -->
+                                </div>
+                                <p class="tit">해우당고택 독채</p>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="right">
+                        <div class="top">
+                            <div class="head">
+                                <p class="lg"><span>선</span>비문화의 숨결과 <br>아름다움이 살아있는 곳</p>
+                                <p class="md">선비정신과 선비문화가 고스란히 남아있는 영주 선비들의 생활공간을 그대로 복원하였습니다.</p>
+                            </div>
+                            <a href="./page.do?mnu_code=sc0303" class="go">더보기</a>
+                        </div>
+                        <div class="slide_group">
+                            <ul class="slide">
+                                <li><div class="img"><img src="/WebContent/design/sunbichon/img/main/house1.jpg" alt="김문기 가옥 사랑방"></div></li>
+                                <li><div class="img"><img src="/WebContent/design/sunbichon/img/main/house2.jpg" alt="김문기 가옥 안방"></div></li>
+                                <li><div class="img"><img src="/WebContent/design/sunbichon/img/main/house3.jpg" alt="김상진 가옥 독채"></div></li>
+                                <li><div class="img"><img src="/WebContent/design/sunbichon/img/main/house4.jpg" alt="김세기 가옥 독채"></div></li>
+                            </ul>
+                            <div class="control">
+                                <button type="button" class="prev">이전</button>
+                                <button type="button" class="next">다음</button>
+                            </div>
+                            <div class="bar"></div>
+                        </div>
+                    </div>
+                </div>
+            </article>
+
+            <article class="activity">
+                <h2 class="hidden">공간소개</h2>
+                <ul>
+                    <li class="space1">
+                        <span>修身齊家</span>
+                        <div class="img"><img src="/WebContent/design/sunbichon/img/main/space1.jpg" alt=""></div>
+                        <h3>수신제가</h3>
+                        <p>궁해도 의로움을 잃지 않고 높은 지위에 올라도 도에서 벗어나지 않는 것. 선비 그들에게 수신은 학문의 처음이자 끝이며 완성입니다. 내면을 살찌우는전통교육의 깊이를 엿볼 수 있고 아울러 체험도 가능한 공간입니다.</p>
+                        <a href="/sunbichon/page.do?mnu_code=sc0301" class="go">바로가기</a>
+                    </li>
+                    <li class="space2">
+                        <span>憂道不憂貧</span>
+                        <div class="img"><img src="/WebContent/design/sunbichon/img/main/space2.jpg" alt=""></div>
+                        <h3>우도불우빈</h3>
+                        <p>떳떳하지 않는 것이라면 부귀영화도 뜬구름처럼 가벼이 여겼던 선비의 안분지족의 자세와 청빈한 삶을 만날 수 있는 공간입니다.</p>
+                        <a href="/sunbichon/page.do?mnu_code=sc0302" class="go">바로가기</a>
+                    </li>
+                </ul>
+            </article>
+
+            <div class="sunbichon">
+                <div class="box">
+
+                    <article class="memory wrap">
+                        <h3 class="hidden">추억만들기</h3>
+                        <div class="basic_layout">
+                            <div class="slide_group left">
+                                <ul class="slide">
+                                    <li><div class="img"><img src="/WebContent/design/sunbichon/img/main/memory1.jpg" alt=""></div></li>
+                                    <li><div class="img"><img src="/WebContent/design/sunbichon/img/main/memory2.jpg" alt=""></div></li>
+                                </ul>
+                                <p class="txt">영주 선비촌에서는 옛 선비들이 거주하던 한옥에서 하루를 보내는 고택체험과 함께 다양한 프로그램으로 조상들의 얼과 문화를 배우고 경험할 수 있습니다.</p>
+                                <div class="pager">
+                                    <span class="current"></span>
+                                    <span class="total"></span>
+                                </div>
+                            </div>
+                            <div class="right">
+                                <div class="top">
+                                    <div class="head">
+                                        <p class="lg"><span>영</span>주 선비촌에서 <br>추억을 만들어보세요.</p>
+                                    </div>
+                                    <a href="/sunbichon/page.do?mnu_code=sc02" class="go">더보기</a>
+                                </div>
+                                <div class="slide_group">
+                                    <ul class="slide">
+                                        <li><div class="img"><img src="/WebContent/design/sunbichon/img/main/memory1.jpg" alt=""></div></li>
+                                        <li><div class="img"><img src="/WebContent/design/sunbichon/img/main/memory2.jpg" alt=""></div></li>
+                                    </ul>
+                                    <div class="control">
+                                        <button type="button" class="prev">이전</button>
+                                        <button type="button" class="next">다음</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
+                    <div class="basic_layout media wrap">
+                        <article class="gallery left">
+
+							<h2>선비촌 갤러리</h2>
+<ul class="list">
+	<li>
+				<a href="./page.do?mnu_code=sc0401&amp;bod_sn=1388&amp;cmd=2" class="tit">
+						<div class="img">
+							<img src="/uploadFiles/board/20260430/t_D89757DC6816498995EC70BB2E4DBB91.png" alt="시간이 느리게 흐르는 곳, 영주 선비촌"  /></div>
+						<div class="group">
+								<p class="tit">시간이 느리게 흐르는 곳, 영주 선비촌</p>
+								<p class="txt">시간이 느리게 흐르는 곳, 영주 선비촌</p>
+						</div>
+				</a>
+		</li>
+	</ul>
+<a href="./page.do?mnu_code=sc0401" class="more_list">자세히보기</a>
+</article>
+                        <article class="reserve_house right"><a href="/reserve/page.do?mnu_code=rsrv0202&rsvt_clsf_cd=SBC_LDG&clsfTy=LDGM"
+                        target="_blank"
+                        title="새창열림"
+                        onclick="alert('오픈준비중입니다.'); return false;">
+                            고택체험<br>예약하기
+                        </a></article>
+                    </div>
+                </div>
+            </div>
+
+            <div class="notice">
+                <div class="wrap basic_layout">
+                    <article class="left board">
+                        
+						<h2>공지사항</h2>
+<ul class="list">
+	<li>
+				<a href="./page.do?mnu_code=sc0501&amp;bod_sn=222&amp;cmd=2" class="tit">
+				 선비촌 관람 및 고택체험 중단 안내(25.11. 12.(수) ~ 공사 완료시까지)</a>
+				<span class="date">2026.03.20</span>
+		</li>
+	<li>
+				<a href="./page.do?mnu_code=sc0501&amp;bod_sn=179&amp;cmd=2" class="tit">
+				 선비촌 할인 요금 적용 안내 (25.4.1 ~ 공사 완료시까지)</a>
+				<span class="date">2025.12.24</span>
+		</li>
+	<li>
+				<a href="./page.do?mnu_code=sc0501&amp;bod_sn=176&amp;cmd=2" class="tit">
+				선비촌 문의 안내</a>
+				<span class="date">2025.12.24</span>
+		</li>
+	</ul>
+<a href="./page.do?mnu_code=sc0501" class="more_list">자세히보기</a>
+</article>
+                    <article class="right information">
+                        <h2>이용안내</h2>
+												<p>선비촌 및 소수서원 <span>연중무휴</span> 운영</p>
+                        <ul class="timetable">
+                        	<li>
+                        		<p class="tit"><strong>동절기</strong><span>11월 ~ 2월</span></p>
+														<p class="time"><strong>09:00 ~ 17:00</strong></p>
+                        	</li>
+													<li>
+                        		<p class="tit"><strong>춘추절기</strong><span>3월 ~ 5월/9월 ~ 10월</span></p>
+														<p class="time"><strong>09:00 ~ 18:00</strong></p>
+                        	</li>
+													<li>
+                        		<p class="tit"><strong>하절기</strong><span>6월 ~ 8월</span></p>
+														<p class="time"><strong>09:00 ~ 19:00</strong></p>
+                        	</li>
+                        </ul>
+                        <a href="/sunbichon/page.do?mnu_code=sc0102" class="more_list">자세히보기</a>
+                    </article>
+                </div>
+            </div>
+
+        </main>
+
+        <footer id="footer">
+			<div class="wrap">
+  <div class="top basic_layout">
+    <div class="left">
+      <span class="logo">선비문화테마파크</span>
+      <address>
+          <p>[36013] 경북 영주시 순흥면 소백로 2796</p>
+          <p><strong>대표전화</strong>054-630-9700</p>
+      </address>
+    </div>
+    <div class="right">
+      <div class="family toggle">
+          <a href="" title="열기">패밀리사이트</a>
+          <div class="list">
+              <a href="/sunbeeworld/main.do" target="_blank" title="새창열림">선비세상</a>
+              <a href="/sunbi/main.do" target="_blank" title="새창열림">한국선비문화수련원</a>
+              </div>
+      </div>
+      <div class="sns">
+        <a class="youtube" href="https://www.youtube.com/@withseonbi " target="_blank" title="유튜브 새창열림">유튜브</a>
+        <a class="instagram" href="https://www.instagram.com/withseonbi " target="_blank" title="인스타그램 새창열림">인스타그램</a>
+        <a class="facebook" href="https://www.facebook.com/withseonbi" target="_blank" title="페이스북 새창열림">페이스북</a>
+      </div>
+    </div>
+  </div>
+  <div class="bottom basic_layout">
+    <div class="left">
+      <ul class="list">
+          <li><a href="https://www.yeongju.go.kr/open_content/main/page.do?mnu_uid=1833&" class="privacy" target="_blank" title="새창열림">개인정보처리방침</a></li>
+          <li><a href="https://www.yeongju.go.kr/open_content/main/page.do?mnu_uid=1838&" target="_blank" title="새창열림">저작권보호정책</a></li>
+          <!-- <li><a href="">사이트맵</a></li> -->
+      </ul>
+    </div>
+    <div class="right">
+      <small class="copy">ⓒ 2026 SEONBI CULTURE THEME PARK, Seonbichon Village. All Rights Reserved.</small>
+    </div>
+  </div>
+</div>
+</footer>
+
+    </body>
+
+</html>

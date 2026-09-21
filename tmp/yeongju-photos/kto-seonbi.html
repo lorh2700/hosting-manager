@@ -1,0 +1,1222 @@
+<!DOCTYPE HTML>
+
+
+
+
+
+
+
+
+
+
+
+<!-- java lib -->
+
+
+<!-- itis lib -->
+
+<!-- itis -->
+
+
+
+
+
+
+
+
+
+
+
+	
+	
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta content="width=device-width" name="viewport"/>
+<title>모두가 행복한 관광을 만들어 나가는 국민 기업, 한국관광공사 - 사진 갤러리</title>
+<meta name="keywords" content="">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+<link rel="stylesheet" type="text/css" href="/kor/tt/pr_gallery/new_photo_gallery/css/common.css" media="all" />
+
+<script src="/kor/tt/pr_gallery/new_photo_gallery/js/jquery-3.5.1.min.js"></script>
+<script src="/kor/tt/pr_gallery/new_photo_gallery/js/swiper.js"></script>
+<script src="/kor/tt/pr_gallery/new_photo_gallery/js/common.js"></script>
+<script src="/kor/tt/pr_gallery/new_photo_gallery/js/main.js"></script>
+
+<script>
+    jQuery(document).ready(function(){
+        createCookie("bGzcWzBUrrD0OcmqD75GFEP6T5lC817XoaXmWheSuEBz4OEbTKRW1TEy1SH04Akz","http://tong.visitkorea.or.kr/cms/resource_photo/55/2643055_image3_1.jpg|100.0|66.66667|영주 선비촌|1617022201911018k@@","1617022201911018k");
+    });
+
+    function goPhotoView(page,subj_cd,zone_cd,tit_cd,Photocd) {
+        var form = document.photoView;
+
+        document.getElementById("newphotoDTO.photo_code").value = Photocd;
+        document.getElementById("newphotoDTO.page").value       = page;
+        document.getElementById("newphotoDTO.subj_cd").value    = subj_cd;
+        document.getElementById("newphotoDTO.tit_cd").value     = tit_cd;
+        document.getElementById("newphotoDTO.zone_cd").value    = zone_cd;
+        form.submit();
+    }
+	
+	// 사진코드복사 __210106 이후 사진상세에 나오는 복사는 아래 function 사용
+	function photoCdcopy(photo_cd){
+		$('#clip_tmp').val(photo_cd);
+		$('#clip_tmp').select();
+		var successful = document.execCommand('copy');
+		if(successful){
+			 alert("사진 번호가 복사되었습니다.");
+		}else{
+			 alert("이 브라우저는 지원하지 않습니다.");
+		}		
+	}
+
+</script>
+
+</head>
+<body>
+    <form name="photoView" method="post" action="/kor/nphotogallery/photo.kto">
+		<input type="hidden" id="func_name" name="func_name" value="photo_view" /> 
+		<input type="hidden" id="newphotoDTO.sub_menu" name="newphotoDTO.sub_menu" value="new" /> 
+		<input type="hidden" id="newphotoDTO.sub_menu_detail" name="newphotoDTO.sub_menu_detail" value="" /> 
+		<input type="hidden" id="newphotoDTO.searchWord" name="newphotoDTO.searchWord" value="" /> 
+		<input type="hidden" id="newphotoDTO.tit_title" name="newphotoDTO.tit_title" value="" /> 
+		<input type="hidden" id="newphotoDTO.photo_code" name="newphotoDTO.photo_code" value="" /> 
+		<input type="hidden" id="newphotoDTO.page" name="newphotoDTO.page" value="" /> 
+		<input type="hidden" id="newphotoDTO.subj_cd" name="newphotoDTO.subj_cd" value="" /> 
+		<input type="hidden" id="newphotoDTO.tit_cd" name="newphotoDTO.tit_cd" value="" /> 
+		<input type="hidden" id="newphotoDTO.zone_cd" name="newphotoDTO.zone_cd" value="" /> 
+		<input type="hidden" name="depth2_name" value="신규사진" /> 
+		<input type="hidden" name="depth2_url" value="/kor/tt/pr_gallery/new_photo_gallery/menu_new_photo/new_photo_list_g.jsp" /> 
+		<input type="hidden" name="depth3_name" value="" /> 
+		<input type="hidden" name="depth3_url" value="" /> 
+		<input type="text" id="clip_tmp" style="position:absolute;top:-2000px;" />
+		<input type="submit" style="display: none" />
+	</form>
+
+	<!-- 공통 시작 -->
+	<!-- TopBanner -->
+	
+<!-- 	<a href="http://kto.visitkorea.or.kr/kor/notice/compe/photo.kto"> -->
+	<section class="topBanner"  id="topBanner01" style="display: none;">
+		<h2 class="hidden">topBanner01</h2>
+		<div class="bnrArea">
+			<h1> <span>관광사진갤러리</span> 이용안내</h1>
+			<p>사진갤러리 이용안내 및 유형별 이용안내와 관련된 사항을 반드시 확인 후에 이용해주세요!</p>
+		</div>
+		<div class="topBanner_box">
+			<button class="topClose" >닫기</button><br />
+			<p class="check"><input type="checkbox" id ="topBanner01Chk"/><label>&nbsp;오늘하루 열지 않음</label></p>
+		</div>
+	</section>
+	</a>
+	<!-- // TopBanner -->
+	
+	<!-- Header -->
+	<header class="Header">
+		
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- 통합로그인 링크 테스트-->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-WMCGBS30E1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-WMCGBS30E1');
+</script>
+
+<script type="text/javascript">
+
+	var token = '';
+
+
+	function fnLinkSitePopup() {
+		//alert('투어원패스 시스템 변경 조치의 일환으로 \n통합로그인 \'투어원패스\'가 일시 중단됩니다.\n중단기간(예정) : 2023.2.9(목) ~ 2.10(금)');
+
+		
+	
+		var linkSiteApiId = "6V2VtSiWMxa1r3Y2YjThUA" ;
+		var req_url = "https://pass.knto.or.kr/front/login/login" + "?linkSiteApiId=";
+	
+		//투어원패스 팝업 셋팅
+		var uri = req_url + linkSiteApiId;
+		var popupName = "";
+		var options = "width=560, height=600"; //팝업사이즈
+	
+		//투어원패스 팝업 호출
+		var win = window.open(uri, name, options);
+		return win;
+	}
+	
+	function fnSiteMovePni(site_url, pni_token) {
+		if(pni_token != "") {
+			window.open(site_url + "?pni_token=" + pni_token);
+		} else {
+			window.open(site_url);
+		}
+		window.close();
+	}
+	
+	function fnLogout() {
+		
+		if( token != '' ) {
+			if( confirm( '로그아웃 하시겠습니까?' ) ) {
+				location.href="http://korean1.visitkorea.or.kr/kor/tt/pr_gallery/new_photo_gallery/include/logout.jsp";
+			}
+		
+		} else {
+			alert( '로그인 이후 실행하여 주십시오.' );
+		}
+	}
+	
+	function fnMyPage(){
+		
+		var loginDataNo;
+		
+		
+
+		loginDataNo = '';
+		
+		if( token != '' && loginDataNo != '') {
+			location.href="/kor/nphotogallery/photoMemb.kto?func_name=myInfo";	
+		}else{
+			alert( '로그인 이후 실행하여 주십시오.' );
+		}
+	}
+
+    var urlchk = document.location.href ;
+	
+    if (urlchk.indexOf('/include/header_ssot.jsp') >= 0) {
+    	
+        document.location.href = 'https://korean1.visitkorea.or.kr/kor/tt/pr_gallery/new_photo_gallery/main/main_ssot.jsp';
+    }
+
+
+
+	// 브라우저 보안정책 관련 TOP 로그인 처리
+	window.addEventListener('message', function(event) {
+		if (event.origin === 'https://pass.knto.or.kr' && event.data.type === 'login_success') {
+			var redirectUrl = event.data.redirectUrl;
+			window.location.href = redirectUrl;
+		}
+	}, false);
+
+</script>
+
+
+<!-- header_ssot.jsp 영역 -->
+	
+<script>
+/* TourOnePass Event function 시작 */
+	function ssoEventGo(){
+		var frm = document.eventfrm;
+		var topMbersId = "";
+
+			fnLinkSiteLoginPopup();
+			return;
+		
+		var newWin = window.open("about:black","winName")
+		
+		frm.code.value = "";
+		frm.action = "https://plansevent.co.kr/index.php";
+		frm.target = "winName";
+		frm.submit();								
+	}		
+
+	function fnLinkSiteLoginPopup() {
+
+		var msg = '로그인 후 참여가능합니다.';
+		
+		if(!confirm(msg)){
+			return;
+		}	
+
+		var linkSiteApiId = "6V2VtSiWMxa1r3Y2YjThUA" ;
+		var req_url = "https://pass.knto.or.kr/front/login/login" + "?linkSiteApiId=";
+	
+		//투어원패스 팝업 셋팅
+		var uri = req_url + linkSiteApiId + "&eventFlag=Y";
+		var popupName = "";
+		var options = "width=560, height=600"; //팝업사이즈
+	
+		//투어원패스 팝업 호출
+		var win = window.open(uri, name, options);
+		return win;
+	}
+/* TourOnePass Event function 끝 */
+</script>
+
+<!-- header_ssot.jsp 영역 -->
+		<div class="wrap">
+			<div>
+				<ul class="link">
+					<li class="loc"><a href="https://knto.or.kr" target="_blank" title="공사홈페이지 [새창]">한국관광공사</a></li>
+					<!--
+						<li class="vk"><a href="https://korean.visitkorea.or.kr/main/main.do" target="_blank" title="대한민국구석구석 홈페이지 [새창]">대한민국구석구석</a></li>
+					-->
+					<li class="lang"><a href="https://english1.visitkorea.or.kr/enu/tt/pr_gallery/new_photo_gallery/main/main_ssot.jsp" title="영문페이지">ENGLISH</a></li>
+				</ul>
+
+				
+
+				
+<!--
+				<link rel="stylesheet" type="text/css" href="/kor/tt/pr_gallery/new_photo_gallery/css/common_layout.css" />
+				<script src="/kor/tt/pr_gallery/new_photo_gallery/js/common_layout.js"></script>
+				<div class="header_t">
+					<div class="wrap-header">
+						<div class="left">
+							<span>통합로그인링크</span>
+							<ul class="site-link-header">
+							
+							</ul>
+						</div>
+					</div>
+				</div>
+-->
+				
+
+			</div>
+
+
+			<div class="logo">
+				<a href="https://korean1.visitkorea.or.kr/kor/tt/pr_gallery/new_photo_gallery/main/main_ssot.jsp" title="Photo Gallery">
+					<img src="/kor/tt/pr_gallery/new_photo_gallery/images/common/mainLogo.png" alt="Photo Gallery" />
+				</a>
+			</div>
+			<div class="visitkorea_year">
+				<img src="/kor/tt/pr_gallery/new_photo_gallery/images/visitkorea_year.png" alt="한국 방문의 해 2023-2024">   
+			</div>
+
+			<!-- 검색박스 -->
+			<div class="search_area">
+				
+				<!--s: KONAN SEARCH -->
+				
+
+
+
+
+
+
+
+
+
+
+
+
+	<form id=AKCFrm method="get" name="frmSearch" action="/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp">
+			<input type="hidden" name="category" value="" />
+         	<input type="hidden" name="pageSize" value="" />
+         	<input type="hidden" name="sort" value="" />
+         	
+			<!-- 사진갤러리 전용 -->
+			<input id="query" name="query" type="hidden" value=""/>
+			<input type="hidden" name="GROUPYN" value="" /><!-- 그룹유무 -->
+         	<input type="hidden" name="alias" value="" /><!-- 그룹코드 담을거 -->
+			<input type="hidden" name="image_type" value=""/>
+			<input type="hidden" name="category_big" value=""/>
+			<input type="hidden" name="category_mid" value=""/> 
+			<input type="hidden" name="TIT_title" value=""/>
+			<input type="hidden" name="TIT_title_name" value="null"/>
+			<input type="hidden" name="category_ko" value=""/>
+			<input type="hidden" name="search_type" value="word" />    	
+			<input type="hidden" name="startDate" value=""/>
+			<input type="hidden" name="endDate" value="" />
+			<input type="hidden" name="listCount" value="48"/>
+			<input type="hidden" name="endDate" value="" />       
+			<input type="hidden" name="area_code" value="" />
+			<input type="hidden" name="area_type" value="map" />       
+			<input type="hidden" name="depth" value="" />
+			<input type="hidden" name="sortField" value="" />
+			<input type="hidden" name="group_id" value="" />
+			<input type="hidden" name="reSrchFlag"  id="reSrchFlag"  />
+	<input type='hidden' name="preKwd" value="null">
+
+	<div class="box">
+		<input type="text" placeholder="검색어, 사진번호를 입력하세요" style="width:245px;" autocomplete="off"  name="kwd" id="AKCKwd"  onkeypress="if(event.keyCode==13){goSearch();return false;}"/>
+		<button class="btnSearch" onclick="goSearch();return false;"><img src="/kor/tt/pr_gallery/new_photo_gallery/images/common/icon/icon_search.png" alt="검색"/></button>
+	</div>
+	
+	<!-- 카테고리 -->
+	<div class="selectbox">
+		<dl class="mainSelect">
+			<dt><a href="#"><span>전체 카테고리</span></a></dt>
+			<dd id="categoryList">		
+				<ul>	
+					<li><a href="#">전체 카테고리</a></li>
+<li id='cate_top_1110'><a href='#'>자연</a><ul class='de2'><li id='cate_sub_1111'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=11&category_ko=산&listCount=12'>산</a></li><li id='cate_sub_1112'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=12&category_ko=휴양림/숲&listCount=12'>휴양림/숲</a></li><li id='cate_sub_1113'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=13&category_ko=바위/기암/절벽&listCount=12'>바위/기암/절벽</a></li><li id='cate_sub_1114'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=14&category_ko=폭포&listCount=12'>폭포</a></li><li id='cate_sub_1115'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=15&category_ko=계곡&listCount=12'>계곡</a></li><li id='cate_sub_1116'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=16&category_ko=호수/저수지/연못&listCount=12'>호수/저수지/연못</a></li><li id='cate_sub_1117'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=17&category_ko=강/하천&listCount=12'>강/하천</a></li><li id='cate_sub_1118'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=18&category_ko=바다/해변&listCount=12'>바다/해변</a></li><li id='cate_sub_1119'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=19&category_ko=섬&listCount=12'>섬</a></li><li id='cate_sub_1120'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=20&category_ko=동굴&listCount=12'>동굴</a></li><li id='cate_sub_1121'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=21&category_ko=약수터&listCount=12'>약수터</a></li><li id='cate_sub_1122'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=22&category_ko=동식물&listCount=12'>동식물</a></li><li id='cate_sub_1123'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=23&category_ko=천연기념물&listCount=12'>천연기념물</a></li><li id='cate_sub_1124'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=24&category_ko=농어촌 풍경&listCount=12'>농어촌 풍경</a></li><li id='cate_sub_1125'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=11&category_mid=25&category_ko=하늘/구름&listCount=12'>하늘/구름</a></li></ul></li><li id='cate_top_1210'><a href='#'>역사/유적</a><ul class='de2'><li id='cate_sub_1211'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=12&category_mid=11&category_ko=고궁&listCount=12'>고궁</a></li><li id='cate_sub_1212'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=12&category_mid=12&category_ko=사적지&listCount=12'>사적지</a></li><li id='cate_sub_1213'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=12&category_mid=13&category_ko=전통한옥&listCount=12'>전통한옥</a></li><li id='cate_sub_1214'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=12&category_mid=14&category_ko=고분/왕릉/묘&listCount=12'>고분/왕릉/묘</a></li><li id='cate_sub_1215'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=12&category_mid=15&category_ko=유물&listCount=12'>유물</a></li><li id='cate_sub_1216'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=12&category_mid=16&category_ko=생가&listCount=12'>생가</a></li><li id='cate_sub_1217'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=12&category_mid=17&category_ko=전적지&listCount=12'>전적지</a></li><li id='cate_sub_1218'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=12&category_mid=18&category_ko=기념관&listCount=12'>기념관</a></li><li id='cate_sub_1219'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=12&category_mid=19&category_ko=기념비&listCount=12'>기념비</a></li><li id='cate_sub_1220'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=12&category_mid=20&category_ko=동상&listCount=12'>동상</a></li></ul></li><li id='cate_top_1310'><a href='#'>민속/전통</a><ul class='de2'><li id='cate_sub_1311'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=13&category_mid=11&category_ko=전통행사의식&listCount=12'>전통행사의식</a></li><li id='cate_sub_1312'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=13&category_mid=12&category_ko=예절/한복&listCount=12'>예절/한복</a></li><li id='cate_sub_1313'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=13&category_mid=13&category_ko=민속놀이&listCount=12'>민속놀이</a></li><li id='cate_sub_1314'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=13&category_mid=14&category_ko=민속문화제&listCount=12'>민속문화제</a></li><li id='cate_sub_1315'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=13&category_mid=15&category_ko=민속마을/전통마을&listCount=12'>민속마을/전통마을</a></li><li id='cate_sub_1316'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=13&category_mid=16&category_ko=민속공예&listCount=12'>민속공예</a></li><li id='cate_sub_1317'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=13&category_mid=17&category_ko=건축양식&listCount=12'>건축양식</a></li><li id='cate_sub_1318'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=13&category_mid=18&category_ko=한글/서예&listCount=12'>한글/서예</a></li></ul></li><li id='cate_top_1410'><a href='#'>종교</a><ul class='de2'><li id='cate_sub_1411'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=14&category_mid=11&category_ko=사찰&listCount=12'>사찰</a></li><li id='cate_sub_1412'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=14&category_mid=12&category_ko=불상&listCount=12'>불상</a></li><li id='cate_sub_1413'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=14&category_mid=13&category_ko=탑&listCount=12'>탑</a></li><li id='cate_sub_1414'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=14&category_mid=14&category_ko=교회&listCount=12'>교회</a></li><li id='cate_sub_1415'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=14&category_mid=15&category_ko=성지&listCount=12'>성지</a></li><li id='cate_sub_1416'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=14&category_mid=16&category_ko=사원&listCount=12'>사원</a></li><li id='cate_sub_1417'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=14&category_mid=17&category_ko=민간신앙&listCount=12'>민간신앙</a></li><li id='cate_sub_1418'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=14&category_mid=18&category_ko=예식/전례/놀이&listCount=12'>예식/전례/놀이</a></li><li id='cate_sub_1419'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=14&category_mid=19&category_ko=종교시설&listCount=12'>종교시설</a></li></ul></li><li id='cate_top_1510'><a href='#'>예술</a><ul class='de2'><li id='cate_sub_1511'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=15&category_mid=11&category_ko=전통무용&listCount=12'>전통무용</a></li><li id='cate_sub_1512'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=15&category_mid=12&category_ko=탈춤&listCount=12'>탈춤</a></li><li id='cate_sub_1513'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=15&category_mid=13&category_ko=국악&listCount=12'>국악</a></li><li id='cate_sub_1514'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=15&category_mid=14&category_ko=공연&listCount=12'>공연</a></li></ul></li><li id='cate_top_1610'><a href='#'>문화시설</a><ul class='de2'><li id='cate_sub_1611'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=16&category_mid=11&category_ko=박물관&listCount=12'>박물관</a></li><li id='cate_sub_1612'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=16&category_mid=12&category_ko=전시관&listCount=12'>전시관</a></li><li id='cate_sub_1613'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=16&category_mid=13&category_ko=공연장/극장&listCount=12'>공연장/극장</a></li><li id='cate_sub_1614'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=16&category_mid=14&category_ko=복합문화공간&listCount=12'>복합문화공간</a></li><li id='cate_sub_1615'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=16&category_mid=15&category_ko=전수관/체험학습장&listCount=12'>전수관/체험학습장</a></li><li id='cate_sub_1616'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=16&category_mid=16&category_ko=문화원&listCount=12'>문화원</a></li><li id='cate_sub_1617'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=16&category_mid=17&category_ko=전망대&listCount=12'>전망대</a></li><li id='cate_sub_1618'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=16&category_mid=18&category_ko=테마파크&listCount=12'>테마파크</a></li><li id='cate_sub_1619'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=16&category_mid=19&category_ko=관광안내센타&listCount=12'>관광안내센타</a></li></ul></li><li id='cate_top_1710'><a href='#'>축제/행사</a><ul class='de2'><li id='cate_sub_1711'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=17&category_mid=11&category_ko=축제&listCount=12'>축제</a></li><li id='cate_sub_1712'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=17&category_mid=12&category_ko=행사&listCount=12'>행사</a></li><li id='cate_sub_1713'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=17&category_mid=13&category_ko=국제회의&listCount=12'>국제회의</a></li></ul></li><li id='cate_top_1810'><a href='#'>발전상</a><ul class='de2'><li id='cate_sub_1811'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=18&category_mid=11&category_ko=도시전경&listCount=12'>도시전경</a></li><li id='cate_sub_1812'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=18&category_mid=12&category_ko=산업시설&listCount=12'>산업시설</a></li><li id='cate_sub_1813'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=18&category_mid=13&category_ko=과학기술&listCount=12'>과학기술</a></li><li id='cate_sub_1814'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=18&category_mid=14&category_ko=IT체험관&listCount=12'>IT체험관</a></li></ul></li><li id='cate_top_1910'><a href='#'>테마관광</a><ul class='de2'><li id='cate_sub_1911'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=19&category_mid=11&category_ko=한류&listCount=12'>한류</a></li><li id='cate_sub_1912'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=19&category_mid=12&category_ko=걷기여행&listCount=12'>걷기여행</a></li><li id='cate_sub_1913'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=19&category_mid=13&category_ko=미용관광&listCount=12'>미용관광</a></li><li id='cate_sub_1914'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=19&category_mid=14&category_ko=의료관광&listCount=12'>의료관광</a></li><li id='cate_sub_1915'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=19&category_mid=15&category_ko=DMZ/안보관광&listCount=12'>DMZ/안보관광</a></li><li id='cate_sub_1916'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=19&category_mid=16&category_ko=체험관광&listCount=12'>체험관광</a></li><li id='cate_sub_1917'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=19&category_mid=17&category_ko=문화마을&listCount=12'>문화마을</a></li><li id='cate_sub_1918'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=19&category_mid=18&category_ko=드라이브 코스&listCount=12'>드라이브 코스</a></li><li id='cate_sub_1919'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=19&category_mid=19&category_ko=자전거여행&listCount=12'>자전거여행</a></li><li id='cate_sub_1920'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=19&category_mid=20&category_ko=캠핑&listCount=12'>캠핑</a></li><li id='cate_sub_1921'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=19&category_mid=21&category_ko=기차여행&listCount=12'>기차여행</a></li><li id='cate_sub_1922'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=19&category_mid=22&category_ko=생태관광&listCount=12'>생태관광</a></li></ul></li><li id='cate_top_2010'><a href='#'>숙박/레저/스포츠</a><ul class='de2'><li id='cate_sub_2011'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=11&category_ko=호텔/장&listCount=12'>호텔/장</a></li><li id='cate_sub_2012'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=12&category_ko=콘도/펜션&listCount=12'>콘도/펜션</a></li><li id='cate_sub_2013'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=13&category_ko=게스트하우스&listCount=12'>게스트하우스</a></li><li id='cate_sub_2014'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=14&category_ko=리조트&listCount=12'>리조트</a></li><li id='cate_sub_2015'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=15&category_ko=온천/스파/찜질방&listCount=12'>온천/스파/찜질방</a></li><li id='cate_sub_2016'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=16&category_ko=공원&listCount=12'>공원</a></li><li id='cate_sub_2017'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=17&category_ko=유원지&listCount=12'>유원지</a></li><li id='cate_sub_2018'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=18&category_ko=유람선&listCount=12'>유람선</a></li><li id='cate_sub_2019'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=19&category_ko=케이블카&listCount=12'>케이블카</a></li><li id='cate_sub_2020'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=20&category_ko=카지노&listCount=12'>카지노</a></li><li id='cate_sub_2021'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=21&category_ko=골프&listCount=12'>골프</a></li><li id='cate_sub_2022'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=22&category_ko=스키&listCount=12'>스키</a></li><li id='cate_sub_2023'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=23&category_ko=레저/시설&listCount=12'>레저/시설</a></li><li id='cate_sub_2024'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=20&category_mid=24&category_ko=스포츠/시설&listCount=12'>스포츠/시설</a></li></ul></li><li id='cate_top_2110'><a href='#'>생활상</a><ul class='de2'><li id='cate_sub_2111'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=21&category_mid=11&category_ko=음식&listCount=12'>음식</a></li><li id='cate_sub_2112'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=21&category_mid=12&category_ko=요식업소&listCount=12'>요식업소</a></li><li id='cate_sub_2113'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=21&category_mid=13&category_ko=카페/클럽&listCount=12'>카페/클럽</a></li><li id='cate_sub_2114'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=21&category_mid=14&category_ko=쇼핑몰&listCount=12'>쇼핑몰</a></li><li id='cate_sub_2115'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=21&category_mid=15&category_ko=면세점&listCount=12'>면세점</a></li><li id='cate_sub_2116'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=21&category_mid=16&category_ko=상점/상품&listCount=12'>상점/상품</a></li><li id='cate_sub_2117'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=21&category_mid=17&category_ko=시장&listCount=12'>시장</a></li><li id='cate_sub_2118'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=21&category_mid=18&category_ko=특산물&listCount=12'>특산물</a></li><li id='cate_sub_2119'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=21&category_mid=19&category_ko=교통시설&listCount=12'>교통시설</a></li><li id='cate_sub_2120'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=21&category_mid=20&category_ko=거리풍경&listCount=12'>거리풍경</a></li><li id='cate_sub_2121'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=21&category_mid=21&category_ko=교육시설&listCount=12'>교육시설</a></li><li id='cate_sub_2122'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=21&category_mid=22&category_ko=생활상/편의시설&listCount=12'>생활상/편의시설</a></li></ul></li><li id='cate_top_2210'><a href='#'>기타</a><ul class='de2'><li id='cate_sub_2211'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=22&category_mid=11&category_ko=관광공사&listCount=12'>관광공사</a></li><li id='cate_sub_2212'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=22&category_mid=12&category_ko=공공기관&listCount=12'>공공기관</a></li><li id='cate_sub_2213'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=22&category_mid=13&category_ko=태극기/만국기&listCount=12'>태극기/만국기</a></li><li id='cate_sub_2214'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=22&category_mid=14&category_ko=대한민국 관광사진공모전&listCount=12'>대한민국 관광사진공모전</a></li><li id='cate_sub_2215'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=22&category_mid=15&category_ko=대한민국 관광포스터공모전&listCount=12'>대한민국 관광포스터공모전</a></li><li id='cate_sub_2216'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=22&category_mid=16&category_ko=우리강 사진공모전&listCount=12'>우리강 사진공모전</a></li><li id='cate_sub_2217'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=22&category_mid=17&category_ko=지자체공모전&listCount=12'>지자체공모전</a></li><li id='cate_sub_2218'><a href='/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?category_big=22&category_mid=18&category_ko=기타&listCount=12'>기타</a></li></ul></li>	
+				</ul>
+			</dd>
+		</dl>
+	</div>	
+	
+	<!-- // 카테고리 -->
+	<button type="button" class="btn red" onclick="location.href='/kor/nphotogallery/photo.kto?func_name=search_condition'">조건검색</button>    	
+</form> 
+
+<!-- s:자동완성 -->
+<div id="AKCDiv" style="Z-INDEX: 300; POSITION: absolute; top:36px;left:0px;width:300px;">
+	<iframe id="AKCIfrm" style="WIDTH: 100%; HEIGHT: 0px" name="AKCIfrm" src="/kor/tt/pr_gallery/new_photo_gallery/ksearch/akc.html">
+	</iframe>
+</div>
+<!-- e:자동완성 -->	 		
+	
+<form name="newphotoForm" id="newphotoForm" method="post" action="/kor/nphotogallery/photo.kto">
+     <input type="hidden" id="func_name"                   name="func_name"    value="">
+     <input type="hidden" id="newphotoDTO.photo_code_sub"      name="newphotoDTO.photo_code" value="">
+    <input type="submit" style="display: none"/>
+</form>        
+
+<script>
+    function goSearch() {		
+    	//document.frmSearch.reSrchFlag.checked = false;
+    	document.frmSearch.reSrchFlag.value = false;
+           var search_one = document.frmSearch.kwd.value;
+           var search_photo_cd = "";
+           if(search_one.length == 17){
+            search_photo_cd = search_one.substring(0,15);
+           } else if(search_one.length == 16){
+            search_photo_cd = search_one.substring(0,14);
+           } 
+           if((search_one.length == 17 || search_one.length == 16) && /[0-9]/.test(search_photo_cd)) {
+            document.getElementById("newphotoDTO.photo_code_sub").value = search_one;
+            document.newphotoForm.func_name.value = "search_photo_cd";
+            document.newphotoForm.submit();
+           }else{
+			var keyword = document.frmSearch.kwd.value;
+			//var reg = /[\{\}\[\]\/?.,;:|\)*~`!^\-_+<>@\#$%&\\\=\(]/g;
+			var reg = /[%]/g;
+			if(reg.test(keyword)) {
+				keyword = keyword.replace(reg,"");
+			}
+        	document.frmSearch.query.value = keyword;
+            //document.getElementById("query").value = document.getElementById("query_s").value;
+            document.frmSearch.submit();
+           }
+    }
+</script>
+
+
+
+
+       
+				<!--e: KONAN SEARCH --> 
+				
+			</div>
+			<!-- // 검색박스 -->
+
+			<form name="loginForm" id="loginForm" method="post" action="">
+				<input type="hidden" name="param1" value="param1_value" />	<!-- 추가 파라미터가 있을 경우 -->
+				<input type="hidden" name="param2" value="param2_value" />	<!-- 추가 파라미터가 있을 경우 -->
+			</form>
+			
+			<form name="ssoForm" id="ssoForm" target="_blank" method="post" action="">
+				<input type="hidden" name="pni_token" value="" />	<!-- 토큰 -->
+			</form>
+			
+			<form name="selfPageForm" id="selfPageForm" method="post" action="">
+				<input type="hidden" name="pname" id="pname" />
+				<input type="hidden" name="link_type" id="link_type" />
+			</form>
+	
+			<div class="loginBox">				
+				<button class="btn btnMypage" onclick="fnMyPage();">MY PAGE</button>
+				
+				<button class="btn btnLogin" onclick="fnLinkSitePopup();">통합로그인</button>
+				
+			</div>			
+	    </div>
+
+			<!-- <li>
+					<span>ErrorCode : </span>
+					<br/>
+					<span>사용자 아이피 : </span>
+					<br/>
+					<span>Agent 도메인 : </span>
+					<br/>
+					<span>Agent 아이디 : </span>
+					<br/><br/>
+					<span>인증 토큰 : <br/> </span>
+					<br/>
+					<span>챌린지 : <br/> </span>
+					<br/>
+					<span>사용자 정보 : <br/> </span>
+					<br/>				
+				</li>
+				<li id="autologout" style="display:none;"><span>자동 로그아웃<br/></span><span class="cont" id="countdown"></span></li>
+			 -->
+	</header>
+	<!-- // Header -->
+
+	<!-- Menu -->
+	<nav class="mainNav">
+		
+
+
+
+<ul>
+	<li class="new"><a href="/kor/tt/pr_gallery/new_photo_gallery/menu_new_photo/new_photo_list_g.jsp?vTyp=viewVer">신규사진</a></li>
+	<li class="best"><a href="/kor/nphotogallery/photo.kto?func_name=best_list&newphotoDTO.key=week">인기사진</a></li>
+	<li class="awards"><a href="/kor/tt/pr_gallery/new_photo_gallery/menu_contest/contest_list_g.jsp?vTyp=viewVer&menu=photo&leftSelect=all">공모전 수상작</a></li>
+	<li class="year"><a href="/kor/tt/pr_gallery/new_photo_gallery/menu_plan/plan_list_sub.jsp?vTyp=viewVer">연도별 기획사진</a></li>
+	<li class="recom"><a href="/kor/tt/pr_gallery/new_photo_gallery/menu_recommend/recommend_list_g.jsp?vTyp=viewVer">추천사진</a></li>
+</ul>
+	</nav>
+	<!-- //Menu -->
+	<!-- // 공통 끝 -->
+
+	<!-- Content -->
+	<section class="subPage">
+		<h2 class="hidden">subPage</h2>
+		<!-- navigation -->
+		<nav class="subNav">
+			<ul>
+		
+				<li class="home"><a href="/kor/tt/pr_gallery/new_photo_gallery/main/main.jsp">Home</a></li>
+		
+				<li><a href="/kor/tt/pr_gallery/new_photo_gallery/menu_new_photo/new_photo_list_g.jsp">신규사진</a></li>
+		
+				<li><a href="#">사진 상세보기</a></li>
+		
+			</ul>
+		</nav>
+		<!-- // navigation -->
+		<!-- 사진 상세 보기 -->
+		<section class="viewDetail">
+			<h4 class="detailTit">영주 선비촌
+				<!-- 수상작일 경우 -->
+		
+				<!-- // 수상작일 경우 -->
+			</h4>
+			<!-- 썸네일 영역 -->
+
+			<!-- // 썸네일 영역 -->
+			<div class="picView">
+				<img src="http://tong.visitkorea.or.kr/cms/resource_photo/55/2643055_image2_1.jpg" alt="영주 선비촌">
+			</div>
+
+			<!-- 사진 정보 -->
+			<section class="pictureInfo">
+				<h2 class="hidden">pictureInfo</h2>
+				<p>사진정보</p>
+				<table class="tb2">
+					<caption>사진번호, 촬영지역, 촬영일, 촬영자 안내표입니다.</caption>
+					<colgroup>
+						<col style="width:40%;" />
+						<col style="width:60%;" />
+					</colgroup>
+					<tbody>
+						<tr>
+							<th class="tFirst" scope="row">사진번호</th>
+							<td class="tLast" style="line-height:20px;"><span>1617022201911018k</span>
+								<!--<a href="#" onclick="copyHtml('1617022201911018k','photocd')" >복사</a>-->
+								<a href="#" onclick="photoCdcopy('1617022201911018k')" >복사</a>
+							</td>
+						</tr>
+						<tr>
+							<th class="tFirst" scope="row">촬영지역</th>
+							<td class="tLast">경상북도 영주시 순흥면</td>
+						</tr>
+						<tr>
+							<th class="tFirst" scope="row">촬영일</th>
+							<td class="tLast">2019년 11월</td>
+						</tr>
+						<tr>
+							<th class="tFirst" scope="row">촬영자</th>
+							<td class="tLast">한국관광공사 김지호</td>
+						</tr>
+					</tbody>
+				</table>
+
+				<table class="tb2 tC">
+					<caption>규격(Small, Medium, Large)별 픽셀, 크기, 해상도 안내표입니다.</caption>
+					<thead>
+						<tr>
+							<th class="tFirst" scope="col">규격</th>
+							<th scope="col">픽셀</th>
+							<th scope="col">크기</th>
+<!-- 							<th class="tLast" scope="col">해상도</th> -->
+						</tr>
+					</thead>
+					<tbody>
+		
+				<tr>
+					<td class="tFirst">Small</td>
+					<td>1,280 x 853</td>
+					<td>           1,293KB</td>
+
+				</tr>
+		
+				<tr>
+					<td class="tFirst">Medium</td>
+					<td>2,126 x 1,417</td>
+					<td>           3,300KB</td>
+
+				</tr>
+		
+					</tbody>
+				</table>
+		
+				<div>
+					<span class="fL">
+		
+					<img src="/kor/tt/pr_gallery/new_photo_gallery/images/common/popup/popInfo_tb1.png" alt="omwImg"/>
+							
+					</span>
+					<button class="btn btnShop" onclick="img_cart_add_view('1617022201911018k',1,'16','17','022')">장바구니 담기</button>
+					<p class="picTxt">본 저작물은 공공누리 제1유형 조건에 따라 이용 할 수 있습니다.</p>
+					<ul class="list03"><li>출처표시</li><li>상업적, 비상업적 이용가능</li><li>변형 등 2차적 저작물 작성 가능</li></ul>
+					
+						<ul class="list03" style="padding-top:5px;"><li>사진은 신청하신 사용 용도에 한정되는 1회 대여용입니다. <br/>다른 용도로 사용하실 경우, 새로 신청하여 주시기 바랍니다.</li></ul>
+					
+				</div>
+			</section>
+			<!-- // 사진 정보 -->
+			<!-- 2020-12-02 -->
+			<section style="padding-top:10px;clear:both;">
+				<h2 class="hidden">키워드</h2>
+				<p class="picTxt2">키워드</p>				
+				
+						<span class="word"><a href="/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?preKwd=&kwd=영주 선비촌&search_type=word" title="영주 선비촌">영주 선비촌</a></span>
+				
+						<span class="word"><a href="/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?preKwd=&kwd= 경상북도 영주시&search_type=word" title=" 경상북도 영주시"> 경상북도 영주시</a></span>
+				
+						<span class="word"><a href="/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?preKwd=&kwd= 테마파크&search_type=word" title=" 테마파크"> 테마파크</a></span>
+				
+						<span class="word"><a href="/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?preKwd=&kwd= 테마공원&search_type=word" title=" 테마공원"> 테마공원</a></span>
+				
+						<span class="word"><a href="/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?preKwd=&kwd= 전통민속마을&search_type=word" title=" 전통민속마을"> 전통민속마을</a></span>
+				
+						<span class="word"><a href="/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?preKwd=&kwd= 전통가옥&search_type=word" title=" 전통가옥"> 전통가옥</a></span>
+				
+						<span class="word"><a href="/kor/tt/pr_gallery/new_photo_gallery/ksearch/search.jsp?preKwd=&kwd= 한옥&search_type=word" title=" 한옥"> 한옥</a></span>
+				
+				
+				<p class="picTxt2">저작권 안내</p>
+				<ul class="list03">
+					<li>
+						본 이미지의 저작권은 한국관광공사 또는 촬영자에게 있습니다.<br />
+						<span class="fRed">이미지 사용 시 [ⓒ한국관광공사 사진갤러리-촬영자]로 저작권을 표기해야 합니다.</span><br />
+						(예 : <strong>ⓒ한국관광공사 사진갤러리-홍길동</strong>)
+					</li>
+					<li>본 이미지는 무단으로 제3자에게 양도 또는 제공할 수 없습니다.</li>
+				</ul>
+			</section>
+			<!-- // 2020-12-02 -->			
+		</section>
+		<!-- // 사진 상세 보기 -->
+	</section>
+	<!-- // Content -->
+
+	<!-- Footer 하단공통-->
+	<footer>
+		<section class="Footer">
+			<h2 class="hidden">Footer</h2>
+			
+
+
+
+
+
+	<div class="wrap">
+		<span class="logo"><img src="/kor/tt/pr_gallery/new_photo_gallery/images/common/footerLogo.png" alt="한국관광공사" /></span>
+		<div class="mid">
+			<ul class="list">
+				<li><button type="button" class="privacy">회원약관</button></li>
+				<li><a target="_blank" href="https://knto.or.kr/helpdeskPolicyPrivacyHomepage" class="agree">개인정보 처리방침</a></li>
+				<li><a target="_blank" href="https://knto.or.kr/helpdeskPolicyEmailrejection">전자우편 무단수집거부</a></li>
+				<li><a target="_blank" href="https://korean1.visitkorea.or.kr/kor/tt/pr_gallery/new_photo_gallery/down/online Photo Gallery Guide.pdf" title="온라인 사진갤러리 이용가이드북 다운로드">이용가이드북</a></li>
+			</ul>
+		</div>
+		<button type="button" class="help">이용방법 및 저작권 안내</button>
+<!-- 		<div class="related">
+			<a href="#site">관련 사이트</a>
+			<ul id="site" style="opacity: 0; display: none;">
+				
+					<li><a title="[새창]" target="_blank" href="https://korean.visitkorea.or.kr/main/main.do">대한민국구석구석</a></li>
+				
+				<li><a title="[새창]" target="_blank" href="http://kto.visitkorea.or.kr">한국관광공사</a></li>
+				<li><a title="[새창]" target="_blank" href="http://www.gocamping.or.kr/account/sso/broker.do?pni_token=">고캠핑</a></li>
+			</ul>
+		</div>		 -->		
+		<p class="last">
+			<span>우) 26464 강원특별자치도 원주시 세계로 10 한국관광공사  /   TEL) 033-738-3363</span>
+			<span>사업자등록번호 : 202-81-50707   /   통신판매업신고 : 제2009-서울중구-1234호</span>
+			<span>Copyright ⓒ KOREA TOURISM ORGANIZATION. All Right Reserved</span>
+		</p>
+	</div>
+
+
+		</section>
+	</footer>
+	<!-- //Footer -->
+	
+	<!-- Quick 하단공통-->
+	<div style="width:1200px; margin:0 auto;">
+			<section class="quick">
+				<h2 class="hidden">quick</h2>
+				
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+			
+				
+				<section class="recently">
+					<h4>최근 본 사진</h4>
+					<div class="area" id="quickbar_today">
+						<ul>
+							
+						</ul>
+					</div>
+				</section>
+			
+			</section>
+	</div>
+	<!-- // Quick -->
+	
+	<!-- // Content -->
+	
+	<!-- Popup 하단공통-->
+		<!-- // 유형별 이용안내 -->
+		<section class="pop">
+			<h2 class="hidden">유형별 이용안내 </h2>
+			
+		<div class="pop_info">
+			<div class="pTit">
+				<h1><span>관광사진갤러리</span> 이용안내</h1>
+				<p>사진갤러리 이용안내 및 유형별 이용안내와 관련된 사항을 반드시 확인 후에 이용해주세요!</p>
+			</div>
+			<div class="pCont">
+				<ul class="tab">
+					<li id="tab1" class="on">이용방법 및 저작권 안내</li>
+					<li id="tab2">유형별 이용안내</li>
+				</ul>
+
+				<!-- 이용방법 및 저작권 안내 -->
+				<div class="tab1">
+					<ul class="flow">
+						<li><span class="num">01</span><p>로그인</p></li>
+						<li><span class="num">02</span><p>장바구니 담기</p></li>
+						<li><span class="num">03</span><p>신청이미지/규격선택</p></li>
+						<li><span class="num">04</span><p>신청자 정보 작성</p></li>
+						<li><span class="num">05</span><p>저작권 동의</p></li>
+						<li><span class="num">06</span><p>제출하기</p></li>
+					</ul>
+
+					<div class="clear">
+						<div class="box sec1">
+							<h4>이용방법 및 저작권 안내</h4>
+							<div class="mid">
+								<ul class="list01">
+									<li>한국관광공사 사진갤러리는 회원 가입 후 사용가능 합니다.</li>
+									<li>사진은 1일 20점까지 다운 받으실 수 있습니다.</li>
+									<li>사진의 저작권은 원칙적으로 사진촬영자에게 있습니다.<br />따라서 사진갤러리의 사진 이용 허락으로 그 이미지의 저작권이 회원에게 취득되는 것은 아니며, 이용권만 취득하는 것입니다.</li>
+									<li>사진갤러리의 이미지들은 신청하신 사용용도에 한정되는 1회 대여용입니다.<br />다른 용도로 사용하실 경우 새로 받아 이용해야 합니다.</li>
+									<li>공공누리 마크가 부착된 사진의 경우 공공누리 유형을 확인한 후 사용조건을 준수하여 이용하시고, 공공누리 마크가 부착되지 않은 사진의 경우 이용 가능 범위를 공사 담당자에게 확인하여 주시기 바랍니다.</li>
+									<li>사진 신청 후 다운로드는 30일 이내로 제한됩니다.(장바구니는 30일 이후 자동삭제)</li>
+									<li>다운로드 받은 본인 외에 제3자에게 사진을 제공할 수 없습니다.</li>
+									<li>사진갤러리를 이용하는 모든 회원은 [ⓒ한국관광공사 사진갤러리-촬영자]로 저작권을 표기해야 합니다.</li>
+									<li>다운로드 된 이미지의 무단복제로 인한 피해나 해당 이미지 사용조건에 위배되어 발생된 분쟁에 대해서는 한국관광공사는 책임지지 않습니다.</li>
+									<li>특히 포르노, 성인용품, 마약, 도박, 사행성게임과 같은 보편적 국민 정서에 반하는 용도에는 사진을 사용할 수 없으며, 이에 따른 피사체의 명예훼손이나 저작권, 인격권, 상표권 등의 법적 권리를 침해 할 경우 한국관광공사는 책임지지 않습니다.</li>
+									<li>사진갤러리의 이미지를 다운로드 하여 되파는 행위(사업)를 금지합니다.</li>
+									<li>사진갤러리의 운영 목적과 다르게 사진을 사용하는 것이 적발될 경우 사용허가를 금지하고, 이용자의 경비 부담으로 회수 및 파기하도록 요청할 수 있습니다.</li>
+								</ul>
+							</div>
+						</div>
+						<div class="box sec2">
+							<h4>저작권 보호 정책</h4>
+							<div class="mid">
+								<p>
+									사진갤러리의 이미지 중 공공누리 마크가 부착된 사진의 경우 공공누리 유형별 사용조건을 확인한 후 사용조건을 준수하여 이용하여 주시고, 공공누리 마크가 부착되지 않은 사진의 경우 이용 가능 범위를 공사 담당자에게 확인하여 주시기 바랍니다.
+								</p>
+
+								<ul>
+									<li><strong>문의</strong> : 033-738-3363</li>
+									<li><strong>Mail</strong> : <a href="mailto:photogallery@knto.or.kr" title="[메일보내기]">photogallery@knto.or.kr</a></li>
+								</ul>
+								<p class="link"><a href="https://knto.or.kr/helpdeskCopyrightguide" target="_blank" title="한국관광공사 저작권 정책 바로가기 [새창]"><strong>한국관광공사 저작권 정책</strong> [바로가기]</a></p>
+							</div>
+						</div>
+					</div>
+				</div>
+				<!-- // 이용방법 및 저작권 안내 -->
+				<!-- 유형별 이용안내 -->
+				<div class="tab2">
+					<p>※ 유형마다 사용범위가 다르니 확인하고 사용하여 주시기 바랍니다.</p>
+					<table class="tb1">
+						<caption>유형명(공공누리 1유형, 공공누리 2유형, 공공누리 3유형, 공공누리 4유형, 이미지 사용불가)별 이미지, 출처표시, 상업적 이용, 변경 안내표입니다.</caption>
+						<thead>
+							<tr>
+								<th class="tFirst" scope="col">유형명</th>
+								<th scope="col">이미지</th>
+								<th scope="col">출처표시</th>
+								<th scope="col">상업적 이용</th>
+								<th class="tLast" scope="col">변경</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td class="tFirst">공공누리 1유형</td>
+								<td><img src="/kor/tt/pr_gallery/new_photo_gallery/images/common/popup/popInfo_tb1.png" alt="공공누리1유형 안내 이미지" /></td>
+								<td>필수</td>
+								<td class="agree1">이용가능</td>
+								<td class="tLast">변경 등 2차 저작물 작성 가능</td>
+							</tr>
+							<tr>
+								<td class="tFirst">공공누리 2유형</td>
+								<td><img src="/kor/tt/pr_gallery/new_photo_gallery/images/common/popup/popInfo_tb2.png" alt="공공누리2유형 안내 이미지" /></td>
+								<td>필수</td>
+								<td class="dis">이용금지</td>
+								<td class="tLast">변경 등 2차 저작물 작성 가능</td>
+							</tr>
+							<tr>
+								<td class="tFirst">공공누리 3유형</td>
+								<td><img src="/kor/tt/pr_gallery/new_photo_gallery/images/common/popup/popInfo_tb3.png" alt="공공누리3유형 안내 이미지" /></td>
+								<td>필수</td>
+								<td class="agree1">이용가능</td>
+								<td class="tLast red">변경 등 2차 저작물 작성 <span>금지</span></td>
+							</tr>
+							<tr>
+								<td class="tFirst">공공누리 4유형</td>
+								<td><img src="/kor/tt/pr_gallery/new_photo_gallery/images/common/popup/popInfo_tb4.png" alt="공공누리4유형 안내 이미지" /></td>
+								<td>필수</td>
+								<td class="dis">이용금지</td>
+								<td class="tLast red">변경 등 2차 저작물 작성 <span>금지</span></td>
+							</tr>
+							<tr>
+								<td class="tFirst">이미지 사용불가</td>
+								<td><img src="/kor/tt/pr_gallery/new_photo_gallery/images/common/popup/popInfo_tb5.png" alt="이미지 사용불가 이미지" /></td>
+								<td class="tLast red" colspan="3">사진갤러리에서 감상만 가능하고, 외부로의 사용은 저작권 문제로 불가합니다.</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+				<!-- // 유형별 이용안내 -->
+				<p class="pClose"><button type="button" class="btn btnClose">닫기</button></p>
+			</div>
+		</div>
+		</section>
+		<!-- // 유형별 이용안내 -->
+		<!-- Popup 회원약관 -->
+		<section class="pop_privacy">
+			<h2 class="hidden">회원약관</h2>
+			
+		<div class="pop3">
+			<div class="popArea">
+				<div class="pTit">
+					<h1>관광사진갤러리<span> 개인정보 처리방침</span> </h1>
+				</div>
+				<div class="pCont">
+					<div class="scroll">
+						<div>
+							<h2>제1조 (개인정보의 수집‧활용 목적)</h2>
+							<p>본 약관은 한국관광공사(이하 &ldquo;공사&rdquo;)가 제공하는 온라인 사진갤러리 서비스(이하 &ldquo;사이트&rdquo;)의 개인정보는 다음의 목적을 위해 수집 및 활용됩니다. 다음 목적 이외의 용도로는 사용되지 않으며, 이용 목적이 변경될 시에는 사전 동의를 구할 예정입니다.</p>
+							<dl>
+								<dt>가. 회원가입 및 관리 </dt>
+								<dd>회원가입을 위한 회원 가입의사 확인, 회원제 서비스 제공에 따른 본인 식별 인증, 회원자격 유지 관리, 콘텐츠의 다운로드 이용, 다운로드된 콘텐츠의 저작권 관리, 서비스 부정이용 방지, 공공저작물 저작권 이용 등 각종 고지 통지 등을 목적으로 개인정보를 처리합니다.</dd>
+							</dl>
+							<dl>
+								<dt>나. 민원사무 처리 </dt>
+								<dd>민원인의 신원 확인, 민원사항 확인, 사실조사를 위한 연락 통지, 처리결과 통보 등을 목적으로 개인정보를 처리합니다.</dd>
+							</dl>
+							<dl>
+								<dt>다. 재화 또는 서비스 제공 </dt>
+								<dd>서비스 제공, 콘텐츠 제공, 맞춤 서비스 제공, 요금결제 정산 등을 목적으로 개인정보를 처리합니다.</dd>
+							</dl>
+							<dl>
+								<dt>라. 마케팅 및 광고에의 활용 </dt>
+								<dd>신규 서비스 개발 및 맞춤 서비스 제공, 이벤트 및 광고성 정보 제공 및 참여기회 제공, 인구통계학적 특성에 따른 서비스 제공 및 광고 게재, 학술연구 또는 시장조사, 서비스의 유효성 확인, 접속빈도 파악 또는 회원의 서비스 이용에 대한 통계 등을 목적으로 개인정보를 처리합니다. </dd>
+							</dl>
+							<br />
+
+							<h2>제2조 (수집‧활용되는 개인정보의 항목)</h2>
+							<p>사이트는 다음의 개인정보 항목을 수집하여 처리 및 활용하고 있습니다.</p>
+							<ul>
+								<li>가. 회원 서비스 이용을 위한 공사에서 제공하는 &ldquo;통합 로그인 서비스(Tour One Pass)&rdquo;를 통해 소설로그인 인증 절차가 있으며, 이용자의 소셜로그인 정보(ID, 비밀번호)는 &ldquo;사이트&rdquo;에 저장하여 활용하지 않습니다. </li>
+								<li>나. 콘텐츠(관광사진)의 다운로드 및 다운로드된 콘텐츠의 저작권 관리를 위해 최소한의 개인정보 수집하고 처리하고 있습니다. 수집항목은 &ldquo;성명, 휴대폰번호, 이메일주소&rdquo;입니다.</li>
+								<li>다. 마케팅에의 활용
+									<p>신규 서비스 개발 및 맞춤 서비스 제공, 대한민국 관광공모전 정보 제공, 인구통계학적 특성에 따른 서비스 제공 및 광고 게재, 학술연구 또는 시장조사, 서비스의 유효성 확인, 접속빈도 파악 또는 회원의 서비스 이용에 대한 통계 등을 목적으로 개인정보를 처리합니다. </p>
+								</li>
+							</ul>
+							<br />
+
+							<h2>제3조 (개인정보의 처리 및 보유 기간)</h2>
+							<p>이용자의 개인정보는 회원가입 동의일로부터 보유하게되며, 회원 탈퇴시 지체 없이 파기합니다. </p>
+							<br />
+							
+							<h2>제4조 (개인정보의 제3자 제공)</h2>
+							<p>사이트는 원칙적으로 이용자의 개인정보를 제1조 (개인정보의 처리 목적)에서 명시한 범위 내에서 처리하며, 이용자의 사전 동의 없이는 본래의 범위를 초과하여 처리하거나 제3자에게 제공하지 않습니다.</p>
+							<br />
+
+							<h2>제5조 (개인정보처리 위탁)</h2>
+							<dl>
+								<dt>① 사이트는 원활한 개인정보 업무처리를 위하여 다음과 같이 개인정보 처리업무를 위탁하고 있습니다. </dt>
+								<dd>- 위탁받는 자(수탁자) : ㈜티에스라인</dd>
+								<dd>- 위탁부서 / 담당자 : 디지털콘텐츠팀 / 김다정</dd>
+								<dd>
+									- 위탁하는 업무의 내용
+									<p> ‧ 사이트의 운영관리 및 회원정보 관리 보호를 위한 기술적 처리</p>
+									<p>‧ 온라인 민원사무 처리의 기술적 처리 지원</p>
+									<p>‧ 정보서비스 이용 촉진을 위한 온라인 이벤트 구현, 통계분석 등 기술적 처리 지원</p>
+									<p>‧ 이벤트 진행 및 경품 배송을 위해 개인 정보 위탁 또는 이벤트 경품배송 등의 서비스 제공</p>
+									<p>‧ 기타 개인정보 보호를 위한 기술적 조치 및 관리 지원</p>
+								</dd>
+								<dd>- 위탁 기간 : 2021.1.1. ~ 2023.12.31.</dd>
+								<dt>② 사이트는 위탁계약 체결시 개인정보 보호법 제26조에 따라 위탁업무 수행목적 외 개인정보 처리금지, 기술적·관리적 보호조치, 재위탁 제한, 수탁자에 대한 관리·감독, 손해배상 등 책임에 관한 사항을 계약서 등 문서에 명시하고, 수탁자가 개인정보를 안전하게 처리하는지를 감독하고 있습니다.</dt>
+								<dd></dd>
+								<dt>③ 위탁업무의 내용이나 수탁자가 변경될 경우에는 지체 없이 본 개인정보처리방침을 통하여 공개하고 필요한 경우 사전 동의를 구하도록 하겠습니다.</dt>
+								<dd></dd>
+							</dl>
+							<br />
+
+							<h2>제6조 (정보주체의 권리, 의무 및 그 행사방법) </h2>
+							<dl>	
+								<dt>① 정보주체(만 14세 미만인 경우에는 법정대리인을 말함)는 언제든지 다음 각 호의 개인정보 보호 관련 권리를 행사할 수 있습니다. </dt>
+								<dd>1. 개인정보 열람요구</dd>
+								<dd>2. 오류 등이 있을 경우 정정 요구 </dd>
+								<dd>3. 삭제요구 </dd>
+								<dd>4. 처리정지 요구 </dd>
+							</dl>
+							<p>② 제1항에 따른 권리 행사는 개인정보보호법 시행규칙 별지 제8호 서식에 따라 작성 후 서면, 전자우편, 모사전송(FAX) 등을 통하여 하실 수 있으며, 이에 대해 지체 없이 조치하겠습니다. </p>
+							<p>③ 정보주체가 개인정보의 오류 등에 대한 정정 또는 삭제를 요구한 경우에는 정정 또는 삭제를 완료할 때까지 당해 개인정보를 이용하거나 제공하지 않습니다. </p>
+							<p>④ 제1항에 따른 권리 행사는 정보주체의 법정대리인이나 위임을 받은 자 등 대리인을 통하여 하실 수 있습니다. 이 경우 개인정보보호법 시행규칙 별지 제11호 서식에 따른 위임장을 제출하셔야 합니다. </p>
+							<p>⑤ 개인정보 열람 및 처리정지 요구는 개인정보보호법 제35조 제4항, 제37조 제2항에 의하여 정보주체의 권리가 제한 될 수 있습니다.</p>
+							<p>⑥ 개인정보의 정정 및 삭제 요구는 다른 법령에서 그 개인정보가 수집 대상으로 명시되어 있는 경우에는 그 삭제를 요구할 수 없습니다. </p>
+							<p>⑦ 정보주체 권리에 따른 열람의 요구, 정정·삭제의 요구, 처리정지의 요구 시 열람 등 요구를 한 자가 본인이거나 정당한 대리인인지를 확인합니다.</p>
+
+							<p>* [개인정보보호법 시행규칙 별지 제8호] <a title="개인정보 열람 요구서 파일다운" href="https://knto.or.kr/comm/getFile?srvcId=MEDIA&upperNo=mJXJ9fUNmylB2F43EPg7Ww%3d%3d&fileTy=MEDIA&fileNo=hjjm29Puwx8qDjddb%5e19rg%3d%3d" target="_blank">개인정보 열람 요구서</a></p>
+							<p>* [개인정보보호법 시행규칙 별지 제11호] <a title="위임장 파일다운" href="https://knto.or.kr/comm/getFile?srvcId=MEDIA&upperNo=90N9p%5eJwtP7aQ39Z6nnnfQ%3d%3d&fileTy=MEDIA&fileNo=KwzOGkgiCGOnf53QJqpTug%3d%3d" target="_blank">위임장</a></p>
+							<br />
+
+							<h2>제7조 (개인정보의 파기)</h2>
+							<p>개인정보 처리목적이 달성된 경우에는 지체 없이 해당 개인정보를 파기합니다. 파기의 절차, 기한 및 방법은 다음과 같습니다.</p>
+
+							<dl>
+								<dt>파기절차</dt>
+								<dd>이용자가 입력한 정보는 목적 달성 후 별도의 DB에 옮겨져(종이의 경우 별도의 서류) 내부 방침 및 기타 관련 법령에 따라 일정기간 저장된 후 혹은 즉시 파기됩니다. 이 때, DB로 옮겨진 개인정보는 법률에 의한 경우가 아니고서는 다른 목적으로 이용되지 않습니다. </dd>
+								
+								<dt>파기기한</dt>
+								<dd>이용자의 개인정보는 개인정보의 보유기간이 경과된 경우에는 보유기간의 종료일로부터 5일 이내에, 개인정보의 처리 목적 달성, 해당 서비스의 폐지, 사업의 종료 등 그 개인정보가 불필요하게 되었을 때에는 개인정보의 처리가 불필요한 것으로 인정되는 날로부터 5일 이내에 그 개인정보를 파기합니다. </dd>
+								
+								<dt>파기방법</dt>
+								<dd>전자적 파일 형태의 정보는 기록을 재생할 수 없는 기술적 방법을 사용합니다.<br />종이에 출력된 개인정보는 분쇄기로 분쇄하거나 소각을 통하여 파기합니다. </dd>
+							</dl>
+							<br />
+
+							<h2>제8조 (개인정보의 안전성 확보 조치)</h2>
+							<p>사이트는 개인정보보호법 제29조에 따라 다음과 같이 안전성 확보에 필요한 기술적/관리적 및 물리적 조치를 하고 있습니다.</p>
+
+							<dl>
+								<dt>* 개인정보 취급 직원의 최소화 및 교육</dt>
+								<dd>개인정보를 취급하는 직원을 지정하고 담당자에 한정시켜 최소화 하여 개인정보를 관리하는 대책을 시행하고 있습니다. 개인정보 영향평가 실시 개인정보 취급 관련 안정성 확보와 관리체계 개선을 위해 개인정보보호법 시행령 제35조 및 부칙 제6조에 따라 개인정보 영향평가 실시의무를 준수합니다. </dd>
+								<dd>내부관리계획의 수립 및 시행 개인정보의 안전한 처리를 위하여 내부관리계획을 수립하고 시행하고 있습니다. 개인정보의 암호화 개인정보를 안전하게 저장 전송할 수 있는 암호화 기술의 적용 또는 이에 상응하는 조치를 통해 관리하고 있습니다. </dd>
+
+								<dt>* 해킹 등에 대비한 기술적 대책 </dt>
+								<dd>사이트는 해킹이나 컴퓨터 바이러스 등에 의한 개인정보 유출 및 훼손을 막기 위하여 보안프로그램을 설치하고 주기적인 갱신 점검을 하며 외부로부터 접근이 통제된 구역에 시스템을 설치하고 기술적/물리적으로 감시 및 차단하고 있습니다.</dd>
+
+								<dt>* 개인정보에 대한 접근 제한</dt>
+								<dd>개인정보를 처리하는 데이터베이스시스템에 대한 접근권한의 부여,변경,말소를 통하여 개인정보에 대한 접근통제를 위하여 필요한 조치를 하고 있으며 침입차단시스템을 이용하여 외부로부터의 무단 접근을 통제하고 있습니다.</dd>
+
+								<dt>* 접속기록의 보관 및 위변조 방지</dt>
+								<dd>개인정보처리시스템에 접속한 기록을 최소 6개월 이상 보관, 관리하고 있으며, 접속 기록이 위변조 및 도난, 분실되지 않도록 보안기능 사용하고 있습니다. </dd>
+
+								<dt>* 문서보안을 위한 잠금장치 사용</dt>
+								<dd>개인정보가 포함된 서류, 보조저장매체 등을 잠금장치가 있는 안전한 장소에 보관하고 있습니다.</dd>
+
+								<dt>* 비인가자에 대한 출입 통제</dt>
+								<dd>개인정보를 보관하고 있는 물리적 보관 장소를 별도로 두고 이에 대해 출입통제 절차를 수립, 운영하고 있습니다.</dd>
+							</dl>
+							<br />
+
+							<h2>제9조 (개인정보보호책임자)</h2>
+							<p>한국관광공사는 개인정보를 보호하고 개인정보와 관련한 불만을 처리하기 위하여 아래와 같이 개인정보 보호책임자 및 실무담당자를 지정하고 있습니다. (개인정보보호법 제31조 제1항에 따른 개인정보보호 책임자)</p>
+							<dl>
+								<dt>* 개인정보보호책임자</dt>
+								<dd>성명 : 정선희<br />소속/직책 : 디지털혁신실장</dd>
+
+								<dt>* 개인정보보호담당자</dt>
+								<dd>부서명 : 디지털인프라팀<br />담당자 : 서승연<br />연락처 : 033-738-3527 / <a href="mailto:syseo29@knto.or.kr" target="_blank" title="메일보내기 [새창]">syseo29@knto.or.kr </a></dd>
+							</dl>
+							<br />
+
+							<h2>제10조 (개인정보 처리방침 변경)</h2>
+							<p>이 개인정보처리방침은 시행일로부터 적용되며, 법령 및 방침에 따른 변경내용의 추가, 삭제 및 정정이 있는 경우에는 변경사항의 시행 7일 전부터 공지사항을 통하여 고지할 것입니다.</p>
+							<br />
+
+							<h2>제11조 (권익침해 구제방법)</h2>
+							<p>개인정보주체는 개인정보침해로 인한 구제를 받기 위하여 개인정보분쟁조정위원회, 한국인터넷진흥원 개인정보침해신고센터 등에 분쟁해결이나 상담 등을 신청할 수 있습니다. 이 밖에 기타 개인정보침해의 신고 및 상담에 대하여는 아래의 기관에 문의하시기 바랍니다. </p>
+							<dl>
+								<dt>▶ 개인정보 침해신고센터 (한국인터넷진흥원 운영) 소관업무 : 개인정보 침해사실 신고, 상담 신청 </dt>
+								<dd>홈페이지 : <a href="//privacy.kisa.or.kr" target="_blank" title="바로가기 [새창]">privacy.kisa.or.kr</a>s<br />전화 : (국번없이) 118<br />주소 : (58324) 전남 나주시 진흥길 9(빛가람동 301-2) 3층</dd>
+
+								<dt>▶ 개인정보 분쟁조정위원회 소관업무 : 개인정보 분쟁조정신청, 집단분쟁조정 (민사적 해결) </dt>
+								<dd>홈페이지 :  <a href="//www.kopico.go.kr" target="_blank" title="바로가기 [새창]">www.kopico.go.kr</a><br />전화 : (국번없이) 1833-6972<br />주소 : (03171) 서울특별시 종로구 세종대로 209 정부서울청사 12층 </dd>
+
+								<dt>▶ 대검찰청 사이버범죄수사단 홈페이지 : <a href="//www.spo.go.kr" target="_blank" title="바로가기 [새창]">www.spo.go.kr</a></dt>
+								<dd>전화 : 02-3480-3573 </dd>
+
+								<dt>▶ 경찰청 사이버안전국 홈페이지 : <a href="//cyberbureau.police.go.kr" target="_blank" title="바로가기 [새창]">https://cyberbureau.police.go.kr</a></dt>
+								<dd>전화 : (국번없이) 182</dd>
+							</dl>
+							<p>※ 행정심판 청구 절차 : 개인정보보호법 제35조(개인정보의 열람), 제36조(개인정보의 정정 삭제), 제37조(개인정보의 처리정지 등)의 규정에 의한 요구에 대하여 공공기관의 장이 행한 처분 또는 부작위로 인하여 권리 또는 이익의 침해를 받은 자는 행정심판법이 정하는 바에 따라 행정심판을 청구할 수 있습니다.</p>
+							<p>- 행정심판에 대한 자세한 사항은 온라인 행정심판(<a href="//www.simpan.go.kr" target="_blank" title="바로가기 [새창]">www.simpan.go.kr</a>) 참고 </p>
+							<br />
+
+							<h2>제12조(개인정보의 열람청구를 접수 처리하는 부서)</h2>
+							<dl>
+								<dt>① 정보주체는 개인정보 보호법 제35조에 따른 개인정보의 열람 청구를 아래의 부서에 할 수 있습니다.<br />디지털콘텐츠팀은 정보주체의 개인정보 열람청구가 신속하게 처리되도록 노력하겠습니다.</dt>
+								<dd>개인정보 열람청구 접수&middot;처리 부서 부서명 : 디지털콘텐츠팀<br />
+									<p>&nbsp;&nbsp;* 담당자 : 김다정</p>
+									<p>&nbsp;&nbsp;* 연락처 : &lt;전화 : 033-738-3813&gt;, &lt;이메일: <a href="mailto:lighthouse74@knto.or.kr" target="_blank" title="메일보내기 [새창]">lighthouse74@knto.or.kr </a>&gt; </p>
+								</dd>
+								<dt>② 정보주체께서는 제1항의 열람청구 접수․처리부서 이외에, 개인정보보호위원회의 <a href="//www.privacy.go.kr" target="_blank" title="개인정보보호포털 [새창]">&lsquo;개인정보보호 포털&rsquo; 웹사이트(www.privacy.go.kr)</a>를 통하여서도 개인정보 열람청구를 하실 수 있습니다. </dt>
+								<dd>개인정보보호위원회 개인정보보호 포털 &rarr; 민원마당 &rarr; 개인정보 열람등 요구 (본인확인을 위하여 아이핀(I-PIN)이 있어야 함) </dd>
+							</dl>
+
+							<h2>제13조(개인정보 처리방침의 변경)</h2>
+							<p>이 개인정보처리방침은 시행일로부터 적용되며, 법령 및 방침에 따른 변경내용의 추가, 삭제 및 정정이 있는 경우에는 변경사항의 시행 7일 전부터 공지사항을 통하여 고지할 것입니다.</p>
+							<br />
+
+							<!-- 새창버튼 -->
+							<span style="cursor:pointer" onclick="window.open('/kor/tt/pr_gallery/new_photo_gallery/include/pop_prevPrivacy_2022.jsp','','toolbar=0,status=0,scrollbars=yes,loaction=0,menubar=0,width=650,height=500')">[~2022.05.19 개인정보처리 방침]</span><br />
+							<span style="cursor:pointer" onclick="window.open('/kor/tt/pr_gallery/new_photo_gallery/include/pop_prevPrivacy_2023.jsp','','toolbar=0,status=0,scrollbars=yes,loaction=0,menubar=0,width=650,height=500')">[2022.05.20~2023.07.18 개인정보처리 방침]</span>
+							<!-- // 새창버튼 -->
+						</div>
+					</div>
+					<p class="pClose_agree"><button type="button" class="btn btnClose">닫기</button></p>
+				</div>
+			</div>
+		</div>
+		</section>
+		<!-- Popup 회원약관 -->
+		<!-- Popup 개인정보 -->
+		<section class="pop_agree">
+			<h2 class="hidden">개인정보 수집활용&middot;이용에 관한 동의</h2>
+			
+		<div class="pop2">
+			<div class="popArea">
+				<div class="pTit">
+					<h1>관광사진갤러리<span> 회원약관</span> </h1>
+				</div>
+				<div class="pCont">
+					<div class="scroll">
+					<textarea  readonly="readonly">
+온라인 사진갤러리 사이트 회원약관
+
+제 1 장 총 칙
+
+
+제 1 조 (목적)
+
+본 약관은 한국관광공사(이하 "공사")가 제공하는 온라인 사진갤러리 서비스(이하 "사이트")의 이용과 관련하여 공사와 이용자의 권리, 의무 및 책임사항 그리고 기타 필요한 사항을 규정하는 것을 목적으로 합니다.
+
+제 2 조 (약관의 효력 및 변경)
+
+약관의 내용은 서비스 화면에 게시하고 이용자가 동의함으로써 효력이 발생합니다. 공사는 합리적인 사유가 발생될 경우에는 이 약관을 변경할 수 있으며, 약관이 변경되는 경우에는 최소한 7일전에 공지합니다. 또한 새로운 서비스가 개설될 경우, 별도의 명시된 설명이 없는 한 이 약관에 따라 제공됩니다.
+
+① 본 약관은 공사가 서비스 화면을 통해 게시하고 이용자가 이에 동의함으로써 효력을 발생합니다.
+② 공사는 "약관의 규제 등에 관한 법률", "전기통신사업법령", "정보통신망 이용촉진 및 정보보호 등에 관한 법률", "개인정보보호법" 등 관련 법령을 위반하지 않는 범위에서 이 약관의 내용을 수정하거나 변경할 수 있습니다.
+③ 공사가 약관을 개정할 경우에는 기존약관과 개정약관 및 개정약관의 적용일자와 개정사유를 명시하여 현행약관과 함께 그 적용일자 7일 전부터 적용일 이후 상당한 기간 동안, 개정 내용이 회원에게 불리한 경우에는 그 적용일자 30일 전부터 적용일 이후 상당한 기간 동안 각각 이를 서비스 홈페이지에 고지합니다.
+④ 공사가 전항에 따라 회원에게 고지하면서 고지일로부터 개정약관 시행일 7일 후까지 거부의사를 표시하지 아니하면 승인한 것으로 본다는 뜻을 명확하게 고지하였음에도 의사표시가 없는 경우에는 변경된 약관을 승인한 것으로 봅니다. 회원이 개정약관에 동의하지 않을 경우 회원은 제6조 제1항의 규정에 따라 이용계약을 해지할 수 있습니다.
+
+
+제 3 조 (용어의 정의)
+
+이 약관에서 사용하는 용어의 정의는 다음과 같습니다.
+
+① “사이트” : 공사가 관광사진 이미지 등 디지털 콘텐츠(이하 “콘텐츠”라 함)를 이용자 및 회원에게 제공하기 위한 온라인 사진갤러리 사이트를 의미함
+② 이용자 : “사이트”에 접속하여 이 약관에 따라 공사가 제공하는 서비스를 받는 회원 및 비회원
+③ 회원 : 다른 서비스(포털•사회관계망)에 가입한 정보를 바탕으로 소셜로그인 인증을 받고 콘텐츠(관광사진)의 다운로드 이용을 위해 간편회원으로 가입한 개인이나 법인 또는 법인에 준하는 단체
+④ 비회원 : 소셜로그인 인증을 통하여 회원인증을 하지 않고, “사이트”를 이용하는 자
+⑤ 해지: 공사 또는 회원이 서비스 개통 후 이용계약을 해약하는 것
+⑥ 소셜로그인 인증 : 포털•사회관계망서비스(SNS) 가입자가 해당 ID로 다른 웹사이트나 애플리케이션에 접속하는 기능
+ 
+
+제 2 장 회원의 가입 및 관리
+
+제 4 조 (회원가입)
+
+이용자는 회원가입을 신청하려면 “사이트”에서 제공하는 로그인(LOGIN) 메뉴에 접속하여 공사에서 제공하는 “통합 로그인(Tour One Pass)“ 서비스를 통해 소셜로그인 인증을 받고, ”콘텐츠(관광사진)“ 이용을 위한 개인정보를 제공한 후 이용약관과 개인정보수집·활용에 동의함으로써 회원가입이 이루어 집니다.
+
+이 약관에서 정의하는 세부 회원가입 절차는 다음과 같습니다.
+
+① “사이트”에서 제공하는 로그인(LOGIN) 메뉴에 접속합니다.
+② 공사에서 제공하는 “통합 로그인 서비스(Tour One Pass)”에서 제공하는 소셜로그인 인증을 받습니다. 
+   소셜로그인 인증은 포털•사회관계망서비스(SNS) 채널 중 이용자가 사용하고 있는 채널을 선택한 후, 해당 ID로 소셜로그인 인증을 받을 수 있습니다.
+④ 공공저작물인 “콘텐츠(관광사진)”의 다운로드 이용 및 저작권 관리를 위해 이용자는 최소한의 회원정보(성명,휴대폰번호,이메일)을 제공하며, “사이트”에서 보유할 수 있습니다. 
+⑤ 이용 약관과 개인정보수집·활용 동의에 체크하여 확인버튼을 클릭하여 “사이트” 회원가입은 종료됩니다.
+⑥ 회원 가입 후에는 콘텐츠 다운로드는 무료로 이용할 수 있습니다. 
+
+제 5 조 (회원정보의 변경)
+
+회원은 개인정보관리화면 마이페이지(MY PAGE)를 통하여 언제든지 본인의 개인정보를 열람하고 수정할 수 있습니다. 회원은 이용신청 시 기재한 회원정보가 변경되었을 경우 자신이 직접 온라인으로 수정해야 하며, 변경하지 않은 정보로 인해 발생되는 문제의 책임은 회원에게 있습니다.
+
+제 6 조 (회원 탈퇴 및 자격상실, 서비스 이용제한 등)
+
+① 회원은 탈퇴를 희망할 경우 탈퇴를 요청할 수 있으며, 공사는 관련법 등이 정하는 바에 따라 이를 처리합니다. 회원이 자발적으로 계약을 해지할 경우, 공사는 관련법 및 개인정보취급방침에 따라 회원정보를 삭제합니다. 회원이 다음 각 호의 사유에 해당하는 경우, 공사는 회원자격을 제한 및 정지시킬 수 있습니다.
+
+    1. 가입 신청 시에 허위 내용을 등록한 경우
+    2. 다른 사람의 서비스 이용을 방해하거나 타인의 명예를 훼손하거나 그 정보를 도용하는 등 전자 거래 및 정보통신서비스 이용질서를 위협하는 경우
+    3. 제공되는 정보를 변경하는 등 공사의 운영을 방해한 경우
+    4. 법령과 본 약관이 금지하거나 미풍양속에 저해하는 행위를 하는 경우
+
+② 공사는 회원자격 및 서비스 이용을 제한, 정지 시킨 후, 그 사유가 시정되지 아니하는 경우 회원자격을 상실시킬 수 있습니다.
+
+
+제 3 장 서비스 이용
+
+제 7 조 (사이트의 구분) 
+
+공사가 이용자에게 제공하는 사이트의 서비스는 기본서비스와 부가서비스 등으로 구분하며, 서비스의 종류와 내용 등은 공사가 공지나 서비스 이용안내에서 별도로 정하는 바에 의합니다.
+
+제 8 조 (사이트의 이용시간)
+
+① 사이트는 연중무휴 1일 24시간 제공함을 원칙으로 하며, 공사가 업무상, 운영상, 기술상의 이유로 사이트의 전부 또는 일부가 일시 중지될 수 있으며, 이 경우 내용을 사전에 공지합니다.
+② 공사는 사이트에서 제공하는 서비스 별로 이용 가능한 시간을 별도로 정할 수 있으며 이 경우 그 내용을 사전에 공지합니다.
+
+제 9 조 (사이트 서비스 변경)
+공사는 상당한 이유가 있는 경우에 업무상, 운영상, 기술상의 필요에 따라 사이트에서 제공하고 있는 전부 또는 일부 서비스를 변경 및 중단 할 수 있으며, 이 경우 그 내용을 사전에 공지합니다.
+
+제 4 장 의무 및 책임
+
+제 10 조 (공사의 의무)
+
+① 공사는 관련법과 이 약관에서 금지하거나 미풍양속에 반하는 행위를 하지 않으며, 계속적이고 안정적으로 서비스를 제공하기 위하여 최선을 다하여 노력합니다.
+② 공사는 사이트와 관련한 회원의 불만사항이 접수되는 경우 이를 즉시 처리하여야 하며, 즉시 처리가 곤란한 경우 그 사유와 처리 일정을 해당 회원에게 통지하여야 합니다.
+③ 공사는 사이트 서비스의 제공과 관련하여 알게 된 회원의 개인정보를 본인의 승낙 없이 제3자에게 누설, 배포하지 않고, 이를 보호하기 위하여 노력합니다. 회원의 개인정보보호 및 사용에 대해서는 관련법 및 개인정보취급방침에 따릅니다.
+
+제 11 조 (회원의 의무)
+
+회원은 다음 행위를 하여서는 안 됩니다.
+
+① 신청 또는 변경 시 허위내용의 등록
+② 타인의 정보도용
+③ 공사가 게시한 정보의 변경
+④ 공사가 정한 정보 이외의 정보(컴퓨터 프로그램 등) 등의 송신 또는 게시
+⑤ 공사와 기타 제3자의 저작권 등 지적재산권에 대한 침해
+⑥ 공사 및 기타 제3자의 명예를 손상시키거나 업무를 방해하는 행위
+⑦ 외설 또는 폭력적인 메시지, 화상, 음성, 기타 미풍양속에 반하는 정보를 서비스에 공개 또는 게시하는 행위
+⑧ 공사의 동의 없이 영리를 목적으로 서비스를 사용하는 행위
+⑨ 기타 불법적이거나 부당한 행위
+
+제 12 조 (양도 금지)
+
+회원은 사이트의 이용권한, 기타 이용 계약상 지위를 타인에게 양도, 증여할 수 없으며, 이를 담보로 제공할 수 없습니다.
+
+제 13 조 (게시물에 대한 권리 및 책임)
+
+① 게시물에 대한 저작권을 포함한 모든 권리 및 책임은 이를 게시한 회원에게 있으며, 공사는 사이트 내에 게재할 권리를 갖습니다.
+② 공사는 회원이 사이트에 게시, 게재하거나 사이트를 통해 전송, 수신한 내용물 및 그 결과에 대하여 책임지지 않으며, 아래사항에 해당하는 경우 게시물을 임의로 삭제할 수 있습니다.
+
+    1. 타인을 비방하거나, 프라이버시를 침해하거나, 명예를 손상시키는 내용인 경우
+    2. 공공질서 및 미풍양속에 위반되는 내용인 경우
+    3. 서비스의 안정적인 운영에 지장을 주거나 줄 우려가 있는 경우
+    4. 범죄행위에 관련된다고 판단되는 내용인 경우
+    5. 공사의 지적재산권, 타인의 지적재산권 등 기타 권리를 침해하는 내용인 경우
+    6. 특정제품의 선전 등 기타 상용목적으로 게시되는 내용인 경우
+    7. 입력된 정보를 무단 개조하는 경우
+    8. 타 회원의 회원 ID, 비밀번호를 도용하는 경우
+    9. 게시판의 목적에 맞지 않는 사이버 시위 및 도배 목적의 내용인 경우
+    10. 기타 관계법령에 위반된다고 판단되는 경우
+
+제 14 조 (책임제한)
+
+① 공사는 천재지변 또는 이에 준하는 불가항력으로 인하여 서비스를 제공할 수 없는 경우에는 서비스 제공에 관한 책임을 지지 않습니다.
+② 공사는 회원의 귀책사유로 인한 서비스 이용의 장애에 대하여는 책임을 지지 않습니다.
+③ 공사는 회원이 서비스와 관련하여 게재한 정보, 자료, 사실의 신뢰도, 정확성 등의 내용에 관하여는 책임을 지지 않습니다.
+④ 공사는 회원 간 또는 회원과 제3자 상호간에 서비스를 매개로 하여 거래 등을 한 경우에는 책임을 지지 않습니다.
+
+제 15 조 (분쟁의 해결)
+
+본 약관은 대한민국법령에 의하여 규정되고 이행되며, 서비스 이용과 관련하여 공사와 회원간에 발생한 분쟁에 대해서는 민사소송법상의 주소지를 관할하는 법원을 합의관할로 합니다.
+
+제 16 조 (규정의 준용)
+
+본 약관에 명시되지 않은 사항에 대해서는 관련법령에 의하고, 법에 명시되지 않은 부분에 대하여는 관습에 의합니다.
+
+■ 부칙
+본 약관은 2021년 9월 29일부터 적용됩니다.
+					</textarea>
+					</div>
+					<p class="pClose_privacy"><button  type="button" class="btn btnClose">닫기</button></p>
+				</div>
+			</div>
+		</div>
+		</section>
+		<!-- Popup 개인정보 -->
+	<!-- // Popup -->
+</body>
+</html>
