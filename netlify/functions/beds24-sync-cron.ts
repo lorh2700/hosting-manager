@@ -8,7 +8,7 @@ import type { Config } from '@netlify/functions';
  */
 const handler = async () => {
   const baseUrl = process.env.URL || process.env.DEPLOY_URL;
-  if (!baseUrl) {
+  if (!baseUrl || !process.env.CRON_SECRET) {
     console.error('[beds24-sync-cron] Missing URL env');
     return new Response('Missing URL', { status: 500 });
   }
@@ -18,10 +18,10 @@ const handler = async () => {
     // the actual sync work continues running for up to 15 minutes.
     const res = await fetch(`${baseUrl}/.netlify/functions/beds24-sync-background`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'x-cron-secret': process.env.CRON_SECRET! },
     });
     console.log(`[beds24-sync-cron] background trigger -> ${res.status}`);
-    return new Response('Triggered', { status: 200 });
+    return new Response(res.ok ? 'Triggered' : 'Trigger failed', { status: res.ok ? 200 : 502 });
   } catch (err) {
     console.error('[beds24-sync-cron] trigger failed:', err);
     return new Response(String(err), { status: 500 });

@@ -1,0 +1,6 @@
+{
+  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/(public)/tours/page": "app/(public)/tours/page.js",
+  "/(public)/guide/page": "app/(public)/guide/page.js",
+  "/(public)/page": "app/(public)/page.js"
+}

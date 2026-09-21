@@ -1,0 +1,32 @@
+.submenu {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: grid-template-rows 280ms ease, opacity 220ms ease, visibility 280ms;
+}
+
+.submenu[data-open='true'] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.content {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.content > a {
+  transform: translateY(-8px);
+  transition: transform 280ms ease, color 150ms ease;
+}
+
+.submenu[data-open='true'] .content > a { transform: translateY(0); }
+.submenu[data-open='true'] .content > a:nth-child(2) { transition-delay: 35ms, 0ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .submenu, .content > a { transition: none; }
+}
