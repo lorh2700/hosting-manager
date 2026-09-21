@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import MobileBookingCalendar from '@/components/MobileBookingCalendar';
 import { useCalendarData } from './hooks/useCalendarData';
 import { useEventModal } from './hooks/useEventModal';
@@ -10,6 +11,7 @@ import { EventDetailPanel } from './components/EventDetailPanel';
 import { SupplyTodoList } from './components/SupplyTodoList';
 
 export default function UnifiedCalendarPage() {
+  const [mobileView, setMobileView] = useState<'bars' | 'daily'>('bars');
   const data = useCalendarData();
   const modal = useEventModal({
     user: data.user,
@@ -46,10 +48,23 @@ export default function UnifiedCalendarPage() {
         toggleProp={data.toggleProp}
       />
 
-      <div className="md:hidden"><MobileBookingCalendar key={data.viewDate.getTime()} month={data.viewDate} today={data.today}
+      <div className="md:hidden">
+        <div className="flex gap-2" role="group" aria-label="캘린더 보기 방식">
+          {([['bars', '투숙기간 막대'], ['daily', '날짜별 목록']] as const).map(([view, label]) => (
+            <button key={view} type="button" aria-pressed={mobileView === view}
+              onClick={() => setMobileView(view)}
+              className={`min-h-11 flex-1 rounded-xl border px-3 py-2 text-sm font-medium ${mobileView === view ? 'border-stone-900 bg-stone-900 text-white' : 'border-stone-200 bg-white text-stone-600'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+        {mobileView === 'bars' && <p className="mt-3 text-xs leading-5 text-stone-500">막대로 체크인부터 체크아웃까지 확인하세요. 좌우로 밀어 날짜를 보고, 막대를 누르면 예약 상세가 열립니다.</p>}
+      </div>
+
+      <div className={mobileView === 'daily' ? 'md:hidden' : 'hidden'}><MobileBookingCalendar key={data.viewDate.getTime()} month={data.viewDate} today={data.today}
         events={Array.from(data.eventsByProp.values()).flat().filter(e => data.activeProperties.some(p => p.id === e.propertyId)).map(e => ({ ...e, propertyName: e.propName, cleaningDone: e.status === 'done' }))}
         onEventClick={id => { const event = Array.from(data.eventsByProp.values()).flat().find(e => e.id === id); if (event) modal.openModal(event); }} /></div>
-      <div className="hidden md:block"><CalendarGrid
+      <div className={mobileView === 'bars' ? 'min-w-0' : 'hidden md:block'}><CalendarGrid
         weeks={data.weeks}
         viewDate={data.viewDate}
         today={data.today}
