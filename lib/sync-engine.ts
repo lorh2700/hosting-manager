@@ -486,7 +486,7 @@ export async function syncBeds24Property(
         `sync bookings ${beds24PropId} p${page}`,
         () => beds24Get('/bookings', {
           propertyId: String(beds24PropId),
-          ...(process.env.BEDS24_INVITATIONS_ENABLED === 'true' ? { includeInfoItems: 'true' } : {}),
+          includeInfoItems: 'true',
           departureFrom: fromStr,
           departureTo: toStr,
           page: String(page),

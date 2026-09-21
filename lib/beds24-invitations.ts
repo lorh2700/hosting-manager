@@ -9,10 +9,9 @@ type InfoItem = { id?: number; code?: string; text?: string };
 type Config = { origin: string; since: number; secret: string };
 type EventRef = { id: string; propertyId: string; startDate: string; endDate: string; title: string | null };
 
-// Deployment opt-in plus a fixed rollout boundary prevents historical bookings
+// A fixed rollout boundary prevents historical bookings
 // from suddenly becoming eligible for a new Beds24 Auto Action.
-export function invitationSyncConfig(): Config | null {
-  if (process.env.BEDS24_INVITATIONS_ENABLED !== 'true') return null;
+export function invitationSyncConfig(): Config {
   const origin = new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://voidanchae.com');
   const since = Date.parse(process.env.BEDS24_INVITATIONS_FROM || '');
   const secret = process.env.JWT_SECRET || '';
@@ -60,7 +59,6 @@ export function planInvitationInfo(b: Booking, event: EventRef, config: Config, 
 
 export async function syncBeds24Invitations(propertyId: string, beds24PropId: string, bookings: Booking[]) {
   const config = invitationSyncConfig();
-  if (!config) return { published: 0, failed: 0 };
   const property = await prisma.property.findUnique({ where: { id: propertyId }, select: { slug: true } });
   if (!property || !guestGuide(property.slug || '')) return { published: 0, failed: 0 };
   const events = await prisma.event.findMany({ where: { propertyId, channelId: 'beds24', type: 'reservation' },

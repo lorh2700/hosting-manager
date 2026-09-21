@@ -14,7 +14,7 @@ const booking = { id: 123, propertyId: 456, status: 'confirmed', firstName: 'Tes
 beforeEach(() => { resetDb(); resetFetch(); delete process.env.BEDS24_INVITATIONS_ENABLED; delete process.env.BEDS24_INVITATIONS_FROM; });
 
 test('rollout excludes old, cancelled, blocked and nameless bookings', () => {
-  assert.equal(invitationSyncConfig(), null);
+  assert.throws(() => invitationSyncConfig(), /BEDS24_INVITATIONS_CONFIG_INVALID/);
   assert.equal(invitationCandidate(booking, config, now), true);
   for (const status of ['cancelled', 'request', 'black', 'noshow']) assert.equal(invitationCandidate({ ...booking, status }, config, now), false);
   assert.equal(invitationCandidate({ ...booking, bookingTime: '2098-01-01T00:00:00Z' }, config, now), false);
@@ -34,7 +34,6 @@ test('link resolves to this reservation; repeat sync reuses existing info item',
 });
 
 function enable() {
-  process.env.BEDS24_INVITATIONS_ENABLED = 'true';
   process.env.BEDS24_INVITATIONS_FROM = '2099-01-01T00:00:00Z';
   db.property = [{ id: event.propertyId, slug: 'byulha' }];
   db.event = [{ ...event, channelId: 'beds24', type: 'reservation', originalUid: '123' }];
@@ -42,6 +41,8 @@ function enable() {
 
 test('publishes only booking Info Items and does not send messages', async () => {
   enable();
+  // Legacy deployment flags must no longer disable invitation publishing.
+  process.env.BEDS24_INVITATIONS_ENABLED = 'false';
   installBeds24Mock({ onGetById: () => json({ success: true, data: [booking] }), onCreate: body => {
     assert.deepEqual(Object.keys(body[0]).sort(), ['id', 'infoItems']);
     return json([{ success: true }]);

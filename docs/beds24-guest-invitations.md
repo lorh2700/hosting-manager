@@ -10,7 +10,6 @@
 1. `/guest/welcome/[token]` 페이지와 동기화 코드를 운영 사이트에 함께 배포한다.
 2. 기존 예약 확정 Auto Action의 설정과 본문을 백업한다. 같은 메시지를 보내는 별도 규칙을 중복 생성하지 않는다.
 3. 아래 변수를 운영에 설정한다. 시작일은 실제 전환 시각을 ISO 8601 형식과 시간대로 지정한다. 과거 예약 소급 발송을 원하지 않으면 과거 시각을 넣지 않는다.
-   - `BEDS24_INVITATIONS_ENABLED=true`
    - `BEDS24_INVITATIONS_FROM=<실제 전환 시각, 예: YYYY-MM-DDTHH:mm:ss+09:00>`
    - `NEXT_PUBLIC_APP_URL=https://voidanchae.com`
    - 기존 `JWT_SECRET`, Beds24 예약 읽기/쓰기 API 권한을 사용한다.
@@ -41,7 +40,7 @@ View your stay details and arrival guide here:
 - 링크는 체크아웃 후 30일까지 유효하다. 체크아웃이 연장되어 기존 토큰 유효기간을 넘으면 Info Item URL을 교체한다. 이미 보낸 메시지의 URL 자체는 바뀌지 않는다.
 - 예약 한 숙소당 동기화 1회에 최대 10건의 추가 조회/저장을 시도한다. 실패는 결과의 error에 남고 다음 동기화에서 다시 조회한다. 실패 응답에 이름·URL·API 응답 본문은 기록하지 않는다.
 - 동시 동기화가 최초 Info Item을 동시에 생성할 수 있으므로 최종 중복 발송 방지는 Beds24 Auto Action 일회 발송 설정이 담당한다.
-- 끄려면 `BEDS24_INVITATIONS_ENABLED`를 false로 바꾼다. 이미 저장된 Info Item이나 Beds24에서 예약된 발송은 없어지지 않으므로 발송 중단은 Auto Action에서도 처리한다.
+- 초대장 링크 동기화는 항상 실행되며 활성화 플래그는 사용하지 않는다. `BEDS24_INVITATIONS_FROM`은 예약 생성 시각 기준으로 소급 적용을 제한하며 필수다. 메시지 발송을 중단하려면 Beds24 Auto Action에서 처리한다.
 
 ## 근거
 
