@@ -12,6 +12,8 @@
 import { NextResponse } from 'next/server';
 import { getSessionWithUser, type SessionAuth } from '@/lib/auth';
 import { canManageProperty, getVisiblePropertyIds, isPropertyOwnerOrAdmin } from '@/lib/access';
+import { HttpError, fail } from './errors';
+export { HttpError, fail } from './errors';
 
 export const MESSAGES = {
   unauthorized: 'Unauthorized',
@@ -22,21 +24,6 @@ export const MESSAGES = {
   noFields: '업데이트할 필드가 없습니다.',
 } as const;
 
-export class HttpError extends Error {
-  readonly status: number;
-  readonly extra?: Record<string, unknown>;
-  constructor(status: number, message: string, extra?: Record<string, unknown>) {
-    super(message);
-    this.name = 'HttpError';
-    this.status = status;
-    this.extra = extra;
-  }
-}
-
-/** 핸들러 안에서 `throw fail(404, '숙소를 찾을 수 없습니다.')` 처럼 쓴다. */
-export function fail(status: number, message: string, extra?: Record<string, unknown>): HttpError {
-  return new HttpError(status, message, extra);
-}
 
 // extra 가 error 키를 담고 있어도 message 가 우선하도록 error 를 마지막에 둔다.
 export const errorResponse = (status: number, message: string, extra?: Record<string, unknown>) =>

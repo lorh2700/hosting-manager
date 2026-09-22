@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { beds24Get } from '@/lib/beds24';
-import { fail } from '@/lib/core/http';
+import { fail } from '@/lib/core/errors';
 import { nextDay, type StayCalendar } from './stay-calendar';
 
 export const isoDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => {

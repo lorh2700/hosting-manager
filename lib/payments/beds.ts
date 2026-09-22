@@ -3,7 +3,7 @@ import { beds24Get, beds24Post } from '@/lib/beds24';
 import { fetchBeds24BookingById, type Beds24Booking } from '@/lib/beds24-booking';
 import type { CheckoutOrder } from '@/generated/prisma/client';
 import { toMinor } from './money';
-import { fail } from '@/lib/core/http';
+import { fail } from '@/lib/core/errors';
 
 export const checkoutMarker = (id: string) => `void-checkout:${id}`;
 

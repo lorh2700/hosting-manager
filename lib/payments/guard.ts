@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { fail } from '@/lib/core/http';
+import { fail } from '@/lib/core/errors';
 export async function requireUnpaidBooking(bookingId: string) {
   const payment = await prisma.checkoutOrder.findFirst({ where: { bookingId, status: { notIn: ['expired', 'refunded'] } } });
   if (payment) throw fail(409, '온라인 결제 예약은 결제 관리에서 환불·취소해주세요. /admin/payments');

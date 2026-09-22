@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/prisma';
-import { fail } from '@/lib/core/http';
+import { fail } from '@/lib/core/errors';
 
 export async function ensureInquiryConversation(eventId: string) {
   return prisma.inquiryConversation.upsert({ where: { eventId }, create: { eventId }, update: {} });

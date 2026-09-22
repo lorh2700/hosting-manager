@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { getPropertyDisplay } from '@/lib/property-display';
-import { fail } from '@/lib/core/http';
+import { fail } from '@/lib/core/errors';
 
 export const BASE_GUESTS = 2;
 export const EXTRA_GUEST_FEE_KRW = 30_000;

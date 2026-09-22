@@ -3,7 +3,7 @@ import type { Prisma } from '@/generated/prisma/client';
 import { normalizeRole } from '@/lib/access';
 import { getVisiblePropertyIds } from '@/lib/access';
 import type { SessionAuth } from '@/lib/auth';
-import { fail } from '@/lib/core/http';
+import { fail } from '@/lib/core/errors';
 
 /** Legacy cleaner API names remain as DTO aliases only; every identity is a User. */
 type DirectoryWhere = Omit<Prisma.UserWhereInput, 'AND' | 'OR' | 'NOT'> & {
