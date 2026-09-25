@@ -1,10 +1,11 @@
+import { cleaningCancellationReason } from '@/lib/cleaning-cancellation';
 import { staffDirectory } from '@/lib/staff-directory';
 import { prisma } from '@/lib/prisma';
 import { getCleaningPropertyIds } from '@/lib/access';
 import { notifyHostOfCleaningApplication } from '@/lib/notify';
 import {
   withAuth, ok, created, fail, MESSAGES,
-  requireVisible, visibleScope, readJson, str, idList, query,
+  requireManage, visibleScope, readJson, str, idList, query,
 } from '@/lib/core/http';
 
 const STATUSES = ['pending', 'approved', 'rejected'];
@@ -31,10 +32,10 @@ export const GET = withAuth('cleaning-applications', async (req, { auth }) => {
   const apps = await prisma.cleaningApplication.findMany({
     where,
     orderBy: { createdAt: 'desc' },
-    include: { cleaning: { select: { date: true, property: { select: { name: true } } } } },
+    include: { cleaning: { select: { date: true, cleanerId: true, status: true, assignmentType: true, completedAt: true, property: { select: { name: true } } } } },
   });
   // 관리자 화면이 일정 날짜를 바로 쓰도록 cleaning.date 를 cleaningDate 로 펼친다.
-  return ok(apps.map(a => ({ ...a, cleaningDate: a.cleaning?.date ?? null, propertyName: a.cleaning?.property?.name ?? null })));
+  return ok(apps.map(a => ({ ...a, canCancel: !cleaningCancellationReason(a,a.cleaning,auth.session.userId), cancelBlockedReason: cleaningCancellationReason(a,a.cleaning,auth.session.userId), cleaningDate: a.cleaning?.date ?? null, propertyName: a.cleaning?.property?.name ?? null })));
 });
 
 /**
@@ -123,14 +124,11 @@ export const PUT = withAuth('cleaning-applications', async (req, { auth }) => {
   const body = await readJson(req);
   const id = str(body, 'id', { required: true })!;
 
-  const target = await prisma.cleaningApplication.findUnique({ where: { id }, select: { propertyId: true, applicantId: true } });
+  const target = await prisma.cleaningApplication.findUnique({ where: { id }, select: { propertyId: true, applicantId: true, status: true } });
   if (!target) throw fail(404, MESSAGES.notFound);
 
-  // 관리자가 아니면 자기 신청만, 그것도 보이는 지점 안에서만.
-  if (auth.role !== 'admin') {
-    await requireVisible(auth, target.propertyId);
-    if (target.applicantId !== auth.session.userId) throw fail(403, MESSAGES.forbidden);
-  }
+  requireManage(auth, target.propertyId);
+  if(target.status==='cancelled')throw fail(409,'취소된 신청은 변경할 수 없습니다.');
 
   const data: Record<string, unknown> = {};
   const status = str(body, 'status');

@@ -33,20 +33,22 @@ export const POST = withAuth<Params>('cleaning-applications/approve', async (_re
   await requireAssignee(cleaner.id, application.propertyId);
 
   const now = new Date();
-  await prisma.$transaction([
-    prisma.cleaningApplication.update({
-      where: { id: application.id },
+  await prisma.$transaction(async tx => {
+    const claim = await tx.cleaningApplication.updateMany({
+      where: { id: application.id, status: 'pending' },
       data: { status: 'approved', processedBy: auth.session.userId, processedAt: now },
-    }),
-    prisma.cleaning.update({
-      where: { id: application.cleaningId },
+    });
+    if (!claim.count) throw fail(409, '이미 처리되거나 취소된 신청입니다.');
+    const assigned = await tx.cleaning.updateMany({
+      where: { id: application.cleaningId, cleanerId: null, status: 'pending', completedAt: null },
       data: { cleanerId: cleaner.id, isOpen: false, assignmentType: 'applied' },
-    }),
-    prisma.cleaningApplication.updateMany({
+    });
+    if (!assigned.count) throw fail(409, '이미 배정되거나 완료된 청소입니다.');
+    await tx.cleaningApplication.updateMany({
       where: { cleaningId: application.cleaningId, id: { not: application.id }, status: 'pending' },
       data: { status: 'rejected', rejectedReason: '다른 담당자가 배정되었습니다', processedBy: auth.session.userId, processedAt: now },
-    }),
-  ]);
+    });
+  });
 
   return ok({ success: true, cleanerId: cleaner.id, cleanerName: cleaner.name });
 });

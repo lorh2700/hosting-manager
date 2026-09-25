@@ -19,6 +19,7 @@ export const nextId = (prefix = 'id') => `${prefix}-${++seq}`;
 
 // 관계 해석: row 에 이미 실려 있으면 그것을, 아니면 외래키로 다른 컬렉션에서 찾는다.
 const RELATIONS: Record<string, { model: string; localKey?: string; foreignKey?: string; many?: boolean }> = {
+  cleaning: { model: 'cleaning', localKey: 'cleaningId' },
   cleaner: { model: 'user', localKey: 'cleanerId' },
   property: { model: 'property', localKey: 'propertyId' },
   user: { model: 'user', localKey: 'userId' },

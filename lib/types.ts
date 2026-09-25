@@ -235,7 +235,7 @@ export interface SupplyRequest {
 
 // ─── Cleaning Application (일정 신청) ──────────────────────────────────────
 
-export type ApplicationStatus = 'pending' | 'approved' | 'rejected';
+export type ApplicationStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
 
 export interface CleaningApplication {
   id: string;

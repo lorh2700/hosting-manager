@@ -14,9 +14,12 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { format, parseISO, isToday } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { Camera, Check, ChevronRight, Hand, AlertTriangle, Package, Users, FileBarChart, Wrench, ExternalLink, MessageSquare, ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import { PawPrint, Camera, Check, ChevronRight, Hand, AlertTriangle, Package, Users, FileBarChart, Wrench, ExternalLink, MessageSquare, ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { Badge, Button, Card, EmptyState, PageHeader, Select, Sheet, SkeletonList, PullToRefresh, toast, confirmDialog } from '@/components/ui';
+import { todayKst } from '@/lib/dates';
+import { readOps } from '@/lib/read-ops';
+import { opsActionsBlocked } from '@/lib/ops-freshness';
 import { useRefetchOnReturn } from '@/lib/hooks/useRefetchOnReturn';
 import { GUEST_FLAG_LABEL, type GuestFlag } from '@/lib/ops-flags';
 const CreateMaintenanceModal = dynamic(() => import('@/app/admin/calendar/components/CreateMaintenanceModal').then(m => m.CreateMaintenanceModal));
@@ -24,12 +27,14 @@ import type { OpsProperty, OpsReservation } from '@/app/api/ops/today/route';
 
 interface OpsData {
   today: string;
+  detailsLoaded?: boolean;
+  unavailable?: string[];
   properties: OpsProperty[];
   cleaners: { id: string; name: string }[];
-  counts: { pendingApplications: number; openIssues: number; pendingSupplies: number; delayedLaundry: number };
+  counts: { pendingApplications: number | null; openIssues: number | null; pendingSupplies: number | null; delayedLaundry: number | null };
 }
 
-const todayStr = () => format(new Date(), 'yyyy-MM-dd');
+const todayStr = todayKst;
 const hhmm = (iso: string) => format(new Date(iso), 'HH:mm');
 const stay = (r: OpsReservation) => `${format(parseISO(r.start), 'M/d')}–${format(parseISO(r.end), 'M/d')} · ${r.nights}박`;
 const msgTime = (iso: string) => (isToday(new Date(iso)) ? hhmm(iso) : format(new Date(iso), 'M/d HH:mm'));
@@ -47,14 +52,24 @@ function GuestBlock({ r, statusLine, action }: { r: OpsReservation; statusLine?:
         {r.guests ? <span className="t-caption text-stone-500">{r.guests}명</span> : null}
         <span className="t-micro text-stone-500 bg-stone-100 px-1.5 py-0.5">{r.channel}</span>
       </div>
-      {r.pets != null && r.pets > 0 && <p className="t-caption text-amber-800 font-semibold">반려견 동반 · {r.pets}마리</p>}
+      {r.pets != null && r.pets > 0 ? (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-amber-950">
+          <PawPrint size={18} aria-hidden="true" className="shrink-0" />
+          <span className="text-sm font-semibold">강아지 동반 · {r.pets}마리</span>
+        </div>
+      ) : r.pets === 0 ? (
+        <p className="flex items-center gap-1.5 t-caption text-stone-500">
+          <PawPrint size={14} aria-hidden="true" />
+          강아지 동반 없음
+        </p>
+      ) : null}
       {statusLine}
       {r.flags.length > 0 && (
-        <div className="flex gap-1.5 flex-wrap">
+        <div className="flex gap-1.5 flex-wrap" title="최근 대화 4개에서 확인된 요청입니다. 전체 내용은 대화 열기에서 확인해 주세요.">
           {r.flags.map(f => <Badge key={f} tone={FLAG_TONE[f]}>{GUEST_FLAG_LABEL[f]}</Badge>)}
         </div>
       )}
-      {expanded && (r.messages.length > 0 ? (
+      {expanded && (r.messagesAvailable === false ? <p className="t-caption text-amber-800">대화 정보를 확인하지 못했습니다. 대화 열기에서 확인해 주세요.</p> : r.messages.length > 0 ? (
         <div className="bg-stone-50 border border-stone-100 px-3 py-2 space-y-1">
           {r.messages.slice(-3).map(m => (
             <p key={m.id} className="t-caption text-stone-700 line-clamp-2">
@@ -88,6 +103,10 @@ export default function OpsPage() {
   const [cameraError, setCameraError] = useState('');
   const mediaController = useRef<AbortController | null>(null);
   const mounted = useRef(false);
+  const summaryController = useRef<AbortController | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [currentDay, setCurrentDay] = useState(todayKst);
+  const [detailsError, setDetailsError] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
@@ -102,40 +121,74 @@ export default function OpsPage() {
   const load = useCallback(async (silent = false) => {
     if (loadingRef.current) return;
     loadingRef.current = true;
+    setRefreshing(true);
+    const request = new AbortController();
+    summaryController.current = request;
     if (!silent) setLoading(true);
     try {
       mediaController.current?.abort();
       setCameraLoading(true); setCameraError('');
-      const oRes = await fetch('/api/ops/today?view=summary', { cache: 'no-store' });
-      if (!oRes.ok) throw new Error('오늘 현황을 불러오지 못했습니다.');
-      const next: OpsData = await oRes.json();
-      if (!mounted.current) return;
-      setData(next); setUpdatedAt(new Date()); setLoadError('');
+      let next = await readOps<OpsData>('/api/ops/today?view=summary', request.signal);
+      if (!mounted.current || request.signal.aborted) return;
+      if (next.today !== todayKst()) throw new Error('날짜가 변경되었습니다. 다시 불러와 주세요.');
+      setData(next); setUpdatedAt(new Date()); setLoadError(''); setDetailsError(''); setLoading(false);
+      setDelivery({});
+      try {
+        const detail = await readOps<OpsData>('/api/ops/today?view=details', request.signal);
+        if (request.signal.aborted || !mounted.current) return;
+        if (detail.today !== next.today || detail.today !== todayKst()) throw new Error('날짜가 변경되었습니다. 다시 불러와 주세요.');
+        next = detail;
+        setData(detail);
+        if (detail.unavailable?.length) setDetailsError('일부 운영 정보를 확인하지 못했습니다. 다시 불러와 주세요.');
+      } catch (error) {
+        if (request.signal.aborted || !mounted.current) return;
+        setDetailsError(error instanceof Error ? error.message : '운영 정보를 불러오지 못했습니다.');
+      }
       // Render core cards now; photo signing/storage is a separate request.
       const controller = new AbortController();
       mediaController.current = controller;
-      void fetch('/api/ops/today?view=cameras', { cache: 'no-store', signal: controller.signal })
-        .then(async response => {
-          if (!response.ok) throw new Error('카메라 사진을 불러오지 못했습니다.');
-          const media: { today: string; properties: Pick<OpsProperty, 'id' | 'camera'>[] } = await response.json();
+      void readOps<{ today: string; properties: Pick<OpsProperty, 'id' | 'camera'>[] }>('/api/ops/today?view=cameras', controller.signal)
+        .then(media => {
           if (controller.signal.aborted) return;
           if (media.today !== next.today) throw new Error('날짜가 변경되었습니다. 새로고침해주세요.');
           const byId = new Map(media.properties.map(p => [p.id, p.camera]));
           setData(current => current === next ? { ...current, properties: current.properties.map(p => ({ ...p, camera: byId.get(p.id) ?? [] })) } : current);
         }).catch(() => { if (!controller.signal.aborted) setCameraError('카메라 사진을 불러오지 못했습니다. 복도 카메라에서 다시 확인해주세요.'); })
         .finally(() => { if (!controller.signal.aborted) setCameraLoading(false); });
-    } catch {
-      if (!mounted.current) return;
+    } catch (error) {
+      if (!mounted.current || request.signal.aborted) return;
       setCameraLoading(false);
-      setLoadError('오늘 현황을 불러오지 못했습니다. 기존 자료가 있다면 마지막 확인 시점의 정보입니다.');
+      setLoadError((error instanceof Error ? error.message : '오늘 현황을 불러오지 못했습니다.') + ' 표시된 자료는 이전 정보일 수 있습니다.');
     } finally {
-      loadingRef.current = false;
-      if (mounted.current) setLoading(false);
+      if (summaryController.current === request) {
+        loadingRef.current = false;
+        if (mounted.current) { setLoading(false); setRefreshing(false); }
+      }
     }
   }, []);
 
-  useEffect(() => { mounted.current = true; if (user) load(); return () => { mounted.current = false; mediaController.current?.abort(); }; }, [user, load]);
+  useEffect(() => { mounted.current = true; if (user) load(); return () => { mounted.current = false; summaryController.current?.abort(); summaryController.current = null; loadingRef.current = false; mediaController.current?.abort(); }; }, [user, load]);
   useRefetchOnReturn(() => load(true));
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const day = todayKst();
+      setCurrentDay(day);
+      if (data && data.today !== day) void load(true);
+    }, 15000);
+    return () => clearInterval(timer);
+  }, [data, load]);
+  const detailsReady = !!data?.detailsLoaded && !data.unavailable?.some(s => ['cleaning', 'checkout', 'cleaners', 'messages'].includes(s));
+  const actionsBlocked = opsActionsBlocked({ ...data, refreshing, loadError: !!loadError });
+  const actionState = useRef<{ blocked: boolean; date: string; data: OpsData | null }>({ blocked: true, date: '', data: null });
+  actionState.current = { blocked: actionsBlocked, date: data?.today ?? '', data };
+  const canAct = () => {
+    if (actionState.current.blocked || actionState.current.date !== todayKst() || actionState.current.data !== data) {
+      toast.error('최신 운영 정보를 불러온 후 다시 시도해 주세요.');
+      return false;
+    }
+    return true;
+  };
 
   const working = useMemo(() => (data?.properties ?? []).filter(p => p.hasWork).sort((a, b) => Number(a.cleaning?.status === 'done') - Number(b.cleaning?.status === 'done')), [data]);
   const visibleWorking = working.filter(p => filter === 'all' || (filter === 'done' ? p.cleaning?.status === 'done' : p.cleaning?.status !== 'done'));
@@ -147,10 +200,12 @@ export default function OpsPage() {
   }), [working]);
 
   const confirmCheckout = async (p: OpsProperty) => {
+    if (!canAct()) return;
     if (!(await confirmDialog({ title: `${p.name} 체크아웃 확인`, message: '배정된 청소담당자에게 청소 시작 알림이 갑니다.', confirmLabel: '확인' }))) return;
+    if (!canAct()) return;
     setBusy(`checkout:${p.id}`);
     try {
-      const res = await fetch('/api/checkout/confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyId: p.id }) });
+      const res = await fetch('/api/checkout/confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyId: p.id, date: data!.today }) });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) { toast.error(d.error || '확인에 실패했습니다.'); return; }
       toast.success(d.notified ? `청소담당자 ${d.notified}명에게 알렸습니다.` : '체크아웃을 확인했습니다.');
@@ -159,13 +214,14 @@ export default function OpsPage() {
   };
 
   const assignCleaner = async (p: OpsProperty) => {
+    if (!canAct()) return;
     const cleanerId = assign[p.id];
     if (!cleanerId) return;
     setBusy(`assign:${p.id}`);
     try {
       const res = p.cleaning
         ? await fetch('/api/cleanings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: p.cleaning.id, cleanerId, status: 'pending', isOpen: false }) })
-        : await fetch('/api/cleanings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyId: p.id, date: todayStr(), cleanerId, status: 'pending' }) });
+        : await fetch('/api/cleanings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyId: p.id, date: data!.today, cleanerId, status: 'pending' }) });
       if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d.error || '배정에 실패했습니다.'); return; }
       toast.success(`${data?.cleaners.find(c => c.id === cleanerId)?.name ?? '담당자'}에게 배정했습니다.`);
       await load(true);
@@ -174,16 +230,18 @@ export default function OpsPage() {
 
   /** 청소 완료: 청소 행을 done 으로, 오늘 체크인 게스트(Beds24)가 있으면 청소 완료 안내. 캘린더와 같은 순서. */
   const completeCleaning = async (p: OpsProperty) => {
+    if (!canAct()) return;
     const checkin = p.checkins.find(r => r.hasChat) ?? p.checkins[0];
     const msg = checkin?.hasChat
       ? `${p.name} 청소를 완료로 기록하고, 오늘 체크인 게스트(${checkin.guestName})에게 청소 완료 안내를 보냅니다.`
       : `${p.name} 청소를 완료로 기록합니다.`;
     if (!(await confirmDialog({ title: '청소 완료', message: msg, confirmLabel: '완료' }))) return;
+    if (!canAct()) return;
     setBusy(`done:${p.id}`);
     try {
       const res = p.cleaning
         ? await fetch('/api/cleanings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: p.cleaning.id, status: 'done', completedAt: new Date().toISOString() }) })
-        : await fetch('/api/cleanings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyId: p.id, date: todayStr(), status: 'done' }) });
+        : await fetch('/api/cleanings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyId: p.id, date: data!.today, status: 'done' }) });
       if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d.error || '청소 완료 처리에 실패했습니다.'); return; }
       if (checkin?.hasChat) await sendReady(p, checkin);
       else toast.success('청소 완료로 기록했습니다.');
@@ -192,6 +250,7 @@ export default function OpsPage() {
   };
 
   const sendReady = async (p: OpsProperty, checkin: OpsReservation) => {
+    if (!canAct()) return;
     setDelivery(prev => ({ ...prev, [checkin.id]: 'sending' }));
     setBusy('message:' + p.id);
     try {
@@ -211,16 +270,18 @@ export default function OpsPage() {
       <div className="max-w-4xl mx-auto space-y-6 pb-nav">
         <PageHeader eyebrow="void anchae · 숙소 운영" title="오늘" description={format(new Date(), 'M월 d일 (EEE)', { locale: ko })} />
 
-        {updatedAt && <p className="text-xs text-stone-500" role="status">마지막 확인 {format(updatedAt, 'HH:mm')} · 아래로 당겨 새로고침</p>}
+        {updatedAt && <p className="text-xs text-stone-500" role="status">마지막 확인 {format(updatedAt, 'M/d HH:mm')} · 아래로 당겨 새로고침</p>}
         {loadError && <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-3"><p className="text-sm text-stone-800">{loadError}</p><Button variant="secondary" onClick={() => load(!data ? false : true)}>다시 불러오기</Button></div>}
+        {(detailsError || (data && data.today !== currentDay)) && <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4"><p>{detailsError || '날짜가 변경되어 최신 정보를 확인하고 있습니다.'}</p><Button variant="secondary" disabled={refreshing} onClick={() => load(true)}>다시 불러오기</Button></div>}
+        {data && !data.detailsLoaded && !detailsError && <p role="status">예약 목록을 불러왔습니다. 청소·대화 정보를 확인하고 있습니다.</p>}
         {loading ? (
           <SkeletonList count={3} rows={3} />
         ) : data ? (
           <>
             <section aria-label="청소와 세탁 현황" className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <button onClick={()=>setFilter('attention')} className="text-left rounded-xl border bg-white p-4"><p className="text-xs text-stone-500">오늘 청소 미완료</p><p className="text-2xl font-semibold mt-2">{working.filter(p=>p.cleaning&&p.cleaning.status!=='done').length}<span className="text-xs font-normal ml-1">곳</span></p><p className="text-xs text-stone-500 mt-2">아래 숙소에서 진행 상황 확인</p></button>
-              <button onClick={()=>setFilter('attention')} className="text-left rounded-xl border bg-white p-4"><p className="text-xs text-stone-500">오늘 청소 미배정</p><p className="text-2xl font-semibold mt-2">{working.filter(p=>p.cleaning?.status!=='done'&&!p.cleaning?.cleanerId).length}<span className="text-xs font-normal ml-1">곳</span></p><p className="text-xs text-stone-500 mt-2">아래 숙소에서 담당자 배정</p></button>
-              <Link href="/admin/laundry" className="rounded-xl border bg-white p-4"><p className="text-xs text-stone-500">세탁 입고 지연</p><p className="text-2xl font-semibold mt-2">{data.counts.delayedLaundry}<span className="text-xs font-normal ml-1">건</span></p><p className="text-xs text-stone-500 mt-2">배송 예정일을 지난 미입고 건 확인 →</p></Link>
+              <button onClick={()=>setFilter('attention')} className="text-left rounded-xl border bg-white p-4"><p className="text-xs text-stone-500">오늘 청소 미완료</p><p className="text-2xl font-semibold mt-2">{detailsReady ? working.filter(p=>p.cleaning&&p.cleaning.status!=='done').length : '확인 중'}<span className="text-xs font-normal ml-1">곳</span></p><p className="text-xs text-stone-500 mt-2">아래 숙소에서 진행 상황 확인</p></button>
+              <button onClick={()=>setFilter('attention')} className="text-left rounded-xl border bg-white p-4"><p className="text-xs text-stone-500">오늘 청소 미배정</p><p className="text-2xl font-semibold mt-2">{detailsReady ? working.filter(p=>p.cleaning?.status!=='done'&&!p.cleaning?.cleanerId).length : '확인 중'}<span className="text-xs font-normal ml-1">곳</span></p><p className="text-xs text-stone-500 mt-2">아래 숙소에서 담당자 배정</p></button>
+              <Link href="/admin/laundry" className="rounded-xl border bg-white p-4"><p className="text-xs text-stone-500">세탁 입고 지연</p><p className="text-2xl font-semibold mt-2">{data.counts.delayedLaundry ?? '확인 필요'}<span className="text-xs font-normal ml-1">건</span></p><p className="text-xs text-stone-500 mt-2">배송 예정일을 지난 미입고 건 확인 →</p></Link>
             </section>
             {/* 1. 오늘 요약 */}
             <div className="bg-white border border-stone-200 px-4 py-3">
@@ -250,7 +311,7 @@ export default function OpsPage() {
                 <Card key={p.id} padded={false} className="rounded-2xl overflow-hidden shadow-sm">
                   <div className="px-4 py-3 flex items-center gap-2 border-b border-stone-200 bg-stone-50">
                     <span className="text-xl font-semibold text-stone-900">{p.name}</span>
-                    {cleaningDone ? <Badge tone="success"><Check size={12} /> 청소 완료</Badge>
+                    {!detailsReady ? <Badge tone="warning">운영 정보 확인 필요</Badge> : cleaningDone ? <Badge tone="success"><Check size={12} /> 청소 완료</Badge>
                       : p.cleaning?.cleanerName ? <Badge tone="brand">청소 · {p.cleaning.cleanerName}</Badge>
                       : (p.checkouts.length > 0 || p.cleaning) ? <Badge tone="danger">청소 미배정</Badge> : null}
                     <button type="button" onClick={() => setCameraFor(p.id)} className="ml-auto tap flex items-center justify-center text-stone-500 hover:text-stone-900" aria-label={`${p.name} 복도 카메라`}>
@@ -276,7 +337,7 @@ export default function OpsPage() {
                             key={r.id}
                             r={r}
                             statusLine={
-                              co?.confirmed ? (
+                              !detailsReady ? (<p className="t-caption text-amber-800">퇴실 상태 확인 필요</p>) : co?.confirmed ? (
                                 <p className="t-caption text-emerald-700 flex items-center gap-1"><Check size={13} /> {co.confirmedBy === 'guest_pad' ? '게스트가 패드에서 체크아웃' : '체크아웃 확인'} {co.confirmedAt && hhmm(co.confirmedAt)}</p>
                               ) : leaving ? (
                                 <p className="t-caption text-amber-700">카메라 {hhmm(leaving.capturedAt)} 퇴실로 보임{leaving.summary ? ` · ${leaving.summary}` : ''}</p>
@@ -284,7 +345,7 @@ export default function OpsPage() {
                                 <p className="t-caption text-stone-500">아직 체크아웃 확인 전{p.camera.length > 0 ? ` · 카메라 ${p.camera.length}장, 퇴실 판정 없음` : ''}</p>
                               )
                             }
-                            action={!co?.confirmed && <Button disabled={!!busy} size="sm" onClick={() => confirmCheckout(p)} loading={busy === `checkout:${p.id}`}>체크아웃 확인</Button>}
+                            action={!co?.confirmed && <Button disabled={!!busy || actionsBlocked} size="sm" onClick={() => confirmCheckout(p)} loading={busy === `checkout:${p.id}`}>체크아웃 확인</Button>}
                           />
                         ))}
                         {p.camera.length > 0 && (
@@ -318,17 +379,17 @@ export default function OpsPage() {
                               <option value="">담당자 선택</option>
                               {data.cleaners.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </Select>
-                            <Button size="sm" variant="secondary" onClick={() => assignCleaner(p)} disabled={!assign[p.id] || !!busy} loading={busy === `assign:${p.id}`}>배정</Button>
+                            <Button size="sm" variant="secondary" onClick={() => assignCleaner(p)} disabled={!assign[p.id] || !!busy || actionsBlocked} loading={busy === `assign:${p.id}`}>배정</Button>
                           </>
                         )}
                         {!cleaningDone && (
-                          <Button className="w-full mt-2" disabled={!!busy} onClick={() => completeCleaning(p)} loading={busy === `done:${p.id}`}>청소 완료</Button>
+                          <Button className="w-full mt-2" disabled={!!busy || actionsBlocked} onClick={() => completeCleaning(p)} loading={busy === `done:${p.id}`}>청소 완료</Button>
                         )}
                       </div>
                     </section>
                     {p.checkins.filter(r => r.hasChat).map(r => {
                       const status = delivery[r.id] ?? r.readyDelivery;
-                      return cleaningDone || status ? <div key={r.id} className="rounded-xl border border-stone-200 p-3 text-sm space-y-2" role="status"><p>{r.guestName} 입실 안내 · {status === 'sent' ? '전송됨' : status === 'sending' ? '전송 중' : status === 'failed' ? '전송 실패' : status || '전송 기록을 확인해 주세요'}</p>{status !== 'sent' && <Button variant="secondary" disabled={!!busy} onClick={() => sendReady(p, r)}>입실 안내 보내기</Button>}</div> : null;
+                      return cleaningDone || status ? <div key={r.id} className="rounded-xl border border-stone-200 p-3 text-sm space-y-2" role="status"><p>{r.guestName} 입실 안내 · {status === 'sent' ? '전송됨' : status === 'sending' ? '전송 중' : status === 'failed' ? '전송 실패' : status || '전송 기록을 확인해 주세요'}</p>{status !== 'sent' && <Button variant="secondary" disabled={!!busy || actionsBlocked} onClick={() => sendReady(p, r)}>입실 안내 보내기</Button>}</div> : null;
                     })}
                   </div>
                 </Card>
@@ -350,9 +411,9 @@ export default function OpsPage() {
                 { href: '/admin/issues', label: '이슈', count: data.counts.openIssues, icon: AlertTriangle },
                 { href: '/admin/supplies', label: '비품 요청', count: data.counts.pendingSupplies, icon: Package },
               ].map(t => (
-                <Link key={t.href} href={t.href} className={`bg-white border p-3 flex flex-col gap-1 ${t.count > 0 ? 'border-amber-300' : 'border-stone-200'}`}>
+                <Link key={t.href} href={t.href} className={`bg-white border p-3 flex flex-col gap-1 ${(t.count ?? 0) > 0 ? 'border-amber-300' : 'border-stone-200'}`}>
                   <span className="flex items-center gap-1.5 t-micro text-stone-500"><t.icon size={13} /> {t.label}</span>
-                  <span className={`t-title ${t.count > 0 ? 'text-amber-700' : 'text-stone-400'}`}>{t.count}<span className="t-caption font-normal ml-0.5">건</span></span>
+                  <span className={`t-title ${(t.count ?? 0) > 0 ? 'text-amber-700' : 'text-stone-400'}`}>{t.count ?? '확인 필요'}<span className="t-caption font-normal ml-0.5">건</span></span>
                 </Link>
               ))}
             </div>

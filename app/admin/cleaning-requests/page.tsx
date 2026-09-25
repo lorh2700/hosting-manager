@@ -61,7 +61,7 @@ export default function AdminCleaningRequestsPage() {
       }));
 
       setApplications(apps.sort((a, b) => {
-        const statusOrder: Record<string, number> = { pending: 0, approved: 1, rejected: 2 };
+        const statusOrder: Record<string, number> = { pending: 0, approved: 1, rejected: 2, cancelled: 3 };
         if (statusOrder[a.status] !== statusOrder[b.status]) return statusOrder[a.status] - statusOrder[b.status];
         return b.createdAt.localeCompare(a.createdAt);
       }));
@@ -200,7 +200,7 @@ export default function AdminCleaningRequestsPage() {
                 app.status === 'rejected' ? 'text-red-600 bg-red-50' :
                 'text-amber-600 bg-amber-50';
               const statusLabel = app.status === 'approved' ? '승인' :
-                app.status === 'rejected' ? '거절' : '대기';
+                app.status === 'rejected' ? '거절' : app.status === 'cancelled' ? '신청 취소' : '대기';
 
               return (
                 <div key={app.id} className="bg-white border border-stone-200 p-5 space-y-3">
@@ -215,7 +215,7 @@ export default function AdminCleaningRequestsPage() {
                       </p>
                       <p className="text-stone-500 text-xs mt-0.5">신청자: {app.applicantName}</p>
                       {app.note && <p className="text-stone-400 text-xs mt-1">메모: {app.note}</p>}
-                      {app.rejectedReason && <p className="text-red-600/80 text-xs mt-1">거절 사유: {app.rejectedReason}</p>}
+                      {app.rejectedReason && <p className="text-red-600/80 text-xs mt-1">{app.status === 'cancelled' ? '취소 사유' : '거절 사유'}: {app.rejectedReason}</p>}
                     </div>
                     <p className="text-stone-300 text-[12px] shrink-0">
                       {format(parseISO(app.createdAt), 'M/d HH:mm', { locale: ko })}

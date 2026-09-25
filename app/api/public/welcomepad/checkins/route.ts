@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { readStayOptions } from '@/lib/payments/stay-options';
 
 // Public read-only endpoint consumed by the welcome-pad project.
 // Auth: shared secret in `x-api-key` header (env: WELCOMEPAD_API_KEY).
@@ -38,6 +39,7 @@ type MatchInfo = {
 };
 
 type ActiveGuestPayload = CheckinPayload & {
+  pets?: number | null;
   welcomeMessage: string | null;
   manualReturning: boolean | null;
 } & MatchInfo;
@@ -278,6 +280,25 @@ export async function GET(req: Request) {
           ...matchVisits(checkin, history),
         }
       : null;
+
+    // Only a reservation-ID match may supply pet counts; names/dates alone
+    // can attach another guest's options. Missing/legacy options stay unknown.
+    if (guest?.bookingId) {
+      guest.pets = null;
+      try {
+        const booking = await prisma.booking.findFirst({
+          where: { propertyId: prop.id, status: 'confirmed',
+            checkIn: guest.arrival, checkOut: guest.departure,
+            OR: [{ channelBookingRef: guest.bookingId }, { checkout: { beds24Id: guest.bookingId } }],
+          },
+          select: { checkout: { select: { stayOptions: true } } },
+        });
+        guest.pets = readStayOptions(booking?.checkout?.stayOptions)?.pets ?? null;
+      } catch {
+        // Optional preparation information must not break the welcome screen.
+        console.error('[welcomepad/checkins] pet options unavailable');
+      }
+    }
 
     // 자동 매칭 결과 위에 manual_returning override 적용
     const isReturningEffective = guest

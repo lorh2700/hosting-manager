@@ -2,6 +2,7 @@
 export type CleaningCancelReason = 'deleted' | 'reassigned' | 'unassigned';
 
 export const notifyCalls = {
+  sms: [] as any[],
   cancelled: [] as any[],
   assigned: [] as any[],
   newOpen: [] as any[],
@@ -28,5 +29,5 @@ export async function notifyTourHostOfBooking(opts: any) { notifyCalls.tourHost.
 export async function notifyTourGuestOfBooking(opts: any) { notifyCalls.tourGuest.push(opts); return ok; }
 export async function notifyCheckoutConfirmed(opts: any) { notifyCalls.checkout.push(opts); return ok; }
 export async function notifyCheckoutCandidate(opts: any) { notifyCalls.checkoutCandidate.push(opts); return ok; }
-export function getNotifier() { return { name: 'stub', sendAlimtalk: async () => ok, sendSms: async () => ok }; }
+export function getNotifier() { return { name: 'stub', sendAlimtalk: async () => ok, sendSms: async (opts: any) => { notifyCalls.sms.push(opts); return ok; } }; }
 export const TEMPLATES: Record<string, string> = {};

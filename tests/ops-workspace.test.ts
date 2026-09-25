@@ -15,7 +15,9 @@ test('summary keeps arrival data and ready message without reading camera media'
  const result = await callRoute(GET, makeRequest({}, 'http://localhost/api/ops/today?view=summary'));
  assert.equal(result.status, 200);
  assert.equal(result.body.properties[0].readyMessage, 'Ready for arrival');
- assert.equal(result.body.properties[0].checkins[0].readyDelivery, 'failed');
+ assert.equal(result.body.properties[0].checkins[0].readyDelivery, null);
+ assert.equal(result.body.properties[0].checkins[0].messagesAvailable, false);
+ assert.ok(!calls.includes('message.findMany'));
  assert.deepEqual(result.body.properties[0].camera, []);
  assert.ok(!calls.includes('cameraSnapshot.findMany'));
  assert.ok(!calls.some(c => c.startsWith('POST /storage')));
