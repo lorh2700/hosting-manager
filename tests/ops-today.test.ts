@@ -18,16 +18,16 @@ const read = async (view: string) => {
 test('summary returns reservations without reading optional tables', async () => {
   const { status, body } = await read('summary');
   assert.equal(status, 200); assert.equal(body.properties[0].checkins.length, 1);
-  assert.equal(body.detailsLoaded, false); assert.equal(body.counts.delayedLaundry, null);
+  assert.equal(body.detailsLoaded, false); assert.equal(body.counts.pendingSupplies, null);
   assert.ok(!calls.some(c => /message|laundryBatch|cleaning\.|supplyTodo/.test(c)));
 });
 test('optional failure preserves checkins and reports unknown rather than zero', async () => {
-  Object.defineProperty(db, 'laundryBatch', { configurable: true, get() { throw new Error('test outage'); } });
+  Object.defineProperty(db, 'supplyTodo', { configurable: true, get() { throw new Error('test outage'); } });
   try {
     const { status, body } = await read('details');
     assert.equal(status, 200); assert.equal(body.properties[0].checkins.length, 1);
-    assert.ok(body.unavailable.includes('laundry')); assert.equal(body.counts.delayedLaundry, null);
-  } finally { delete db.laundryBatch; }
+    assert.ok(body.unavailable.includes('supplies')); assert.equal(body.counts.pendingSupplies, null);
+  } finally { delete db.supplyTodo; }
 });
 test('messages are bounded per reservation while unread and older delivery remain accurate', async () => {
   db.property.push({id:'p2',name:'Second',roomReadyMessage:'ready'});
@@ -39,6 +39,7 @@ test('messages are bounded per reservation while unread and older delivery remai
   const { body } = await read('details');
   for (const p of body.properties) {
     const guest = p.checkins[0];
+    assert.ok(!calls.some(c => c.startsWith('laundryBatch.')));
     assert.equal(guest.messages.length,4); assert.equal(guest.unread,19); assert.equal(guest.readyDelivery,'sent');
     assert.equal(guest.messages[0].text,'text-16');
   }
@@ -66,5 +67,5 @@ test('operations block on KST rollover, incomplete data or refresh failure', () 
  assert.equal(opsActionsBlocked(input,before),false);
  assert.equal(opsActionsBlocked(input,after),true);
  for(const change of [{detailsLoaded:false},{refreshing:true},{loadError:true},{unavailable:['messages']},{unavailable:['cleaning']}]) assert.equal(opsActionsBlocked({...input,...change},before),true);
- assert.equal(opsActionsBlocked({...input,unavailable:['laundry']},before),false);
+ assert.equal(opsActionsBlocked({...input,unavailable:['supplies']},before),false);
 });

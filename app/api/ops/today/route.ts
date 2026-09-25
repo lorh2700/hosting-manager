@@ -70,7 +70,7 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
   });
   const propIds = properties.map(p => p.id);
   if (propIds.length === 0) {
-    return ok({ today, unavailable: [], detailsLoaded: !summaryOnly, properties: [], cleaners: [], counts: { pendingApplications: 0, openIssues: 0, pendingSupplies: 0, delayedLaundry: 0 } });
+    return ok({ today, unavailable: [], detailsLoaded: !summaryOnly, properties: [], cleaners: [], counts: { pendingApplications: 0, openIssues: 0, pendingSupplies: 0 } });
   }
 
   // Optional media must never delay the operational summary. Each property is
@@ -118,7 +118,6 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
   const pendingApplications = await optional<number | null>('applications', () => prisma.cleaningApplication.count({ where: { status: 'pending', propertyId: { in: propIds } } }), null);
   const openIssues = await optional<number | null>('issues', () => prisma.cleaningIssue.count({ where: { status: { in: ['open', 'in_progress'] }, propertyId: { in: propIds } } }), null);
   const pendingSupplies = await optional<number | null>('supplies', () => prisma.supplyTodo.count({ where: { done: false, propertyId: { in: propIds } } }), null);
-  const delayedLaundry = await optional<number | null>('laundry', () => prisma.laundryBatch.count({ where: { propertyId: { in: propIds }, deliveryDate: { lt: today }, status: { in: ['collected','washing','shipping','partial'] } } }), null);
 
   const conversations = await optional('messages', async () => {
     const result: Record<string, { messages: OpsMessage[]; unread: number; readyDelivery: string | null; flags: GuestFlag[] }> = {};
@@ -205,7 +204,7 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
   }));
 
   out.sort((a, b) => Number(b.hasWork) - Number(a.hasWork) || a.name.localeCompare(b.name));
-  const response = ok({ today, unavailable, detailsLoaded: !summaryOnly, properties: out, cleaners, counts: { pendingApplications, openIssues, pendingSupplies, delayedLaundry } });
+  const response = ok({ today, unavailable, detailsLoaded: !summaryOnly, properties: out, cleaners, counts: { pendingApplications, openIssues, pendingSupplies } });
   response.headers.set('Cache-Control', 'private, no-store');
   response.headers.set('Server-Timing', `ops;dur=${(performance.now() - started).toFixed(1)}`);
   return response;

@@ -31,7 +31,7 @@ interface OpsData {
   unavailable?: string[];
   properties: OpsProperty[];
   cleaners: { id: string; name: string }[];
-  counts: { pendingApplications: number | null; openIssues: number | null; pendingSupplies: number | null; delayedLaundry: number | null };
+  counts: { pendingApplications: number | null; openIssues: number | null; pendingSupplies: number | null };
 }
 
 const todayStr = todayKst;
@@ -278,11 +278,6 @@ export default function OpsPage() {
           <SkeletonList count={3} rows={3} />
         ) : data ? (
           <>
-            <section aria-label="청소와 세탁 현황" className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <button onClick={()=>setFilter('attention')} className="text-left rounded-xl border bg-white p-4"><p className="text-xs text-stone-500">오늘 청소 미완료</p><p className="text-2xl font-semibold mt-2">{detailsReady ? working.filter(p=>p.cleaning&&p.cleaning.status!=='done').length : '확인 중'}<span className="text-xs font-normal ml-1">곳</span></p><p className="text-xs text-stone-500 mt-2">아래 숙소에서 진행 상황 확인</p></button>
-              <button onClick={()=>setFilter('attention')} className="text-left rounded-xl border bg-white p-4"><p className="text-xs text-stone-500">오늘 청소 미배정</p><p className="text-2xl font-semibold mt-2">{detailsReady ? working.filter(p=>p.cleaning?.status!=='done'&&!p.cleaning?.cleanerId).length : '확인 중'}<span className="text-xs font-normal ml-1">곳</span></p><p className="text-xs text-stone-500 mt-2">아래 숙소에서 담당자 배정</p></button>
-              <Link href="/admin/laundry" className="rounded-xl border bg-white p-4"><p className="text-xs text-stone-500">세탁 입고 지연</p><p className="text-2xl font-semibold mt-2">{data.counts.delayedLaundry ?? '확인 필요'}<span className="text-xs font-normal ml-1">건</span></p><p className="text-xs text-stone-500 mt-2">배송 예정일을 지난 미입고 건 확인 →</p></Link>
-            </section>
             {/* 1. 오늘 요약 */}
             <div className="bg-white border border-stone-200 px-4 py-3">
               {working.length === 0 ? (
