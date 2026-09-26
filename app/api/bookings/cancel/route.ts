@@ -28,6 +28,6 @@ export const POST = withAuth('bookings/cancel', async (req, { auth }) => {
   });
   await indexGuestSafely(() => recordBooking({ ...booking, status: 'cancelled' }));
   let cleaningCleanupPending = false;
-  if (ref) await ensureCleaningsForProperty(booking.propertyId).catch(() => { cleaningCleanupPending = true; });
+  await ensureCleaningsForProperty(booking.propertyId).catch(() => { cleaningCleanupPending = true; });
   return ok({ success: true, cleaningCleanupPending });
 });

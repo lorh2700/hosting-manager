@@ -27,6 +27,9 @@ function seedBookingsPage(bookings: unknown[]) {
 
 beforeEach(() => {
   resetDb(); resetNotify(); resetFetch(); invalidateBeds24Token();
+  // Invitation publishing has its own suite; keep this suite focused on calendar cleanup.
+  process.env.BEDS24_INVITATIONS_FROM = '2099-01-01T00:00:00Z';
+  process.env.NEXT_PUBLIC_APP_URL = 'https://voidanchae.com';
   db.property = [{ id: P, name: '안온재', ownerId: 'host-1' }];
   db.user = [{ ...cleanerRow, displayName: cleanerRow.name }];
 });
@@ -62,6 +65,51 @@ test('지난 체크아웃 날짜에는 청소를 만들지도, 신규 오픈 알
   assert.deepEqual(created, [d(4)]);
   assert.ok(!db.cleaning.some(c => c.date === d(-38)), '과거 날짜 청소는 생성하지 않음');
   assert.ok(db.cleaning.some(c => c.date === d(4)));
+});
+
+test('직접 예약의 청소도 유지하며 마지막 예약 취소 시 신청과 함께 정리한다', async () => {
+  db.booking = [{ id: 'direct', propertyId: P, status: 'confirmed', checkOut: d(3) }];
+  db.cleaning = [{ id: 'applied', ...cleaning({ date: d(3), cleanerId: 'cl1', assignmentType: 'applied' }) }];
+  db.cleaningApplication = [{ id: 'application', cleaningId: 'applied', status: 'approved' }];
+  db.cleaningIssue = [{ id: 'issue', cleaningId: 'applied', propertyId: P }];
+  await ensureCleaningsForProperty(P);
+  assert.equal(db.cleaning.length, 1);
+  assert.equal(db.cleaningApplication.length, 1);
+  db.booking[0].status = 'cancelled';
+  await ensureCleaningsForProperty(P);
+  assert.equal(db.cleaning.length, 0);
+  assert.equal(db.cleaningApplication.length, 0);
+  assert.equal(db.cleaningIssue.length, 1);
+  assert.equal(db.cleaningIssue[0].cleaningId, null);
+  assert.equal(notifyCalls.cancelled.length, 1);
+  await ensureCleaningsForProperty(P);
+  assert.equal(notifyCalls.cancelled.length, 1);
+});
+
+test('같은 날 다른 예약의 체크아웃이 남아 있으면 신청한 청소를 유지한다', async () => {
+  db.event = [reservation('other', d(1), d(3))];
+  db.booking = [{ id: 'cancelled', propertyId: P, status: 'cancelled', checkOut: d(3) }];
+  db.cleaning = [{ id: 'applied', ...cleaning({ date: d(3), cleanerId: 'cl1', assignmentType: 'applied' }) }];
+  db.cleaningApplication = [{ id: 'application', cleaningId: 'applied', status: 'approved' }];
+  await ensureCleaningsForProperty(P);
+  assert.equal(db.cleaning.length, 1);
+  assert.equal(db.cleaningApplication[0].status, 'approved');
+  assert.equal(notifyCalls.cancelled.length, 0);
+});
+
+test('대량 누락 안전장치가 동작해도 명시적으로 취소된 예약과 청소 신청은 정리한다', async () => {
+  db.event = Array.from({ length: 20 }, (_, i) => reservation(String(i), d(i), d(i + 2)));
+  db.booking = [{ id: 'linked', propertyId: P, channelBookingRef: '0', status: 'confirmed', checkOut: d(2) }];
+  db.cleaning = [{ id: 'applied', ...cleaning({ date: d(2), cleanerId: 'cl1', assignmentType: 'applied' }) }];
+  db.cleaningApplication = [{ id: 'application', cleaningId: 'applied', status: 'approved' }];
+  seedBookingsPage([booking(0, d(0), d(2), { status: 'cancelled' })]);
+  const result = await syncBeds24Property(P, '111');
+  assert.equal(result.eventsRemoved, 1);
+  assert.equal(db.event.length, 19);
+  assert.equal(db.booking[0].status, 'cancelled');
+  assert.equal(db.cleaning.some(c => c.id === 'applied'), false);
+  assert.equal(db.cleaningApplication.length, 0);
+  assert.equal(notifyCalls.cancelled.length, 1);
 });
 
 test('배정 건과 같은 날짜의 미배정 유령 행은 신청이 없을 때만 삭제', async () => {

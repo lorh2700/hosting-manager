@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
 import { format, parseISO, differenceInDays } from 'date-fns';
@@ -36,6 +36,7 @@ interface Booking {
 
 type StatusFilter = 'all' | 'confirmed' | 'cancelled';
 type SourceFilter = 'all' | 'direct' | 'ota';
+const PAGE_SIZE = 10;
 
 function parseEventDescription(desc: string): { name: string; email: string; phone: string; guests: number } {
   const result = { name: '게스트', email: '', phone: '', guests: 1 };
@@ -296,35 +297,28 @@ export default function BookingsPage() {
     });
   }, [bookings, statusFilter, propertyFilter, sourceFilter]);
 
-  const PAGE_SIZE = 10;
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(filteredBookings.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const firstPageNumber = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
+  const pageNumbers = Array.from(
+    { length: Math.min(5, totalPages) },
+    (_, index) => firstPageNumber + index,
+  );
 
   useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
+    setPage(1);
   }, [statusFilter, sourceFilter, propertyFilter]);
 
-  const visibleBookings = useMemo(
-    () => filteredBookings.slice(0, visibleCount),
-    [filteredBookings, visibleCount],
-  );
-  const hasMore = visibleCount < filteredBookings.length;
-
   useEffect(() => {
-    if (!hasMore) return;
-    const node = loadMoreRef.current;
-    if (!node) return;
-    const observer = new IntersectionObserver(
-      entries => {
-        if (entries[0]?.isIntersecting) {
-          setVisibleCount(c => Math.min(c + PAGE_SIZE, filteredBookings.length));
-        }
-      },
-      { rootMargin: '200px' },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [hasMore, filteredBookings.length]);
+    setPage(previous => Math.min(previous, totalPages));
+  }, [totalPages]);
+
+  const visibleBookings = useMemo(
+    () => filteredBookings.slice(pageStart, pageStart + PAGE_SIZE),
+    [filteredBookings, pageStart],
+  );
 
   const statusLabel: Record<Booking['status'], string> = {
     confirmed: '확정',
@@ -579,18 +573,44 @@ export default function BookingsPage() {
             })}
           </div>
 
-          {hasMore && (
-            <div ref={loadMoreRef} className="flex items-center justify-center py-5 border-t border-stone-200">
-              <Loader2 size={14} className="animate-spin text-[var(--brand)]" />
-            </div>
-          )}
-
-          <div className="px-6 py-3 border-t border-stone-200">
-            <p className="text-xs text-stone-400">
-              {visibleBookings.length} / {filteredBookings.length}건
+          <div className="px-4 sm:px-6 py-4 border-t border-stone-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-xs text-stone-500" aria-live="polite">
+              총 {filteredBookings.length}건 중 {pageStart + 1}–{pageStart + visibleBookings.length}건
               {statusFilter !== 'all' && ` · ${statusFilter === 'confirmed' ? '확정' : '취소됨'} 필터`}
               {sourceFilter !== 'all' && ` · ${sourceFilter === 'direct' ? '직접 예약' : 'OTA'} 필터`}
             </p>
+            <nav aria-label="예약 요청 페이지" className="flex flex-wrap items-center justify-center gap-1">
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => setPage(currentPage - 1)}
+                className="min-h-10 px-3 text-xs text-stone-600 hover:bg-stone-100 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                이전
+              </button>
+              {pageNumbers.map(pageNumber => (
+                <button
+                  key={pageNumber}
+                  type="button"
+                  aria-label={`${pageNumber}페이지`}
+                  aria-current={currentPage === pageNumber ? 'page' : undefined}
+                  onClick={() => setPage(pageNumber)}
+                  className={`min-w-9 min-h-10 px-2 text-xs transition-colors ${currentPage === pageNumber
+                    ? 'bg-[var(--brand)] text-white font-semibold'
+                    : 'text-stone-600 hover:bg-stone-100'}`}
+                >
+                  {pageNumber}
+                </button>
+              ))}
+              <button
+                type="button"
+                disabled={currentPage === totalPages}
+                onClick={() => setPage(currentPage + 1)}
+                className="min-h-10 px-3 text-xs text-stone-600 hover:bg-stone-100 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                다음
+              </button>
+            </nav>
           </div>
         </div>
       )}

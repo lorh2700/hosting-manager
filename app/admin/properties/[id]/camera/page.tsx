@@ -41,7 +41,7 @@ export default function PropertyCameraPage() {
   const { id } = useParams() as { id: string };
   const { user } = useAuth();
   const [diagnostic, setDiagnostic] = useState('');
-  useEffect(() => { if (user) fetch('/api/camera/diagnostics?propertyId=' + encodeURIComponent(id)).then(async r => { if (r.ok) { const d = await r.json(); setDiagnostic(d.message + (d.missing?.length ? ' ' + d.missing.join(', ') : '')); } }).catch(() => {}); }, [id, user]);
+  useEffect(() => { if (user) fetch('/api/camera/diagnostics?propertyId=' + encodeURIComponent(id)).then(async r => { if (r.ok) { const d = await r.json(); setDiagnostic(d.message); } }).catch(() => {}); }, [id, user]);
   const [propertyName, setPropertyName] = useState('');
   const [date, setDate] = useState<string>(() => format(new Date(), 'yyyy-MM-dd'));
   const [dates, setDates] = useState<string[]>([]);

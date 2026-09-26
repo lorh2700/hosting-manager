@@ -129,6 +129,7 @@ export async function createSignedUrl(opts: { bucket: string; path: string; expi
         method: 'POST',
         headers: { Authorization: `Bearer ${auth.serviceKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ expiresIn: opts.expiresInSec ?? 3600 }),
+        signal: AbortSignal.timeout(8000),
       },
     );
     if (!res.ok) return null;

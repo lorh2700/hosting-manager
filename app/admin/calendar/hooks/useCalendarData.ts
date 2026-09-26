@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import {
   PROPERTY_COLORS, DISABLED_PROPERTY_NAMES,
@@ -19,14 +19,24 @@ export function useCalendarData() {
   const [activeProps, setActiveProps] = useState<Set<string>>(new Set());
   const [allSupplyTodos, setAllSupplyTodos] = useState<GlobalSupplyTodo[]>([]);
   const [viewDate, setViewDate] = useState(new Date());
+  const month = `${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, '0')}`;
+  const knownPropertyIds = useRef(new Set<string>());
+  const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const isLoggedIn = !!user;
     let cancelled = false;
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+    setEvents([]);
+    setCleanings([]);
+    setAllSupplyTodos([]);
     const fetchAll = async () => {
       try {
         if (isLoggedIn) {
-          const res = await fetch('/api/admin/calendar', { cache: 'no-store' });
+          const res = await fetch(`/api/admin/calendar?month=${month}`, { cache: 'no-store', signal: controller.signal });
           if (!res.ok) throw new Error('Failed to fetch admin calendar');
           const data = await res.json();
           if (cancelled) return;
@@ -37,7 +47,11 @@ export function useCalendarData() {
             roomReadyMessage: d.roomReadyMessage as string | undefined,
           }));
           setProperties(props);
-          setActiveProps(new Set(props.filter(p => !DISABLED_PROPERTY_NAMES.includes(p.name)).map(p => p.id)));
+          const previousIds = knownPropertyIds.current;
+          setActiveProps(previous => new Set(props.filter(p =>
+            previousIds.has(p.id) ? previous.has(p.id) : !DISABLED_PROPERTY_NAMES.includes(p.name)
+          ).map(p => p.id)));
+          knownPropertyIds.current = new Set(props.map(p => p.id));
           setChannelMap(data.channelMap ?? {});
 
           const allEvents: RawEvent[] = (data.events ?? []).map((e: Record<string, unknown>) => ({
@@ -72,7 +86,7 @@ export function useCalendarData() {
           // grid (events + cleanings) renders without waiting on the supply
           // panel data.
           const propsNameMap = new Map(props.map(p => [p.id, p.name]));
-          fetch('/api/admin/calendar/supply-todos')
+          fetch(`/api/admin/calendar/supply-todos?month=${month}`, { cache: 'no-store', signal: controller.signal })
             .then(r => (r.ok ? r.json() : { supplyTodos: [] }))
             .then(sd => {
               if (cancelled) return;
@@ -84,7 +98,7 @@ export function useCalendarData() {
                 done: (d.done as boolean) ?? false, createdAt: (d.createdAt as string) ?? '',
               })));
             })
-            .catch(err => console.error('Failed to load supply todos', err));
+            .catch(err => { if (!cancelled) console.error('Failed to load supply todos', err); });
           return;
         } else {
           // 관리자 캘린더는 로그인 뒤에만 열린다. 예전의 비로그인 폴백(/api/public/calendar)은
@@ -94,16 +108,20 @@ export function useCalendarData() {
           setCleanings([]);
           setCleaners([]);
           setAllSupplyTodos([]);
+          knownPropertyIds.current = new Set();
+          setActiveProps(new Set());
         }
       } catch (err) {
+        if (cancelled) return;
         console.error('Failed to load calendar data', err);
+        setError('해당 월의 캘린더 정보를 불러오지 못했습니다. 다시 시도해 주세요.');
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
     fetchAll();
-    return () => { cancelled = true; };
-  }, [user, profile]);
+    return () => { cancelled = true; controller.abort(); };
+  }, [user, profile, month, reloadKey]);
 
   // Weeks for current month view
   const weeks = useMemo(() => {
@@ -226,11 +244,11 @@ export function useCalendarData() {
   }, []);
 
   const prevMonth = useCallback(() => {
-    setViewDate(d => { const nd = new Date(d); nd.setMonth(nd.getMonth() - 1); return nd; });
+    setViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1));
   }, []);
 
   const nextMonth = useCallback(() => {
-    setViewDate(d => { const nd = new Date(d); nd.setMonth(nd.getMonth() + 1); return nd; });
+    setViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1));
   }, []);
 
   const goToday = useCallback(() => setViewDate(new Date()), []);
@@ -238,7 +256,7 @@ export function useCalendarData() {
   return {
     user, properties, channelMap, cleaners, cleanings, setCleanings,
     events, setEvents,
-    loading, activeProps, viewDate, weeks, today,
+    loading, error, retry: () => setReloadKey(key => key + 1), activeProps, viewDate, weeks, today,
     processedEvents, activeProperties, eventsByProp,
     unassignedCleanings, sortedUnassigned,
     allSupplyTodos, setAllSupplyTodos,

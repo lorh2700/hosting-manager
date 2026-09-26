@@ -223,7 +223,18 @@ function collection(model: string) {
       db[model] = rows().filter(r => !matches(r, args.where));
       return { count: before - db[model].length };
     },
-    groupBy: async () => { record('groupBy'); return []; },
+    groupBy: async (args: Row = {}) => {
+      record('groupBy');
+      if (!args._count) return [];
+      const groups = new Map<string, Row>();
+      for (const row of rows().filter(r => matches(r, args.where))) {
+        const key = JSON.stringify(args.by.map((field: string) => row[field]));
+        const group = groups.get(key) ?? { ...Object.fromEntries(args.by.map((field: string) => [field, row[field]])), _count: { _all: 0 } };
+        group._count._all++;
+        groups.set(key, group);
+      }
+      return [...groups.values()];
+    },
   };
 }
 

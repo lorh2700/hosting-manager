@@ -2,22 +2,13 @@ import { listAssignees } from '@/lib/staff-directory';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { withAuth, query } from '@/lib/core/http';
-import { kstYearMonth, monthRange } from '@/lib/dates';
+import { calendarMonthRange } from '@/lib/calendar-month';
 
 export const GET = withAuth('admin/calendar', async (req, { auth }) => {
   const t0 = Date.now();
   const timings: Record<string, number> = {};
 
-  // Default range: 1 month back + 2 months forward. Client can request more via ?monthsForward=N.
-  const monthsBackParam = Number(query(req, 'monthsBack'));
-  const monthsForwardParam = Number(query(req, 'monthsForward'));
-  const monthsBack = Number.isFinite(monthsBackParam) && monthsBackParam >= 0 ? monthsBackParam : 1;
-  const monthsForward = Number.isFinite(monthsForwardParam) && monthsForwardParam > 0 ? monthsForwardParam : 2;
-
-  // 서버(UTC)가 아니라 한국 시간 기준 월로 계산.
-  const { year, month } = kstYearMonth();
-  const rangeFrom = monthRange(year, month - monthsBack).first;
-  const rangeTo = monthRange(year, month + monthsForward).last;
+  const { first: rangeFrom, last: rangeTo } = calendarMonthRange(query(req, 'month'));
 
   const tProps = Date.now();
   const properties = await prisma.property.findMany({
@@ -87,6 +78,6 @@ export const GET = withAuth('admin/calendar', async (req, { auth }) => {
       supplyTodos: [],
       _timings: process.env.NODE_ENV === 'development' ? timings : undefined,
     },
-    { headers: { 'Cache-Control': 'private, max-age=15, stale-while-revalidate=120' } },
+    { headers: { 'Cache-Control': 'private, no-store' } },
   );
 });

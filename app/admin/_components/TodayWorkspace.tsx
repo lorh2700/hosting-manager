@@ -105,6 +105,7 @@ export default function OpsPage() {
   const [data, setData] = useState<OpsData | null>(null);
   const [cameraLoading, setCameraLoading] = useState(false);
   const [cameraError, setCameraError] = useState('');
+  const [cameraData, setCameraData] = useState<{ scope: string; today: string; properties: Pick<OpsProperty, 'id' | 'camera'>[] } | null>(null);
   const mediaController = useRef<AbortController | null>(null);
   const mounted = useRef(false);
   const summaryController = useRef<AbortController | null>(null);
@@ -132,39 +133,35 @@ export default function OpsPage() {
     try {
       mediaController.current?.abort();
       setCameraLoading(true); setCameraError('');
-      let next = await readOps<OpsData>('/api/ops/today?view=summary', request.signal);
+      setCameraData(null);
+      // Photos load independently; neither their completion order nor a failure
+      // may overwrite the operational snapshot or delay its action buttons.
+      const controller = new AbortController();
+      mediaController.current = controller;
+      void readOps<{ today: string; properties: Pick<OpsProperty, 'id' | 'camera'>[] }>('/api/ops/today?view=cameras', controller.signal)
+        .then(media => {
+          if (controller.signal.aborted || !mounted.current) return;
+          if (media.today !== todayKst()) throw new Error('날짜가 변경되었습니다. 새로고침해주세요.');
+          setCameraData({ ...media, scope: scopeKey });
+          if (media.properties.some(p => p.camera.some(photo => !photo.url))) {
+            setCameraError('저장된 사진의 주소를 불러오지 못했습니다. 복도 카메라에서 다시 확인해주세요.');
+          } else if (media.properties.every(p => p.camera.length === 0)) {
+            setCameraError('오늘 저장된 카메라 사진이 없습니다. 복도 카메라에서 사진 수집 상태를 확인해 주세요.');
+          }
+        }).catch(() => { if (!controller.signal.aborted) setCameraError('카메라 사진을 불러오지 못했습니다. 복도 카메라에서 다시 확인해주세요.'); })
+        .finally(() => { if (!controller.signal.aborted) setCameraLoading(false); });
+      const includeCounts = window.matchMedia('(min-width: 640px)').matches;
+      const next = await readOps<OpsData>(`/api/ops/today?view=details&includeCounts=${includeCounts}`, request.signal);
       if (!mounted.current || request.signal.aborted) return;
       if (next.today !== todayKst()) throw new Error('날짜가 변경되었습니다. 다시 불러와 주세요.');
       snapshotCache.write(scopeKey, next);
       setData(next); setUpdatedAt(new Date()); setLoadError(''); setDetailsError(''); setLoading(false);
       setDelivery({});
-      try {
-        const includeCounts = window.matchMedia('(min-width: 640px)').matches;
-        const detail = await readOps<OpsData>(`/api/ops/today?view=details&includeCounts=${includeCounts}`, request.signal);
-        if (request.signal.aborted || !mounted.current) return;
-        if (detail.today !== next.today || detail.today !== todayKst()) throw new Error('날짜가 변경되었습니다. 다시 불러와 주세요.');
-        next = detail;
-        snapshotCache.write(scopeKey, detail);
-        setData(detail);
-        if (detail.unavailable?.length) setDetailsError('일부 운영 정보를 확인하지 못했습니다. 다시 불러와 주세요.');
-      } catch (error) {
-        if (request.signal.aborted || !mounted.current) return;
-        setDetailsError(error instanceof Error ? error.message : '운영 정보를 불러오지 못했습니다.');
-      }
-      // Render core cards now; photo signing/storage is a separate request.
-      const controller = new AbortController();
-      mediaController.current = controller;
-      void readOps<{ today: string; properties: Pick<OpsProperty, 'id' | 'camera'>[] }>('/api/ops/today?view=cameras', controller.signal)
-        .then(media => {
-          if (controller.signal.aborted) return;
-          if (media.today !== next.today) throw new Error('날짜가 변경되었습니다. 새로고침해주세요.');
-          const byId = new Map(media.properties.map(p => [p.id, p.camera]));
-          setData(current => current === next ? { ...current, properties: current.properties.map(p => ({ ...p, camera: byId.get(p.id) ?? [] })) } : current);
-        }).catch(() => { if (!controller.signal.aborted) setCameraError('카메라 사진을 불러오지 못했습니다. 복도 카메라에서 다시 확인해주세요.'); })
-        .finally(() => { if (!controller.signal.aborted) setCameraLoading(false); });
+      if (next.unavailable?.length) setDetailsError('일부 운영 정보를 확인하지 못했습니다. 다시 불러와 주세요.');
     } catch (error) {
       if (!mounted.current || request.signal.aborted) return;
       snapshotCache.clear();
+      mediaController.current?.abort();
       setCameraLoading(false);
       setLoadError((error instanceof Error ? error.message : '오늘 현황을 불러오지 못했습니다.') + ' 표시된 자료는 이전 정보일 수 있습니다.');
     } finally {
@@ -217,7 +214,12 @@ export default function OpsPage() {
     return true;
   };
 
-  const working = useMemo(() => (data?.properties ?? []).filter(p => p.hasWork).sort((a, b) => Number(a.cleaning?.status === 'done') - Number(b.cleaning?.status === 'done')), [data]);
+  const working = useMemo(() => {
+    const photos = cameraData?.scope === scopeKey && cameraData.today === data?.today ? cameraData.properties : [];
+    const byId = new Map(photos.map(p => [p.id, p.camera]));
+    return (data?.properties ?? []).filter(p => p.hasWork).map(p => ({ ...p, camera: byId.get(p.id) ?? [] }))
+      .sort((a, b) => Number(a.cleaning?.status === 'done') - Number(b.cleaning?.status === 'done'));
+  }, [data, cameraData, scopeKey]);
   const visibleWorking = working.filter(p => filter === 'all' || (filter === 'done' ? p.cleaning?.status === 'done' : p.cleaning?.status !== 'done'));
   const idle = useMemo(() => (data?.properties ?? []).filter(p => !p.hasWork), [data]);
   const totals = useMemo(() => ({
@@ -488,6 +490,8 @@ function CameraSheet({ propertyId, properties, onSelect, onClose }: {
   const [cameraError, setCameraError] = useState('');
   const [retry, setRetry] = useState(0);
   const [loaded, setLoaded] = useState<{ id: string; shots: Shot[] } | null>(null);
+  const [hasHistory, setHasHistory] = useState(false);
+  const [diagnostic, setDiagnostic] = useState<{ id: string; message: string } | null>(null);
   const loading = !!propertyId && loaded?.id !== propertyId;
   const shots = loaded?.id === propertyId ? loaded.shots : [];
 
@@ -496,7 +500,18 @@ function CameraSheet({ propertyId, properties, onSelect, onClose }: {
     let cancelled = false;
     fetch(`/api/camera/snapshots?propertyId=${propertyId}&date=${todayStr()}`)
       .then(r => { if (!r.ok) throw new Error('사진을 불러오지 못했습니다.'); return r.json(); })
-      .then(d => { if (!cancelled) { setLoaded({ id: propertyId, shots: d.snapshots ?? [] }); setCameraError(''); } })
+      .then(async d => {
+        if (cancelled) return;
+        setDiagnostic(null);
+        setLoaded({ id: propertyId, shots: d.snapshots ?? [] }); setHasHistory((d.dates ?? []).length > 0); setCameraError('');
+        if (!(d.dates ?? []).length) {
+          // Load connection diagnostics only when an opened camera has no history.
+          const response = await fetch(`/api/camera/diagnostics?propertyId=${encodeURIComponent(propertyId)}`).catch(() => null);
+          if (!response?.ok || cancelled) return;
+          const status = await response.json().catch(() => null);
+          if (!cancelled && typeof status?.message === 'string') setDiagnostic({ id: propertyId, message: status.message });
+        }
+      })
       .catch(() => { if (!cancelled) { setCameraError('사진을 불러오지 못했습니다. 연결을 확인하고 다시 시도해 주세요.'); setLoaded({ id: propertyId, shots: [] }); } });
     return () => { cancelled = true; };
   }, [propertyId, retry]);
@@ -511,10 +526,12 @@ function CameraSheet({ propertyId, properties, onSelect, onClose }: {
           </button>
         ))}
       </div>
+      {shots.some(s => !s.url) && <p role="status" className="text-sm text-amber-800">일부 사진의 주소를 불러오지 못했습니다. 다시 열어 확인해 주세요.</p>}
+      {diagnostic?.id === propertyId && <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-stone-700">{diagnostic?.message}</p>}
       {loading ? (
         <SkeletonList count={1} rows={2} />
       ) : cameraError ? (<div role="alert" className="p-4 space-y-3"><p>{cameraError}</p><Button variant="secondary" onClick={() => { setLoaded(null); setCameraError(''); setRetry(v => v + 1); }}>다시 불러오기</Button></div>) : shots.length === 0 ? (
-        <p className="t-caption text-stone-500 py-6 text-center">오늘 저장된 사진이 없습니다. 사진이 없다는 것만으로 퇴실 여부를 판단할 수 없습니다.</p>
+        <p className="t-caption text-stone-500 py-6 text-center">{hasHistory ? '오늘 저장된 사진이 없습니다. 다른 날짜 보기를 확인해 주세요.' : '저장된 카메라 사진이 아직 없습니다. 카메라의 사진 메일 발송, 메일함 수신 설정, 숙소 연결을 확인해 주세요.'} 사진이 없다는 것만으로 퇴실 여부를 판단할 수 없습니다.</p>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {shots.map(s => (
@@ -522,7 +539,7 @@ function CameraSheet({ propertyId, properties, onSelect, onClose }: {
               {s.url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={s.url} alt={`복도 ${hhmm(s.capturedAt)}`} className="w-full aspect-[4/3] object-cover bg-stone-100" loading="lazy" />
-              ) : <div className="w-full aspect-[4/3] bg-stone-100" />}
+              ) : <div className="w-full aspect-[4/3] bg-stone-100 grid place-items-center text-xs text-stone-600">사진 주소 확인 필요</div>}
               <div className="px-2 py-1.5 flex items-center justify-between gap-1">
                 <span className="t-caption tabular-nums">{format(parseISO(s.capturedAt), 'HH:mm:ss')}</span>
                 {s.leaving && <Badge tone="warning">퇴실로 보임</Badge>}

@@ -354,14 +354,23 @@ export async function ensureCleaningsForProperty(propertyId: string): Promise<st
   // Only confirmed reservations should drive cleanings. Inquiry-type events
   // (Beds24 status='request'/'inquiry') are stored as type='block' and do
   // NOT mean a guest will actually check out — so we exclude them here.
-  const reservations = await prisma.event.findMany({
-    where: { propertyId, type: 'reservation' },
-    select: { endDate: true },
-  });
+  const [reservations, directBookings] = await Promise.all([
+    prisma.event.findMany({
+      where: { propertyId, type: 'reservation' },
+      select: { endDate: true },
+    }),
+    prisma.booking.findMany({
+      where: { propertyId, status: 'confirmed' },
+      select: { checkOut: true },
+    }),
+  ]);
 
   const checkoutDates = new Set<string>();
   for (const e of reservations) {
     if (e.endDate) checkoutDates.add(e.endDate);
+  }
+  for (const booking of directBookings) {
+    if (booking.checkOut) checkoutDates.add(booking.checkOut);
   }
   const checkoutList = Array.from(checkoutDates);
   const today = todayKst();
@@ -372,6 +381,7 @@ export async function ensureCleaningsForProperty(propertyId: string): Promise<st
       propertyId,
       origin: 'auto',
       status: { not: 'done' },
+      completedAt: null,
       date: { gte: today, notIn: checkoutList },
     },
     select: {
@@ -383,8 +393,12 @@ export async function ensureCleaningsForProperty(propertyId: string): Promise<st
     },
   });
   if (orphans.length > 0) {
-    await prisma.cleaning.deleteMany({
-      where: { id: { in: orphans.map(o => o.id) } },
+    await prisma.$transaction(async tx => {
+      const ids = orphans.map(o => o.id);
+      // Preserve issue reports; a linked report must not prevent cancellation.
+      await tx.cleaningIssue.updateMany({ where: { cleaningId: { in: ids } }, data: { cleaningId: null } });
+      await tx.cleaningApplication.deleteMany({ where: { cleaningId: { in: ids } } });
+      await tx.cleaning.deleteMany({ where: { id: { in: ids } } });
     });
     console.log(`[sync] removed ${orphans.length} orphan cleaning(s) for ${propertyId}: ${orphans.map(o => o.date).join(', ')}`);
     for (const o of orphans) {
@@ -553,8 +567,11 @@ export async function syncBeds24Property(
   }
 
   // Convert Beds24 bookings to events
+  const cancelledUids = new Set(allBookings
+    .filter(b => String(b.status).toLowerCase() === 'cancelled' && b.id != null)
+    .map(b => String(b.id)));
   const newEvents = allBookings
-    .filter((b) => b.status !== 'cancelled' && b.arrival && b.departure)
+    .filter((b) => !cancelledUids.has(String(b.id)) && b.arrival && b.departure)
     .map((b) => {
       const isBlack = b.status === 'black';
       // 블랙아웃 중 메모가 '객실정비'로 시작하면 유지보수 차단 — 어디서 만들었든 같은 규칙.
@@ -681,7 +698,16 @@ export async function syncBeds24Property(
     where: { propertyId, channelId: 'beds24', endDate: { gte: fromStr, lte: toStr } },
     select: { id: true, originalUid: true },
   });
-  const staleEvents = existingInWindow.filter(e => e.originalUid && !incomingUids.has(e.originalUid));
+  // Explicit provider cancellations are authoritative even when the response
+  // would trip the guard for reservations merely missing from a partial feed.
+  if (cancelledUids.size > 0) {
+    await prisma.$transaction(async tx => {
+      await tx.booking.updateMany({ where: { propertyId, channelBookingRef: { in: [...cancelledUids] } }, data: { status: 'cancelled' } });
+      const removed = await tx.event.deleteMany({ where: { propertyId, channelId: 'beds24', originalUid: { in: [...cancelledUids] } } });
+      eventsRemoved += removed.count;
+    });
+  }
+  const staleEvents = existingInWindow.filter(e => e.originalUid && !cancelledUids.has(e.originalUid) && !incomingUids.has(e.originalUid));
   const removalGuard = shouldSkipRemoval(allBookings.length, existingInWindow.length, staleEvents.length);
   if (removalGuard) {
     console.warn(`[sync] beds24 ${beds24PropId} for ${propertyId}: ${removalGuard} — skipping removal of ${staleEvents.length} events`);

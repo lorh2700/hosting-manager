@@ -43,6 +43,8 @@ export interface AuthedContext<P> {
 export type AuthedHandler<P> = (req: Request, ctx: AuthedContext<P>) => Promise<Response>;
 
 export interface WithAuthOptions {
+  /** Include authentication and handler durations without exposing user data. */
+  serverTiming?: boolean;
   /** 관리자(admin)만 허용 */
   admin?: boolean;
   /** 승인 대기·정지 계정도 통과 (계정 상태 화면 등 극소수 경로) */
@@ -72,11 +74,15 @@ export function withAuth<P = Record<string, never>>(
 
   const fn = async (req: Request, routeCtx?: RouteContext<P>): Promise<Response> => {
     try {
+      const started = performance.now();
       const auth = await getSessionWithUser(req, { allowInactive: opts.allowInactive });
+      const authenticated = performance.now();
       if (!auth) return errorResponse(401, MESSAGES.unauthorized);
       if (opts.admin && auth.role !== 'admin') return errorResponse(403, MESSAGES.forbidden);
       const params = routeCtx ? await routeCtx.params : ({} as P);
-      return await handler(req, { auth, params, log });
+      const response = await handler(req, { auth, params, log });
+      if (opts.serverTiming) response.headers.append('Server-Timing', `auth;dur=${(authenticated - started).toFixed(1)}, handler;dur=${(performance.now() - authenticated).toFixed(1)}`);
+      return response;
     } catch (e) {
       if (e instanceof HttpError) return errorResponse(e.status, e.message, e.extra);
       console.error(`[${name}] error:`, e);

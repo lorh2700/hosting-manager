@@ -43,6 +43,31 @@ test('messages are bounded per reservation while unread and older delivery remai
     assert.equal(guest.messages.length,4); assert.equal(guest.unread,19); assert.equal(guest.readyDelivery,'sent');
     assert.equal(guest.messages[0].text,'text-16');
   }
+  assert.equal(calls.filter(c => c === 'message.groupBy').length, 1);
+  assert.equal(calls.filter(c => c === 'message.count').length, 0);
+  assert.equal(calls.filter(c => c === 'message.findFirst').length, 0);
+  assert.equal(calls.filter(c => c === 'message.findMany').length, 3);
+});
+
+test('timings include authentication and operational sections', async () => {
+  const response = await GET(new Request('http://test/api/ops/today?view=details'), { params: Promise.resolve({}) });
+  const timing = response.headers.get('Server-Timing') ?? '';
+  for (const name of ['auth', 'handler', 'properties', 'reservations', 'messages']) assert.match(timing, new RegExp(`${name};dur=\\d`));
+});
+
+test('batched messages keep ready text, guest counts and permissions separated per property', async () => {
+  db.property.push({ id: 'p2', name: 'Second', roomReadyMessage: 'second ready' });
+  db.event.push({ ...db.event[0], id: 'e2', propertyId: 'p2' });
+  db.message = [
+    { id: 'wrong', eventId: 'e', type: 'message', sender: 'host', text: 'second ready', deliveryStatus: 'sent', createdAt: new Date() },
+    { id: 'right', eventId: 'e2', type: 'message', sender: 'host', text: 'second ready', deliveryStatus: 'failed', createdAt: new Date() },
+    { id: 'memo', eventId: 'e', type: 'memo', sender: 'guest', text: 'memo', read: false, createdAt: new Date() },
+  ];
+  const { body } = await read('details');
+  const guests = body.properties.flatMap((p: any) => p.checkins);
+  assert.equal(guests.find((g: any) => g.id === 'e').readyDelivery, null);
+  assert.equal(guests.find((g: any) => g.id === 'e').unread, 0);
+  assert.equal(guests.find((g: any) => g.id === 'e2').readyDelivery, 'failed');
 });
 test('GET retries a transient server failure once', async t => {
   let calls=0;

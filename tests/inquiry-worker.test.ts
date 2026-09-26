@@ -46,6 +46,30 @@ test('활성화 이전 이력·호스트 메시지·시간 불명 메시지는 �
   await enqueueInquiries(); assert.equal((db.inquiryJob ?? []).length, 0);
 });
 
+test('기준 시각 이전 문의는 제외하고 그 이후 새 문의만 처리한다', async () => {
+  const cutoff = new Date();
+  db.inquiryAutomationSettings[0].enabledAt = cutoff;
+  db.message[0].createdAt = cutoff;
+  await enqueueInquiries();
+  assert.equal((db.inquiryJob ?? []).length, 0);
+  db.message.push({ ...db.message[0], id: 'new', beds24MessageId: '102', createdAt: new Date(cutoff.getTime() + 1) });
+  await enqueueInquiries();
+  assert.deepEqual(db.inquiryJob.map(job => job.messageId), ['new']);
+  await runAll();
+  assert.deepEqual(sent, [routine.draft]);
+});
+
+test('이미 처리 중인 지난 문의도 기준 시각 변경 후 발송하지 않는다', async () => {
+  await enqueueInquiries();
+  await processInquiryJob(deps);
+  assert.equal(db.inquiryJob[0].status, 'verify');
+  db.inquiryAutomationSettings[0].enabledAt = new Date();
+  await runAll();
+  assert.equal(db.inquiryJob[0].status, 'skipped');
+  assert.equal(sent.length, 0);
+  assert.equal(alerts.length, 0);
+});
+
 test('어려운 문의는 답변하지 않고 담당자 응대로 전환, 지정 번호별 알림 1회', async () => {
   await enqueueInquiries();
   await runAll({ ...deps, judge: async () => ({ ...routine, action: 'escalate', reason: '환불 예외 요청' }) });

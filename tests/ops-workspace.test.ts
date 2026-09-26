@@ -38,6 +38,15 @@ test('camera view returns only latest three per visible property without operati
  assert.ok(!calls.includes('message.findMany'));
  assert.ok(!calls.includes('cleaning.findMany'));
 });
+
+test('empty camera view uses one grouped lookup instead of one query per property', async () => {
+ db.property = Array.from({ length: 6 }, (_, i) => ({ id: `p${i}`, name: `Stay ${i}` }));
+ const result = await callRoute(GET, makeRequest({}, 'http://localhost/api/ops/today?view=cameras'));
+ assert.equal(result.body.properties.length, 6);
+ assert.ok(result.body.properties.every((p: any) => p.camera.length === 0));
+ assert.equal(calls.filter(c => c === 'cameraSnapshot.groupBy').length, 1);
+ assert.equal(calls.filter(c => c === 'cameraSnapshot.findMany').length, 0);
+});
 test('workspace exposes failed room-ready delivery separately from completed cleaning', async () => {
  const today = todayKst();
  db.property = [{ id: 'p1', name: 'Test stay', ownerId: 'host', roomReadyMessage: 'Ready for arrival' }];

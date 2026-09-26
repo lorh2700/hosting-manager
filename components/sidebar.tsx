@@ -74,38 +74,12 @@ const MOBILE_PRIMARY_COUNT = 4;
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { profile, user } = useAuth();
+  const { user, profile } = useAuth();
   const role = profile?.role ?? 'manager';
-  const [unreadCount, setUnreadCount] = useState(0);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
   const { mode } = useAdminMode();
   const modeLabel = mode === 'tour' ? '투어 관리' : '숙박 관리';
-
-  useEffect(() => {
-    if (!user) return;
-
-    const controller = new AbortController();
-    const fetchUnread = async () => {
-      if (document.hidden) return;
-      try {
-        const res = await fetch('/api/messages/unread-count', { signal: controller.signal });
-        if (res.ok) {
-          const data = await res.json();
-          setUnreadCount(data.count ?? 0);
-        }
-      } catch { /* ignore */ }
-    };
-    fetchUnread();
-    const interval = setInterval(fetchUnread, 30000);
-    const handleVisibility = () => { if (!document.hidden) fetchUnread(); };
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => {
-      controller.abort();
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', handleVisibility);
-    };
-  }, [user]);
 
   useEffect(() => {
     if (!moreOpen) return;
@@ -162,11 +136,6 @@ export function Sidebar() {
           className={isActive ? 'text-[var(--brand)]' : 'text-stone-400 group-hover:text-stone-700'}
         />
         <span>{link.label}</span>
-        {link.href === '/admin/messages' && unreadCount > 0 && (
-          <span className="ml-auto min-w-[20px] h-[18px] px-1.5 bg-[var(--brand)] flex items-center justify-center text-[12px] font-semibold text-white tabular-nums">
-            {unreadCount > 9 ? '9+' : unreadCount}
-          </span>
-        )}
       </Link>
     );
   };
@@ -243,11 +212,6 @@ export function Sidebar() {
                 {isActive && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[2px] bg-[var(--brand)]" />}
                 <Icon size={21} strokeWidth={isActive ? 2 : 1.7} className={isActive ? 'text-[var(--brand)]' : ''} />
                 <span className="t-micro leading-none">{link.mobileLabel ?? link.label}</span>
-                {link.href === '/admin/messages' && unreadCount > 0 && (
-                  <span className="absolute top-1.5 left-1/2 ml-2 min-w-[18px] h-[18px] px-1 bg-[var(--brand)] flex items-center justify-center text-[11px] font-semibold text-white tabular-nums">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
               </Link>
             );
           })}

@@ -31,6 +31,13 @@ export default function UnifiedCalendarPage() {
     );
   }
 
+  if (data.error) {
+    return <div role="alert" className="mx-auto max-w-7xl space-y-4 p-6">
+      <p className="text-sm text-stone-600">{data.error}</p>
+      <button type="button" onClick={data.retry} className="min-h-11 bg-stone-900 px-4 text-sm text-white">다시 시도</button>
+    </div>;
+  }
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <CalendarHeader
@@ -49,6 +56,7 @@ export default function UnifiedCalendarPage() {
         activeProps={data.activeProps}
         toggleProp={data.toggleProp}
       />
+      <p className="text-xs text-stone-500">{data.viewDate.getMonth() + 1}월에 해당하는 일정만 표시합니다. 다른 달의 일정은 해당 달로 이동해 확인하세요.</p>
 
       <div className="md:hidden">
         <div className="flex gap-2" role="group" aria-label="캘린더 보기 방식">

@@ -53,10 +53,16 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
   const summaryOnly = view === 'summary';
   const includeCounts = new URL(req.url).searchParams.get('includeCounts') !== 'false';
   const unavailable: string[] = [];
+  const timings: string[] = [];
+  async function timed<T>(name: string, read: () => Promise<T>): Promise<T> {
+    const start = performance.now();
+    try { return await read(); }
+    finally { timings.push(`${name};dur=${(performance.now() - start).toFixed(1)}`); }
+  }
   async function optional<T>(section: string, read: () => Promise<T>, fallback: T): Promise<T> {
     if (summaryOnly) return fallback;
     const start = performance.now();
-    try { return await read(); }
+    try { return await timed(section, read); }
     catch (error) {
       unavailable.push(section);
       console.error('[ops/today]', { section, durationMs: Math.round(performance.now() - start), error: error instanceof Error ? error.name : 'UnknownError' });
@@ -65,11 +71,11 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
   }
   const today = todayKst();
   const visible = await visibleScope(auth);
-  const properties = await prisma.property.findMany({
+  const properties = await timed('properties', () => prisma.property.findMany({
     where: visible === null ? {} : { id: { in: visible } },
     select: { id: true, name: true, ownerId: true, roomReadyMessage: true, doorPassword: true, addressUrl: true },
     orderBy: { name: 'asc' },
-  });
+  }));
   const propIds = properties.map(p => p.id);
   if (propIds.length === 0) {
     return ok({ today, unavailable: [], detailsLoaded: !summaryOnly, properties: [], cleaners: [], counts: { pendingApplications: 0, openIssues: 0, pendingSupplies: 0 } });
@@ -78,7 +84,12 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
   // Optional media must never delay the operational summary. Each property is
   // bounded independently so a busy camera cannot crowd out other properties.
   if (view === 'cameras') {
-    const previews = await mapOpsReads(propIds, async propertyId => {
+    const photoGroups = await timed('camera_index', () => prisma.cameraSnapshot.groupBy({
+      by: ['propertyId'], where: { propertyId: { in: propIds }, date: today }, _count: { _all: true },
+    }));
+    const withPhotos = new Set(photoGroups.map(group => group.propertyId));
+    const previews = await timed('camera_previews', () => mapOpsReads(propIds, async propertyId => {
+      if (!withPhotos.has(propertyId)) return { id: propertyId, camera: [] };
       const rows = await prisma.cameraSnapshot.findMany({ where: { propertyId, date: today },
         orderBy: { capturedAt: 'desc' }, take: 3,
         select: { id: true, capturedAt: true, storagePath: true, leaving: true, verdict: true } });
@@ -86,14 +97,14 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
         url: await createSignedUrl({ bucket: CAMERA_BUCKET, path: r.storagePath }), leaving: r.leaving,
         summary: (r.verdict as { summary?: string } | null)?.summary ?? null })));
       return { id: propertyId, camera };
-    });
+    }));
     const response = ok({ today, properties: previews });
     response.headers.set('Cache-Control', 'private, no-store');
-    response.headers.set('Server-Timing', `ops;dur=${(performance.now() - started).toFixed(1)}`);
+    response.headers.set('Server-Timing', [...timings, `ops;dur=${(performance.now() - started).toFixed(1)}`].join(', '));
     return response;
   }
 
-  const [events, bookings] = await Promise.all([
+  const [events, bookings] = await timed('reservations', () => Promise.all([
     prisma.event.findMany({
       where: {
         propertyId: { in: propIds },
@@ -107,23 +118,37 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
       where: { propertyId: { in: propIds }, status: 'confirmed', OR: [{ checkIn: today }, { checkOut: today }] },
       select: { id: true, propertyId: true, name: true, checkIn: true, checkOut: true, guests: true, source: true, channelBookingRef: true, checkout: { select: { stayOptions: true, beds24Id: true } } },
     }),
-  ]);
+  ]));
 
   // Optional sections run after core reads and do not compete for all pool slots.
-  const [cleanings, checkoutStatus] = await Promise.all([optional('cleaning', () => prisma.cleaning.findMany({
+  const [cleanings, checkoutStatus, cleaners] = await Promise.all([optional('cleaning', () => prisma.cleaning.findMany({
     where: { propertyId: { in: propIds }, date: today },
     include: { cleaner: { select: { id: true, displayName: true } } },
     orderBy: { createdAt: 'desc' },
   }), []),
     optional('checkout', () => checkoutStatusByProperty(propIds, today), {}),
+    optional('cleaners', () => listAssignees(auth), []),
   ]);
-  const cleaners = await optional('cleaners', () => listAssignees(auth), []);
-  const pendingApplications = !includeCounts ? null : await optional<number | null>('applications', () => prisma.cleaningApplication.count({ where: { status: 'pending', propertyId: { in: propIds } } }), null);
-  const openIssues = !includeCounts ? null : await optional<number | null>('issues', () => prisma.cleaningIssue.count({ where: { status: { in: ['open', 'in_progress'] }, propertyId: { in: propIds } } }), null);
-  const pendingSupplies = !includeCounts ? null : await optional<number | null>('supplies', () => prisma.supplyTodo.count({ where: { done: false, propertyId: { in: propIds } } }), null);
+  const [pendingApplications, openIssues, pendingSupplies] = await Promise.all([
+    !includeCounts ? null : optional<number | null>('applications', () => prisma.cleaningApplication.count({ where: { status: 'pending', propertyId: { in: propIds } } }), null),
+    !includeCounts ? null : optional<number | null>('issues', () => prisma.cleaningIssue.count({ where: { status: { in: ['open', 'in_progress'] }, propertyId: { in: propIds } } }), null),
+    !includeCounts ? null : optional<number | null>('supplies', () => prisma.supplyTodo.count({ where: { done: false, propertyId: { in: propIds } } }), null),
+  ]);
 
   const conversations = await optional('messages', async () => {
     const result: Record<string, { messages: OpsMessage[]; unread: number; readyDelivery: string | null; flags: GuestFlag[] }> = {};
+    if (!events.length) return result;
+    const eventIds = events.map(event => event.id);
+    const [unreadRows, readyRows] = await Promise.all([
+      prisma.message.groupBy({ by: ['eventId'], where: { eventId: { in: eventIds }, type: 'message', sender: 'guest', read: false }, _count: { _all: true } }),
+      prisma.message.findMany({
+        where: { type: 'message', sender: 'host', OR: events.map(event => ({ eventId: event.id, text: getRoomReadyMessage(properties as unknown as CalendarProperty[], event.propertyId) })) },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], distinct: ['eventId'],
+        select: { eventId: true, deliveryStatus: true },
+      }),
+    ]);
+    const unreadByEvent = new Map(unreadRows.map(row => [row.eventId, row._count._all]));
+    const readyByEvent = new Map(readyRows.map(row => [row.eventId, row.deliveryStatus]));
     // Bound each reservation independently; never apply one global take to all guests.
     await mapOpsReads(events, async event => {
       const where = { eventId: event.id, type: 'message' };
@@ -131,12 +156,7 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: MESSAGES_PER_GUEST,
         select: { id: true, sender: true, text: true, createdAt: true },
       });
-      const unread = await prisma.message.count({ where: { ...where, sender: 'guest', read: false } });
-      const ready = await prisma.message.findFirst({
-        where: { ...where, sender: 'host', text: getRoomReadyMessage(properties as unknown as CalendarProperty[], event.propertyId) },
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], select: { deliveryStatus: true },
-      });
-      result[event.id] = { unread, readyDelivery: ready?.deliveryStatus ?? null,
+      result[event.id] = { unread: unreadByEvent.get(event.id) ?? 0, readyDelivery: readyByEvent.get(event.id) ?? null,
         flags: detectGuestFlags(recent.filter(m => m.sender === 'guest').map(m => m.text)),
         messages: recent.reverse().map(m => ({ id: m.id, sender: m.sender, text: m.text, at: m.createdAt.toISOString() })),
       };
@@ -209,6 +229,6 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
   out.sort((a, b) => Number(b.hasWork) - Number(a.hasWork) || a.name.localeCompare(b.name));
   const response = ok({ today, unavailable, detailsLoaded: !summaryOnly, properties: out, cleaners, counts: { pendingApplications, openIssues, pendingSupplies } });
   response.headers.set('Cache-Control', 'private, no-store');
-  response.headers.set('Server-Timing', `ops;dur=${(performance.now() - started).toFixed(1)}`);
+  response.headers.set('Server-Timing', [...timings, `ops;dur=${(performance.now() - started).toFixed(1)}`].join(', '));
   return response;
-});
+}, { serverTiming: true });
