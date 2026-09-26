@@ -92,6 +92,12 @@ export const GET = withAuth('cleanings', async (req, { auth }) => {
     where.propertyId = { in: ids };
   }
 
+  const dateFrom = query(req, 'dateFrom');
+  const dateTo = query(req, 'dateTo');
+  if ((dateFrom && !DATE_RE.test(dateFrom)) || (dateTo && !DATE_RE.test(dateTo)) || (dateFrom && dateTo && dateFrom > dateTo)) {
+    throw fail(400, '조회 기간을 확인해 주세요.');
+  }
+  if (dateFrom || dateTo) where.date = { ...(dateFrom ? { gte: dateFrom } : {}), ...(dateTo ? { lte: dateTo } : {}) };
   if (status) where.status = status;
   // "신청가능" = 배정자 없는 청소. isOpen 플래그는 레거시 데이터용이라 게이트로 쓰지 않는다.
   if (isOpen === 'true') where.cleanerId = null;

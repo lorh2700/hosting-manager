@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import {
   format,
   subMonths,
   addMonths,
-  setDate,
   startOfMonth,
   endOfMonth,
   eachDayOfInterval,
@@ -24,6 +23,9 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { SkeletonList } from '@/components/ui';
+import { readOps } from '@/lib/read-ops';
+import { useRefetchOnReturn } from '@/lib/hooks/useRefetchOnReturn';
+import { currentSettlementMonth, getSettlementPeriod, cleaningSettlementTotals } from '@/lib/cleaning-settlement';
 
 interface Cleaning {
   id: string;
@@ -67,18 +69,6 @@ interface SettlementPeriod {
   end: Date;
   startStr: string;
   endStr: string;
-}
-
-// Settlement period: 26th of previous month through 25th of the view month.
-function getSettlementPeriod(viewDate: Date): SettlementPeriod {
-  const end = setDate(viewDate, 25);
-  const start = setDate(subMonths(viewDate, 1), 26);
-  return {
-    start,
-    end,
-    startStr: format(start, 'yyyy-MM-dd'),
-    endStr: format(end, 'yyyy-MM-dd'),
-  };
 }
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -169,32 +159,40 @@ export default function CleaningReportPage() {
   const [cleaners, setCleaners] = useState<Cleaner[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewDate, setViewDate] = useState(new Date());
+  const [viewDate, setViewDate] = useState(currentSettlementMonth);
   const [expandedCleanerId, setExpandedCleanerId] = useState<string | null>(null);
 
-  useEffect(() => {
+  const [loadError, setLoadError] = useState('');
+  const requestRef = useRef<AbortController | null>(null);
+  const loadData = useCallback(async () => {
     if (!user) return;
-    loadData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
-
-  const loadData = async () => {
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
+    setLoading(true);
+    setLoadError('');
     try {
-      const [propsRes, cleanersRes, cleaningsRes] = await Promise.all([
-        fetch('/api/properties'),
-        fetch('/api/cleaners'),
-        fetch('/api/cleanings'),
+      const first = getSettlementPeriod(subMonths(viewDate, 5));
+      const last = getSettlementPeriod(viewDate);
+      const [nextProperties, nextCleaners, nextCleanings] = await Promise.all([
+        readOps<Property[]>('/api/properties', controller.signal),
+        readOps<Cleaner[]>('/api/cleaners', controller.signal),
+        readOps<Cleaning[]>(`/api/cleanings?dateFrom=${first.startStr}&dateTo=${last.endStr}`, controller.signal),
       ]);
-
-      if (propsRes.ok) setProperties(await propsRes.json());
-      if (cleanersRes.ok) setCleaners(await cleanersRes.json());
-      if (cleaningsRes.ok) setCleanings(await cleaningsRes.json());
-    } catch (err) {
-      console.error('Failed to load data', err);
+      if (controller.signal.aborted) return;
+      setProperties(nextProperties); setCleaners(nextCleaners); setCleanings(nextCleanings);
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      setLoadError(error instanceof Error ? error.message : '정산 내역을 불러오지 못했습니다.');
     } finally {
-      setLoading(false);
+      if (requestRef.current === controller) setLoading(false);
     }
-  };
+  }, [user, viewDate]);
+  useEffect(() => {
+    void loadData();
+    return () => requestRef.current?.abort();
+  }, [loadData]);
+  useRefetchOnReturn(loadData);
 
   const propMap = useMemo(() => {
     const m: Record<string, string> = {};
@@ -276,9 +274,8 @@ export default function CleaningReportPage() {
     return Object.values(map).sort((a, b) => b.total - a.total);
   }, [periodCleanings, cleaners, propMap]);
 
-  const totalDone = periodCleanings.filter(c => c.status === 'done').length;
-  const totalAll = periodCleanings.filter(c => c.cleanerId).length;
-  const unassigned = periodCleanings.filter(c => !c.cleanerId).length;
+  const { done: totalDone, pending: totalPending, unassigned } = cleaningSettlementTotals(periodCleanings);
+  const unassignedDone = periodCleanings.filter(c => c.status === 'done' && !c.cleanerId);
 
   const periodTrend = useMemo(() => {
     const items: { label: string; key: string; count: number }[] = [];
@@ -321,6 +318,13 @@ export default function CleaningReportPage() {
     URL.revokeObjectURL(url);
   };
 
+  if (loadError) {
+    return <div role="alert" className="max-w-4xl mx-auto rounded-xl border border-amber-300 bg-amber-50 p-6 space-y-3">
+      <p className="font-semibold">정산 내역을 확인하지 못했습니다.</p>
+      <p>{loadError} 조회 실패는 청소 0건을 의미하지 않습니다.</p>
+      <button className="min-h-12 rounded-lg border px-4 bg-white" onClick={() => void loadData()}>다시 불러오기</button>
+    </div>;
+  }
   if (loading) {
     return <SkeletonList count={3} rows={2} />;
   }
@@ -412,8 +416,8 @@ export default function CleaningReportPage() {
               <p className="text-[13px] sm:text-xs text-stone-500 tracking-wide">완료</p>
             </div>
             <div className="bg-white border border-stone-100 p-4 sm:p-5 text-center">
-              <p className={`text-2xl sm:text-3xl font-bold mb-1 tabular-nums ${(totalAll - totalDone) > 0 ? 'text-amber-500' : 'text-stone-300'}`}>
-                {totalAll - totalDone}
+              <p className={`text-2xl sm:text-3xl font-bold mb-1 tabular-nums ${(totalPending) > 0 ? 'text-amber-500' : 'text-stone-300'}`}>
+                {totalPending}
               </p>
               <p className="text-[13px] sm:text-xs text-stone-500 tracking-wide">대기</p>
             </div>
@@ -424,6 +428,13 @@ export default function CleaningReportPage() {
               <p className="text-[13px] sm:text-xs text-stone-500 tracking-wide">미배정</p>
             </div>
           </div>
+
+          {unassignedDone.length > 0 && <section className="border border-amber-300 bg-amber-50 p-4 space-y-3" aria-label="담당자 확인이 필요한 완료 청소">
+            <h3 className="font-semibold text-amber-950">담당자 확인 필요 · 완료 {unassignedDone.length}건</h3>
+            <p className="text-sm text-stone-700">완료 기록은 있지만 담당자가 없어 개인별 정산에 포함되지 않았습니다. 실제 수행자를 확인해 배정해 주세요.</p>
+            <ul className="space-y-2 text-sm">{unassignedDone.map(c => <li key={c.id}>{c.date} · {propMap[c.propertyId] ?? '숙소 확인 필요'}</li>)}</ul>
+            <a className="inline-block underline min-h-10" href="/admin/calendar">통합 캘린더에서 확인</a>
+          </section>}
 
           {/* Trend chart */}
           <div className="bg-white border border-stone-100 p-5 sm:p-6">
