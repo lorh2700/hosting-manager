@@ -2,28 +2,11 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { beds24Post } from '@/lib/beds24';
 
-// Public-but-API-key-gated endpoint that the welcome-pad calls when the
-// host taps "정비 완료" on the kiosk's cleaning overlay. Two side effects:
-//   1. Mark today's cleaning row as done (creating one if no schedule existed).
-//   2. Send a "your room is ready" message to the guest via Beds24 — same
-//      code path as the host UI's `/api/beds24/messages/send` so behavior
-//      is identical to clicking "정비 완료" in the calendar (which is the
-//      established flow at app/admin/calendar/hooks/useEventModal.ts:103).
-//
-// Auth: x-api-key header (env: WELCOMEPAD_API_KEY) — same secret as /checkins.
-// Body: {
-//   propertyKey: 'anon',
-//   bookingId?: string|null,        // pad already knows this from /checkins — preferred
-//   completionNote?: string|null,   // saved on Cleaning row
-//   message?: string|null,          // override guest-facing text
-// }
-//
-// Reservation lookup priority:
-//   (a) bookingId provided  → find Event by originalUid (most precise)
-//   (b) fallback            → today's startDate event for this property
-//   neither hit             → cleaning row still updated, but no message sent
-
+// API-key-gated pad actions. Completion updates an existing schedule only.
+// Sending arrival instructions never writes a cleaning record.
 type Body = {
+  action?: 'complete' | 'send_message';
+  date?: string;
   propertyKey?: string;
   bookingId?: string | null;
   completionNote?: string | null;
@@ -50,7 +33,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const propertyKey = (body.propertyKey || '').trim();
+  if (!body || typeof body !== 'object') return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
+  const action = body.action ?? 'complete';
+  if (action !== 'complete' && action !== 'send_message') return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+  const propertyKey = typeof body.propertyKey === 'string' ? body.propertyKey.trim() : '';
   if (!propertyKey) {
     return NextResponse.json({ error: 'propertyKey is required' }, { status: 400 });
   }
@@ -69,33 +55,24 @@ export async function POST(req: Request) {
   const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' });
   const now = new Date();
 
-  // ── 1. Cleaning row 갱신/생성 ──────────────────────────────────────
-  const existing = await prisma.cleaning.findFirst({
-    where: { propertyId: property.id, date: today },
-    orderBy: { createdAt: 'desc' },
-  });
-
-  const cleaning = existing
-    ? await prisma.cleaning.update({
-        where: { id: existing.id },
-        data: {
-          status: 'done',
-          completedAt: existing.status === 'done' ? existing.completedAt : now,
-          completionNote: completionNote ?? existing.completionNote,
-        },
-      })
-    : await prisma.cleaning.create({
-        data: {
-          propertyId: property.id,
-          date: today,
-          status: 'done',
-          completedAt: now,
-          completionNote,
-          assignmentType: 'direct',
-          // 패드에서 만든 행 — 예약 취소 정리(origin='auto') 대상이 아니다.
-          origin: 'manual',
-        },
-      });
+  if (body.date && body.date !== today) return NextResponse.json({ error: '날짜가 변경되었습니다. 화면을 새로고침해 주세요.' }, { status: 409 });
+  if (action === 'complete') {
+    const schedules = await prisma.cleaning.findMany({
+      where: { propertyId: property.id, date: today }, orderBy: { createdAt: 'desc' },
+    });
+    const assigned = schedules.filter(row => row.cleanerId);
+    const candidates = assigned.length ? assigned : schedules;
+    if (!candidates.length) return NextResponse.json({ error: '오늘 등록된 청소 일정이 없습니다. 입실 안내만 보내려면 입실 안내 보내기를 눌러주세요.' }, { status: 409 });
+    if (candidates.length !== 1) return NextResponse.json({ error: '청소 일정이 여러 건입니다. 관리자 캘린더에서 완료 처리해 주세요.' }, { status: 409 });
+    const existing = candidates[0];
+    if (existing.status === 'done') return NextResponse.json({ ok: true, cleaningId: existing.id, status: 'done', alreadyCompleted: true });
+    const result = await prisma.cleaning.updateMany({
+      where: { id: existing.id, propertyId: property.id, date: today, status: 'pending', cleanerId: existing.cleanerId },
+      data: { status: 'done', completedAt: now, completionNote: completionNote ?? existing.completionNote },
+    });
+    if (result.count !== 1) return NextResponse.json({ error: '청소 일정이 변경되었습니다. 새로 확인해 주세요.' }, { status: 409 });
+    return NextResponse.json({ ok: true, cleaningId: existing.id, status: 'done', completedAt: now });
+  }
 
   // ── 2. Reservation lookup ─────────────────────────────────────────
   // 패드가 보낸 bookingId 우선 → 그 reservation 정확히 매칭.
@@ -105,16 +82,19 @@ export async function POST(req: Request) {
   let reservation: { id: string; originalUid: string | null; title: string | null } | null = null;
   if (bookingId) {
     reservation = await prisma.event.findFirst({
-      where: { propertyId: property.id, originalUid: bookingId, type: 'reservation' },
+      where: { propertyId: property.id, originalUid: bookingId, type: 'reservation', channelId: 'beds24', startDate: today },
       select: { id: true, originalUid: true, title: true },
     });
   }
-  if (!reservation) {
-    reservation = await prisma.event.findFirst({
-      where: { propertyId: property.id, type: 'reservation', startDate: today },
+  if (!bookingId) {
+    const arrivals = await prisma.event.findMany({
+      take: 2,
+      where: { propertyId: property.id, type: 'reservation', channelId: 'beds24', startDate: today },
       select: { id: true, originalUid: true, title: true },
       orderBy: { createdAt: 'desc' },
     });
+    if (arrivals.length > 1) return NextResponse.json({ error: '오늘 체크인 예약이 여러 건입니다. 관리자 대화 화면에서 수신자를 선택해 주세요.' }, { status: 409 });
+    reservation = arrivals[0] ?? null;
   }
 
   // ── 3. Beds24 메시지 발송 ──────────────────────────────────────────
@@ -193,10 +173,7 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({
-    ok: true,
-    cleaningId: cleaning.id,
-    status: cleaning.status,
-    completedAt: cleaning.completedAt,
+    ok: messageStatus === 'sent',
     message: {
       status: messageStatus,
       messageId,

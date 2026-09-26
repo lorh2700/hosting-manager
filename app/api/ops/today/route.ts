@@ -1,3 +1,4 @@
+import { mapOpsReads } from '@/lib/ops-loading';
 import { listAssignees } from '@/lib/staff-directory';
 import { readStayOptions } from '@/lib/payments/stay-options';
 import { prisma } from '@/lib/prisma';
@@ -50,6 +51,7 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
   const started = performance.now();
   const view = new URL(req.url).searchParams.get('view');
   const summaryOnly = view === 'summary';
+  const includeCounts = new URL(req.url).searchParams.get('includeCounts') !== 'false';
   const unavailable: string[] = [];
   async function optional<T>(section: string, read: () => Promise<T>, fallback: T): Promise<T> {
     if (summaryOnly) return fallback;
@@ -76,7 +78,7 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
   // Optional media must never delay the operational summary. Each property is
   // bounded independently so a busy camera cannot crowd out other properties.
   if (view === 'cameras') {
-    const previews = await Promise.all(propIds.map(async propertyId => {
+    const previews = await mapOpsReads(propIds, async propertyId => {
       const rows = await prisma.cameraSnapshot.findMany({ where: { propertyId, date: today },
         orderBy: { capturedAt: 'desc' }, take: 3,
         select: { id: true, capturedAt: true, storagePath: true, leaving: true, verdict: true } });
@@ -84,7 +86,7 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
         url: await createSignedUrl({ bucket: CAMERA_BUCKET, path: r.storagePath }), leaving: r.leaving,
         summary: (r.verdict as { summary?: string } | null)?.summary ?? null })));
       return { id: propertyId, camera };
-    }));
+    });
     const response = ok({ today, properties: previews });
     response.headers.set('Cache-Control', 'private, no-store');
     response.headers.set('Server-Timing', `ops;dur=${(performance.now() - started).toFixed(1)}`);
@@ -108,21 +110,22 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
   ]);
 
   // Optional sections run after core reads and do not compete for all pool slots.
-  const cleanings = await optional('cleaning', () => prisma.cleaning.findMany({
+  const [cleanings, checkoutStatus] = await Promise.all([optional('cleaning', () => prisma.cleaning.findMany({
     where: { propertyId: { in: propIds }, date: today },
     include: { cleaner: { select: { id: true, displayName: true } } },
     orderBy: { createdAt: 'desc' },
-  }), []);
-  const checkoutStatus = await optional('checkout', () => checkoutStatusByProperty(propIds, today), {});
+  }), []),
+    optional('checkout', () => checkoutStatusByProperty(propIds, today), {}),
+  ]);
   const cleaners = await optional('cleaners', () => listAssignees(auth), []);
-  const pendingApplications = await optional<number | null>('applications', () => prisma.cleaningApplication.count({ where: { status: 'pending', propertyId: { in: propIds } } }), null);
-  const openIssues = await optional<number | null>('issues', () => prisma.cleaningIssue.count({ where: { status: { in: ['open', 'in_progress'] }, propertyId: { in: propIds } } }), null);
-  const pendingSupplies = await optional<number | null>('supplies', () => prisma.supplyTodo.count({ where: { done: false, propertyId: { in: propIds } } }), null);
+  const pendingApplications = !includeCounts ? null : await optional<number | null>('applications', () => prisma.cleaningApplication.count({ where: { status: 'pending', propertyId: { in: propIds } } }), null);
+  const openIssues = !includeCounts ? null : await optional<number | null>('issues', () => prisma.cleaningIssue.count({ where: { status: { in: ['open', 'in_progress'] }, propertyId: { in: propIds } } }), null);
+  const pendingSupplies = !includeCounts ? null : await optional<number | null>('supplies', () => prisma.supplyTodo.count({ where: { done: false, propertyId: { in: propIds } } }), null);
 
   const conversations = await optional('messages', async () => {
     const result: Record<string, { messages: OpsMessage[]; unread: number; readyDelivery: string | null; flags: GuestFlag[] }> = {};
     // Bound each reservation independently; never apply one global take to all guests.
-    for (const event of events) {
+    await mapOpsReads(events, async event => {
       const where = { eventId: event.id, type: 'message' };
       const recent = await prisma.message.findMany({ where,
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: MESSAGES_PER_GUEST,
@@ -137,7 +140,7 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
         flags: detectGuestFlags(recent.filter(m => m.sender === 'guest').map(m => m.text)),
         messages: recent.reverse().map(m => ({ id: m.id, sender: m.sender, text: m.text, at: m.createdAt.toISOString() })),
       };
-    }
+    });
     return result;
   }, {});
 

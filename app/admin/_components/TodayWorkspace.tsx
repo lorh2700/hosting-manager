@@ -16,9 +16,11 @@ import { format, parseISO, isToday } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { PawPrint, Camera, Check, ChevronRight, Hand, AlertTriangle, Package, Users, FileBarChart, Wrench, ExternalLink, MessageSquare, ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
+import { Logo } from '@/components/Logo';
 import { Badge, Button, Card, EmptyState, PageHeader, Select, Sheet, SkeletonList, PullToRefresh, toast, confirmDialog } from '@/components/ui';
 import { todayKst } from '@/lib/dates';
 import { readOps } from '@/lib/read-ops';
+import { createOpsSnapshotCache } from '@/lib/ops-loading';
 import { opsActionsBlocked } from '@/lib/ops-freshness';
 import { useRefetchOnReturn } from '@/lib/hooks/useRefetchOnReturn';
 import { GUEST_FLAG_LABEL, type GuestFlag } from '@/lib/ops-flags';
@@ -34,6 +36,7 @@ interface OpsData {
   counts: { pendingApplications: number | null; openIssues: number | null; pendingSupplies: number | null };
 }
 
+const snapshotCache = createOpsSnapshotCache<OpsData>();
 const todayStr = todayKst;
 const hhmm = (iso: string) => format(new Date(iso), 'HH:mm');
 const stay = (r: OpsReservation) => `${format(parseISO(r.start), 'M/d')}–${format(parseISO(r.end), 'M/d')} · ${r.nights}박`;
@@ -97,14 +100,15 @@ function GuestBlock({ r, statusLine, action }: { r: OpsReservation; statusLine?:
 }
 
 export default function OpsPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const scopeKey = user && profile ? JSON.stringify([user.id, profile.role, profile.status, [...profile.propertyIds].sort()]) : '';
   const [data, setData] = useState<OpsData | null>(null);
   const [cameraLoading, setCameraLoading] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const mediaController = useRef<AbortController | null>(null);
   const mounted = useRef(false);
   const summaryController = useRef<AbortController | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const [refreshing, setRefreshing] = useState(true);
   const [currentDay, setCurrentDay] = useState(todayKst);
   const [detailsError, setDetailsError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -131,13 +135,16 @@ export default function OpsPage() {
       let next = await readOps<OpsData>('/api/ops/today?view=summary', request.signal);
       if (!mounted.current || request.signal.aborted) return;
       if (next.today !== todayKst()) throw new Error('날짜가 변경되었습니다. 다시 불러와 주세요.');
+      snapshotCache.write(scopeKey, next);
       setData(next); setUpdatedAt(new Date()); setLoadError(''); setDetailsError(''); setLoading(false);
       setDelivery({});
       try {
-        const detail = await readOps<OpsData>('/api/ops/today?view=details', request.signal);
+        const includeCounts = window.matchMedia('(min-width: 640px)').matches;
+        const detail = await readOps<OpsData>(`/api/ops/today?view=details&includeCounts=${includeCounts}`, request.signal);
         if (request.signal.aborted || !mounted.current) return;
         if (detail.today !== next.today || detail.today !== todayKst()) throw new Error('날짜가 변경되었습니다. 다시 불러와 주세요.');
         next = detail;
+        snapshotCache.write(scopeKey, detail);
         setData(detail);
         if (detail.unavailable?.length) setDetailsError('일부 운영 정보를 확인하지 못했습니다. 다시 불러와 주세요.');
       } catch (error) {
@@ -157,6 +164,7 @@ export default function OpsPage() {
         .finally(() => { if (!controller.signal.aborted) setCameraLoading(false); });
     } catch (error) {
       if (!mounted.current || request.signal.aborted) return;
+      snapshotCache.clear();
       setCameraLoading(false);
       setLoadError((error instanceof Error ? error.message : '오늘 현황을 불러오지 못했습니다.') + ' 표시된 자료는 이전 정보일 수 있습니다.');
     } finally {
@@ -165,10 +173,29 @@ export default function OpsPage() {
         if (mounted.current) { setLoading(false); setRefreshing(false); }
       }
     }
-  }, []);
+  }, [scopeKey]);
 
-  useEffect(() => { mounted.current = true; if (user) load(); return () => { mounted.current = false; summaryController.current?.abort(); summaryController.current = null; loadingRef.current = false; mediaController.current?.abort(); }; }, [user, load]);
+  useEffect(() => {
+    mounted.current = true;
+    const cached = snapshotCache.read(scopeKey);
+    setData(cached?.data ?? null);
+    setUpdatedAt(cached ? new Date(cached.savedAt) : null);
+    setLoadError(''); setDetailsError('');
+    setLoading(!cached); setRefreshing(true);
+    if (scopeKey) void load(!!cached);
+    else snapshotCache.clear();
+    return () => {
+      mounted.current = false; summaryController.current?.abort(); summaryController.current = null;
+      loadingRef.current = false; mediaController.current?.abort();
+    };
+  }, [scopeKey, load]);
   useRefetchOnReturn(() => load(true));
+  useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 640px)');
+    const onChange = () => { if (desktop.matches) void load(true); };
+    desktop.addEventListener('change', onChange);
+    return () => desktop.removeEventListener('change', onChange);
+  }, [load]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -203,6 +230,7 @@ export default function OpsPage() {
     if (!canAct()) return;
     if (!(await confirmDialog({ title: `${p.name} 체크아웃 확인`, message: '배정된 청소담당자에게 청소 시작 알림이 갑니다.', confirmLabel: '확인' }))) return;
     if (!canAct()) return;
+    snapshotCache.clear();
     setBusy(`checkout:${p.id}`);
     try {
       const res = await fetch('/api/checkout/confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyId: p.id, date: data!.today }) });
@@ -217,6 +245,7 @@ export default function OpsPage() {
     if (!canAct()) return;
     const cleanerId = assign[p.id];
     if (!cleanerId) return;
+    snapshotCache.clear();
     setBusy(`assign:${p.id}`);
     try {
       const res = p.cleaning
@@ -237,6 +266,7 @@ export default function OpsPage() {
       : `${p.name} 청소를 완료로 기록합니다.`;
     if (!(await confirmDialog({ title: '청소 완료', message: msg, confirmLabel: '완료' }))) return;
     if (!canAct()) return;
+    snapshotCache.clear();
     setBusy(`done:${p.id}`);
     try {
       const res = p.cleaning
@@ -252,6 +282,7 @@ export default function OpsPage() {
   const sendReady = async (p: OpsProperty, checkin: OpsReservation) => {
     if (!canAct()) return;
     setDelivery(prev => ({ ...prev, [checkin.id]: 'sending' }));
+    snapshotCache.clear();
     setBusy('message:' + p.id);
     try {
       const res = await fetch('/api/beds24/messages/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ eventId: checkin.id, propertyId: p.id, text: p.readyMessage }) });
@@ -270,12 +301,23 @@ export default function OpsPage() {
       <div className="max-w-4xl mx-auto space-y-6 pb-nav">
         <PageHeader eyebrow="void anchae · 숙소 운영" title="오늘" description={format(new Date(), 'M월 d일 (EEE)', { locale: ko })} />
 
-        {updatedAt && <p className="text-xs text-stone-500" role="status">마지막 확인 {format(updatedAt, 'M/d HH:mm')} · 아래로 당겨 새로고침</p>}
+        {updatedAt && <p className="text-xs text-stone-500" role="status">마지막 확인 {format(updatedAt, 'M/d HH:mm')} · {refreshing ? '최신 정보 확인 중…' : '아래로 당겨 새로고침'}</p>}
         {loadError && <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-3"><p className="text-sm text-stone-800">{loadError}</p><Button variant="secondary" onClick={() => load(!data ? false : true)}>다시 불러오기</Button></div>}
         {(detailsError || (data && data.today !== currentDay)) && <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4"><p>{detailsError || '날짜가 변경되어 최신 정보를 확인하고 있습니다.'}</p><Button variant="secondary" disabled={refreshing} onClick={() => load(true)}>다시 불러오기</Button></div>}
         {data && !data.detailsLoaded && !detailsError && <p role="status">예약 목록을 불러왔습니다. 청소·대화 정보를 확인하고 있습니다.</p>}
         {loading ? (
-          <SkeletonList count={3} rows={3} />
+          <div role="status" aria-live="polite" aria-label="오늘 일정을 불러오는 중" className="flex min-h-[320px] flex-col items-center justify-center gap-7 rounded-2xl border border-stone-200 bg-stone-50/70 px-6 py-12 sm:min-h-[380px]">
+            <div className="relative flex h-20 w-20 items-center justify-center" aria-hidden="true">
+              <div className="absolute inset-0 rounded-full border-2 border-stone-200" />
+              <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-[var(--brand)] motion-safe:animate-spin" />
+              <span className="h-3 w-3 rounded-full bg-[var(--brand)]/70 motion-safe:animate-pulse" />
+            </div>
+            <Logo variant="black" width={170} />
+            <div className="text-center space-y-2">
+              <p className="text-base font-medium text-stone-800">오늘 일정을 불러오고 있어요</p>
+              <p className="text-sm text-stone-500">체크인·체크아웃 정보를 확인하고 있습니다.</p>
+            </div>
+          </div>
         ) : data ? (
           <>
             {/* 1. 오늘 요약 */}
@@ -400,7 +442,7 @@ export default function OpsPage() {
             )}
 
             {/* 3. 처리할 것 · 바로가기 */}
-            <div className="grid grid-cols-3 gap-2">
+            <div className="hidden sm:grid grid-cols-3 gap-2">
               {[
                 { href: '/admin/cleaning-requests', label: '청소 신청', count: data.counts.pendingApplications, icon: Hand },
                 { href: '/admin/issues', label: '이슈', count: data.counts.openIssues, icon: AlertTriangle },

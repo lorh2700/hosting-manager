@@ -69,3 +69,11 @@ test('operations block on KST rollover, incomplete data or refresh failure', () 
  for(const change of [{detailsLoaded:false},{refreshing:true},{loadError:true},{unavailable:['messages']},{unavailable:['cleaning']}]) assert.equal(opsActionsBlocked({...input,...change},before),true);
  assert.equal(opsActionsBlocked({...input,unavailable:['supplies']},before),false);
 });
+
+test('mobile detail view skips hidden card count queries', async () => {
+  const { status, body } = await read('details&includeCounts=false');
+  assert.equal(status,200);
+  assert.equal(body.properties[0].checkins.length,1);
+  assert.equal(body.counts.pendingApplications,null);
+  assert.ok(!calls.some(c => ['cleaningApplication.count','cleaningIssue.count','supplyTodo.count'].includes(c)));
+});
