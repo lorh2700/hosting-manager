@@ -46,6 +46,31 @@ test('활성화 이전 이력·호스트 메시지·시간 불명 메시지는 �
   await enqueueInquiries(); assert.equal((db.inquiryJob ?? []).length, 0);
 });
 
+test('등록된 택시 안내는 검증 후 한 번 전송하며 담당자 알림으로 넘기지 않는다', async () => {
+  const knowledge = '인천공항 밴택시 기준 요금은 100,000원입니다. 공항 픽업 서비스는 사전 예약이 필요합니다.';
+  db.inquiryAutomationSettings[0].knowledge = knowledge;
+  db.message[0].text = 'Should we pre-book a taxi? How much is the airport pickup?';
+  const decision: InquiryDecision = { ...routine, category: 'transport',
+    draft: 'Our Incheon Airport van transfer costs KRW 100,000 and requires advance booking.', evidence: [knowledge] };
+  await enqueueInquiries();
+  const custom = { ...deps, judge: async () => decision };
+  await runAll(custom); await runAll(custom); await processInquiryNotification(custom);
+  assert.deepEqual(sent, [decision.draft]);
+  assert.equal(db.inquiryJob[0].status, 'sent');
+  assert.equal(db.inquiryConversation[0].paused, false);
+  assert.equal(alerts.length, 0);
+});
+
+test('차량 예약 요청은 자동 발송 없이 담당자에게 넘긴다', async () => {
+  db.message[0].text = 'How much is the taxi? Please book one for us.';
+  await enqueueInquiries();
+  await runAll({ ...deps, judge: async () => ({ ...routine, category: 'transport', action: 'escalate', reason: '실제 차량 예약 요청은 담당자 확인이 필요합니다.' }) });
+  assert.equal(sent.length, 0);
+  assert.equal(db.inquiryJob[0].status, 'escalated');
+  await processInquiryNotification(deps);
+  assert.equal(alerts.length, 1);
+});
+
 test('기준 시각 이전 문의는 제외하고 그 이후 새 문의만 처리한다', async () => {
   const cutoff = new Date();
   db.inquiryAutomationSettings[0].enabledAt = cutoff;

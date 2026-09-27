@@ -32,6 +32,19 @@ test('거부·부분 출력·잘못된 JSON·HTTP 오류는 자동답변 판정�
   setFetchHandler(() => json(envelope({ safe: false }))); assert.equal(await verifyInquiry(context, 'unsupported'), false);
 });
 
+test('택시 안내는 transport 분류와 원문 근거로 통과하고 번역된 근거는 차단한다', async () => {
+  const transport = { ...context, knowledge: '공항 픽업 서비스는 사전 예약이 필요합니다.\n인천공항 밴택시 기준 요금은 100,000원입니다.',
+    messages: [{ sender: 'guest', text: 'Should we pre-book a van taxi and how much is it?' }] };
+  const decision = { ...answer, category: 'transport', draft: 'The Incheon Airport van transfer costs KRW 100,000 and requires advance booking.',
+    evidence: ['공항 픽업 서비스는 사전 예약이 필요합니다.', '인천공항 밴택시 기준 요금은 100,000원입니다.'] };
+  setFetchHandler(() => json(envelope(decision)));
+  assert.equal((await judgeInquiry(transport)).action, 'reply');
+  setFetchHandler(() => json(envelope({ ...decision, evidence: ['The taxi fare is KRW 100,000.'] })));
+  assert.equal((await judgeInquiry(transport)).action, 'escalate');
+  setFetchHandler(() => json(envelope({ ...decision, evidence: [] })));
+  assert.equal((await judgeInquiry(transport)).action, 'escalate');
+});
+
 test('Beds24 HTTP 성공만으로 접수 성공으로 간주하지 않는다', async () => {
   assert.equal(confirmedBeds24Message([{ success: false, error: 'rejected' }]), null);
   assert.equal(confirmedBeds24Message({ success: true }), null);
