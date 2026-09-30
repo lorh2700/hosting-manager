@@ -68,7 +68,7 @@ export function useEventModal({
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: selectedEvent.cleaningId, cleanerId: cleanerIdToSave }),
         });
-        if (!res.ok) throw new Error('업데이트 실패');
+        if (!res.ok) { const result = await res.json(); throw new Error(result.error || '업데이트 실패'); }
         setCleanings(prev => prev.map(c =>
           c.id === selectedEvent.cleaningId ? { ...c, cleanerId: cleanerIdToSave } : c
         ));
@@ -77,7 +77,7 @@ export function useEventModal({
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ propertyId: selectedEvent.propertyId, date: checkoutDate, cleanerId: cleanerIdToSave, status: 'pending' }),
         });
-        if (!res.ok) throw new Error('생성 실패');
+        if (!res.ok) { const result = await res.json(); throw new Error(result.error || '생성 실패'); }
         const newCleaning = await res.json();
         setCleanings(prev => [...prev, {
           id: newCleaning.id, propertyId: selectedEvent.propertyId,
@@ -85,7 +85,7 @@ export function useEventModal({
         }]);
       }
       setSelectedEvent(null);
-    } catch (err) { console.error(err); toast.error('저장에 실패했습니다.'); }
+    } catch (err) { console.error(err); toast.error(err instanceof Error ? err.message : '저장에 실패했습니다.'); }
     finally { setCleanerSaving(false); }
   };
 

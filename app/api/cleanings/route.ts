@@ -132,6 +132,8 @@ export const POST = withAuth('cleanings', async (req, { auth }) => {
 
   const cleanerId = str(body, 'cleanerId') || null;
   if (cleanerId) await requireAssignee(cleanerId, propertyId);
+  const existingSlot = await prisma.cleaning.findFirst({ where: { propertyId, date }, select: { id: true } });
+  if (existingSlot) throw fail(409, '이미 청소 일정이 있습니다. 달력을 새로고침한 뒤 기존 일정의 담당자를 변경해 주세요.');
   const cleaning = await prisma.cleaning.create({
     data: {
       propertyId,
@@ -170,7 +172,10 @@ export const PUT = withAuth('cleanings', async (req, { auth }) => {
   }
 
   if (data.cleanerId) await requireAssignee(data.cleanerId, before.propertyId);
-  const cleaning = await prisma.cleaning.update({ where: { id }, data });
+  const changed = await prisma.cleaning.updateMany({ where: { id, cleanerId: before.cleanerId, date: before.date }, data });
+  if (changed.count !== 1) throw fail(409, '담당자가 변경되었습니다. 새로고침 후 다시 시도해 주세요.');
+  const cleaning = await prisma.cleaning.findUnique({ where: { id } });
+  if (!cleaning) throw fail(409, '청소 일정이 변경되었습니다.');
 
   const cleanerChanged = 'cleanerId' in data && cleaning.cleanerId !== before.cleanerId;
   if (cleanerChanged && before.cleanerId) {

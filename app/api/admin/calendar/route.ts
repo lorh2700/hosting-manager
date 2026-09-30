@@ -2,13 +2,13 @@ import { listAssignees } from '@/lib/staff-directory';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { withAuth, query } from '@/lib/core/http';
-import { calendarMonthRange } from '@/lib/calendar-month';
+import { calendarGridRange } from '@/lib/calendar-month';
 
 export const GET = withAuth('admin/calendar', async (req, { auth }) => {
   const t0 = Date.now();
   const timings: Record<string, number> = {};
 
-  const { first: rangeFrom, last: rangeTo } = calendarMonthRange(query(req, 'month'));
+  const { first: rangeFrom, last: rangeTo } = calendarGridRange(query(req, 'month'));
 
   const tProps = Date.now();
   const properties = await prisma.property.findMany({
@@ -30,7 +30,7 @@ export const GET = withAuth('admin/calendar', async (req, { auth }) => {
 
   // SupplyTodos come from /api/admin/calendar/supply-todos so the grid renders with one fewer query.
   const tQueries = Date.now();
-  const [events, bookings, cleanings, cleaners] = await Promise.all([
+  const [events, bookings, cleaners] = await Promise.all([
     prisma.event.findMany({
       where: { ...pidFilter, endDate: { gte: rangeFrom }, startDate: { lte: rangeTo } },
       select: {
@@ -45,13 +45,22 @@ export const GET = withAuth('admin/calendar', async (req, { auth }) => {
       select: { id: true, propertyId: true, name: true, email: true, guests: true, checkIn: true, checkOut: true },
       orderBy: { checkIn: 'asc' },
     }),
-    prisma.cleaning.findMany({
-      where: { ...pidFilter, date: { gte: rangeFrom, lte: rangeTo } },
-      select: { id: true, propertyId: true, date: true, cleanerId: true, status: true, supplies: true },
-      orderBy: { date: 'desc' },
-    }),
     listAssignees(auth),
   ]);
+  // Visible stays can check out next month. The event panel joins cleaning by
+  // property + checkout date, so keep those records even in a monthly view.
+  const linkedCheckouts = new Map<string, { propertyId: string; date: string }>();
+  for (const stay of [
+    ...events.filter(event => event.type === 'reservation').map(event => ({ propertyId: event.propertyId, date: event.endDate })),
+    ...bookings.map(booking => ({ propertyId: booking.propertyId, date: booking.checkOut })),
+  ]) {
+    if (stay.date < rangeFrom || stay.date > rangeTo) linkedCheckouts.set(`${stay.propertyId}:${stay.date}`, stay);
+  }
+  const cleanings = await prisma.cleaning.findMany({
+    where: { ...pidFilter, OR: [{ date: { gte: rangeFrom, lte: rangeTo } }, ...linkedCheckouts.values()] },
+    select: { id: true, propertyId: true, date: true, cleanerId: true, status: true, supplies: true },
+    orderBy: [{ date: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
+  });
   timings.queries = Date.now() - tQueries;
 
   const channelMap: Record<string, string> = {};

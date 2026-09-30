@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { readOps } from '@/lib/read-ops';
 import { useAuth } from '@/components/AuthProvider';
 import {
   PROPERTY_COLORS, DISABLED_PROPERTY_NAMES,
@@ -20,12 +21,13 @@ export function useCalendarData() {
   const [allSupplyTodos, setAllSupplyTodos] = useState<GlobalSupplyTodo[]>([]);
   const [viewDate, setViewDate] = useState(new Date());
   const month = `${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, '0')}`;
+  const scopeKey = JSON.stringify([user?.id, profile?.role, profile?.status, [...(profile?.propertyIds ?? [])].sort()]);
   const knownPropertyIds = useRef(new Set<string>());
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    const isLoggedIn = !!user;
+    const isLoggedIn = !!JSON.parse(scopeKey)[0];
     let cancelled = false;
     const controller = new AbortController();
     setLoading(true);
@@ -36,9 +38,7 @@ export function useCalendarData() {
     const fetchAll = async () => {
       try {
         if (isLoggedIn) {
-          const res = await fetch(`/api/admin/calendar?month=${month}`, { cache: 'no-store', signal: controller.signal });
-          if (!res.ok) throw new Error('Failed to fetch admin calendar');
-          const data = await res.json();
+          const data = await readOps<{ properties: Record<string, unknown>[]; channelMap: Record<string,string>; events: Record<string,unknown>[]; bookings: { id:string; propertyId:string; name:string; checkIn:string; checkOut:string; email:string; guests:number }[]; cleanings: Cleaning[]; cleaners: Cleaner[] }>(`/api/admin/calendar?month=${month}`, controller.signal);
           if (cancelled) return;
 
           const props: Property[] = (data.properties ?? []).map((d: Record<string, unknown>, i: number) => ({
@@ -75,7 +75,7 @@ export function useCalendarData() {
           setEvents(allEvents);
 
           const cleaningsData = data.cleanings ?? [];
-          setCleanings(cleaningsData.map((c: Record<string, unknown>) => ({
+          setCleanings(cleaningsData.map((c: Cleaning) => ({
             id: c.id, propertyId: c.propertyId, date: c.date, cleanerId: c.cleanerId || '',
             status: c.status || 'pending', supplies: c.supplies,
           })));
@@ -121,7 +121,7 @@ export function useCalendarData() {
     };
     fetchAll();
     return () => { cancelled = true; controller.abort(); };
-  }, [user, profile, month, reloadKey]);
+  }, [scopeKey, month, reloadKey]);
 
   // Weeks for current month view
   const weeks = useMemo(() => {
@@ -202,7 +202,7 @@ export function useCalendarData() {
         type: e.type, tags: e.tags ?? [], originalUid: e.originalUid ?? null,
       };
     });
-  }, [events, cleanings, activeProps, propertiesMap, cleanersMap, cleaningsIndex]);
+  }, [events, activeProps, propertiesMap, cleanersMap, cleaningsIndex]);
 
   const activeProperties = useMemo(
     () => properties.filter(p => activeProps.has(p.id)),

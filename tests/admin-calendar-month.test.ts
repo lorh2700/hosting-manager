@@ -32,18 +32,33 @@ test('calendar only returns the requested month, including stays crossing its bo
   const response = await callRoute(GET, request('2026-09'));
   assert.equal(response.status, 200);
   const data = response.body;
-  assert.deepEqual(ids(data.events), ['across', 'checkout', 'inside']);
-  assert.deepEqual(ids(data.bookings), ['across', 'checkout', 'inside']);
-  assert.deepEqual(ids(data.cleanings), ['2026-09-01', '2026-09-30']);
+  assert.deepEqual(ids(data.events), ['across', 'after', 'before', 'checkout', 'inside']);
+  assert.deepEqual(ids(data.bookings), ['across', 'after', 'before', 'checkout', 'inside']);
+  assert.deepEqual(ids(data.cleanings), ['2026-08-31', '2026-09-01', '2026-09-30', '2026-10-01']);
   const october = (await callRoute(GET, request('2026-10'))).body;
   assert.deepEqual(ids(october.events), ['across', 'after']);
-  assert.deepEqual(ids(october.cleanings), ['2026-10-01']);
+  assert.deepEqual(ids(october.cleanings), ['2026-09-30', '2026-10-01']);
 });
 
 test('supply todos use the same month boundaries', async () => {
   const response = await callRoute(getSupplies, request('2026-09'));
   assert.equal(response.status, 200);
-  assert.deepEqual(ids(response.body.supplyTodos), ['2026-09-01', '2026-09-30']);
+  assert.deepEqual(ids(response.body.supplyTodos), ['2026-08-31', '2026-09-01', '2026-09-30', '2026-10-01']);
+});
+
+test('월을 넘기는 예약의 퇴실일 청소도 반환하되 다른 숙소와 무관한 날짜는 제외한다', async () => {
+  db.booking.push({id:'long',propertyId:'p1',checkIn:'2026-09-29',checkOut:'2026-11-02',status:'confirmed'});
+  db.cleaning.push(
+    { id: 'linked-checkout', propertyId: 'p1', date: '2026-11-02', status: 'pending', cleanerId: 'cleaner-1' },
+    { id: 'unrelated-date', propertyId: 'p1', date: '2026-11-03', status: 'pending' },
+    { id: 'other-property', propertyId: 'p2', date: '2026-11-02', status: 'pending' },
+  );
+  const response = await callRoute(GET, request('2026-09'));
+  assert.equal(response.status, 200);
+  assert.deepEqual(ids(response.body.cleanings), ['2026-08-31', '2026-09-01', '2026-09-30', '2026-10-01', 'linked-checkout']);
+  actAsManager(['p2']);
+  const scoped = await callRoute(GET, request('2026-09'));
+  assert.deepEqual(scoped.body.cleanings, []);
 });
 
 test('month validation, leap years, year boundaries and default current month', async () => {
@@ -68,4 +83,12 @@ test('both monthly endpoints retain authentication and property scope', async ()
   actAsAnonymous();
   assert.equal((await callRoute(GET, request('2026-09'))).status, 401);
   assert.equal((await callRoute(getSupplies, request('2026-09'))).status, 401);
+});
+
+test('October 2 assignment is identical from September and October grids', async()=>{
+ db.cleaning.push({id:'assigned',propertyId:'p1',date:'2026-10-02',cleanerId:'u',status:'pending'});
+ const september=(await callRoute(GET,request('2026-09'))).body;
+ const october=(await callRoute(GET,request('2026-10'))).body;
+ assert.deepEqual(september.cleanings.find((c:any)=>c.id==='assigned'),october.cleanings.find((c:any)=>c.id==='assigned'));
+ assert.ok(september.events.some((e:any)=>e.id==='after'));
 });
