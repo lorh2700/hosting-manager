@@ -21,6 +21,13 @@ test('summary returns reservations without reading optional tables', async () =>
   assert.equal(body.detailsLoaded, false); assert.equal(body.counts.pendingSupplies, null);
   assert.ok(!calls.some(c => /message|laundryBatch|cleaning\.|supplyTodo/.test(c)));
 });
+
+test('unknown OTA sources are not mislabeled as direct reservations', async () => {
+  db.event[0].source = 'Trip.com';
+  assert.equal((await read('summary')).body.properties[0].checkins[0].channel, 'Trip.com');
+  db.event[0].source = undefined;
+  assert.equal((await read('summary')).body.properties[0].checkins[0].channel, 'Beds24 · 플랫폼 확인 필요');
+});
 test('optional failure preserves checkins and reports unknown rather than zero', async () => {
   Object.defineProperty(db, 'supplyTodo', { configurable: true, get() { throw new Error('test outage'); } });
   try {

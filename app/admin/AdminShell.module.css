@@ -1,0 +1,14 @@
+.shell { --admin-chrome-height:65px; --admin-main-top:28px; --admin-bottom-clearance:24px; display:flex; min-height:100dvh; background:#f5f6f7; color:#25282c; font-family:var(--font-sans),Arial,sans-serif; }
+.content { flex:1; min-width:0; }
+.chrome { display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:65px; padding:12px 28px; background:white; border-bottom:1px solid #e6e8eb; }
+.mode { font-size:14px; font-weight:600; }
+.account { display:flex; align-items:center; gap:8px; min-height:40px; color:#626a75; font-size:13px; }
+.avatar { width:29px; height:29px; display:grid; place-items:center; border:1px solid #e6e8eb; background:#f7f8fa; border-radius:50%; color:#535d68; }
+.main { padding:28px 28px 48px; min-width:0; }
+@media(max-width:767px) {
+  .shell { --admin-chrome-height:calc(60px + env(safe-area-inset-top,0px)); --admin-main-top:22px; --admin-bottom-clearance:calc(76px + env(safe-area-inset-bottom,0px)); }
+  .chrome { min-height:57px; padding:8px 16px; padding-top:calc(8px + env(safe-area-inset-top,0px)); }
+  .account { min-height:44px; }
+  .accountName { display:none; }
+  .main { padding:22px 16px calc(90px + env(safe-area-inset-bottom,0px)); }
+}

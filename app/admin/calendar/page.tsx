@@ -56,7 +56,7 @@ export default function UnifiedCalendarPage() {
         activeProps={data.activeProps}
         toggleProp={data.toggleProp}
       />
-      <p className="text-xs text-stone-500">{data.viewDate.getMonth() + 1}월에 해당하는 일정만 표시합니다. 다른 달의 일정은 해당 달로 이동해 확인하세요.</p>
+      <p className="text-xs text-stone-500">{data.viewDate.getMonth() + 1}월과 달력에 이어지는 앞뒤 날짜의 일정을 함께 표시합니다.</p>
 
       <div className="md:hidden">
         <div className="flex gap-2" role="group" aria-label="캘린더 보기 방식">
@@ -73,7 +73,7 @@ export default function UnifiedCalendarPage() {
 
       {mobileView === 'weekly' && <div className="md:hidden"><MobileWeeklyCalendar
         viewDate={data.viewDate} today={data.today} onDateChange={data.setViewDate}
-        properties={data.activeProperties} eventsByProp={data.eventsByProp} openModal={modal.openModal}
+        properties={data.activeProperties} eventsByProp={data.eventsByProp} channelMap={data.channelMap} openModal={modal.openModal}
       /></div>}
 
       <div className={mobileView === 'daily' ? 'md:hidden' : 'hidden'}><MobileBookingCalendar key={data.viewDate.getTime()} month={data.viewDate} today={data.today}

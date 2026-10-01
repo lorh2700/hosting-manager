@@ -4,265 +4,177 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { NavigationLink as Link } from '@/components/NavigationFeedback';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  Home,
-  HomeIcon,
-  ClipboardList,
-  Calendar,
-  BookOpen,
-  MessageSquare,
-  Users,
-  UserCog,
-  LogOut,
-  Settings,
-  MoreHorizontal,
-  X,
-  FileBarChart,
-  Compass,
-  Briefcase,
-  CalendarCheck,
-  Hand,
-  KeyRound,
-  Plane,
+  Home, ClipboardList, CalendarDays, BookOpen, MessageSquare, Users, UserCog,
+  LogOut, CircleUserRound, Menu, X, FileBarChart, Compass, Briefcase,
+  CalendarCheck, Hand, KeyRound, Plane, Package, CircleAlert, Plug,
+  CreditCard, ChevronDown, ArrowUpRight,
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { Logo } from '@/components/Logo';
 import { useAdminMode, clearAdminMode } from '@/lib/adminMode';
+import { getAdminNavigation, isAdminNavActive, type AdminNavIcon, type AdminNavItem } from '@/lib/admin-navigation';
+import styles from './Sidebar.module.css';
 
-interface NavItem {
-  href: string;
-  label: string;
-  /** 하단 탭에 쓰는 짧은 이름 */
-  mobileLabel?: string;
-  icon: typeof Home;
-  roles: string[];
-}
-
-// 폰 하단 탭: 매일 쓰는 네 가지. 나머지는 더보기. (숙박 모드)
-const MOBILE_PRIMARY = ['/admin', '/admin/calendar', '/admin/messages'];
-
-const COMMON_TOP: NavItem[] = [
-  { href: '/admin', label: '오늘', mobileLabel: '오늘', icon: Home, roles: ['admin', 'manager'] },
-  { href: '/cleaner', label: '내 청소 업무', icon: ClipboardList, roles: ['admin', 'manager'] },
-];
-
-const HOST_LINKS: NavItem[] = [
-  { href: '/admin/guest-services', label: '게스트 픽업 요청', icon: Plane, roles: ['admin', 'manager'] },
-  { href: '/admin/laundry', label: '세탁 관리', icon: Briefcase, roles: ['admin', 'manager'] },
-  { href: '/admin/properties', label: '숙소 관리', icon: HomeIcon, roles: ['admin', 'manager'] },
-  { href: '/admin/calendar', label: '예약 달력', mobileLabel: '예약', icon: Calendar, roles: ['admin', 'manager'] },
-  { href: '/admin/guests', label: '고객 명부', icon: Users, roles: ['admin'] },
-  { href: '/admin/bookings', label: '예약 요청', icon: BookOpen, roles: ['admin', 'manager'] },
-  { href: '/admin/messages', label: '메시지', icon: MessageSquare, roles: ['admin', 'manager'] },
-  { href: '/admin/staff', label: '직원 관리', icon: UserCog, roles: ['admin', 'manager'] },
-  { href: '/admin/cleaning-requests', label: '청소 신청 관리', icon: Hand, roles: ['admin', 'manager'] },
-  { href: '/admin/cleaning-report', label: '청소 보고서', icon: FileBarChart, roles: ['admin', 'manager'] },
-];
-
-const TOUR_LINKS: NavItem[] = [
-  { href: '/admin/tours', label: '투어 상품', icon: Compass, roles: ['admin', 'manager'] },
-  { href: '/admin/tour-bookings', label: '투어 예약', icon: CalendarCheck, roles: ['admin', 'manager'] },
-  { href: '/admin/tour-operators', label: '운영업체', icon: Briefcase, roles: ['admin', 'manager'] },
-];
-
-const SYSTEM_LINKS: NavItem[] = [
-  { href: '/admin/api-clients', label: 'API 클라이언트', icon: KeyRound, roles: ['admin'] },
-  { href: '/admin/settings/profile', label: '프로필', icon: Settings, roles: ['admin', 'manager', 'cleaner'] },
-];
-
-const MOBILE_PRIMARY_COUNT = 4;
+const ICONS: Record<AdminNavIcon, typeof Home> = {
+  home: Home, calendar: CalendarDays, bookings: BookOpen, messages: MessageSquare,
+  cleaning: Hand, laundry: Briefcase, issues: CircleAlert, supplies: Package,
+  report: FileBarChart, payments: CreditCard, properties: Home, staff: UserCog,
+  guests: Users, pickup: Plane, integrations: Plug, api: KeyRound, account: CircleUserRound,
+  tours: Compass, 'tour-bookings': CalendarCheck, 'tour-operators': Briefcase,
+  'my-cleaning': ClipboardList,
+};
 
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, profile } = useAuth();
   const role = profile?.role ?? 'manager';
-  const [moreOpen, setMoreOpen] = useState(false);
-  const moreRef = useRef<HTMLDivElement>(null);
   const { mode } = useAdminMode();
+  const navigation = useMemo(() => getAdminNavigation(mode, role), [mode, role]);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [logoutPending, setLogoutPending] = useState(false);
+  const [logoutError, setLogoutError] = useState('');
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   const modeLabel = mode === 'tour' ? '투어 관리' : '숙박 관리';
+  const ModeIcon = mode === 'tour' ? Compass : Home;
 
   useEffect(() => {
-    if (!moreOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false);
+    setMoreOpen(false);
+    const activeGroup = navigation.groups.find(group => group.items.some(item => isAdminNavActive(pathname, item.href)));
+    if (activeGroup && !activeGroup.alwaysOpen) setExpanded(previous => ({ ...previous, [activeGroup.id]: true }));
+  }, [pathname, navigation]);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (!moreOpen) {
+      if (dialog.open) dialog.close();
+      return;
+    }
+    if (!dialog.open) dialog.showModal();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const desktop = window.matchMedia('(min-width: 768px)');
+    const closeOnDesktop = () => { if (desktop.matches) setMoreOpen(false); };
+    desktop.addEventListener('change', closeOnDesktop);
+    closeOnDesktop();
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      desktop.removeEventListener('change', closeOnDesktop);
+      if (dialog.open) dialog.close();
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
   }, [moreOpen]);
 
-  useEffect(() => { setMoreOpen(false); }, [pathname]);
+  const closeMenu = () => setMoreOpen(false);
+  const isMoreActive = [...navigation.groups.flatMap(group => group.items), ...navigation.secondary]
+    .some(item => !navigation.primary.some(primary => primary.href === item.href) && isAdminNavActive(pathname, item.href));
 
-  const filterByRole = (items: NavItem[]) => items.filter(l => l.roles.includes(role));
+  async function handleLogout() {
+    if (logoutPending) return;
+    setLogoutPending(true);
+    setLogoutError('');
+    try {
+      const response = await fetch('/api/auth/logout', { method: 'POST' });
+      if (!response.ok) throw new Error('로그아웃하지 못했습니다. 다시 시도해주세요.');
+      clearAdminMode();
+      closeMenu();
+      router.replace('/login');
+    } catch (error) {
+      setLogoutError(error instanceof Error ? error.message : '로그아웃하지 못했습니다. 다시 시도해주세요.');
+      setLogoutPending(false);
+    }
+  }
 
-  const visible = useMemo(() => {
-    const top = filterByRole(COMMON_TOP);
-    const middle = filterByRole(mode === 'host' ? HOST_LINKS : TOUR_LINKS);
-    const bottom = filterByRole(SYSTEM_LINKS);
-    return { top, middle, bottom };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [role, mode]);
+  function renderLink(item: AdminNavItem, mobileSheet = false) {
+    const active = isAdminNavActive(pathname, item.href);
+    const Icon = ICONS[item.icon];
+    return <Link key={item.href} href={item.href} aria-current={active ? 'page' : undefined}
+      onClick={mobileSheet ? closeMenu : undefined}
+      className={`${styles.link} ${active ? styles.active : ''}`}>
+      <Icon size={18} strokeWidth={active ? 2 : 1.7} aria-hidden="true" />
+      <span>{item.label}</span>
+    </Link>;
+  }
 
-  const flatLinks = [...visible.top, ...visible.middle, ...visible.bottom];
-  // 숙박 모드는 정해진 네 탭, 투어 모드는 앞에서 네 개.
-  const mobileMainLinks = mode === 'host'
-    ? MOBILE_PRIMARY.map(href => flatLinks.find(l => l.href === href)).filter((l): l is NavItem => !!l)
-    : flatLinks.slice(0, MOBILE_PRIMARY_COUNT);
-  const mobileMoreLinks = flatLinks.filter(l => !mobileMainLinks.includes(l));
-  const isMoreActive = mobileMoreLinks.some(link => (pathname === link.href || (link.href === '/admin' && pathname === '/admin/ops')) || (link.href !== '/admin' && pathname.startsWith(link.href)));
+  const logout = <button type="button" onClick={() => void handleLogout()} className={styles.logout} disabled={logoutPending}>
+    <LogOut size={17} strokeWidth={1.7} aria-hidden="true" />
+    <span>{logoutPending ? '로그아웃 중…' : '로그아웃'}</span>
+  </button>;
 
-  const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    clearAdminMode();
-    router.replace('/login');
-  };
-
-  const renderLink = (link: NavItem) => {
-    const isActive = (pathname === link.href || (link.href === '/admin' && pathname === '/admin/ops')) || (link.href !== '/admin' && pathname.startsWith(link.href));
-    const Icon = link.icon;
-    return (
-      <Link
-        key={link.href}
-        href={link.href}
-                aria-current={pathname === link.href ? 'page' : undefined}
-        className={`group relative flex items-center gap-3 pl-4 pr-3 py-2.5 text-[13px] transition-colors ${
-          isActive
-            ? 'text-stone-900 font-medium bg-stone-50 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-[var(--brand)]'
-            : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
-        }`}
-      >
-        <Icon
-          size={16}
-          strokeWidth={isActive ? 2 : 1.6}
-          className={isActive ? 'text-[var(--brand)]' : 'text-stone-400 group-hover:text-stone-700'}
-        />
-        <span>{link.label}</span>
-      </Link>
-    );
-  };
-
-  return (
-    <>
-      {/* Desktop sidebar */}
-      <aside className="hidden md:flex w-60 bg-white text-stone-900 min-h-dvh flex-col border-r border-stone-200">
-        <div className="px-7 pt-8 pb-7 flex flex-col gap-3">
-          <Link href="/admin" aria-label="void anchae 관리자 홈" className="inline-flex">
-            <Logo width={148} variant="black" priority />
-          </Link>
-          <Link href="/" className="text-[13px] uppercase tracking-[0.2em] text-stone-500 hover:text-stone-900 transition-colors">
-            예약 포털 →
-          </Link>
-        </div>
-
-        <nav className="flex-1 px-3 pb-6 overflow-y-auto">
-          {/* Mode badge — locked at login, switch by re-logging in */}
-          <div className="mb-4 px-3">
-            <div className="flex items-center gap-2 bg-[var(--brand-tint)] border border-[var(--brand)]/20 px-3 py-2.5">
-              {mode === 'tour' ? <Compass size={14} className="text-[var(--brand)]" /> : <HomeIcon size={14} className="text-[var(--brand)]" />}
-              <span className="text-[13px] uppercase tracking-widest font-semibold text-[var(--brand-dark)]">
-                {modeLabel}
-              </span>
-            </div>
-          </div>
-
-          {visible.top.length > 0 && (
-            <div className="space-y-px">{visible.top.map(renderLink)}</div>
-          )}
-
-          {visible.middle.length > 0 && (
-            <div className="mt-3 space-y-px">{visible.middle.map(renderLink)}</div>
-          )}
-
-          {visible.bottom.length > 0 && (
-            <div className="mt-5">
-              <p className="px-4 mb-1.5 text-[12px] uppercase tracking-[0.22em] text-stone-400">
-                시스템
-              </p>
-              <div className="space-y-px">{visible.bottom.map(renderLink)}</div>
-            </div>
-          )}
-        </nav>
-
-        <div className="px-5 py-5 border-t border-stone-200">
-          <p className="text-[13px] text-stone-500 truncate mb-2">{user?.email}</p>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 text-stone-500 hover:text-stone-900 transition-colors text-[13px] uppercase tracking-widest"
-          >
-            <LogOut size={13} />
-            로그아웃
-          </button>
-        </div>
-      </aside>
-
-      {/* Mobile bottom navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-lg border-t border-stone-200 safe-bottom">
-        <div className="flex items-stretch justify-around">
-          {mobileMainLinks.map((link) => {
-            const isActive = (pathname === link.href || (link.href === '/admin' && pathname === '/admin/ops')) || (link.href !== '/admin' && pathname.startsWith(link.href));
-            const Icon = link.icon;
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                aria-current={pathname === link.href ? 'page' : undefined}
-                className={`relative flex flex-col items-center justify-center gap-1 py-3 flex-1 min-h-[56px] transition-colors active:scale-95 ${
-                  isActive ? 'text-stone-900' : 'text-stone-500'
-                }`}
-              >
-                {isActive && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[2px] bg-[var(--brand)]" />}
-                <Icon size={21} strokeWidth={isActive ? 2 : 1.7} className={isActive ? 'text-[var(--brand)]' : ''} />
-                <span className="t-micro leading-none">{link.mobileLabel ?? link.label}</span>
-              </Link>
-            );
-          })}
-
-          {mobileMoreLinks.length > 0 && (
-            <div ref={moreRef} className="relative flex-1">
-              <button
-                onClick={() => setMoreOpen(!moreOpen)}
-                className={`relative flex flex-col items-center justify-center gap-1 w-full py-3 min-h-[56px] transition-colors active:scale-95 ${
-                  moreOpen || isMoreActive ? 'text-stone-900' : 'text-stone-500'
-                }`}
-              >
-                {(moreOpen || isMoreActive) && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[2px] bg-[var(--brand)]" />}
-                {moreOpen ? <X size={21} strokeWidth={1.7} /> : <MoreHorizontal size={21} strokeWidth={1.7} />}
-                <span className="text-[12px] leading-none">더보기</span>
-              </button>
-
-              {moreOpen && (
-                <div className="absolute bottom-full right-2 mb-2 w-52 bg-white border border-stone-200 max-h-[70dvh] overflow-y-auto shadow-2xl shadow-black/10">
-                  {mobileMoreLinks.map((link) => {
-                    const isActive = (pathname === link.href || (link.href === '/admin' && pathname === '/admin/ops')) || (link.href !== '/admin' && pathname.startsWith(link.href));
-                    const Icon = link.icon;
-                    return (
-                      <Link
-                        key={link.href}
-                        href={link.href}
-                aria-current={pathname === link.href ? 'page' : undefined}
-                        className={`relative flex items-center gap-3 px-4 py-3 transition-colors active:bg-stone-100 ${
-                          isActive ? 'text-stone-900 bg-stone-50 font-medium before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[2px] before:bg-[var(--brand)]' : 'text-stone-700'
-                        }`}
-                      >
-                        <Icon size={17} strokeWidth={1.7} className={isActive ? 'text-[var(--brand)]' : ''} />
-                        <span className="text-[13px]">{link.label}</span>
-                      </Link>
-                    );
-                  })}
-                  <div className="border-t border-stone-200">
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center gap-3 px-4 py-3 w-full text-stone-600 transition-colors active:bg-stone-100"
-                    >
-                      <LogOut size={17} strokeWidth={1.7} />
-                      <span className="text-[13px]">로그아웃</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+  return <>
+    <aside className={styles.sidebar}>
+      <div className={styles.brand}>
+        <Link href="/admin" aria-label="void anchae 관리자 홈"><Logo width={148} variant="black" priority /></Link>
+        <Link href="/" className={styles.portal}>예약 포털 <ArrowUpRight size={14} aria-hidden="true" /></Link>
+      </div>
+      <div className={styles.mode} title="로그인할 때 선택한 관리 영역입니다.">
+        <ModeIcon size={17} aria-hidden="true" /><span>{modeLabel}</span>
+      </div>
+      <nav className={styles.desktopNav} aria-label={`${modeLabel} 메뉴`}>
+        {navigation.groups.map(group => {
+          const open = group.alwaysOpen || (expanded[group.id] ?? group.items.some(item => isAdminNavActive(pathname, item.href)));
+          const contentId = `admin-nav-${group.id}`;
+          return <section className={styles.group} key={group.id}>
+            {group.alwaysOpen ? <h2 className={styles.groupTitle}>{group.label}</h2> :
+              <button type="button" className={styles.groupToggle} aria-expanded={Boolean(open)} aria-controls={contentId}
+                onClick={() => setExpanded(previous => ({ ...previous, [group.id]: !open }))}>
+                <span>{group.label}</span><ChevronDown size={15} className={open ? styles.chevronOpen : ''} aria-hidden="true" />
+              </button>}
+            <div id={contentId} hidden={!open}>{group.items.map(item => renderLink(item))}</div>
+          </section>;
+        })}
+        {navigation.secondary.length > 0 && <div className={styles.secondary}>{navigation.secondary.map(item => renderLink(item))}</div>}
       </nav>
-    </>
-  );
+      <div className={styles.account}>
+        <p className={styles.accountName}>{profile?.displayName || user?.email}</p>
+        {profile?.displayName && <p className={styles.email}>{user?.email}</p>}
+        {logout}
+        {logoutError && <p role="alert" className={styles.logoutError}>{logoutError}</p>}
+      </div>
+    </aside>
+
+    <nav className={styles.bottomNav} aria-label="주요 관리자 메뉴">
+      {navigation.primary.map(item => {
+        const active = isAdminNavActive(pathname, item.href);
+        const Icon = ICONS[item.icon];
+        return <Link key={item.href} href={item.href} aria-current={active ? 'page' : undefined}
+          className={`${styles.bottomItem} ${active ? styles.bottomActive : ''}`}>
+          <Icon size={21} strokeWidth={active ? 2 : 1.7} aria-hidden="true" />
+          <span>{item.mobileLabel ?? item.label}</span>
+        </Link>;
+      })}
+      <button type="button" ref={menuButtonRef} aria-haspopup="dialog" aria-expanded={moreOpen} aria-controls="admin-menu-sheet"
+        onClick={() => setMoreOpen(true)} className={`${styles.bottomItem} ${moreOpen || isMoreActive ? styles.bottomActive : ''}`}>
+        <Menu size={21} strokeWidth={1.7} aria-hidden="true" /><span>전체 메뉴</span>
+      </button>
+    </nav>
+
+    <dialog id="admin-menu-sheet" ref={dialogRef} className={styles.dialog} aria-labelledby="admin-menu-title"
+      onCancel={closeMenu} onClose={() => { closeMenu(); menuButtonRef.current?.focus(); }}
+      onClick={event => { if (event.target === event.currentTarget) closeMenu(); }}>
+      <div className={styles.sheet}>
+        <header className={styles.sheetHeader}>
+          <div><h2 id="admin-menu-title">전체 메뉴</h2><p>{modeLabel}</p></div>
+          <button type="button" className={styles.closeButton} aria-label="전체 메뉴 닫기" autoFocus onClick={closeMenu}>
+            <X size={22} aria-hidden="true" />
+          </button>
+        </header>
+        <nav className={styles.sheetNav} aria-label={`${modeLabel} 전체 메뉴`}>
+          {navigation.groups.map(group => <section className={styles.sheetGroup} key={group.id}>
+            <h3>{group.label}</h3><div>{group.items.map(item => renderLink(item, true))}</div>
+          </section>)}
+          {navigation.secondary.length > 0 && <section className={styles.sheetGroup}>
+            <h3>내 업무</h3><div>{navigation.secondary.map(item => renderLink(item, true))}</div>
+          </section>}
+        </nav>
+        <footer className={styles.sheetFooter}>
+          <p className={styles.accountName}>{profile?.displayName || user?.email}</p>
+          {logout}
+          {logoutError && <p role="alert" className={styles.logoutError}>{logoutError}</p>}
+        </footer>
+      </div>
+    </dialog>
+  </>;
 }

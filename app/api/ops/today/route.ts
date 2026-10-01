@@ -179,7 +179,14 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
       nights: nightsBetween(e.startDate, e.endDate),
       guests: guests > 0 ? guests : null,
       pets: readStayOptions(linked?.checkout?.stayOptions)?.pets ?? null,
-      channel: getChannelLabel(e.channelId ?? 'beds24', e.source ?? undefined, {}),
+      channel: (() => {
+        const label = getChannelLabel(e.channelId ?? 'beds24', e.source ?? undefined, {});
+        // The generic calendar label falls back to direct for unrecognised OTAs.
+        // Keep the real source visible in today's reservation and send context.
+        return e.channelId === 'beds24' && label === '직접예약' && e.source?.trim().toLowerCase() !== 'direct'
+          ? e.source?.trim() || 'Beds24 · 플랫폼 확인 필요'
+          : label;
+      })(),
       hasChat: e.channelId === 'beds24',
       unread: conversation?.unread ?? 0,
       flags: conversation?.flags ?? [],

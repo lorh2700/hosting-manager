@@ -14,12 +14,14 @@ export function calendarMonthRange(value?: string | null) {
   return monthRange(year, month);
 }
 
-/** Sunday through Saturday, matching the visible month grid. */
+/** Covers the Sunday–Saturday month grid and each Monday–Sunday mobile week. */
 export function calendarGridRange(value?: string | null) {
   const { first, last } = calendarMonthRange(value);
   const start = new Date(first + 'T00:00:00Z');
   const end = new Date(last + 'T00:00:00Z');
-  start.setUTCDate(start.getUTCDate() - start.getUTCDay());
-  end.setUTCDate(end.getUTCDate() + 6 - end.getUTCDay());
+  // A month beginning on Sunday also displays the preceding Monday–Saturday
+  // in mobile weekly mode. At the other end, weekly mode includes Sunday.
+  start.setUTCDate(start.getUTCDate() - Math.max(start.getUTCDay(), (start.getUTCDay() + 6) % 7));
+  end.setUTCDate(end.getUTCDate() + Math.max(6 - end.getUTCDay(), (7 - end.getUTCDay()) % 7));
   return { first: start.toISOString().slice(0,10), last: end.toISOString().slice(0,10) };
 }

@@ -3,8 +3,12 @@ import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/sidebar';
 import { useAuth } from '@/components/AuthProvider';
+import { useAdminMode } from '@/lib/adminMode';
+import { NavigationLink } from '@/components/NavigationFeedback';
+import styles from './AdminShell.module.css';
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth();
+  const { mode } = useAdminMode();
   const router = useRouter(); const pathname = usePathname();
   useEffect(() => {
     if (loading) return;
@@ -37,11 +41,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="flex min-h-dvh bg-stone-50 font-sans text-stone-900 selection:bg-[var(--brand)]/20">
+    <div className={styles.shell}>
       <Sidebar />
-      <main className="flex-1 px-4 pt-4 pb-28 md:px-8 md:pt-8 md:pb-12 lg:px-10 lg:pt-10 overflow-y-auto min-w-0">
-        {children}
-      </main>
+      <div className={styles.content}>
+        <header className={styles.chrome}>
+          <span className={styles.mode}>{mode === 'tour' ? '투어 관리' : '숙박 관리'}</span>
+          <NavigationLink href="/admin/settings/profile" className={styles.account} aria-label="내 계정">
+            <span className={styles.avatar} aria-hidden="true">{(profile?.displayName || '관리자').slice(0, 1)}</span>
+            <span className={styles.accountName}>{profile?.displayName || '관리자'}</span>
+          </NavigationLink>
+        </header>
+        <main className={styles.main}>{children}</main>
+      </div>
     </div>
   );
 }

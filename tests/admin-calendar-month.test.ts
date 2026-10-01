@@ -2,7 +2,7 @@ import { beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { GET } from '../app/api/admin/calendar/route';
 import { GET as getSupplies } from '../app/api/admin/calendar/supply-todos/route';
-import { calendarMonthRange } from '../lib/calendar-month';
+import { calendarGridRange, calendarMonthRange } from '../lib/calendar-month';
 import { kstYearMonth, monthRange } from '../lib/dates';
 import { db, resetDb } from './stubs/prisma';
 import { actAsAdmin, actAsAnonymous, actAsManager } from './stubs/auth';
@@ -28,7 +28,7 @@ beforeEach(() => {
 const request = (month: string) => new Request(`https://example.com/api/admin/calendar?month=${month}`);
 const ids = (rows: { id: string }[]) => rows.map(row => row.id).sort();
 
-test('calendar only returns the requested month, including stays crossing its boundaries', async () => {
+test('calendar returns stays in the visible month grid, including boundary overlaps', async () => {
   const response = await callRoute(GET, request('2026-09'));
   assert.equal(response.status, 200);
   const data = response.body;
@@ -91,4 +91,66 @@ test('October 2 assignment is identical from September and October grids', async
  const october=(await callRoute(GET,request('2026-10'))).body;
  assert.deepEqual(september.cleanings.find((c:any)=>c.id==='assigned'),october.cleanings.find((c:any)=>c.id==='assigned'));
  assert.ok(september.events.some((e:any)=>e.id==='after'));
+});
+
+test('a Sunday-start month includes the preceding mobile week with its cleaning and supplies', async () => {
+  assert.deepEqual(calendarGridRange('2026-11'), { first: '2026-10-26', last: '2026-12-06' });
+  db.event = [
+    { id: 'mobile-week', propertyId: 'p1', startDate: '2026-10-26', endDate: '2026-10-30', type: 'reservation' },
+    { id: 'too-early', propertyId: 'p1', startDate: '2026-10-20', endDate: '2026-10-25', type: 'reservation' },
+  ];
+  db.booking = [];
+  db.cleaning = [
+    { id: 'week-cleaning', propertyId: 'p1', date: '2026-10-30', cleanerId: 'u', status: 'pending' },
+    { id: 'early-cleaning', propertyId: 'p1', date: '2026-10-25', cleanerId: 'u', status: 'pending' },
+  ];
+  db.supplyTodo = [
+    { id: 'week-supply', propertyId: 'p1', date: '2026-10-30' },
+    { id: 'early-supply', propertyId: 'p1', date: '2026-10-25' },
+  ];
+  const data = (await callRoute(GET, request('2026-11'))).body;
+  assert.deepEqual(ids(data.events), ['mobile-week']);
+  assert.deepEqual(ids(data.cleanings), ['week-cleaning']);
+  assert.deepEqual(ids((await callRoute(getSupplies, request('2026-11'))).body.supplyTodos), ['week-supply']);
+});
+
+test('a Saturday-end month includes the next Sunday but excludes unrelated later dates', async () => {
+  assert.deepEqual(calendarGridRange('2026-10'), { first: '2026-09-27', last: '2026-11-01' });
+  db.event = [
+    { id: 'sunday', propertyId: 'p1', startDate: '2026-11-01', endDate: '2026-11-02', type: 'reservation' },
+    { id: 'too-late', propertyId: 'p1', startDate: '2026-11-02', endDate: '2026-11-03', type: 'reservation' },
+  ];
+  db.booking = [];
+  db.cleaning = [
+    { id: 'sunday-cleaning', propertyId: 'p1', date: '2026-11-01', cleanerId: 'u', status: 'pending' },
+    { id: 'linked-checkout', propertyId: 'p1', date: '2026-11-02', cleanerId: 'u', status: 'pending' },
+    { id: 'later-cleaning', propertyId: 'p1', date: '2026-11-03', cleanerId: 'u', status: 'pending' },
+  ];
+  db.supplyTodo = [
+    { id: 'sunday-supply', propertyId: 'p1', date: '2026-11-01' },
+    { id: 'later-supply', propertyId: 'p1', date: '2026-11-02' },
+  ];
+  const data = (await callRoute(GET, request('2026-10'))).body;
+  assert.deepEqual(ids(data.events), ['sunday']);
+  assert.deepEqual(ids(data.cleanings), ['linked-checkout', 'sunday-cleaning']);
+  assert.deepEqual(ids((await callRoute(getSupplies, request('2026-10'))).body.supplyTodos), ['sunday-supply']);
+});
+
+test('display ranges cover all monthly and mobile weekly cells within at most 43 days', () => {
+  const day = 86400000;
+  for (let year = 2026; year <= 2028; year++) {
+    for (let month = 1; month <= 12; month++) {
+      const range = calendarGridRange(`${year}-${String(month).padStart(2, '0')}`);
+      const first = new Date(`${range.first}T00:00:00Z`).getTime();
+      const last = new Date(`${range.last}T00:00:00Z`).getTime();
+      assert.ok((last - first) / day + 1 <= 43);
+      for (let date = Date.UTC(year, month - 1, 1); new Date(date).getUTCMonth() === month - 1; date += day) {
+        const weekday = new Date(date).getUTCDay();
+        const sundayStart = date - weekday * day;
+        const mondayStart = date - ((weekday + 6) % 7) * day;
+        assert.ok(first <= sundayStart && last >= sundayStart + 6 * day);
+        assert.ok(first <= mondayStart && last >= mondayStart + 6 * day);
+      }
+    }
+  }
 });

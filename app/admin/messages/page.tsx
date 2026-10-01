@@ -3,11 +3,13 @@
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
-import { MessageSquare, Send, ChevronRight, RefreshCw, Loader2 } from 'lucide-react';
+import { MessageSquare, Send, ChevronRight, ChevronLeft, RefreshCw, Loader2, Check, CircleAlert, StickyNote } from 'lucide-react';
 import WelcomepadChatPanel from './WelcomepadChatPanel';
 import InquiryAutomationPanel from './InquiryAutomationPanel';
 import { SkeletonList, Skeleton } from '@/components/ui';
 import { useRefetchOnReturn } from '@/lib/hooks/useRefetchOnReturn';
+import { messageDeliveryPresentation, type ReplyTarget, type DeliveryPresentation } from '@/lib/message-presentation';
+import styles from './messages.module.css';
 
 const PAGE_SIZE = 20;
 
@@ -22,6 +24,7 @@ interface Message {
   read: boolean;
   automated?: boolean;
   deliveryStatus?: string;
+  type?: string;
   source?: string;             // 'beds24' | undefined (local)
   beds24MessageType?: string;  // 'guest' | 'host' | 'internalNote' | 'system'
 }
@@ -58,10 +61,27 @@ function MessagesContent() {
   const [hasMore, setHasMore] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [unreadOnly, setUnreadOnly] = useState(false);
+  const [threadLoading, setThreadLoading] = useState(false);
+  const [threadError, setThreadError] = useState<string | null>(null);
+  const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
+  const [targetError, setTargetError] = useState(false);
+  const [targetRevision, setTargetRevision] = useState(0);
+  const [sendNotice, setSendNotice] = useState<DeliveryPresentation | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const selectedEventIdRef = useRef<string | null>(null);
+  const activeEventIdRef = useRef<string | null>(null);
+  const lastMessageIdRef = useRef<string | null>(null);
+  const draftsRef = useRef<Record<string, string>>({});
+
+  const updateDraft = (text: string) => {
+    const eventId = activeEventIdRef.current;
+    if (eventId) draftsRef.current[eventId] = text;
+    setInputText(text);
+  };
 
   // Load properties once
   useEffect(() => {
@@ -74,7 +94,7 @@ function MessagesContent() {
       data.forEach((p: any) => { map[p.id] = p.name; });
       setProperties(map);
     };
-    loadProperties();
+    void loadProperties().catch(() => setSyncResult('숙소 정보를 불러오지 못했습니다. 잠시 후 다시 확인해 주세요.'));
   }, [user]);
 
   // Load a page of conversations from server (infinite scroll)
@@ -83,7 +103,7 @@ function MessagesContent() {
     if (replace) setLoading(true); else setLoadingMore(true);
     try {
       const res = await fetch(`/api/conversations?limit=${PAGE_SIZE}&offset=${offset}`);
-      if (!res.ok) return;
+      if (!res.ok) throw new Error('대화 목록을 불러오지 못했습니다. 다시 확인해 주세요.');
       const data = await res.json();
       const page: Conversation[] = data.conversations || [];
       setHasMore(!!data.hasMore);
@@ -112,6 +132,8 @@ function MessagesContent() {
           });
         }
       }
+    } catch (err) {
+      setSyncResult(err instanceof Error ? err.message : '대화 목록 조회 실패');
     } finally {
       if (replace) setLoading(false); else setLoadingMore(false);
     }
@@ -130,7 +152,7 @@ function MessagesContent() {
   // Infinite scroll: observe sentinel
   useEffect(() => {
     const el = loadMoreRef.current;
-    if (!el || !hasMore || loading || loadingMore) return;
+    if (!el || !hasMore || loading || loadingMore || search || unreadOnly) return;
     const observer = new IntersectionObserver(entries => {
       if (entries[0].isIntersecting) {
         loadPage(conversations.length, false);
@@ -138,17 +160,47 @@ function MessagesContent() {
     }, { rootMargin: '200px' });
     observer.observe(el);
     return () => observer.disconnect();
-  }, [hasMore, loading, loadingMore, conversations.length, loadPage]);
+  }, [hasMore, loading, loadingMore, conversations.length, loadPage, search, unreadOnly]);
+
+  useEffect(() => {
+    const eventId = selectedConv?.eventId ?? null;
+    activeEventIdRef.current = eventId;
+    lastMessageIdRef.current = null;
+    setMessages([]);
+    setInputText(eventId ? draftsRef.current[eventId] || '' : '');
+    setSendError(null);
+    setSendNotice(null);
+    setThreadError(null);
+    setThreadLoading(!!eventId);
+  }, [selectedConv?.eventId]);
+
+  useEffect(() => {
+    const eventId = selectedConv?.eventId;
+    const controller = new AbortController();
+    setReplyTarget(null);
+    setTargetError(false);
+    if (!eventId) return;
+    void fetch(`/api/conversations/${encodeURIComponent(eventId)}/reply-target`, { signal: controller.signal })
+      .then(async response => {
+        if (!response.ok) throw new Error('답장할 곳을 확인하지 못했습니다.');
+        const target: ReplyTarget = await response.json();
+        if (!controller.signal.aborted) setReplyTarget(target);
+      })
+      .catch(() => { if (!controller.signal.aborted) setTargetError(true); });
+    return () => controller.abort();
+  }, [selectedConv?.eventId, targetRevision]);
 
   // Poll messages for selected conversation (replaces onSnapshot)
   const fetchMessages = useCallback(async () => {
     if (!selectedConv) return;
     try {
-      const res = await fetch(`/api/messages?eventId=${selectedConv.eventId}`);
-      if (!res.ok) return;
+      const res = await fetch(`/api/messages?eventId=${encodeURIComponent(selectedConv.eventId)}`);
+      if (!res.ok) throw new Error('메시지를 불러오지 못했습니다. 잠시 후 다시 확인해 주세요.');
       const msgs: Message[] = await res.json();
       msgs.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      if (activeEventIdRef.current !== selectedConv.eventId) return;
       setMessages(msgs);
+      setThreadError(null);
 
       // Mark guest messages as read
       const unreadIds = msgs.filter(m => m.sender === 'guest' && !m.read).map(m => m.id);
@@ -165,6 +217,9 @@ function MessagesContent() {
       }
     } catch (err) {
       console.error('Failed to fetch messages', err);
+      if (activeEventIdRef.current === selectedConv.eventId) setThreadError(err instanceof Error ? err.message : '메시지 조회 실패');
+    } finally {
+      if (activeEventIdRef.current === selectedConv.eventId) setThreadLoading(false);
     }
   }, [selectedConv]);
 
@@ -200,16 +255,23 @@ function MessagesContent() {
 
   // Scroll to bottom when messages change
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const latestId = messages[messages.length - 1]?.id;
+    if (latestId && latestId !== lastMessageIdRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: lastMessageIdRef.current ? 'smooth' : 'instant', block: 'nearest' });
+      lastMessageIdRef.current = latestId;
+    }
   }, [messages]);
 
   const [sendError, setSendError] = useState<string | null>(null);
 
   const sendMessage = async () => {
-    if (!inputText.trim() || !selectedConv || sending || !user) return;
+    if (!inputText.trim() || !selectedConv || !replyTarget || sending || !user) return;
+    const sendingEventId = selectedConv.eventId;
     setSending(true);
     setSendError(null);
+    setSendNotice(null);
     const text = inputText.trim();
+    draftsRef.current[sendingEventId] = '';
     setInputText('');
     try {
       const res = await fetch('/api/beds24/messages/send', {
@@ -223,13 +285,11 @@ function MessagesContent() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '전송 실패');
-      if (data.deliveryStatus === 'failed') {
-        setSendError('Beds24 발송 실패 — 메모로 저장됨');
-      } else if (data.deliveryStatus === 'local_only') {
-        setSendError(null); // local memo is expected for direct bookings
+      if (activeEventIdRef.current === sendingEventId) {
+        setSendNotice(messageDeliveryPresentation({ sender: 'host', deliveryStatus: data.deliveryStatus }));
       }
       // Refresh messages immediately
-      await fetchMessages();
+      if (activeEventIdRef.current === sendingEventId) await fetchMessages();
       // Update conversation in list
       setConversations(prev => prev.map(c =>
         c.eventId === selectedConv.eventId
@@ -237,8 +297,13 @@ function MessagesContent() {
           : c
       ));
     } catch (err) {
-      setSendError(err instanceof Error ? err.message : '전송 실패');
-      setInputText(text); // restore text on failure
+      // Keep unsent drafts with their reservation, including when the user changed threads.
+      const restoreDraft = !draftsRef.current[sendingEventId];
+      if (restoreDraft) draftsRef.current[sendingEventId] = text;
+      if (activeEventIdRef.current === sendingEventId) {
+        setSendError(err instanceof Error ? err.message : '전송 실패');
+        if (restoreDraft) setInputText(text);
+      }
     } finally {
       setSending(false);
     }
@@ -284,36 +349,32 @@ function MessagesContent() {
 
   // On mobile, show either list or thread
   const showMobileThread = selectedConv !== null;
+  const visibleConversations = conversations.filter(conv =>
+    (!unreadOnly || conv.unread > 0) && `${conv.guestName} ${conv.propertyName}`.toLowerCase().includes(search.trim().toLowerCase())
+  );
 
   if (!user) return null;
 
   return (
-    <div className="max-w-5xl mx-auto h-[calc(100vh-7rem)] flex flex-col">
-      <header className="pb-4 sm:pb-5 border-b border-stone-200 flex-shrink-0 flex items-end justify-between gap-4">
+    <div className={styles.workspace}>
+      <header className={styles.header}>
         <div>
-          <p className="text-[13px] uppercase tracking-[0.25em] text-[var(--brand)] mb-2 font-medium">대화</p>
-          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-900">메시지</h1>
-          <p className="text-stone-500 mt-1.5 text-sm hidden sm:block">게스트와의 대화를 관리합니다</p>
+          <h1>메시지</h1>
+          <p className={styles.subtitle}>답장할 플랫폼과 접수 상태를 확인하며 대화하세요.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex border border-stone-200 overflow-hidden text-xs font-medium">
+        <div className={styles.headerActions}>
+          <div className={styles.channelTabs} aria-label="메시지 종류">
             <button
+              type="button"
               onClick={() => setChannel('beds24')}
-              className={`px-3 sm:px-4 py-2 transition-colors ${
-                channel === 'beds24'
-                  ? 'bg-[var(--brand)] text-white'
-                  : 'bg-white text-stone-600 hover:bg-stone-50'
-              }`}
+              aria-pressed={channel === 'beds24'}
             >
-              Beds24
+              예약 메시지
             </button>
             <button
+              type="button"
               onClick={() => setChannel('inroom')}
-              className={`px-3 sm:px-4 py-2 border-l border-stone-200 transition-colors ${
-                channel === 'inroom'
-                  ? 'bg-[var(--brand)] text-white'
-                  : 'bg-white text-stone-600 hover:bg-stone-50'
-              }`}
+              aria-pressed={channel === 'inroom'}
             >
               객실 패드
             </button>
@@ -321,16 +382,16 @@ function MessagesContent() {
           {channel === 'beds24' && (
             <>
               {syncResult && (
-                <span className="text-xs text-stone-500 hidden sm:inline">{syncResult}</span>
+                <span role="status" className={styles.syncResult}>{syncResult}</span>
               )}
               <button
+                type="button"
                 onClick={syncBeds24Messages}
                 disabled={syncing}
-                className="flex items-center gap-2 px-3 sm:px-4 py-2 text-xs font-medium text-stone-700 bg-stone-100 hover:bg-stone-200 hover:text-stone-900 transition-colors disabled:opacity-40"
+                className={styles.refresh}
               >
-                <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
-                <span className="hidden sm:inline">{syncing ? '동기화 중...' : 'Beds24 동기화'}</span>
-                <span className="sm:hidden">{syncing ? '...' : '동기화'}</span>
+                <RefreshCw size={15} className={syncing ? 'animate-spin' : ''} aria-hidden="true" />
+                <span>{syncing ? '동기화 중…' : '동기화'}</span>
               </button>
             </>
           )}
@@ -340,46 +401,49 @@ function MessagesContent() {
       {channel === 'inroom' ? (
         <WelcomepadChatPanel />
       ) : (
-      <div className="flex flex-1 min-h-0 mt-5 sm:mt-6 bg-white border border-stone-200 overflow-hidden">
+      <div className={styles.panel}>
         {/* Conversation list */}
-        <div className={`${showMobileThread ? 'hidden sm:flex' : 'flex'} w-full sm:w-72 flex-shrink-0 sm:border-r border-stone-200 flex-col`}>
-          <div className="px-4 py-3 border-b border-stone-200">
-            <span className="text-xs font-semibold text-stone-500">대화 목록</span>
+        <div className={`${styles.list} ${showMobileThread ? styles.mobileHidden : ''}`}>
+          <div className={styles.listHead}>
+            <p className={styles.listTitle}>대화 목록 <span>불러온 대화 {conversations.length}개</span></p>
+            <input className={styles.search} aria-label="현재 대화 목록 검색" placeholder="현재 목록에서 이름·숙소 찾기" value={search} onChange={event => setSearch(event.target.value)} />
+            <div className={styles.filters} aria-label="대화 필터">
+              <button type="button" aria-pressed={!unreadOnly} onClick={() => setUnreadOnly(false)}>전체</button>
+              <button type="button" aria-pressed={unreadOnly} onClick={() => setUnreadOnly(true)}>읽지 않음</button>
+            </div>
           </div>
-          <div className="flex-1 overflow-y-auto">
-            {loading ? (
+          <div className={styles.listBody}>
+            {loading && conversations.length === 0 ? (
               <div className="p-3">
                 <SkeletonList count={5} rows={1} />
               </div>
-            ) : conversations.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-32 gap-2 text-stone-400">
+            ) : visibleConversations.length === 0 ? (
+              <div className={styles.emptyList}>
                 <MessageSquare size={22} strokeWidth={1.5} />
-                <p className="text-xs">대화 없음</p>
+                <p>{search || unreadOnly ? '현재 목록에 조건에 맞는 대화가 없습니다.' : '아직 대화가 없습니다.'}</p>
               </div>
             ) : (
-              conversations.map(conv => (
+              visibleConversations.map(conv => (
                 <button
+                  type="button"
                   key={conv.eventId}
                   onClick={() => setSelectedConv(conv)}
-                  className={`w-full text-left px-4 py-3.5 border-b border-stone-200 transition-colors ${
-                    selectedConv?.eventId === conv.eventId
-                      ? 'bg-[var(--brand-tint)]'
-                      : 'hover:bg-stone-50 active:bg-stone-100'
-                  }`}
+                  className={styles.conversation}
+                  aria-pressed={selectedConv?.eventId === conv.eventId}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-stone-900 truncate">{conv.guestName}</p>
-                      <p className="text-xs text-stone-500 mt-0.5">
+                  <div className={styles.conversationTop}>
+                    <div className={styles.conversationInfo}>
+                      <p className={styles.guestName}>{conv.guestName}</p>
+                      <p className={styles.conversationMeta}>
                         {conv.propertyName}
                         {conv.checkIn && <span className="text-stone-400 ml-1">{conv.checkIn}</span>}
                       </p>
-                      <p className="text-xs text-stone-500 mt-1.5 truncate">{conv.lastMessage || '메시지 없음'}</p>
+                      <p className={styles.lastMessage}>{conv.lastMessage || '메시지 없음'}</p>
                     </div>
-                    <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                      <span className="text-[12px] text-stone-400 tabular-nums">{formatTime(conv.lastMessageAt)}</span>
+                    <div className={styles.conversationCount}>
+                      <span>{formatTime(conv.lastMessageAt)}</span>
                       {conv.unread > 0 && (
-                        <span className="min-w-[18px] h-[18px] px-1 bg-[var(--brand)] flex items-center justify-center text-[12px] font-semibold text-white">
+                        <span className={styles.unread} aria-label={`읽지 않은 메시지 ${conv.unread}개`}>
                           {conv.unread}
                         </span>
                       )}
@@ -393,6 +457,8 @@ function MessagesContent() {
               <div ref={loadMoreRef} className="flex items-center justify-center py-4">
                 {loadingMore ? (
                   <Loader2 size={14} className="animate-spin text-stone-500" />
+                ) : search || unreadOnly ? (
+                  <button type="button" className={styles.refresh} onClick={() => void loadPage(conversations.length, false)}>이전 대화 20개 더 불러오기</button>
                 ) : (
                   <span className="text-[12px] text-stone-400">스크롤하여 더 보기</span>
                 )}
@@ -414,7 +480,7 @@ function MessagesContent() {
                     });
                   }
                 }}
-                className="w-full text-left px-4 py-3.5 border-b border-stone-200 bg-stone-50 hover:bg-stone-100 transition-colors"
+                className={styles.conversation}
               >
                 <div className="flex items-center gap-2">
                   <div className="flex-1 min-w-0">
@@ -430,29 +496,29 @@ function MessagesContent() {
 
         {/* Message thread */}
         {selectedConv ? (
-          <div className={`${showMobileThread ? 'flex' : 'hidden sm:flex'} flex-1 flex-col min-w-0`}>
-            <div className="px-4 sm:px-5 py-3.5 border-b border-stone-200 flex items-center gap-3">
+          <div className={styles.thread}>
+            <div className={styles.threadHead}>
               <button
+                type="button"
                 onClick={() => setSelectedConv(null)}
-                className="sm:hidden text-stone-500 active:text-stone-900 p-1 -ml-1"
+                className={styles.back}
+                aria-label="대화 목록으로 돌아가기"
               >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path d="M13 4l-6 6 6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                <ChevronLeft size={20} aria-hidden="true" />
               </button>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-stone-900 truncate">{selectedConv.guestName}</p>
-                <p className="text-xs text-stone-500 truncate">
+                <p className={styles.threadHeading}>{selectedConv.guestName}</p>
+                <p className={styles.threadMeta}>
                   {selectedConv.propertyName}
                   {selectedConv.checkIn && selectedConv.checkOut && (
-                    <span className="ml-2 text-stone-400">{selectedConv.checkIn} → {selectedConv.checkOut}</span>
+                    <span className="ml-2">{selectedConv.checkIn} → {selectedConv.checkOut}</span>
                   )}
                 </p>
               </div>
             </div>
 
-            <InquiryAutomationPanel key={selectedConv.eventId} eventId={selectedConv.eventId} revision={messages.length} onUseDraft={setInputText} />
-            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3">
+            <div className={styles.threadBody} aria-busy={threadLoading}>
+              <div className={styles.automation}><InquiryAutomationPanel key={selectedConv.eventId} eventId={selectedConv.eventId} revision={messages.length} onUseDraft={updateDraft} /></div>
               {selectedConv.eventDescription && (() => {
                 const filtered = selectedConv.eventDescription
                   .split('\n')
@@ -460,47 +526,46 @@ function MessagesContent() {
                   .join('\n')
                   .trim();
                 return filtered ? (
-                  <div className="bg-stone-50 px-4 py-3 mb-2">
-                    <p className="text-xs text-stone-500 mb-1.5 font-medium">예약 정보</p>
-                    <p className="text-[13px] text-stone-700 whitespace-pre-line leading-relaxed">{filtered}</p>
-                  </div>
+                  <details className={styles.reservationInfo}>
+                    <summary>예약 정보 보기</summary>
+                    <p>{filtered}</p>
+                  </details>
                 ) : null;
               })()}
 
-              {messages.length === 0 && !selectedConv.eventDescription && (
-                <div className="flex flex-col items-center justify-center h-24 gap-2 text-stone-300">
-                  <p className="text-xs">아직 메시지가 없습니다. 메모를 추가해보세요.</p>
-                </div>
+              {threadLoading && <div className={styles.threadLoading} role="status" aria-label="메시지 불러오는 중"><Skeleton className="h-20 w-3/4" /><Skeleton className="h-24 w-3/4 ml-auto" /><Skeleton className="h-16 w-1/2" /></div>}
+              {threadError && <p role="alert" className={styles.error}>{threadError} <button type="button" className={styles.refresh} onClick={() => void fetchMessages()}>다시 불러오기</button></p>}
+              {!threadLoading && !threadError && messages.length === 0 && (
+                <p className={styles.emptyList}>아직 메시지가 없습니다. 아래에서 답장할 곳을 확인하고 작성하세요.</p>
               )}
               {messages.map(msg => {
                 const isHost = msg.sender === 'host';
                 const isBeds24 = msg.source === 'beds24';
+                const delivery = messageDeliveryPresentation(msg);
+                const isMemo = delivery?.label === '내부 메모';
                 return (
                   <div
                     key={msg.id}
-                    className={`flex ${isHost ? 'justify-end' : 'justify-start'}`}
+                    className={`${styles.messageRow} ${isHost ? styles.hostRow : ''}`}
                   >
                     <div
-                      className={`max-w-[80%] sm:max-w-xs px-4 py-2.5 text-[13px] leading-relaxed ${
-                        isHost
-                          ? 'bg-[var(--brand)] text-white'
-                          : isBeds24
-                            ? 'bg-[var(--brand-tint)] text-stone-800'
-                            : 'bg-stone-100 text-stone-800'
-                      }`}
+                      className={`${styles.bubble} ${isMemo ? styles.memoBubble : isHost ? styles.hostBubble : ''}`}
                     >
                       {isBeds24 && (
-                        <p className={`text-[12px] font-medium mb-1 ${
-                          isHost ? 'text-white/70' : 'text-[var(--brand-dark)]'
-                        }`}>
-                          Beds24 · {msg.beds24MessageType || msg.sender}
+                        <p className={styles.messageKind}>
+                          {msg.beds24MessageType === 'internalNote' ? 'Beds24 내부 메모' : isHost ? '예약 메시지 기록' : '게스트 메시지'}
                         </p>
                       )}
-                      {msg.automated && <p className="mb-1 text-[11px] opacity-80">GPT 자동답변{msg.deliveryStatus === 'unknown' || msg.deliveryStatus === 'sending' ? ' · 발송 내역 확인 필요' : ''}</p>}
-                      <p className="whitespace-pre-wrap break-words">{msg.text}</p>
-                      <p className={`text-[12px] mt-1 ${isHost ? 'text-white/70' : 'text-stone-400'}`}>
-                        {formatTime(msg.createdAt)}
+                      {msg.automated && <p className={styles.messageKind}>GPT 자동답변</p>}
+                      <p className={styles.messageText}>{msg.text}</p>
+                      <p className={styles.messageFooter}>
+                        <span>{formatTime(msg.createdAt)}</span>
+                        {delivery && <span className={styles.delivery} data-tone={delivery.tone}>
+                          {isMemo ? <StickyNote size={12} aria-hidden="true" /> : delivery.tone === 'success' ? <Check size={12} aria-hidden="true" /> : delivery.tone === 'warning' ? <CircleAlert size={12} aria-hidden="true" /> : null}
+                          {delivery.label}
+                        </span>}
                       </p>
+                      {delivery && <p className={styles.deliveryDetail}>{delivery.detail}</p>}
                     </div>
                   </div>
                 );
@@ -508,39 +573,47 @@ function MessagesContent() {
               <div ref={bottomRef} />
             </div>
 
-            {sendError && (
-              <div className="px-4 pt-2">
-                <p className="text-xs text-amber-600">{sendError}</p>
+            <div className={styles.composer}>
+              <div className={styles.replyDestination}>
+                <span>답장할 곳</span>
+                <strong>{replyTarget?.label || (targetError ? '예약의 연락 경로를 확인하지 못했습니다.' : '예약의 연락 경로 확인 중…')}</strong>
+                {targetError && <button type="button" className={styles.refresh} onClick={() => setTargetRevision(value => value + 1)}>다시 확인</button>}
+                {replyTarget?.isBeds24 && <small>Beds24를 통해 접수하며, 플랫폼 전달 상태는 별도 확인이 필요합니다.</small>}
               </div>
-            )}
-            <div className="px-3 sm:px-4 py-3 sm:py-4 border-t border-stone-200 flex items-end gap-2 sm:gap-3 mb-safe">
+              {sendError && <p role="alert" className={styles.error}>{sendError}</p>}
+              {sendNotice && <p role="status" className={styles.notice} data-tone={sendNotice.tone}>{sendNotice.label} · {sendNotice.detail}</p>}
+              <div className={styles.composerRow}>
               <textarea
+                aria-label={replyTarget?.isBeds24 ? '게스트에게 보낼 답장' : '대화 내용 작성'}
                 value={inputText}
-                onChange={e => setInputText(e.target.value)}
+                onChange={e => updateDraft(e.target.value)}
                 onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
+                  if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                     e.preventDefault();
                     sendMessage();
                   }
                 }}
-                placeholder="메시지를 입력하세요..."
-                rows={1}
-                className="flex-1 bg-white border border-stone-200 px-4 py-3 text-sm text-stone-900 placeholder-stone-400 resize-none outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors"
+                placeholder={replyTarget && !replyTarget.isBeds24 ? '내부 메모를 작성하세요. 게스트에게 발송되지 않습니다.' : '게스트에게 보낼 답장을 작성하세요.'}
+                rows={2}
+                className={styles.input}
               />
               <button
+                type="button"
                 onClick={sendMessage}
-                disabled={!inputText.trim() || sending}
-                className="w-11 h-11 bg-[var(--brand)] flex items-center justify-center hover:bg-[var(--brand-dark)] active:scale-95 transition-all disabled:opacity-30 flex-shrink-0"
+                disabled={!inputText.trim() || sending || !replyTarget}
+                className={styles.send}
               >
-                <Send size={16} className="text-white" />
+                {sending ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <Send size={16} aria-hidden="true" />}
+                <span>{sending ? '접수 중…' : replyTarget && !replyTarget.isBeds24 ? '메모 저장' : '답장 보내기'}</span>
               </button>
+              </div>
             </div>
           </div>
         ) : (
-          <div className="hidden sm:flex flex-1 flex-col items-center justify-center gap-3 text-stone-400">
+          <div className={`${styles.emptyThread} ${styles.mobileHidden}`}>
             <MessageSquare size={28} strokeWidth={1.5} />
-            <p className="text-sm">대화를 선택하세요</p>
-            <p className="text-xs text-stone-300">캘린더에서 예약을 클릭해 메시지를 시작할 수 있습니다</p>
+            <p>대화를 선택하세요</p>
+            <small>예약 달력에서 예약을 선택해 새 대화를 시작할 수도 있습니다.</small>
           </div>
         )}
       </div>

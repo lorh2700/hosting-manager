@@ -226,7 +226,7 @@ export function useCalendarData() {
     const nextMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1);
     const monthEnd = toDateStr(nextMonth);
     return processedEvents.filter(e =>
-      e.end >= today && e.end >= monthStart && e.end < monthEnd && !e.cleanerId
+      e.type === 'reservation' && e.end >= today && e.end >= monthStart && e.end < monthEnd && !e.cleanerId
     );
   }, [processedEvents, viewDate, today]);
 
