@@ -2,16 +2,17 @@
 
 import { usePublicLanguage } from '@/components/PublicLanguage';
 
-import { useState, useEffect, useRef, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { parseStaySearch } from '@/lib/stay-search';
-import Image from 'next/image';
+import { BookingPhotoGallery } from '@/components/BookingPhotoGallery';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, ArrowRight, Clock, Users as UsersIcon, X } from 'lucide-react';
 import { format, addDays, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isBefore } from 'date-fns';
 import { ko, enUS } from 'date-fns/locale';
 import type { PropertyData } from '@/lib/types';
 import type { StayOptions } from '@/lib/payments/stay-options';
+import { BASE_GUESTS } from '@/lib/payments/stay-options';
 import { todayKst } from '@/lib/dates';
 import { arrivalIssue, stayIssue, type StayCalendar } from '@/lib/stay-calendar';
 
@@ -96,20 +97,7 @@ function BookingContent() {
   const [gateway, setGateway] = useState('card');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [heroIndex, setHeroIndex] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  // 갤러리 뷰어: 한 장씩 노출. 스크롤/화살표/스와이프로 넘김.
-  const [viewerIndex, setViewerIndex] = useState(0);
-  const viewerRef = useRef<HTMLDivElement>(null);
-  const wheelLast = useRef(0);
-  const viewerTouchStartX = useRef<number | null>(null);
-
-  // 라이트박스 (갤러리 확대 뷰). null = 닫힘, index = 그 위치의 사진 표시
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const lightboxOpen = lightboxIndex !== null;
-  const touchStartX = useRef<number | null>(null);
-
 
   useEffect(() => {
     const fetchProperty = async () => {
@@ -148,58 +136,6 @@ function BookingContent() {
 
     fetchProperty();
   }, [id]);
-
-  // 갤러리 조작: 이전/다음/닫기 (뷰어 + 라이트박스가 공유)
-  const galleryImages = property?.images && property.images.length > 0 ? property.images : [];
-  const wrapIndex = (i: number) => galleryImages.length === 0 ? 0 : ((i % galleryImages.length) + galleryImages.length) % galleryImages.length;
-  const gotoViewer = (i: number) => setViewerIndex(wrapIndex(i));
-  const gotoLightbox = (i: number) => setLightboxIndex(wrapIndex(i));
-  const closeLightbox = () => setLightboxIndex(null);
-
-  // 마우스 휠 조작 — 뷰어 위에 커서가 있을 때만 한 장씩 넘김 (debounced).
-  useEffect(() => {
-    const el = viewerRef.current;
-    if (!el || galleryImages.length <= 1) return;
-    const onWheel = (e: WheelEvent) => {
-      const now = Date.now();
-      // 디바운스 창(400ms) 안에서는 이벤트 흡수만 하고 넘기지 않음.
-      if (now - wheelLast.current < 400) { e.preventDefault(); return; }
-      // 수직/수평 중 큰 쪽을 방향으로 채택 (트랙패드 대비).
-      const dy = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
-      if (Math.abs(dy) < 5) return;
-      e.preventDefault();
-      wheelLast.current = now;
-      setViewerIndex((prev) => wrapIndex(prev + (dy > 0 ? 1 : -1)));
-    };
-    // React 의 onWheel 은 passive 리스너라 preventDefault 가 무시됨 → 직접 등록.
-    el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [galleryImages.length]);
-
-  // 페이지 (지점) 전환 시 뷰어를 첫 사진으로 리셋.
-  useEffect(() => { setViewerIndex(0); }, [id]);
-
-  // 라이트박스 열려 있는 동안: 키보드 조작 + 배경 스크롤 잠금.
-  useEffect(() => {
-    if (!lightboxOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeLightbox();
-      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') gotoLightbox((lightboxIndex ?? 0) - 1);
-      else if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
-        e.preventDefault();
-        gotoLightbox((lightboxIndex ?? 0) + 1);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prevOverflow;
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lightboxOpen, lightboxIndex, galleryImages.length]);
 
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
@@ -307,76 +243,18 @@ function BookingContent() {
     : 0;
 
   return (
-    <div className="min-h-screen bg-[#0C0A09] text-stone-50 selection:bg-stone-400/20">
+    <div className="min-h-screen pb-24 lg:pb-0 bg-[#0C0A09] text-stone-50 selection:bg-stone-400/20">
 
-      {/* Hero Gallery Section */}
-      {(() => {
-        const galleryImages = property.images && property.images.length > 0
-          ? property.images
-          : [property.imageUrl || '/images/main_yard.webp'];
-        return (
-          <div className="relative h-[55svh] min-h-[360px] md:h-[65vh] w-full overflow-hidden group/hero">
-            {galleryImages.map((src, i) => (
-              <Image
-                key={src}
-                src={src}
-                alt={`${t(property.name)} ${i + 1}`}
-                fill
-                className={`object-cover transition-opacity duration-1000 ease-in-out opacity-0 ${i === heroIndex ? 'opacity-40' : ''} mix-blend-luminosity scale-105`}
-                priority={i === 0}
-              />
-            ))}
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#0C0A09]/50 to-[#0C0A09]"></div>
-
-            {/* Gallery Navigation */}
-            {galleryImages.length > 1 && (
-              <>
-                <button
-                  onClick={() => setHeroIndex((heroIndex - 1 + galleryImages.length) % galleryImages.length)}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 z-30 p-3 rounded-full bg-black/30 backdrop-blur-sm border border-stone-800 text-stone-400 hover:text-stone-50 hover:bg-black/50 transition-all opacity-100 md:opacity-0 md:group-hover/hero:opacity-100 focus-visible:opacity-100"
-                  aria-label={t("이전 이미지")}
-                >
-                  <ChevronLeft size={20} />
-                </button>
-                <button
-                  onClick={() => setHeroIndex((heroIndex + 1) % galleryImages.length)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 z-30 p-3 rounded-full bg-black/30 backdrop-blur-sm border border-stone-800 text-stone-400 hover:text-stone-50 hover:bg-black/50 transition-all opacity-100 md:opacity-0 md:group-hover/hero:opacity-100 focus-visible:opacity-100"
-                  aria-label={t("다음 이미지")}
-                >
-                  <ChevronRight size={20} />
-                </button>
-                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 flex gap-2">
-                  {galleryImages.map((_, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setHeroIndex(i)}
-                      className={`h-2 rounded-full transition-all duration-300 ${i === heroIndex ? 'bg-stone-100 w-6' : 'bg-stone-100/40 hover:bg-stone-100/60 w-2'}`}
-                      aria-label={`이미지 ${i + 1}`}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
-
-            <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center z-20 pointer-events-none">
-              <p className="text-xs uppercase tracking-[0.3em] text-stone-400 mb-4 font-semibold">
-                {property.region ? `${t(property.region)} · ` : ''}void anchae
-              </p>
-              <h1 className="font-serif text-5xl md:text-7xl lg:text-[100px] font-light tracking-tighter leading-none mb-6">
-                {t(property.name)}
-              </h1>
-              {property.description && (
-                <p className="text-stone-400 text-sm md:text-base font-light max-w-lg leading-relaxed">
-                  {t(property.description)}
-                </p>
-              )}
-            </div>
-          </div>
-        );
-      })()}
+      <BookingPhotoGallery images={property.images?.length ? property.images : [property.imageUrl || '/images/main_yard.webp']} name={t(property.name)} english={language === 'en'} />
+      <header id="stay-details" className="mx-auto max-w-7xl scroll-mt-24 px-4 pb-2 pt-8 sm:px-6 sm:pt-10">
+        <p className="mb-3 text-xs uppercase tracking-[0.2em] text-stone-400">{property.region ? t(property.region) : 'void anchae'} · HANOK STAY</p>
+        <h1 className="font-serif text-4xl font-light tracking-tight sm:text-5xl">{t(property.name)}</h1>
+        {property.catchphrase && <p className="mt-4 text-lg text-stone-300">{t(property.catchphrase)}</p>}
+        {property.addressKo && <a href="#stay-location" className="mt-3 inline-flex min-h-11 items-center text-sm text-stone-400 underline underline-offset-4">{property.addressKo}</a>}
+      </header>
 
       {/* Property Info Bar */}
-      <div className="max-w-5xl mx-auto px-4 md:px-6 py-6 md:py-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-3 text-sm text-stone-400 border-b border-stone-800">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-8 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm text-stone-400 border-b border-stone-800">
         {property.checkInTime && (
           <div className="flex items-center gap-2">
             <Clock size={15} className="text-stone-500" />
@@ -392,106 +270,21 @@ function BookingContent() {
         {property.maxGuests && (
           <div className="flex items-center gap-2">
             <UsersIcon size={15} className="text-stone-500" />
-            <span>{t("최대")}{property.maxGuests}{t("인")}</span>
+            <span>{language === 'en' ? `Base ${BASE_GUESTS} guests · Up to ${property.maxGuests} guests` : `기준 ${BASE_GUESTS}인 · 최대 ${property.maxGuests}인`}</span>
           </div>
         )}
       </div>
 
-      {property.status !== 'coming_soon' && (
-        <div className="lg:hidden px-4 pt-6">
-          <a href="#booking-dates" className="flex min-h-12 items-center justify-center gap-3 rounded-xl bg-[#eee8dc] px-5 py-3 text-sm font-medium text-stone-950">{t("날짜 · 요금 확인")}<ArrowRight size={16} />
-          </a>
-        </div>
-      )}
-
-      {/* Photo Gallery Viewer — 한 장씩 넘기는 뷰어. 사진이 1장 초과일 때만. */}
-      {galleryImages.length > 1 && (
-        <section className="max-w-6xl mx-auto px-4 md:px-6 py-10 md:py-20">
-          <div className="flex items-baseline justify-between mb-8 md:mb-10">
-            <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-stone-400 mb-3 font-semibold">Gallery</p>
-              <h2 className="font-serif text-3xl md:text-4xl font-light tracking-tight text-stone-100">{t("공간")}</h2>
-            </div>
-            <p className="text-xs text-stone-500 tracking-widest tabular-nums">
-              {viewerIndex + 1} / {galleryImages.length}
-            </p>
-          </div>
-
-          <div
-            ref={viewerRef}
-            className="relative w-full aspect-[4/3] md:aspect-[16/10] bg-stone-900 overflow-hidden select-none"
-            onTouchStart={(e) => { viewerTouchStartX.current = e.touches[0]?.clientX ?? null; }}
-            onTouchEnd={(e) => {
-              const startX = viewerTouchStartX.current;
-              viewerTouchStartX.current = null;
-              if (startX == null) return;
-              const endX = e.changedTouches[0]?.clientX ?? startX;
-              const delta = endX - startX;
-              if (delta > 50) gotoViewer(viewerIndex - 1);
-              else if (delta < -50) gotoViewer(viewerIndex + 1);
-            }}
-          >
-            {/* 모든 사진을 미리 렌더 (opacity 만 토글) → 넘길 때 로딩 지연 없음.
-                object-cover 로 컨테이너에 꽉 채움. */}
-            {galleryImages.map((src, i) => (
-              <Image
-                key={`viewer-${src}`}
-                src={src}
-                alt={`${t(property.name)} ${i + 1}`}
-                fill
-                sizes="(max-width: 1024px) 100vw, 1200px"
-                className={`object-cover transition-opacity duration-700 ease-in-out ${
-                  i === viewerIndex ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                }`}
-                priority={i === 0}
-              />
-            ))}
-
-            {/* 사진 클릭 → 라이트박스 확대. 화살표 버튼은 z-index 로 이 위에. */}
-            <button
-              type="button"
-              onClick={() => gotoLightbox(viewerIndex)}
-              className="absolute inset-0 z-10 cursor-zoom-in focus:outline-none focus:ring-2 focus:ring-stone-100 focus:ring-inset"
-              aria-label={t("크게 보기")}
-            />
-
-            {/* 이전/다음 */}
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); gotoViewer(viewerIndex - 1); }}
-              className="absolute left-3 md:left-5 top-1/2 -translate-y-1/2 z-20 p-3 md:p-3.5 rounded-full bg-black/45 hover:bg-black/70 backdrop-blur-sm border border-stone-700 text-stone-100 hover:text-white transition-colors"
-              aria-label={t("이전 사진")}
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); gotoViewer(viewerIndex + 1); }}
-              className="absolute right-3 md:right-5 top-1/2 -translate-y-1/2 z-20 p-3 md:p-3.5 rounded-full bg-black/45 hover:bg-black/70 backdrop-blur-sm border border-stone-700 text-stone-100 hover:text-white transition-colors"
-              aria-label={t("다음 사진")}
-            >
-              <ChevronRight size={20} />
-            </button>
-          </div>
-
-          {/* 진행 표시 dots — 사진 개수가 많으면 축소 표시. */}
-          <div className="flex items-center justify-center gap-1.5 mt-6 flex-wrap">
-            {galleryImages.map((_, i) => (
-              <button
-                key={`dot-${i}`}
-                type="button"
-                onClick={() => gotoViewer(i)}
-                className={`h-1 rounded-full transition-all duration-300 ${
-                  i === viewerIndex ? 'bg-stone-100 w-8' : 'bg-stone-100/25 hover:bg-stone-100/60 w-1.5'
-                }`}
-                aria-label={language === 'en' ? `View photo ${i + 1}` : `${i + 1}번 사진으로 이동`}
-              />
-            ))}
-          </div>
-
-          <p className="text-center text-xs text-stone-400 mt-4">{t("좌우로 밀어 넘기기 · 사진을 누르면 크게 보기")}</p>
-        </section>
-      )}
+      <nav aria-label={language === 'en' ? 'Stay sections' : '숙소 상세 메뉴'} className="mx-auto flex max-w-7xl gap-6 overflow-x-auto border-b border-stone-800 px-4 text-sm sm:px-6">
+        <a href="#stay-gallery" className="flex min-h-14 shrink-0 items-center">{language === 'en' ? 'Gallery' : '갤러리'}</a>
+        <a href="#stay-description" className="flex min-h-14 shrink-0 items-center">{language === 'en' ? 'About the stay' : '숙소 소개'}</a>
+        <a href="#calendar-selection" className="flex min-h-14 shrink-0 items-center">{language === 'en' ? 'Dates & rates' : '날짜·요금'}</a>
+        <a href="#stay-location" className="flex min-h-14 shrink-0 items-center">{language === 'en' ? 'Location' : '위치 안내'}</a>
+      </nav>
+      <section id="stay-description" className="mx-auto max-w-7xl scroll-mt-24 px-4 pt-8 sm:px-6">
+        <h2 className="mb-4 text-xl font-medium">{language === 'en' ? 'About the stay' : '숙소 소개'}</h2>
+        <p className="max-w-3xl whitespace-pre-line text-sm leading-7 text-stone-300">{property.description ? t(property.description) : property.catchphrase ? t(property.catchphrase) : t(property.name)}</p>
+      </section>
 
       {property.status === 'coming_soon' ? (
         /* Coming Soon Panel — 캘린더/폼 대신 오픈 예정 안내 */
@@ -513,10 +306,12 @@ function BookingContent() {
           </Link>
         </div>
       ) : (
-      <div id="booking-dates" className="scroll-mt-24 max-w-5xl mx-auto px-4 md:px-6 py-10 md:py-24 grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-20">
+      <div id="booking-dates" className="scroll-mt-24 max-w-7xl mx-auto px-4 md:px-6 py-10 md:py-12 grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-20">
 
         {/* Left: Calendar */}
         <div className="lg:col-span-7 space-y-8">
+          <BookingPhotoGallery variant="content" images={property.images?.length ? property.images : [property.imageUrl || '/images/main_yard.webp']} name={t(property.name)} english={language === 'en'} />
+          <div id="calendar-selection" className="scroll-mt-24" />
           <div>
             <h2 className="font-serif text-3xl md:text-4xl font-light mb-2">{t("날짜 선택")}</h2>
             <p className="text-stone-500 text-sm font-light tracking-wide">{!checkIn ? t("체크인 날짜를 선택해주세요.") : !checkOut ? t("체크아웃 날짜를 선택해주세요.") : language === 'en' ? `${nightCount} night(s) selected.` : `${nightCount}박 일정이 선택되었습니다.`}</p>
@@ -638,7 +433,7 @@ function BookingContent() {
 
         {/* Right: Booking Form */}
         <div id="booking-details" className="lg:col-span-5 scroll-mt-24">
-          <div className="lg:sticky lg:top-24 space-y-8">
+          <div className="lg:sticky lg:top-24 space-y-8 rounded-2xl border border-stone-700 bg-stone-900/40 p-5 sm:p-7">
             <div>
               <h2 className="font-serif text-3xl md:text-4xl font-light mb-2">{t("예약")}</h2>
               <p className="text-stone-500 text-sm font-light tracking-wide">{t("예약 정보를 입력해주세요.")}</p>
@@ -673,7 +468,7 @@ function BookingContent() {
                 </div>
               </div>
 
-              <a href="#booking-dates" className="inline-flex min-h-11 items-center text-sm text-stone-300 underline underline-offset-4">{t("날짜 다시 선택")}</a>
+              <a href="#calendar-selection" className="inline-flex min-h-11 items-center text-sm text-stone-300 underline underline-offset-4">{t("날짜 다시 선택")}</a>
 
               {/* Guests */}
               <div className="space-y-2">
@@ -696,7 +491,7 @@ function BookingContent() {
                   >+</button>
                 </div>
                 {property.maxGuests && (
-                  <p className="text-xs text-stone-600 text-right">{t("최대")}{property.maxGuests}{t("인")}</p>
+                  <p className="text-xs text-stone-600 text-right">{language === 'en' ? `Base ${BASE_GUESTS} guests · Up to ${property.maxGuests} guests` : `기준 ${BASE_GUESTS}인 · 최대 ${property.maxGuests}인`}</p>
                 )}
               </div>
 
@@ -813,84 +608,14 @@ function BookingContent() {
         </div>
       )}
 
-      {/* Lightbox — 그리드 썸네일 클릭 시 확대 */}
-      {lightboxOpen && galleryImages.length > 0 && (
-        <div
-          className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm flex items-center justify-center"
-          role="dialog"
-          aria-modal="true"
-          aria-label={`${t(property.name)} — ${t("크게 보기")}`}
-          onClick={closeLightbox}
-          onTouchStart={(e) => { touchStartX.current = e.touches[0]?.clientX ?? null; }}
-          onTouchEnd={(e) => {
-            const startX = touchStartX.current;
-            touchStartX.current = null;
-            if (startX == null) return;
-            const endX = e.changedTouches[0]?.clientX ?? startX;
-            const delta = endX - startX;
-            if (delta > 50) gotoLightbox((lightboxIndex ?? 0) - 1);
-            else if (delta < -50) gotoLightbox((lightboxIndex ?? 0) + 1);
-          }}
-        >
-          {/* 실제 이미지 컨테이너 — 배경 클릭으로 닫히도록 stopPropagation */}
-          <div
-            className="relative w-full h-full flex items-center justify-center px-2 sm:px-16 py-16"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="relative w-full max-w-[1600px] h-full">
-              <Image
-                key={`lightbox-${lightboxIndex}`}
-                src={galleryImages[lightboxIndex!]}
-                alt={`${t(property.name)} ${lightboxIndex! + 1}`}
-                fill
-                sizes="100vw"
-                className="object-contain"
-                priority
-              />
-            </div>
-
-            {/* 좌우 네비게이션 */}
-            {galleryImages.length > 1 && (
-              <>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); gotoLightbox(lightboxIndex! - 1); }}
-                  className="absolute left-3 md:left-6 top-1/2 -translate-y-1/2 z-10 p-3 md:p-4 rounded-full bg-black/40 hover:bg-white/10 backdrop-blur-md border border-stone-800 text-stone-200 hover:text-white transition-colors"
-                  aria-label={t("이전 사진")}
-                >
-                  <ChevronLeft size={22} />
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); gotoLightbox(lightboxIndex! + 1); }}
-                  className="absolute right-3 md:right-6 top-1/2 -translate-y-1/2 z-10 p-3 md:p-4 rounded-full bg-black/40 hover:bg-white/10 backdrop-blur-md border border-stone-800 text-stone-200 hover:text-white transition-colors"
-                  aria-label={t("다음 사진")}
-                >
-                  <ChevronRight size={22} />
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* 상단바: 카운터 + 닫기 */}
-          <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 md:px-8 py-4 md:py-5 pointer-events-none">
-            <p className="text-xs md:text-sm tracking-[0.25em] uppercase text-stone-300 font-medium pointer-events-auto">
-              {(lightboxIndex ?? 0) + 1} / {galleryImages.length}
-            </p>
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); closeLightbox(); }}
-              className="p-2.5 rounded-full bg-black/40 hover:bg-white/10 backdrop-blur-md border border-stone-800 text-stone-200 hover:text-white transition-colors pointer-events-auto"
-              aria-label={t("닫기")}
-            >
-              <X size={20} />
-            </button>
-          </div>
-
-          {/* 하단 힌트 (데스크톱만) */}
-          <div className="hidden md:block absolute bottom-4 left-1/2 -translate-x-1/2 text-[10px] uppercase tracking-widest text-stone-500 pointer-events-none">{t("← → 이동 · ESC 닫기")}</div>
-        </div>
-      )}
+      <section id="stay-location" className="mx-auto max-w-7xl scroll-mt-24 border-t border-stone-800 px-4 py-10 sm:px-6">
+        <h2 className="mb-4 text-xl font-medium">{language === 'en' ? 'Location' : '위치 안내'}</h2>
+        <p className="text-sm text-stone-300">{property.addressKo || (language === 'en' ? 'Please contact us for the exact address.' : '상세 위치는 숙소로 문의해 주세요.')}</p>
+      </section>
+      {property.status !== 'coming_soon' && <div className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-4 border-t border-stone-700 bg-stone-950/95 px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] backdrop-blur lg:hidden">
+        <div className="min-w-0 text-sm"><p className="truncate">{t(property.name)}</p><p className="mt-1 text-xs text-stone-400">{checkIn && checkOut ? format(checkIn, 'M.d') + ' — ' + format(checkOut, 'M.d') : language === 'en' ? 'Choose dates to view rates' : '날짜 선택 후 요금 확인'}</p></div>
+        <a href="#calendar-selection" className="flex min-h-11 shrink-0 items-center rounded-lg bg-[#eee8dc] px-5 text-sm font-medium text-stone-950">{language === 'en' ? 'Dates & rates' : '날짜·요금 확인'}</a>
+      </div>}
     </div>
   );
 }

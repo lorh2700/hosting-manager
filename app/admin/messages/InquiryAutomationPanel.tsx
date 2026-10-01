@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 type Job = { messageId: string; status: string; summary: string; reason: string; draft: string; notifications: { name: string; status: string; error: string | null }[] };
-type State = { enabled: boolean; paused: boolean; reason: string | null; jobs: Job[] };
+type State = { enabled: boolean; paused: boolean; reason: string | null; replyDestination?: string; jobs: Job[] };
 const statuses: Record<string, string> = { queued: '문의 확인 대기', verify: '답변 검토 중', booking: '예약 확인 중', ready: '전송 전 확인 중', checked: '전송 대기', sending: '전송 중', sent: 'Beds24 접수 완료', escalated: '담당자 확인 필요', skipped: '자동답변 생략' };
 const alerts: Record<string, string> = { pending: '대기', sending: '접수 중', accepted: '접수 완료', failed: '접수 실패', unknown: '접수 여부 확인 필요', cancelled: '취소' };
 
@@ -13,6 +13,7 @@ export default function InquiryAutomationPanel({ eventId, revision, onUseDraft }
   const [refresh, setRefresh] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
+    setState(null); setError('');
     const load = async () => {
       try {
         const response = await fetch(`/api/conversations/${eventId}/automation`, { signal: controller.signal });
@@ -44,10 +45,11 @@ export default function InquiryAutomationPanel({ eventId, revision, onUseDraft }
   return <div className="border-b border-stone-200 bg-stone-50 px-4 py-3 text-xs">
     {state && <>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-medium text-stone-700">{state.paused ? '담당자 응대 중 · 자동답변 중지' : state.enabled ? 'GPT 자동답변 사용 중' : 'GPT 자동답변 꺼짐'}</p>
-        <button type="button" disabled={busy} onClick={() => void pause(!state.paused)} className="border border-stone-300 bg-white px-3 py-2 disabled:opacity-40">{busy ? '변경 중…' : state.paused ? '직접 응대 종료 · 자동답변 재개' : '직접 응대 시작'}</button>
+        <p className="font-medium text-stone-700">{state.paused ? '자동답변 일시 중지' : state.enabled ? 'GPT 자동답변 사용 중' : 'GPT 자동답변 꺼짐'}</p>
+        <button type="button" disabled={busy} onClick={() => void pause(!state.paused)} className="border border-stone-300 bg-white px-3 py-2 disabled:opacity-40">{busy ? '변경 중…' : state.paused ? '자동답변 재개' : '직접 응대 시작'}</button>
       </div>
-      {state.paused && <p className="mt-2 text-stone-500">{state.reason} 재개하면 그 이후에 도착하는 새 문의부터 자동답변합니다.</p>}
+      {state.paused && <p className="mt-2 text-stone-500">{state.reason === '담당자 응대 중 새 문의가 도착했습니다.' ? '자동답변이 중지된 상태에서 새 문의가 도착했습니다.' : state.reason} 실제 직원의 접속 여부를 나타내는 상태는 아닙니다. 재개하면 그 이후에 도착하는 새 문의부터 자동답변합니다.</p>}
+      {state.replyDestination && <p className="mt-2 font-medium text-stone-700">답장할 곳: {state.replyDestination}</p>}
       {job && <details className="mt-3">
         <summary className="cursor-pointer text-stone-700">최근 처리: {statuses[job.status] || job.status}{job.summary ? ` · ${job.summary}` : ''}</summary>
         <div className="mt-2 space-y-2">

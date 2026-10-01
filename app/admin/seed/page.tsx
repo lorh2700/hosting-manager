@@ -44,7 +44,7 @@ const PROPERTIES = [
     description: '경북 영주, 무섬마을 인근의 고택. 시간이 멈춘 듯한 한옥에서의 특별한 하루.',
     checkInTime: '15:00',
     checkOutTime: '11:00',
-    maxGuests: 6,
+    maxGuests: 8,
   },
   {
     name: '안온재',
@@ -59,7 +59,7 @@ const PROPERTIES = [
     description: '편안하고 온전한 쉼. 전통과 현대가 조화롭게 공존하는 도심 속 한옥 스테이.',
     checkInTime: '15:00',
     checkOutTime: '11:00',
-    maxGuests: 2,
+    maxGuests: 6,
   },
 ];
 

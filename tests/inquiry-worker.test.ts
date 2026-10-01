@@ -203,3 +203,11 @@ test('플랫폼에서 가져온 이전 수동 답변 이후의 새 문의는 담
   assert.equal(sent.length, 0); assert.equal(db.inquiryConversation[0].paused, true);
   assert.equal(db.inquiryJob[0].status, 'escalated');
 });
+
+test('고객 확인 알림은 예약의 답장 플랫폼을 포함한다', async () => {
+  db.event[0].source = 'booking';
+  await enqueueInquiries(); await runAll({ ...deps, judge: async () => ({ ...routine, action: 'escalate' }) });
+  let reason = '';
+  await processInquiryNotification({ ...deps, kakao: async (input) => { reason = input.reason; return { status: 'accepted' as const }; } });
+  assert.match(reason, /답장: Booking.com 예약 메시지/);
+});

@@ -4,9 +4,10 @@ import { usePublicLanguage } from '@/components/PublicLanguage';
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { ArrowRight } from 'lucide-react';
 import { Logo } from '@/components/Logo';
+import styles from './brand.module.css';
 
 // VOID ANCHAE 브랜드 페이지 — 시(詩)적 흐름의 한 페이지.
 // 상단 메뉴 → Hero (로고) → 브랜드 이야기 → 마무리 한 줄 → CTA → 푸터.
@@ -39,14 +40,15 @@ const STANZAS: string[][] = [
 ];
 
 export default function BrandPage() {
-  const { t } = usePublicLanguage();
+  const { t, language } = usePublicLanguage();
+  const reducedMotion = useReducedMotion();
 
   return (
     <div className="min-h-screen bg-[#0C0A09] text-stone-50 selection:bg-stone-400/20 font-sans overflow-x-hidden">
       {/* ═══ 상단 네비게이션 ═══ */}
 
       {/* ═══ HERO — 로고 + 그저 머물러도 충분한 곳 ═══ */}
-      <section className="relative min-h-screen w-full flex flex-col items-center justify-center px-6 pt-24">
+      <section className={styles.hero}>
         <Image
           src="/images/main_yard.webp"
           alt=""
@@ -57,7 +59,7 @@ export default function BrandPage() {
         <div className="absolute inset-0 bg-gradient-to-b from-[#0C0A09] via-transparent to-[#0C0A09]" />
 
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={reducedMotion ? false : { opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1.4, ease: [0.22, 1, 0.36, 1] }}
           className="relative z-10 flex flex-col items-center text-center"
@@ -66,21 +68,24 @@ export default function BrandPage() {
             Seoul · Yeongju · Hanok Stay
           </p>
 
+          <h1 lang="ko" className={`brand-serif ${styles.name}`}>안채<span className={styles.comma}>,</span></h1>
+          <motion.div initial={reducedMotion ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 1 }}>
           <Image
             src="/voidanche_fin_white.png"
             alt="VOID ANCHAE"
             width={720}
             height={83}
             priority
-            className="w-[260px] sm:w-[360px] md:w-[500px] lg:w-[600px] h-auto"
+            className={styles.wordmark}
           />
 
-          <p className="brand-serif text-stone-300 text-base md:text-xl mt-12 md:mt-14">{t("그저 머물러도 충분한 곳")}</p>
+          </motion.div>
+          <motion.p initial={reducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8, duration: 1 }} className="brand-serif text-stone-300 text-base md:text-xl mt-10 md:mt-12">{t("그저 머물러도 충분한 곳")}</motion.p>
         </motion.div>
 
         {/* 스크롤 힌트 */}
         <motion.div
-          initial={{ opacity: 0 }}
+          initial={reducedMotion ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 2, duration: 1 }}
           className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 z-10"
@@ -93,10 +98,14 @@ export default function BrandPage() {
       {/* ═══ 본문 (브랜드 이야기) ═══ */}
       <section className="relative py-32 md:py-48 px-6 border-t border-stone-800/60">
         <div className="max-w-2xl mx-auto space-y-20 md:space-y-28 text-center">
+          <motion.div initial={reducedMotion ? false : { opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 1 }}>
+            <h2 className="brand-serif text-3xl leading-relaxed text-[#eee8dc] md:text-5xl">{language === 'ko' ? <>당신을 위한 <span className="whitespace-nowrap">안채.</span></> : 'Anchae, a place for you.'}</h2>
+            <p className="brand-serif mt-6 text-base leading-loose text-stone-400 md:text-xl">{language === 'ko' ? <>대문을 지나,<br className="sm:hidden" /> 마음까지 편히 내려놓는 곳.</> : 'Beyond the gate, a place to put your mind at ease.'}</p>
+          </motion.div>
           {STANZAS.map((lines, idx) => (
             <motion.div
               key={idx}
-              initial={{ opacity: 0, y: 30 }}
+              initial={reducedMotion ? false : { opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-100px' }}
               transition={{ duration: 1.1, ease: 'easeOut' }}
@@ -113,7 +122,7 @@ export default function BrandPage() {
       {/* ═══ 마무리 한 줄 + CTA ═══ */}
       <section className="relative min-h-[70vh] flex flex-col items-center justify-center px-6 py-32 border-t border-stone-800/60">
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={reducedMotion ? false : { opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-100px' }}
           transition={{ duration: 1.2, ease: 'easeOut' }}
@@ -122,7 +131,7 @@ export default function BrandPage() {
           <p className="brand-serif text-[28px] sm:text-4xl md:text-5xl lg:text-6xl leading-[1.7] text-stone-100">{t("당신이 들어와야")}<br />{t("비로소 완성되는 공간.")}</p>
 
           <div className="mt-14 md:mt-16 flex flex-col items-center gap-6">
-            <p className="text-stone-400 text-sm md:text-base font-light">{t("당신이 머무는 한옥, VOID ANCHAE")}</p>
+            <p className="text-stone-400 text-sm md:text-base font-light">{language === 'ko' ? <>당신이 머무는 한옥, <span className="whitespace-nowrap text-[#eee8dc]">보이드 안채</span></> : t("당신이 머무는 한옥, VOID ANCHAE")}</p>
             <Link
               href="/#spaces"
               className="inline-flex items-center gap-3 mt-6 px-9 py-4 border border-stone-700 rounded-full text-[11px] uppercase tracking-[0.25em] text-stone-100 hover:bg-stone-100 hover:text-stone-900 hover:border-stone-100 transition-colors duration-500"

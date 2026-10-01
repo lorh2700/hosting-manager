@@ -1,4 +1,5 @@
 import { todayKst } from './dates';
+export const MAX_SEARCH_GUESTS = 10;
 export type StaySearch = { checkIn: string; checkOut: string; guests: number; pets: number };
 export type StaySearchResult = { slug: string; status: 'available' | 'unavailable' | 'error'; priceKrw?: number; nights?: number; includesAllFees?: boolean };
 export function parseStaySearch(raw: unknown): StaySearch | null {
@@ -9,7 +10,7 @@ export function parseStaySearch(raw: unknown): StaySearch | null {
   if (!valid(checkIn) || !valid(checkOut)) return null;
   const nights = (Date.parse(checkOut) - Date.parse(checkIn)) / 86400000;
   const guests = Number(value.guests), pets = Number(value.pets ?? 0);
-  if (checkIn < todayKst() || nights < 1 || nights > 30 || !Number.isInteger(guests) || guests < 1 || guests > 20 || !Number.isInteger(pets) || pets < 0 || pets > 2) return null;
+  if (checkIn < todayKst() || nights < 1 || nights > 30 || !Number.isInteger(guests) || guests < 1 || guests > MAX_SEARCH_GUESTS || !Number.isInteger(pets) || pets < 0 || pets > 2) return null;
   return { checkIn, checkOut, guests, pets };
 }
 export function staySearchQuery(search: StaySearch) {

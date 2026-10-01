@@ -5,6 +5,7 @@ import { checkInquiryRemote, checkInquiryReservation, sendInquiryReply, sendInqu
 import { getInquiryNotificationRecipients } from '@/lib/inquiry-notification-recipients';
 import { acquireInquirySend, releaseInquirySend, ensureInquiryConversation } from '@/lib/inquiry-conversation';
 import type { InquiryJob } from '@/generated/prisma/client';
+import { inquiryReplyDestination } from '@/lib/inquiry-platform';
 import { isSimpleInquiryThanks } from '@/lib/inquiry-acknowledgement';
 
 const defaults = { judge: judgeInquiry, verify: verifyInquiry, reservation: checkInquiryReservation, remote: checkInquiryRemote, reply: sendInquiryReply, kakao: sendInquiryKakao };
@@ -126,7 +127,7 @@ export async function processInquiryJob(deps: Dependencies = defaults): Promise<
     if (current.message.text.length > 4000) { await escalate(job, '긴 문의는 담당자가 전체 내용을 확인해야 합니다.'); return true; }
     if (current.conversation.paused) {
       const decision = await deps.judge(current.context);
-      await escalate(job, '담당자 응대 중 새 문의가 도착했습니다.', decision.summary, decision.draft);
+      await escalate(job, '자동답변이 중지된 상태에서 새 문의가 도착했습니다.', decision.summary, decision.draft);
       return true;
     }
     if (job.status !== 'queued' && (!job.knowledgeVersion || current.config.updatedAt.getTime() !== job.knowledgeVersion.getTime())) {
@@ -201,15 +202,16 @@ export async function processInquiryNotification(deps: Dependencies = defaults):
   }
   const claimed = await prisma.inquiryNotification.updateMany({ where: { id: notification.id, status: notification.status, attempts: notification.attempts }, data: { status: 'sending', attempts: notification.attempts + 1 } });
   if (!claimed.count) return true;
-  const [property, message] = await Promise.all([
+  const [property, message, event] = await Promise.all([
     prisma.property.findUnique({ where: { id: job.propertyId }, select: { name: true } }),
     prisma.message.findUnique({ where: { id: job.messageId }, select: { guestName: true } }),
+    prisma.event.findUnique({ where: { id: job.eventId }, select: { source: true } }),
   ]);
   const origin = process.env.NEXT_PUBLIC_APP_URL || 'https://voidanchae.com';
   const url = new URL('/admin/messages', origin);
   url.searchParams.set('eventId', job.eventId); url.searchParams.set('propertyId', job.propertyId); url.searchParams.set('guestName', message?.guestName || '게스트');
   const result = await deps.kakao({ phone: notification.phone, name: recipients.find(recipient => recipient.phone === notification.phone)!.name,
-    property: property?.name || '숙소', guest: message?.guestName || '게스트', summary: job.summary || '고객 문의 확인이 필요합니다.', reason: job.reason, url: url.toString() });
+    property: property?.name || '숙소', guest: message?.guestName || '게스트', summary: job.summary || '고객 문의 확인이 필요합니다.', reason: (`답장: ${inquiryReplyDestination(event?.source)}\n${job.reason}`).slice(0, 300), url: url.toString() });
   await prisma.inquiryNotification.update({ where: { id: notification.id }, data: { status: result.status, providerMessageId: result.providerMessageId, error: result.error ?? null, nextAttemptAt: new Date(Date.now() + 5 * 60_000) } });
   return true;
 }

@@ -32,12 +32,12 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
+    ".next-invitation-preview/types/**/*.ts",
     ".next-manager-ux/types/**/*.ts",
     ".next-manager/types/**/*.ts",
     ".next-menu-preview/types/**/*.ts",
     ".next/types/**/*.ts",
-    "next-env.d.ts",
-    ".next-invitation-preview/types/**/*.ts"
+    "next-env.d.ts"
   ],
   "exclude": [
     "node_modules",

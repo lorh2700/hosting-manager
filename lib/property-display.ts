@@ -28,14 +28,14 @@ export type PropertyDisplay = {
 // 첫 번째 이미지가 홈 카드 대표 사진.
 export const PROPERTY_DISPLAY: Record<string, PropertyDisplay> = {
   anon: {
-    maxGuests: 2,
+    maxGuests: 6,
     maxPets: 2,
     slug: 'anon',
     name: '안온재',
     region: '북촌',
     catchphrase: '한적한 골목의 아늑함',
     imageFolder: 'anon',
-    imageFiles: ['anon_main', 'DSC09279', 'DSC09295', 'DSC09301', 'DSC09310', 'DSC09386', 'main'],
+    imageFiles: ['gallery-01', 'gallery-02', 'gallery-03', 'gallery-05', 'gallery-06', 'gallery-07', 'gallery-08', 'gallery-09', 'gallery-10', 'gallery-11', 'gallery-12'],
     checkInTime: '15:00',
     checkOutTime: '11:00',
     addressKo: '서울 종로구 북촌한옥마을 인근',
@@ -49,7 +49,7 @@ export const PROPERTY_DISPLAY: Record<string, PropertyDisplay> = {
     region: '북촌',
     catchphrase: '구름이 머무는 마당',
     imageFolder: 'unwa',
-    imageFiles: ['main', 'DSC07919', 'DSC08173', 'DSC08643', 'DSC08753', 'KakaoTalk_20240923_163616948', 'KakaoTalk_20241002_124006106_01'],
+    imageFiles: ['gallery-01', 'gallery-02', 'gallery-03', 'gallery-04', 'gallery-05', 'gallery-06', 'gallery-07'],
     checkInTime: '15:00',
     checkOutTime: '11:00',
     addressKo: '서울 종로구 북촌로11나길 16-20',
@@ -63,21 +63,21 @@ export const PROPERTY_DISPLAY: Record<string, PropertyDisplay> = {
     region: '북촌',
     catchphrase: '꽃과 인연을 나누는 자리',
     imageFolder: 'hwayeon',
-    imageFiles: ['DSC04187', 'DSC04190', 'DSC04192', 'DSC04236', 'DSC04238', 'hwayeon_after'],
+    imageFiles: ['gallery-01', 'gallery-02', 'gallery-03', 'gallery-04', 'gallery-05', 'gallery-06', 'gallery-07', 'gallery-08', 'gallery-09', 'gallery-10', 'gallery-11', 'gallery-12'],
     checkInTime: '15:00',
     checkOutTime: '11:00',
     addressKo: '서울 종로구 북촌한옥마을 인근',
     status: 'active',
   },
   dowonjae: {
-    maxGuests: 6,
+    maxGuests: 8,
     maxPets: 0,
     slug: 'dowonjae',
     name: '도원재',
     region: '경북 영주',
     catchphrase: '무릉도원 같은 하루',
     imageFolder: 'dowon',
-    imageFiles: ['main', 'KakaoTalk_20250716_110016098_07'],
+    imageFiles: ['gallery-01', 'gallery-02', 'gallery-03', 'gallery-04', 'gallery-05', 'gallery-06', 'gallery-07', 'gallery-08', 'gallery-09', 'gallery-10', 'gallery-11', 'gallery-12'],
     checkInTime: '15:00',
     checkOutTime: '11:00',
     addressKo: '경상북도 영주시',
@@ -103,13 +103,10 @@ export const PROPERTY_DISPLAY: Record<string, PropertyDisplay> = {
       'DSC01712',   // 침실 (트윈, TV)
       'DSC01619',   // 부엌 아일랜드
       'DSC01625',   // 부엌/다이닝
-      'DSC01646',   // 부엌 전체
       'DSC01652',   // 욕실 세면대
       'DSC01769',   // 샤워 + 욕조
-      'DSC01688',   // 샤워부스
       'DSC06393',   // 세면대 클로즈업
       'DSC01906',   // 인테리어 오브제
-      'DSC06377',   // 도자기 오브제
       'DSC06408',   // 다구
     ],
     checkInTime: '15:00',

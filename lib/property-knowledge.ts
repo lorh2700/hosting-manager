@@ -112,7 +112,7 @@ export const PROPERTY_KNOWLEDGE: PropertyKnowledge[] = [
     doorLockPassword: '2421*',
     checkIn: '3:00 PM',
     checkOut: '11:00 AM',
-    maxGuests: 2,
+    maxGuests: 6,
     directions: {
       subway: 'Anguk Station (Line 3), Exit 1 — about 8 min walk',
       taxi: 'Show the driver the Korean address below',
@@ -135,7 +135,7 @@ export const PROPERTY_KNOWLEDGE: PropertyKnowledge[] = [
     extras: [
       'The hanok is a traditional Korean house — floors are heated (ondol system)',
       'Bedding is Korean-style (yo/mattress on the floor)',
-      'Anonaje is a cozy space designed for 2 guests maximum',
+      'Anonaje includes 2 guests in the base rate and accommodates up to 6 guests',
     ],
   },
   {
@@ -148,7 +148,7 @@ export const PROPERTY_KNOWLEDGE: PropertyKnowledge[] = [
     doorLockPassword: '',  // 관리자가 채워야 함
     checkIn: '3:00 PM',
     checkOut: '11:00 AM',
-    maxGuests: 4,
+    maxGuests: 8,
     directions: {
       subway: 'No local subway access. Contact the host for directions to the property.',
       taxi: 'Show the driver the Korean address below',

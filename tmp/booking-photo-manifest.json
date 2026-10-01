@@ -1,0 +1,254 @@
+[
+  {
+    "branch": "안온재",
+    "source": "DSC09319.jpg",
+    "destination": "public/images/anon/gallery-01.jpg",
+    "bytes": 257065,
+    "webpBytes": 182316
+  },
+  {
+    "branch": "안온재",
+    "source": "DSC09295.jpg",
+    "destination": "public/images/anon/gallery-02.jpg",
+    "bytes": 257798,
+    "webpBytes": 225586
+  },
+  {
+    "branch": "안온재",
+    "source": "DSC09362.jpg",
+    "destination": "public/images/anon/gallery-03.jpg",
+    "bytes": 116310,
+    "webpBytes": 69092
+  },
+  {
+    "branch": "안온재",
+    "source": "DSC09332.jpg",
+    "destination": "public/images/anon/gallery-04.jpg",
+    "bytes": 174175,
+    "webpBytes": 128784
+  },
+  {
+    "branch": "안온재",
+    "source": "DSC09308.jpg",
+    "destination": "public/images/anon/gallery-05.jpg",
+    "bytes": 215023,
+    "webpBytes": 154200
+  },
+  {
+    "branch": "안온재",
+    "source": "DSC09324.jpg",
+    "destination": "public/images/anon/gallery-06.jpg",
+    "bytes": 209034,
+    "webpBytes": 128836
+  },
+  {
+    "branch": "안온재",
+    "source": "DSC09248.jpg",
+    "destination": "public/images/anon/gallery-07.jpg",
+    "bytes": 272167,
+    "webpBytes": 225326
+  },
+  {
+    "branch": "안온재",
+    "source": "DSC09284.jpg",
+    "destination": "public/images/anon/gallery-08.jpg",
+    "bytes": 163310,
+    "webpBytes": 92702
+  },
+  {
+    "branch": "안온재",
+    "source": "DSC09328.jpg",
+    "destination": "public/images/anon/gallery-09.jpg",
+    "bytes": 175869,
+    "webpBytes": 118712
+  },
+  {
+    "branch": "안온재",
+    "source": "DSC09386.jpg",
+    "destination": "public/images/anon/gallery-10.jpg",
+    "bytes": 349677,
+    "webpBytes": 293268
+  },
+  {
+    "branch": "안온재",
+    "source": "DSC09391.jpg",
+    "destination": "public/images/anon/gallery-11.jpg",
+    "bytes": 301510,
+    "webpBytes": 241686
+  },
+  {
+    "branch": "안온재",
+    "source": "DSC09258.jpg",
+    "destination": "public/images/anon/gallery-12.jpg",
+    "bytes": 166266,
+    "webpBytes": 96150
+  },
+  {
+    "branch": "화연재",
+    "source": "DSC04187.jpg",
+    "destination": "public/images/hwayeon/gallery-01.jpg",
+    "bytes": 167108,
+    "webpBytes": 98782
+  },
+  {
+    "branch": "화연재",
+    "source": "DSC04179.jpg",
+    "destination": "public/images/hwayeon/gallery-02.jpg",
+    "bytes": 216913,
+    "webpBytes": 130402
+  },
+  {
+    "branch": "화연재",
+    "source": "DSC04193.jpg",
+    "destination": "public/images/hwayeon/gallery-03.jpg",
+    "bytes": 226597,
+    "webpBytes": 157198
+  },
+  {
+    "branch": "화연재",
+    "source": "DSC04190.jpg",
+    "destination": "public/images/hwayeon/gallery-04.jpg",
+    "bytes": 117913,
+    "webpBytes": 58924
+  },
+  {
+    "branch": "화연재",
+    "source": "DSC04238.jpg",
+    "destination": "public/images/hwayeon/gallery-05.jpg",
+    "bytes": 141976,
+    "webpBytes": 74924
+  },
+  {
+    "branch": "화연재",
+    "source": "DSC04300-편집.jpg",
+    "destination": "public/images/hwayeon/gallery-06.jpg",
+    "bytes": 312115,
+    "webpBytes": 283208
+  },
+  {
+    "branch": "화연재",
+    "source": "DSC04174.jpg",
+    "destination": "public/images/hwayeon/gallery-07.jpg",
+    "bytes": 128476,
+    "webpBytes": 67686
+  },
+  {
+    "branch": "화연재",
+    "source": "DSC04316-편집.jpg",
+    "destination": "public/images/hwayeon/gallery-08.jpg",
+    "bytes": 219858,
+    "webpBytes": 167198
+  },
+  {
+    "branch": "화연재",
+    "source": "DSC04324.jpg",
+    "destination": "public/images/hwayeon/gallery-09.jpg",
+    "bytes": 135928,
+    "webpBytes": 83806
+  },
+  {
+    "branch": "화연재",
+    "source": "DSC04323.jpg",
+    "destination": "public/images/hwayeon/gallery-10.jpg",
+    "bytes": 145612,
+    "webpBytes": 103844
+  },
+  {
+    "branch": "화연재",
+    "source": "DSC04383-편집.jpg",
+    "destination": "public/images/hwayeon/gallery-11.jpg",
+    "bytes": 158927,
+    "webpBytes": 114138
+  },
+  {
+    "branch": "화연재",
+    "source": "DSC04396.jpg",
+    "destination": "public/images/hwayeon/gallery-12.jpg",
+    "bytes": 242794,
+    "webpBytes": 190794
+  },
+  {
+    "branch": "도원재",
+    "source": "DSC09637_1.JPG",
+    "destination": "public/images/dowon/gallery-01.jpg",
+    "bytes": 216554,
+    "webpBytes": 187864
+  },
+  {
+    "branch": "도원재",
+    "source": "DSC09394.jpg",
+    "destination": "public/images/dowon/gallery-02.jpg",
+    "bytes": 165638,
+    "webpBytes": 101784
+  },
+  {
+    "branch": "도원재",
+    "source": "DSC09460.jpg",
+    "destination": "public/images/dowon/gallery-03.jpg",
+    "bytes": 120144,
+    "webpBytes": 70862
+  },
+  {
+    "branch": "도원재",
+    "source": "DSC09549_1.JPG",
+    "destination": "public/images/dowon/gallery-04.jpg",
+    "bytes": 139157,
+    "webpBytes": 84432
+  },
+  {
+    "branch": "도원재",
+    "source": "DSC09478.JPG",
+    "destination": "public/images/dowon/gallery-05.jpg",
+    "bytes": 176613,
+    "webpBytes": 122606
+  },
+  {
+    "branch": "도원재",
+    "source": "DSC09489.JPG",
+    "destination": "public/images/dowon/gallery-06.jpg",
+    "bytes": 260785,
+    "webpBytes": 223088
+  },
+  {
+    "branch": "도원재",
+    "source": "DSC09598.JPG",
+    "destination": "public/images/dowon/gallery-07.jpg",
+    "bytes": 132431,
+    "webpBytes": 77958
+  },
+  {
+    "branch": "도원재",
+    "source": "DSC09604.jpg",
+    "destination": "public/images/dowon/gallery-08.jpg",
+    "bytes": 119910,
+    "webpBytes": 72316
+  },
+  {
+    "branch": "도원재",
+    "source": "DSC09118.jpeg",
+    "destination": "public/images/dowon/gallery-09.jpg",
+    "bytes": 138359,
+    "webpBytes": 77098
+  },
+  {
+    "branch": "도원재",
+    "source": "KakaoTalk_20250716_110016098_07.jpg",
+    "destination": "public/images/dowon/gallery-10.jpg",
+    "bytes": 229629,
+    "webpBytes": 162838
+  },
+  {
+    "branch": "도원재",
+    "source": "DSC09719.JPG",
+    "destination": "public/images/dowon/gallery-11.jpg",
+    "bytes": 123802,
+    "webpBytes": 68068
+  },
+  {
+    "branch": "도원재",
+    "source": "DSC09623.JPG",
+    "destination": "public/images/dowon/gallery-12.jpg",
+    "bytes": 244166,
+    "webpBytes": 216860
+  }
+]
