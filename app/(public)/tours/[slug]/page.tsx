@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
-import Link from 'next/link';
+import { NavigationLink as Link } from '@/components/NavigationFeedback';
 import { ArrowRight, Clock, Users as UsersIcon, MapPin, Compass, Loader2, Check } from 'lucide-react';
 import { todayKst } from '@/lib/dates';
 

@@ -2,7 +2,7 @@
 
 import { usePublicLanguage } from '@/components/PublicLanguage';
 
-import Link from 'next/link';
+import { NavigationLink as Link } from '@/components/NavigationFeedback';
 import Image from 'next/image';
 import { motion, useReducedMotion } from 'motion/react';
 import { ArrowRight } from 'lucide-react';

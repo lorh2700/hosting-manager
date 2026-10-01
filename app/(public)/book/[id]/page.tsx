@@ -6,7 +6,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { parseStaySearch } from '@/lib/stay-search';
 import { BookingPhotoGallery } from '@/components/BookingPhotoGallery';
-import Link from 'next/link';
+import { NavigationLink as Link } from '@/components/NavigationFeedback';
 import { ChevronLeft, ChevronRight, ArrowRight, Clock, Users as UsersIcon, X } from 'lucide-react';
 import { format, addDays, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isBefore } from 'date-fns';
 import { ko, enUS } from 'date-fns/locale';

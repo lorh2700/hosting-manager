@@ -2,7 +2,7 @@
 
 import { usePublicLanguage, PublicLanguageSwitch } from '@/components/PublicLanguage';
 
-import Link from 'next/link';
+import { NavigationLink as Link } from '@/components/NavigationFeedback';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Menu, X } from 'lucide-react';

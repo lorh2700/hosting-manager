@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import Link from 'next/link';
+import { NavigationLink as Link } from '@/components/NavigationFeedback';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Home,

@@ -1,5 +1,6 @@
 'use client';
 
+import { NavigationFeedbackProvider } from '@/components/NavigationFeedback';
 import { ToastProvider } from '@/components/ui/Toast';
 import { ConfirmProvider } from '@/components/ui/Confirm';
 
@@ -7,7 +8,7 @@ import { ConfirmProvider } from '@/components/ui/Confirm';
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <ToastProvider>
-      <ConfirmProvider>{children}</ConfirmProvider>
+      <ConfirmProvider><NavigationFeedbackProvider>{children}</NavigationFeedbackProvider></ConfirmProvider>
     </ToastProvider>
   );
 }

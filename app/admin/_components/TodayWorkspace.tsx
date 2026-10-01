@@ -10,7 +10,7 @@
  * 운영 현황을 먼저 표시하고 카메라 사진은 별도로 불러온다.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
+import { NavigationLink as Link } from '@/components/NavigationFeedback';
 import dynamic from 'next/dynamic';
 import { format, parseISO, isToday } from 'date-fns';
 import { ko } from 'date-fns/locale';

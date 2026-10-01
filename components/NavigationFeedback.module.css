@@ -1,0 +1,8 @@
+.progress { position:fixed; inset:0 0 auto; z-index:9999; pointer-events:none; }
+.track { display:block; height:3px; background:#b18b62; transform-origin:left; animation:travel 1.2s ease-in-out infinite; }
+.label { position:absolute; top:12px; left:50%; transform:translateX(-50%); padding:9px 16px; border-radius:24px; background:#292524; color:#fafaf9; font-size:13px; white-space:nowrap; box-shadow:0 2px 12px #0003; }
+.loading { min-height:60svh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:96px 24px; font-size:14px; }
+.spinner { width:28px; height:28px; border:2px solid #a8a29e55; border-top-color:#a66b3d; border-radius:50%; animation:spin .9s linear infinite; }
+@keyframes travel { 0% { transform:scaleX(.15); opacity:.6; } 70% { transform:scaleX(.85); opacity:1; } 100% { transform:scaleX(1); opacity:.4; } }
+@keyframes spin { to { transform:rotate(360deg); } }
+@media(prefers-reduced-motion:reduce) { .track,.spinner { animation:none; } }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import { NavigationLink as Link } from '@/components/NavigationFeedback';
 import { useRefetchOnReturn } from '@/lib/hooks/useRefetchOnReturn';
 import {
   ArrowRight,

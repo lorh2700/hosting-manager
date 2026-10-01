@@ -4,7 +4,7 @@ import { usePublicLanguage } from '@/components/PublicLanguage';
 import { useEffect, useRef, useState } from 'react';
 import { type StaySearch, type StaySearchResult, staySearchQuery } from '@/lib/stay-search';
 
-import Link from 'next/link';
+import { NavigationLink as Link } from '@/components/NavigationFeedback';
 import Image from 'next/image';
 import { ArrowUpRight, MapPin, Users, Dog } from 'lucide-react';
 import { ScrollUnfoldHero } from '@/components/ScrollUnfoldHero';

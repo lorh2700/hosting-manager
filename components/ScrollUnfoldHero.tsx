@@ -4,7 +4,7 @@ import { usePublicLanguage } from '@/components/PublicLanguage';
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
+import { NavigationLink as Link } from '@/components/NavigationFeedback';
 import { ArrowUpRight, Pause, Play } from 'lucide-react';
 import styles from './StayHero.module.css';
 

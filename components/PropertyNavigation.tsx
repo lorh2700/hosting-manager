@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { NavigationLink as Link } from '@/components/NavigationFeedback';
 import { usePathname } from 'next/navigation';
 
 const PROPERTY_TABS = [

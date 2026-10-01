@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import Link from 'next/link';
+import { NavigationLink as Link } from '@/components/NavigationFeedback';
 import Image from 'next/image';
 import { ArrowUpRight, MapPin, Utensils } from 'lucide-react';
 import { usePublicLanguage } from '@/components/PublicLanguage';
