@@ -5,6 +5,7 @@ import { checkInquiryRemote, checkInquiryReservation, sendInquiryReply, sendInqu
 import { getInquiryNotificationRecipients } from '@/lib/inquiry-notification-recipients';
 import { acquireInquirySend, releaseInquirySend, ensureInquiryConversation } from '@/lib/inquiry-conversation';
 import type { InquiryJob } from '@/generated/prisma/client';
+import { isSimpleInquiryThanks } from '@/lib/inquiry-acknowledgement';
 
 const defaults = { judge: judgeInquiry, verify: verifyInquiry, reservation: checkInquiryReservation, remote: checkInquiryRemote, reply: sendInquiryReply, kakao: sendInquiryKakao };
 type Dependencies = typeof defaults;
@@ -119,6 +120,9 @@ export async function processInquiryJob(deps: Dependencies = defaults): Promise<
   try {
     const current = await contextFor(job);
     if (!current) { await skip(job, '이미 답변했거나 더 최근 문의가 있거나 자동답변 대상이 아닙니다.'); return true; }
+    if (isSimpleInquiryThanks(current.message.text)) {
+      await skip(job, '추가 요청이 없는 감사 인사로 자동답변과 알림을 생략했습니다.'); return true;
+    }
     if (current.message.text.length > 4000) { await escalate(job, '긴 문의는 담당자가 전체 내용을 확인해야 합니다.'); return true; }
     if (current.conversation.paused) {
       const decision = await deps.judge(current.context);

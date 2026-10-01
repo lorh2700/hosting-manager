@@ -28,6 +28,17 @@ beforeEach(async () => {
 
 async function runAll(custom = deps) { for (let i = 0; i < 8; i++) if (!await processInquiryJob(custom)) break; }
 
+test('담당자 응대 중에도 단순 감사에는 AI 호출·자동답변·카카오 알림을 만들지 않는다', async () => {
+  db.message[0].text = 'Thank you! 😊';
+  await setInquiryPaused('e1', true);
+  await enqueueInquiries();
+  await runAll({ ...deps, judge: async () => { throw new Error('감사 인사에는 AI 호출 불필요'); } });
+  assert.equal(db.inquiryJob[0].status, 'skipped');
+  assert.equal(db.inquiryConversation[0].paused, true);
+  assert.equal(sent.length, 0);
+  assert.equal((db.inquiryNotification ?? []).length, 0);
+});
+
 test('수신→영속 큐→판단→검증→예약/대화 확인→자동 전송, 중복 크론에도 한 번만 보낸다', async () => {
   await enqueueInquiries(); await enqueueInquiries();
   assert.equal(db.inquiryJob.length, 1);
