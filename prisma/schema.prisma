@@ -9,6 +9,42 @@ datasource db {
   provider = "postgresql"
 }
 
+// 공개 문화 행사. 예약/청소용 Event 테이블과 별도로 관리한다.
+model JongnoEvent {
+  id               String   @id @default(uuid())
+  titleKo          String   @map("title_ko")
+  titleEn          String   @default("") @map("title_en")
+  descriptionKo    String   @default("") @map("description_ko")
+  descriptionEn    String   @default("") @map("description_en")
+  category         String
+  area             String
+  venue            String   @default("")
+  address          String   @default("")
+  startDate        String   @map("start_date")
+  endDate          String   @map("end_date")
+  timeText         String   @default("") @map("time_text")
+  excludedWeekdays Json     @default("[]") @map("excluded_weekdays")
+  excludedDates    Json     @default("[]") @map("excluded_dates")
+  feeType          String   @default("unknown") @map("fee_type")
+  feeText          String   @default("") @map("fee_text")
+  bookingRequired  Boolean  @default(false) @map("booking_required")
+  officialUrl      String   @default("") @map("official_url")
+  bookingUrl       String   @default("") @map("booking_url")
+  mapUrl           String   @default("") @map("map_url")
+  languageText     String   @default("") @map("language_text")
+  images           Json     @default("[]")
+  status           String   @default("draft")
+  verifiedAt       DateTime? @map("verified_at")
+  createdBy        String   @map("created_by")
+  version          Int      @default(1)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([status, startDate, endDate])
+  @@index([status, area, startDate])
+  @@map("jongno_events")
+}
+
 // ── 사용자 ──
 model User {
   id          String    @id @default(uuid())

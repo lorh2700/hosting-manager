@@ -23,6 +23,7 @@ const ACCOUNT: AdminNavItem = { href: '/admin/settings/profile', label: '내 계
 const API: AdminNavItem = { href: '/admin/api-clients', label: 'API 클라이언트', icon: 'api', roles: ['admin'] };
 const TODAY: AdminNavItem = { href: '/admin', label: '오늘', icon: 'home', roles: MANAGERS };
 const MY_CLEANING: AdminNavItem = { href: '/cleaner', label: '내 청소 업무', icon: 'my-cleaning', roles: MANAGERS };
+const JONGNO_EVENTS: AdminNavItem = { href: '/admin/jongno-events', label: '종로 행사 캘린더', icon: 'calendar', roles: ['admin'] };
 
 const HOST_GROUPS: AdminNavGroup[] = [
   { id: 'daily', label: '매일 업무', alwaysOpen: true, items: [
@@ -47,6 +48,7 @@ const HOST_GROUPS: AdminNavGroup[] = [
     { href: '/admin/staff', label: '직원 관리', icon: 'staff', roles: MANAGERS },
     { href: '/admin/guests', label: '고객 명부', icon: 'guests', roles: ['admin'] },
     { href: '/admin/guest-services', label: '픽업 요청', icon: 'pickup', roles: MANAGERS },
+    JONGNO_EVENTS,
   ] },
   { id: 'settings', label: '설정', items: [
     { href: '/admin/integrations', label: '연동 관리', icon: 'integrations', roles: MANAGERS },
@@ -63,6 +65,7 @@ const TOUR_GROUPS: AdminNavGroup[] = [
   ] },
   { id: 'operations', label: '운영 관리', items: [
     { href: '/admin/tour-operators', label: '운영업체', icon: 'tour-operators', roles: MANAGERS },
+    JONGNO_EVENTS,
   ] },
   { id: 'settings', label: '설정', items: [API, ACCOUNT] },
 ];

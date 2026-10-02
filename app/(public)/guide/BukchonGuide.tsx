@@ -26,8 +26,9 @@ export default function BukchonGuide() {
       </div>
     </header>
     <section aria-label={en ? 'Explore the guide' : '북촌 가이드 둘러보기'} className="mx-auto max-w-6xl px-6 py-10 md:px-8 md:py-14">
-      <nav aria-label={en?'Guide region':'가이드 지역'} className="mb-8 flex gap-2 text-sm">
+      <nav aria-label={en?'Guide region':'가이드 지역'} className="mb-8 flex flex-wrap gap-2 text-sm">
         <Link href="/guide" aria-current="page" className="rounded-full bg-[#252e29] px-5 py-3 text-white">{en?'Bukchon':'북촌'}</Link>
+        <Link href={`/guide/jongno-events?lang=${language}`} className="rounded-full border border-stone-300 px-5 py-3">{en?'Jongno cultural calendar':'종로 문화 일정'}</Link>
         <Link href="/guide/yeongju" className="rounded-full border border-stone-300 px-5 py-3">{en?'Yeongju':'영주'}</Link>
       </nav>
       <div className="flex flex-col justify-between gap-6 border-b border-stone-300 pb-7 lg:flex-row lg:items-center">

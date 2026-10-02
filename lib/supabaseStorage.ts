@@ -46,6 +46,7 @@ export async function uploadToSupabaseStorage(opts: {
   contentType: string;
   filename: string;
   bucket?: string;
+  signal?: AbortSignal;
 }): Promise<UploadOk | UploadErr> {
   const supabaseUrl = deriveSupabaseUrl();
   const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
@@ -76,6 +77,7 @@ export async function uploadToSupabaseStorage(opts: {
           'x-upsert': 'true',
         },
         body: opts.buffer,
+        signal: opts.signal,
       },
     );
   } catch (e) {

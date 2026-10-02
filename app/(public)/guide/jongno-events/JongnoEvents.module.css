@@ -1,0 +1,122 @@
+.page{min-height:100vh;background:#f4f0e8;color:#242720;font-size:14px;line-height:1.6}
+.container{width:min(1120px,100%);margin:0 auto;padding-inline:24px}
+.hero{background:#252e29;color:#f4f0e8;padding:128px 0 58px}
+.eyebrow{font-size:10px;letter-spacing:.24em;color:#c3cdbb}
+.hero h1{font-size:42px;line-height:1.25;margin:24px 0 0;font-weight:400}
+.intro{max-width:580px;margin-top:24px;line-height:1.9;color:#d5dacd;font-size:14px}
+.content{padding-top:28px;padding-bottom:72px}
+.guideNav{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px}
+.guideNav a{display:inline-flex;min-height:44px;align-items:center;padding:8px 16px;border:1px solid #cbcfc3;border-radius:30px;font-size:13px;text-decoration:none}
+.guideNav a[aria-current=page]{background:#252e29;border-color:#252e29;color:white}
+.stayNotice{display:flex;gap:10px;background:#e6eadf;padding:15px 18px;border-radius:12px;margin:0 0 22px;color:#465440}
+.stayNotice svg{margin-top:3px;flex-shrink:0}
+.stayNotice small{display:block;margin-top:3px;font-size:12px;color:#66725e}
+.toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:22px}
+.monthControl{display:flex;align-items:center;gap:7px}
+.monthControl h2{min-width:150px;text-align:center;font-size:21px;line-height:1.4;font-weight:500}
+.monthControl button,.galleryHeader button,.galleryFooter button{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;border:1px solid #d0d3c8;background:transparent;color:inherit}
+.viewControls{display:flex;align-items:center;gap:8px}
+.viewControls>button{padding:8px 16px;min-height:44px;border:1px solid #d0d3c8;border-radius:30px}
+.viewControls>div{display:flex;padding:4px;background:#e6e6dc;border-radius:30px}
+.viewControls>div button{min-height:40px;padding:6px 17px;border-radius:25px}
+.viewControls>div button[aria-pressed=true]{background:#fff;box-shadow:0 1px 4px #252e2910}
+.filters{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;padding-bottom:20px;border-bottom:1px solid #d5d5c9}
+.filters label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:#65705f;min-width:0}
+.filters select,.filters input{min-height:46px;border:1px solid #cdd0c3;border-radius:9px;background:#faf8f3;padding:9px 34px 9px 12px;font-size:16px;color:#252e29;max-width:100%;width:100%;color-scheme:light}
+.filters>label{width:calc(50% - 6px);min-width:120px;max-width:230px}
+.periodFilter{flex:1;min-width:200px;padding-top:22px}
+.periodFilter summary{display:inline-flex;align-items:center;min-height:46px;padding:8px 14px;border:1px solid #cdd0c3;border-radius:9px;cursor:pointer}
+.periodFilter summary:after{content:'+';font-size:17px;margin-left:20px}
+.periodFilter[open] summary:after{content:'−'}
+.periodFilter>div{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:12px}
+.periodFilter label{flex:1;min-width:130px}
+.periodFilter input{padding-right:10px}
+.periodFilter button{min-height:46px;border:1px solid #cdd0c3;border-radius:9px;background:#fff;padding:8px 14px}
+.periodFilter>div>p{width:100%;font-size:12px;color:#954d37}
+.rangeLabel{font-size:12px;color:#65725e;margin-top:18px}
+.dateStrip{display:flex;gap:7px;overflow-x:auto;padding:20px 0 14px;scrollbar-width:thin;scrollbar-color:#c2c7b6 transparent;overscroll-behavior-x:contain}
+.dateStrip>button{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:0 0 58px;min-height:91px;border-radius:14px;border:1px solid #deded2;background:#faf8f3;gap:3px}
+.dateStrip>button>span{font-size:11px;color:#747d6d}
+.dateStrip strong{font-size:23px;font-weight:500}
+.dateStrip button[aria-pressed=true],.monthCalendar button[aria-pressed=true]{background:#252e29!important;color:#fff!important;border-color:#252e29}
+.dateStrip button[aria-pressed=true]>span{color:#d5dacd}
+.dateStrip button[aria-pressed=true] .eventDot,.monthCalendar button[aria-pressed=true] .eventDot{background:#d5dacd}
+.stayDay{background:#e6eadf!important;color:#33442e}
+.todayDay{box-shadow:inset 0 0 0 1px #78856d}
+.eventDot,.emptyDot{display:inline-block;width:5px;height:5px;flex-shrink:0;border-radius:50%;background:#62735c}
+.emptyDot{background:transparent}
+.monthCalendar{margin-top:22px;background:#faf8f3;border:1px solid #d5d5c9;border-radius:15px;padding:10px;overflow:hidden}
+.monthCalendar table{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:3px}
+.monthCalendar th{height:34px;font-size:11px;font-weight:400;color:#737d6b}
+.monthCalendar td{padding:0}
+.monthCalendar button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:100%;min-height:67px;border-radius:10px;position:relative}
+.monthCalendar button>span{font-size:15px}
+.monthCalendar small{font-size:9px;line-height:1;position:absolute;bottom:8px;right:9px;color:inherit}
+.legend{display:flex;flex-wrap:wrap;align-items:center;gap:12px;font-size:11px;color:#6b7664;margin-top:14px}
+.legend>span{display:flex;align-items:center;gap:5px}
+.legend>p{flex-basis:100%;line-height:1.7;margin:0}
+.staySquare{width:10px;height:10px;display:inline-block;background:#e6eadf;border:1px solid #bdc7b4;border-radius:2px}
+.listHeading{display:flex;justify-content:space-between;align-items:center;gap:14px;margin:32px 0 18px}
+.listHeading h2{font-size:23px;line-height:1.35;font-weight:400}
+.listHeading button{min-height:44px;flex-shrink:0;padding:8px 13px;border-radius:24px;border:1px solid #cdd0c3;font-size:12px}
+.listHeading button[aria-pressed=true]{background:#e6eadf;color:#3d5034}
+.eventList{display:grid;gap:18px}
+.card{background:#faf8f3;border:1px solid #d3d6cb;border-radius:15px;overflow:hidden;scroll-margin-top:100px}
+.highlightCard{border-color:#66775c;box-shadow:0 0 0 1px #66775c}
+.cardSummary{display:flex;gap:15px;padding:20px}
+.cover,.noCover{width:88px;height:100px;border-radius:10px;flex-shrink:0;object-fit:cover;background:#e4e6db;color:#75816d}
+.noCover{display:flex;align-items:center;justify-content:center}
+.cardText{min-width:0;flex:1}
+.badges{display:flex;flex-wrap:wrap;gap:6px;font-size:10px;color:#607053;line-height:1.3}
+.badges>span{padding:4px 7px;border-radius:4px;background:#e8eadf}
+.card h3{font-size:18px;line-height:1.5;font-weight:500;margin:8px 0 10px;overflow-wrap:anywhere}
+.meta,.fee{display:flex;gap:6px;align-items:flex-start;font-size:12px;line-height:1.7;color:#6a7461;margin:4px 0;overflow-wrap:anywhere}
+.meta svg,.fee svg{flex-shrink:0;margin-top:3px}
+.fee{color:#4e6243;margin-top:8px}
+.detail{border-top:1px solid #e1e2d7}
+.detail summary{display:flex;align-items:center;justify-content:space-between;min-height:48px;padding:12px 20px;list-style:none;cursor:pointer;font-size:12px;color:#54664a}
+.detail summary::-webkit-details-marker{display:none}
+.detail[open] summary>svg{transform:rotate(180deg)}
+.detailBody{padding:4px 20px 22px}
+.description{font-size:14px;line-height:1.9;white-space:pre-line;overflow-wrap:anywhere;margin:6px 0 22px}
+.facts{display:grid;grid-template-columns:84px minmax(0,1fr);gap:9px 12px;font-size:12px;margin:0 0 24px;line-height:1.8}
+.facts dt{color:#798370}
+.facts dd{overflow-wrap:anywhere;margin:0}
+.photoGallery{display:flex;gap:12px;overflow-x:auto;padding-bottom:12px;margin-bottom:14px;overscroll-behavior-x:contain}
+.photoGallery>div{flex:0 0 min(250px,83%);min-width:0}
+.photoGallery button{display:block;width:100%;padding:0;border-radius:10px;overflow:hidden;background:#e5e7dc}
+.photoGallery img{width:100%;height:165px;object-fit:cover}
+.photoCredit{font-size:10px;color:#7c8374;line-height:1.6;overflow-wrap:anywhere;margin-top:5px}
+.photoCredit a,.galleryFooter a{color:inherit;text-decoration:underline}
+.externalLinks{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.externalLinks a{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:10px 14px;border:1px solid #cdd1c3;border-radius:8px;font-size:12px;text-decoration:none;background:#fff}
+.small{font-size:11px;color:#7c8574;line-height:1.8;margin-top:10px;overflow-wrap:anywhere}
+.loading,.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:48px 22px;background:#faf8f3;border:1px dashed #cfd3c6;border-radius:15px;color:#65725e;line-height:1.8}
+.empty h3{font-size:17px;color:#3e4f34;line-height:1.5;font-weight:500}
+.empty p{max-width:510px;font-size:13px;margin-bottom:10px}
+.empty button,.empty a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 18px;border:1px solid #c9cfbd;border-radius:24px;font-size:13px;text-decoration:none}
+.loadingIcon{animation:breathe 1.4s ease-in-out infinite}
+.pagination{text-align:center;margin-top:22px;color:#65725e;font-size:12px}
+.pagination button{min-height:46px;border:1px solid #c9cfbd;border-radius:24px;padding:10px 22px;background:#faf8f3}
+.pagination p{margin-top:10px;font-size:11px}
+.beforeVisit{margin-top:42px;padding-top:26px;border-top:1px solid #d2d5c7;color:#65725e;font-size:12px;line-height:1.9}
+.beforeVisit h2{font-size:14px;color:#3c4c33;margin-bottom:10px;font-weight:500}
+.galleryDialog{border:0;background:transparent;width:min(1000px,calc(100vw - 24px));max-width:none;max-height:calc(100dvh - 32px);padding:0;color:#f4f0e8;overflow-y:auto;overscroll-behavior:contain;border-radius:14px}
+.galleryDialog::backdrop{background:#0e160edb}
+.galleryContent{background:#252e29;border-radius:14px;padding:14px}
+.galleryHeader{display:flex;align-items:flex-start;gap:15px;justify-content:space-between;margin-bottom:14px}
+.galleryHeader p{min-width:0;font-size:14px;overflow-wrap:anywhere}
+.galleryHeader p span{display:block;color:#bcc9b3;font-size:11px;margin-top:3px}
+.galleryHeader button{border-color:#718369;flex-shrink:0}
+.largePhoto{max-height:calc(100dvh - 245px);max-width:100%;width:100%;object-fit:contain;border-radius:8px;background:#1b241b;min-height:140px}
+.galleryFooter{display:flex;gap:14px;align-items:center;justify-content:space-between;margin-top:15px}
+.galleryFooter button{flex-shrink:0;border-color:#718369}
+.galleryFooter p{font-size:12px;text-align:center;min-width:0;overflow-wrap:anywhere;line-height:1.7}
+.galleryFooter span{display:block;color:#b4c1ab;font-size:10px}
+.page button{cursor:pointer}
+.page button:disabled{cursor:default;opacity:.45}
+.page :is(button,a,summary,select,input):focus-visible{outline:2px solid #7d916d;outline-offset:3px}
+@keyframes breathe{50%{opacity:.35;transform:translateY(-2px)}}
+@media(min-width:700px){.container{padding-inline:36px}.hero{padding-top:156px;padding-bottom:75px}.hero h1{font-size:58px}.content{padding-top:36px}.eventList{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.cardSummary{gap:18px;padding:24px}.cover,.noCover{width:110px;height:130px}.detail summary{padding-inline:24px}.detailBody{padding-inline:24px}.periodFilter{max-width:440px}.monthCalendar{padding:16px}.monthCalendar button{min-height:86px}.monthCalendar button>span{font-size:17px}}
+@media(max-width:360px){.container{padding-inline:16px}.hero h1{font-size:38px}.monthControl h2{min-width:132px;font-size:19px}.toolbar{gap:12px}.viewControls{width:100%;justify-content:space-between}.cover,.noCover{width:65px;height:90px}.cardSummary{gap:11px;padding:16px}.card h3{font-size:16px}.listHeading h2{font-size:20px}.detailBody{padding-inline:16px}.facts{grid-template-columns:65px minmax(0,1fr)}.monthCalendar{padding:4px}.monthCalendar table{border-spacing:2px}.monthCalendar button{min-height:56px}.monthCalendar small{right:5px;bottom:7px}}
+@media(prefers-reduced-motion:reduce){.loadingIcon{animation:none}}

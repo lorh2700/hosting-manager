@@ -6,6 +6,8 @@ import { useState, useEffect, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { parseStaySearch } from '@/lib/stay-search';
 import { BookingPhotoGallery } from '@/components/BookingPhotoGallery';
+import JongnoEventRecommendations from '@/components/JongnoEventRecommendations';
+import { getPropertyDisplay } from '@/lib/property-display';
 import { NavigationLink as Link } from '@/components/NavigationFeedback';
 import { ChevronLeft, ChevronRight, ArrowRight, Clock, Users as UsersIcon, X } from 'lucide-react';
 import { format, addDays, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isBefore } from 'date-fns';
@@ -612,6 +614,9 @@ function BookingContent() {
         <h2 className="mb-4 text-xl font-medium">{language === 'en' ? 'Location' : '위치 안내'}</h2>
         <p className="text-sm text-stone-300">{property.addressKo || (language === 'en' ? 'Please contact us for the exact address.' : '상세 위치는 숙소로 문의해 주세요.')}</p>
       </section>
+      {getPropertyDisplay(property.slug || id)?.region === '북촌' && <section className="bg-[#f4f0e8] px-4 py-10 text-[#293d31] sm:px-6">
+        <JongnoEventRecommendations start={checkIn ? format(checkIn, 'yyyy-MM-dd') : null} end={checkOut ? format(checkOut, 'yyyy-MM-dd') : null} language={language} className="mx-auto max-w-7xl" />
+      </section>}
       {property.status !== 'coming_soon' && <div className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-4 border-t border-stone-700 bg-stone-950/95 px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] backdrop-blur lg:hidden">
         <div className="min-w-0 text-sm"><p className="truncate">{t(property.name)}</p><p className="mt-1 text-xs text-stone-400">{checkIn && checkOut ? format(checkIn, 'M.d') + ' — ' + format(checkOut, 'M.d') : language === 'en' ? 'Choose dates to view rates' : '날짜 선택 후 요금 확인'}</p></div>
         <a href="#calendar-selection" className="flex min-h-11 shrink-0 items-center rounded-lg bg-[#eee8dc] px-5 text-sm font-medium text-stone-950">{language === 'en' ? 'Dates & rates' : '날짜·요금 확인'}</a>

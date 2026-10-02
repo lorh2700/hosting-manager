@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import GuestInvitation from '@/components/GuestInvitation';
+import JongnoEventRecommendations from '@/components/JongnoEventRecommendations';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowDown, ArrowUpRight, Check, Clock3, MapPin, Plane, Luggage, CarFront, Loader2 } from 'lucide-react';
@@ -86,6 +87,10 @@ export default function GuestGuide({guide,initialLanguage,invitationPreview=fals
       </div></section>
       <section id="experiences" className="mx-auto max-w-6xl scroll-mt-5 px-5 py-14 sm:px-8 sm:py-20"><p className="text-[10px] tracking-[.2em] text-stone-500">03 / {t.discover}</p><div className="mt-3 flex flex-wrap items-end justify-between gap-5"><div><h2 className="font-serif text-3xl sm:text-4xl">{t.discoverTitle}</h2><p className="mt-4 max-w-xl text-sm leading-7 text-stone-600">{t.discoverText}</p>{lang!=='ko'&&<p className="mt-2 text-xs text-stone-500">{t.tourLanguage}</p>}</div><Link href="/tours" className={`inline-flex min-h-11 items-center gap-2 text-sm underline underline-offset-4 ${focus}`}>{t.allTours}<ArrowUpRight size={15}/></Link></div>
         {tourLoading?<p role="status" className="py-12 text-stone-500"><Loader2 size={22} className="animate-spin"/><span className="sr-only">{t.loading}</span></p>:tourError?<div role="alert" className="mt-7 rounded-xl border border-stone-300 p-6 text-sm">{t.tourError}<button onClick={()=>setAttempt(a=>a+1)} className={`ml-4 min-h-11 underline ${focus}`}>{t.retry}</button></div>:!tours.length?<p className="mt-7 rounded-xl border border-dashed border-stone-300 p-8 text-sm text-stone-600">{t.noTours}</p>:<div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">{tours.slice(0,3).map(tour=><Link key={tour.id} href={`/tours/${encodeURIComponent(tour.slug)}`} className={`group overflow-hidden rounded-2xl border border-[#dedfd5] bg-white ${focus}`}><div className="relative aspect-[4/3] bg-[#e9eddf]">{tour.images[0]?<Image src={tour.images[0]} alt="" fill unoptimized sizes="(max-width: 639px) 100vw, 360px" className="object-cover transition-transform duration-500 group-hover:scale-105"/>:<div className="grid h-full place-items-center font-serif text-3xl text-[#829375]">{t.slowSeoul}</div>}</div><div className="p-6">{tour.durationMin&&<p className="text-xs text-stone-500">{tour.durationMin} {t.minute}</p>}<h3 className="mt-2 text-lg font-medium">{guestTourCopy(tour,lang).title}</h3><p className="mt-3 line-clamp-2 text-sm leading-6 text-stone-600">{guestTourCopy(tour,lang).description}</p><p className="mt-5 text-sm">{tour.basePrice!=null?t.startingPrice.replace('{price}',tour.basePrice.toLocaleString('en-US')):t.priceOnPage}</p><span className="mt-5 flex items-center justify-between border-t border-stone-100 pt-4 text-xs">{t.tourButton}<ArrowUpRight size={16}/></span></div></Link>)}</div>}
+      </section>
+      <section id="jongno-events" className="mx-auto max-w-6xl scroll-mt-5 border-t border-[#dedfd5] px-5 py-12 sm:px-8">
+        {lang !== 'ko' && lang !== 'en' && <p className="mb-4 text-xs text-stone-600">{lang === 'ja' ? '宗路のイベント情報は英語でご案内します。' : '钟路活动信息以英文提供。'}</p>}
+        <JongnoEventRecommendations start={reservation?.checkIn ?? null} end={reservation?.checkOut ?? null} language={lang === 'ko' ? 'ko' : 'en'} />
       </section>
       <section className="border-t border-[#dedfd5] px-5 py-10 text-center sm:px-8"><h2 className="font-serif text-2xl">{t.help}</h2><p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-stone-600">{t.helpText}</p></section>
     </main><footer className="border-t border-[#dedfd5] px-5 py-8 text-center"><p className="text-sm tracking-[.15em]">void anchae</p><p className="mt-3 text-xs text-stone-500">{t.footer}</p></footer>

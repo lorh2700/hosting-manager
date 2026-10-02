@@ -9,6 +9,7 @@ test('host managers can reach daily and maintenance work without administrator-o
   for (const href of ['/admin/inventory', '/admin/issues', '/admin/supplies', '/admin/integrations', '/admin/payments']) assert.ok(paths.includes(href));
   assert.ok(!paths.includes('/admin/guests'));
   assert.ok(!paths.includes('/admin/api-clients'));
+  assert.ok(!paths.includes('/admin/jongno-events'));
   assert.equal(navigation.secondary[0].href, '/cleaner');
 });
 
@@ -18,9 +19,19 @@ test('tour bottom navigation prioritizes tour bookings and products instead of c
   const paths = navigation.groups.flatMap(group => group.items.map(item => item.href));
   assert.ok(paths.includes('/admin/tour-operators'));
   assert.ok(paths.includes('/admin/api-clients'));
+  assert.ok(paths.includes('/admin/jongno-events'));
   assert.ok(!paths.includes('/admin/calendar'));
   assert.ok(!paths.includes('/admin/payments'));
   assert.equal(navigation.secondary[0].href, '/cleaner');
+});
+
+test('Jongno event editing stays administrator-only in both management modes', () => {
+  for (const mode of ['host', 'tour'] as const) {
+    const administrator = getAdminNavigation(mode, 'admin').groups.flatMap(group => group.items);
+    const manager = getAdminNavigation(mode, 'manager').groups.flatMap(group => group.items);
+    assert.ok(administrator.some(item => item.href === '/admin/jongno-events'));
+    assert.ok(!manager.some(item => item.href === '/admin/jongno-events'));
+  }
 });
 
 test('cleaner roles do not acquire admin work links through menu configuration', () => {
