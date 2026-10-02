@@ -1,0 +1,2366 @@
+
+
+
+
+
+    
+<!DOCTYPE html>
+<html lang="ko"> 
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="keywords" content="펀서울, FUN SEOUL,서울축제, 페스티벌서울">
+	<meta name="description" content="도심의 하늘 아래, 예술과 사람 그리고 설렘이 피어납니다. 서울의 모든 순간이 축제가 됩니다.">
+	<meta property="og:title" content="펀서울 | FUN SEOUL">
+	<meta property="og:description" content="도심의 하늘 아래, 예술과 사람 그리고 설렘이 피어납니다. 서울의 모든 순간이 축제가 됩니다.">
+	<meta property="og:image" content="https://festival.seoul.go.kr/resources/img/common/img_meta_festa2.png">
+	<meta name="format-detection" content="telephone=no">
+	<meta name="robots" content="index,follow">
+	<title>펀서울 | FUN SEOUL</title>
+	<link rel="icon" type="image/x-icon" href="/resources/img/common/favicon.ico">
+	<link rel="stylesheet" href="/resources/css/fe-common.min.css">
+	<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+	
+	<script src="//www.seoul.go.kr/seoulgnb/gnb.js"></script>
+	
+ 	<script src="/resources/js/fe-common.min.js" defer></script>
+ 	<script src="/resources/js/ui-chatbot.js" defer></script>
+ 	<script> window.FEUI = { PATH: '/resources/' }; </script>
+ 	
+ 	<script src="/resources/js/setCookieList.js"></script>
+ 	<script src="/resources/js/ajaxUtil.js"></script>
+ 	
+ 	<link rel="stylesheet" href="/resources/css/funseoul-chatbot.css">
+    <script src="/resources/js/ui-chatbot-funseoul.js" defer></script>
+	
+ 	
+	<script>
+		//GNB 로딩 스크립트
+		// Yjs.Gnb.init('사이트코드', 'GNB 표출영역 ID');
+		window.onload = function() {
+			Yjs.Gnb.init('S018', 'seoul-common-gnb');
+		};
+		
+		$(document).ready(function(){
+			
+			$(".btn-banner-close").on("click", function () {
+				$("#banner").hide();
+			});
+			
+			$("#popup_close").on("click", function (){
+				const checkbox = document.querySelector('.event-popup');
+
+				  // 조건문 안에서 체크 여부 사용
+				  if (checkbox.checked) {// 체크된 경우
+					var cookieId = "_eventPopup";
+					var midnight = new Date();
+						midnight.setHours(23,59,59,0);
+					
+					setBannerCookie( cookieId , 'Y', { expires: midnight});
+				  }
+
+			});
+			
+			$(".btn-close-today").on("click", function () {
+				const $popup = $(this).closest("seoul-banner");
+				var cookieId = "_TopBanner";
+				var midnight = new Date();
+					midnight.setHours(23,59,59,0);
+				
+				setBannerCookie( cookieId , 'Y', { expires: midnight});
+				$(".btn-banner-close").removeClass("active");
+				
+				// 배너 숨기기
+			    //$("#banner").hide();
+
+			});
+			
+			var PopupShow = getPopCookie( "_TopBanner" );
+			if( PopupShow == 'Y' ){
+				//$("#banner").hide();
+				$(".btn-banner-close").removeClass("active");
+			} else {
+				$(".btn-banner-close").addClass("active");
+			}
+			
+			var PopupShow2 = getPopCookie( "_eventPopup" );
+			if( PopupShow2 == 'Y' ){
+				FEUI.controlDialog.close('modal-이벤트공지');
+				/*document.addEventListener('DOMContentLoaded', () => {
+					FEUI.controlDialog.close('modal-이벤트공지');
+				}); */
+			}
+		
+		});
+		// 상단띠 배너 기간 설정
+		document.addEventListener("DOMContentLoaded", function () {
+		    var today = new Date();
+
+			var year = today.getFullYear();
+			var month = ('0' + (today.getMonth() + 1)).slice(-2);
+			var day = ('0' + today.getDate()).slice(-2);
+			var hours = ('0' + today.getHours()).slice(-2);
+			var minutes = ('0' + today.getMinutes()).slice(-2);
+			var seconds = ('0' + today.getSeconds()).slice(-2);
+			var dateTime = year + month + day + hours + minutes + seconds;
+
+		    var banner = document.getElementById("banner");
+		    if (banner) {
+		    	if(dateTime >= '20260915000000' && dateTime < '20261130000000') {
+		        banner.style.display = ""; // 다시 표시 숨김
+		      } else {
+		        banner.style.display = "none"; // 숨김
+		      }
+		    }
+		  });
+
+	</script> 
+
+	
+</head>
+<body>
+ 	<a href="#content" class="skip-navigation">본문으로 바로가기</a>
+	<!-- seoul-banner -->
+	<div class="seoul-banner" id="banner">
+		<a href="https://www.sfac.or.kr/seoulautumnfesta/" target="_blank" rel="noopener noreferrer" aria-label="서울 어텀 페스타(새 창 열림)">
+			<img src="/resources/img/banner/seoul-banner-pc-autumnfest.png" class="pc-view-only" alt="서울어텀페스타 SEOUL AUTUMN FESTA 2026.9.18-11.29 서울의 가을, 도시가 예술이 되다">
+			<img src="/resources/img/banner/seoul-banner-mo-autumnfest.png" class="mobile-view-only" alt="서울어텀페스타 SEOUL AUTUMN FESTA 2026.9.18-11.29 서울의 가을, 도시가 예술이 되다">
+		</a>
+		<div class="btn-group">
+		  <div class="end">
+		    <button type="button" class="btn btn-banner-close active" data-toggle-class data-toggle-content>
+		      <i class="ico ico-mask ico-close"></i>
+		      <span>닫기</span>
+		    </button>
+		    <button type="button" class="btn btn-banner-close btn-close-today">
+		      <i class="ico ico-mask ico-close"></i>
+		      <span>오늘하루 닫기</span>
+		    </button>
+		  </div>
+		</div>
+	</div>
+	<!-- //seoul-banner -->
+	<!-- seoul-common-gnb -->
+	<div id='seoul-common-gnb' ></div>
+	<!-- wrapper(s) -->
+	<div class="wrapper" id="trans-wrap">
+		<!-- header(s)// -->
+		
+
+    
+    
+
+	<!-- header -->
+	<header class="header">
+		<!-- header-inner -->
+		<div class="header-inner">
+			<!-- logo -->
+			<h1 class="header-logo" >
+				<a href="/festival/main/festivalMain.do" data-logo-season="가을">
+					<span class="sr-only">펀서울 | FUN SEOUL</span>
+				</a>
+			</h1>
+			<!-- //logo -->
+			<!-- header-button-wrap -->
+			<div class="header-button-wrap mobile-view-only">
+				<button type="button" class="btn btn-ico" data-modal-target="modal-축제찾기" onclick="FEUI.mobileNavigation.close(false);">
+					<i class="ico ico-mask ico-mobile-search"></i>
+					<span class="sr-only">축제 검색</span>
+				</button>
+				<button type="button" class="btn btn-ico btn-toggle-menu" data-toggle-class data-toggle-content>
+					<i class="ico ico-mask ico-mobile-menu"></i>
+					<span class="sr-only">메뉴 보이기/숨기기</span>
+				</button>
+			</div>
+			<!-- //header-button-wrap -->
+			<!-- nav -->
+			<nav class="nav" aria-label="주 메뉴">
+				<div class="nav-util-wrap mobile-view-only">
+					<button type="button" class="btn btn-shadow btn-nav-like" data-modal-target="modal-관심축제" onclick="FEUI.mobileNavigation.close(false);">
+						<i class="ico ico-heart"></i>
+						<span class="label">나의 관심 축제</span>
+						<i class="ico ico-mask ico-arrow-right"></i>
+					</button>
+					<button type="button" class="btn btn-shadow btn-nav-like" data-modal-target="modal-월간축제" onclick="FEUI.mobileNavigation.close(false);">
+						<i class="ico ico-quick-month"></i>
+						<span class="label">월간 축제</span>
+						<i class="ico ico-mask ico-arrow-right"></i>
+					</button>
+					<!-- <a class="btn btn-shadow btn-nav-like" href="../sub/chatbot.html">
+						<i class="ico ico-quick-chatbot"></i>
+						<span class="label">챗봇 검색</span>
+						<i class="ico ico-mask ico-arrow-right"></i>
+					</a> -->
+				</div>
+				<!-- Depth 1 -->
+				<ul class="nav-depth-1">
+					<li><a href="/festival/year/loadMap.do">서울축제 2026</a></li>
+					<li><a href="/festival/seasonal/list.do">계절별 축제</a></li>
+					<li><a href="/festival/regional/list.do">지역별 축제</a></li>
+					<li><a href="/festival/search/list.do">모든 축제</a></li>
+					<!-- <li>
+					  <a href="http://localhost:8080/culture/culture/cultureEvent/forInsert.do?menuNo=200044" target="_blank" rel="noopener noreferrer" aria-label="축제 홍보신청 홈페이지 바로가기(새 창 열림)">
+					    축제 홍보 신청
+					  </a>
+					</li> -->
+					<li>
+					  <a href="https://culture.seoul.go.kr" target="_blank" rel="noopener noreferrer" aria-label="서울문화포털 홈페이지 바로가기(새 창 열림)">
+					    <span class="culture-seoul-logo"><i class="sr-only">서울문화포털</i></span>
+					  </a>
+					</li>
+				</ul>
+				<!-- //Depth 1 -->
+			</nav>
+			<!-- //nav -->
+		</div>
+		<!-- header-inner -->
+	</header>
+	<!-- header -->
+
+		<!-- //header(e) -->
+		
+		<!-- content-wrap -->
+		<div class="content-wrap">
+			<!-- quick-menu -->
+			<aside class="quick-menu" aria-label="퀵 메뉴">
+				<div class="quick-inner">
+					<button type="button" class="btn btn-quick-like" id="btn-quick-like" data-modal-target="modal-관심축제">
+						<i class="ico ico-quick-like"></i>
+						<span class="label">관심 축제</span>
+					</button>
+					<button type="button" class="btn btn-quick-month" id="btn-quick-monthly" data-modal-target="modal-월간축제">
+						<i class="ico ico-quick-month"></i>
+						<span class="label">월간 축제</span>
+					</button>
+					<button type="button" class="btn btn-quick-search" id="btn-quick-search" data-modal-target="modal-축제찾기">
+						<i class="ico ico-quick-search"></i>
+						<span class="label">축제 검색</span>
+					</button>
+				</div>
+			</aside>
+			<!-- //quick-menu -->
+			<!-- content -->
+			<main id="content" class="content">
+				
+				
+				<!-- main include -->				
+				
+				<!-- 서울축제 2026 -->
+				
+				<!-- 계절별 축제 -->
+				
+				<!-- 지역별 축제 -->
+				
+				<!-- 모든 축제 -->
+				
+				<!-- 상세 -->
+				
+				 	
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/resources/css/winterFesta.css">
+
+<!-- content-inner -->
+<div class="content-inner"><!-- sub-content -->
+	<div class="sub-content sub-detail">
+		<!-- detail-visual -->
+		<div class="detail-visual">
+			
+				<img src="/cmmn/file/getImage.do?atchFileId=9447b1f1c2e44cb0bd06a0f47273ab4a&thumb=Y" alt="서울특별시 민간축제 지원사업 2026 제3회 여민락 문화교류축제 [인사 in Seoul] 전통과 오늘이 만나는 곳, 인사동에서 2026.10.09 FRI 11:00-18:00 인사동 남인사마당 야외무대">
+			
+			
+			<canvas class="detail-falling-canvas" data-season="가을" ></canvas>
+		</div>
+		<!-- //detail-visual -->
+		<!-- detail-top -->
+		<div class="detail-top">
+			<div class="poster-img">
+				
+					<img src="/cmmn/file/getImage.do?atchFileId=9447b1f1c2e44cb0bd06a0f47273ab4a&thumb=Y" alt="서울특별시 민간축제 지원사업 2026 제3회 여민락 문화교류축제 [인사 in Seoul] 전통과 오늘이 만나는 곳, 인사동에서 2026.10.09 FRI 11:00-18:00 인사동 남인사마당 야외무대">
+				
+				
+			</div>
+			<div class="title-wrap">
+				<div class="badge-group">
+					<span class="badge" data-category="문화/예술">문화/예술</span>
+					<span class="badge">종로구</span>
+				</div>
+				<h2 class="title">2026 제3회 여민락 문화교류축제 [인사 in Seoul]</h2>
+			</div>
+			<div class="info">
+				<p class="date">
+					
+						
+						
+							 2026-10-09 ~ 2026-10-09
+						
+					
+				</p>
+				<p class="location">인사동 남인사마당 야외무대</p>
+			</div>
+			<div class="btn-group">
+				<div class="center">
+					
+						<a href="https://www.ktaia.or.kr" class="btn btn-shadow btn-festival-homepage" target="_blank" rel="noopener noreferrer" aria-label="(새 창 열림)">
+							<i class="ico ico-festival-homepage"></i>
+							홈페이지
+						</a>
+					
+						
+					<button type="button" class="btn btn-shadow btn-like-festival" value="916" onclick="toggleValue(this.value)" data-toggle-class>
+						<i class="ico ico-like-festival"></i>
+						관심 있어요
+					</button>
+				</div>
+			</div>
+		</div>
+		<!-- //detail-top -->
+		<!-- detail-section -->
+		<section class="detail-section detail-section-1">
+			<div class="title-wrap">
+				<i class="ico ico-festival-info"></i>
+				<h3 class="title">축제 안내</h3>
+			</div>
+			<!-- section-content -->
+			<div class="section-content">
+				<h4 class="sub-title sr-only">세부정보</h4>
+				<!-- detail-info -->
+				<dl class="detail-info">
+					
+						<dt class="label">
+							<i class="ico ico-detail-duration"></i>
+							<span>기간</span>
+						</dt>
+						<dd>
+							
+								
+								
+									 2026-10-09 ~ 2026-10-09
+								
+							
+						</dd>
+					
+					
+						<dt class="label">
+							<i class="ico ico-detail-time"></i>
+							<span>시간</span>
+						</dt>
+						<dd>11:00 ~ 18:00</dd>
+					
+					
+						<dt class="label">
+							<i class="ico ico-detail-location"></i>
+							<span>장소</span>
+						</dt>
+						<dd>인사동 남인사마당 야외무대</dd>
+					
+					
+						<dt class="label">
+							<i class="ico ico-detail-customer"></i>
+							<span>대상</span>
+						</dt>
+						<dd>누구나</dd>
+					
+					
+						<dt class="label">
+							<i class="ico ico-detail-price"></i>
+							<span>요금</span>
+						</dt>
+						<dd>무료</dd>
+					
+					
+						<dt class="label">
+							<i class="ico ico-detail-tel"></i>
+							<span>문의</span>
+						</dt>
+						<dd>02-766-3262</dd>
+					
+				</dl>
+				<!-- //detail-info -->
+				
+				<!-- detail-contents -->
+				<div class="">
+                	<p><img src="/resources/culture/img/editor/culture/editor_20260922143250_99270.jpg" alt="서울특별시 민간축제 지원사업 2026 제3회 여민락 문화교류축제 [인사 in Seoul] 전통과 오늘이 만나는 곳, 인사동에서 2026.10.09 FRI 11:00-18:00 인사동 남인사마당 야외무대" width="1500" /></p>
+<p>&nbsp;</p>
+<p>2026 제3회 여민락 문화교류축제「인사 in Seoul」전통과 오늘이 어우러지는 인사동 한복판에서, 시민 여러분과 함께 만드는 문화교류축제<br />「여민락 ― 인사 in Seoul」이 찾아옵니다. 전통예술과 K-컬처가 한 무대 위에서 만나고, 모든 체험은 전문 예술인과 함께 무료로 즐기실 수 있습니다.</p>
+<p><br />◇ <strong>행사 개요</strong><br />일시: 2026년 10월 9일(금) 11:00 ~ 18:00<br />장소: 인사동 남인사마당 야외무대 (서울 종로구 인사동길 6)<br />주최.주관: 사단법인 대한민국전통예술전승원<br />사업: 서울특별시 민간축제 지원사업 공연</p>
+<p><br />◇<strong> 프로그램</strong><br />(16:00~18:00, 무료 공연 &middot; 전문예술인 구성)<br />여민락 ― 열다 (오프닝 및 본행사, 전통예술 어울림마당) 전통무용&middot;국악&middot;창작 퍼포먼스를 결합한 개막 융합 공연이 펼쳐집니다.<br />여민락 ― 잇다 (대동마당 클로징, 전통교류 대동마당) 소고놀음에 이어 17:30에는 대동 강강술래 시민 퍼레이드로 축제의 대미를 함께 장식합니다.<br />체험부스 안내 (11:00~16:00, 전 프로그램 무료 &middot; 전문예술인 구성)</p>
+                </div>
+				<!-- //detail-contents -->
+				
+				<!-- detail-image -->
+				<div class="detail-image"><span class="sr-only">이미지 슬라이드 영역</span></div>
+				<!-- //detail-image -->
+				<!-- detail-swiper-wrap -->
+				
+			</div>
+			<!-- //section-content -->
+		</section>
+		<!-- //detail-section -->
+		
+		<!-- detail-section -->
+		<section class="detail-section detail-section-2">
+		
+			<div class="title-wrap">
+				<i class="ico ico-festival-history"></i>
+				<h3 class="title">축제 히스토리</h3>
+			</div>
+			<!-- section-content -->
+			<div class="section-content">
+				<!-- card-list-wrap -->
+				<div class="card-list-wrap">
+					<!-- card-list -->
+					<div class="card-list list-horizontal list-compact">
+						
+							<div class="main-card-type-4">
+						      <a href="/festival/main/festivalView.do?festacode=916" class="card-inner">
+						        <div class="card-img">
+						          	
+										<img src="/cmmn/file/getImage.do?atchFileId=9447b1f1c2e44cb0bd06a0f47273ab4a&thumb=Y" alt="서울특별시 민간축제 지원사업 2026 제3회 여민락 문화교류축제 [인사 in Seoul] 전통과 오늘이 만나는 곳, 인사동에서 2026.10.09 FRI 11:00-18:00 인사동 남인사마당 야외무대">
+									
+									
+						        </div>
+						        <div class="card-info">
+						          <div class="badge-group">
+						            <span class="badge" data-category="문화/예술">문화/예술</span>
+						            <span class="badge">종로구</span>
+						          </div>
+						          <p class="title">2026 제3회 여민락 문화교류축제 [인사 in Seoul]</p>
+						          <p class="text date"><b class="label">기간</b>
+						          	
+										
+										
+											 2026-10-09 ~ 2026-10-09
+										
+									
+						          </p>
+						          <p class="text location"><b class="label">장소</b>인사동 남인사마당 야외무대</p>
+						        </div>
+						      </a>
+						      <button type="button" class="btn btn-ico btn-like-festival" value="916" onclick="toggleValue(this.value)" data-toggle-class>
+						        <i class="ico ico-like-festival"></i>
+						        <span class="sr-only">관심 축제 등록</span>
+						      </button>
+						    </div>
+						
+						
+					</div>
+					<!-- //card-list -->
+				</div>
+				<!-- //card-list-wrap -->
+			</div>
+			
+			<!-- //section-content -->
+		</section>
+		<!-- //detail-section -->
+		<!-- detail-section -->
+		
+		<section class="detail-section detail-section-3">
+   			<div class="title-wrap">
+				<i class="ico ico-traffic-info"></i>
+				<h3 class="title">교통 안내</h3>
+			</div>
+			<!-- section-content -->
+			<div class="section-content">
+				<div class="detail-traffic">
+					
+					<h4 class="sub-title">
+						<i class="ico ico-mask ico-detail-metro"></i>
+						<span>지하철</span>
+					</h4>
+					<div class="info">
+						<p>
+							<span>종로3가역 5번 출구에서 249m</span>
+						</p>
+					</div>
+					
+					
+				</div>
+			</div>
+			<!-- //section-content -->
+		</section>
+			
+		<!-- //detail-section -->
+		
+		<!-- detail-section -->
+		<section class="detail-section detail-section-4">
+			<div class="title-wrap">
+				<i class="ico ico-location-info"></i>
+				<h3 class="title">위치 안내</h3>
+			</div>
+			<!-- section-content -->
+			<div class="section-content">
+				<div class="detail-map">
+					<div class="btn-group conType_mapBtn" data-toggle-class-group data-toggle-use-aria-current="true">
+						<div class="start">
+							<button type="button" class="btn btn_ka active" data-toggle-btn onclick="selectMap('kakao')">카카오맵</button>
+							<button type="button" class="btn btn_se" data-toggle-btn onclick="selectMap('smgis')">스마트 서울맵</button>
+						</div>
+					</div>
+					<div id="mapKakao" class="map-wrap">
+						<div id="resizer-kakao" class="resizer" data-map="kakao"></div>
+					</div>
+					<div id="mapSmgis" class="map-wrap">
+						<div id="resizer-seoul" class="resizer" data-map="seoulmap"></div>
+					</div>
+				</div>				
+			</div>
+			<!-- //section-content -->
+		</section>
+		<!-- //detail-section -->
+		
+		<!-- detail-section -->
+		
+		<section class="detail-section detail-section-6">
+			<div class="title-wrap">
+				<i class="ico ico-related-festival"></i>
+				<h3 class="title">이런 축제는 어때요?</h3>
+			</div>
+			<!-- section-content -->
+			<div class="section-content">
+				<!-- card-list -->
+				<div class="card-list-wrap">
+					<div class="card-list list-horizontal list-compact">
+						
+							<div class="main-card-type-4">
+						      <a href="/festival/main/festivalView.do?festacode=749" class="card-inner">
+						        <div class="card-img">
+						        	
+										<img src="/cmmn/file/getImage.do?atchFileId=842be28a5d8f4f3c9182d94fefd54770&thumb=Y" alt="제13회 대한민국 신진연출가전">
+									
+									
+						        </div>
+						        <div class="card-info">
+						          <div class="badge-group">
+						            <span class="badge" data-category="문화/예술">문화/예술</span>
+						            <span class="badge">성북구</span>
+						          </div>
+						          <p class="title">제13회 대한민국 신진연출가전</p>
+						          <p class="text date"><b class="label">기간</b>
+						          	
+										
+										
+											 2026-07-02 ~ 2026-07-26
+										
+									
+						          </p>
+						          <p class="text location"><b class="label">장소</b>서울연극창작센터 </p>
+						        </div>
+						      </a>
+						      <button type="button" class="btn btn-ico btn-like-festival" value="749" onclick="toggleValue(this.value)" data-toggle-class>
+						        <i class="ico ico-like-festival"></i>
+						        <span class="sr-only">관심 축제 등록</span>
+						      </button>
+						    </div>
+						
+							<div class="main-card-type-4">
+						      <a href="/festival/main/festivalView.do?festacode=913" class="card-inner">
+						        <div class="card-img">
+						        	
+										<img src="/cmmn/file/getImage.do?atchFileId=7be17ba7372043359d67e7f386fcf4a4&thumb=Y" alt="[서울생활사박물관] 한가위 [문화가 흐르는 박물관] 2026. 9. 26. (토) 13:00~17:00 서울생활사박물관 일대 | 프로그램 소개 문화 예술공연 국악그룹 락드림 마술 벌룬쇼 민속놀이 한마당 투호놀이, 왕제기차기 등 만들기 체험 나무 복주머니 만들기 나만의 비행기 만들기">
+									
+									
+						        </div>
+						        <div class="card-info">
+						          <div class="badge-group">
+						            <span class="badge" data-category="전통/역사">전통/역사</span>
+						            <span class="badge">노원구</span>
+						          </div>
+						          <p class="title">2026 한가위 [문화가 흐르는 박물관]</p>
+						          <p class="text date"><b class="label">기간</b>
+						          	
+										
+										
+											 2026-09-26 ~ 2026-09-26
+										
+									
+						          </p>
+						          <p class="text location"><b class="label">장소</b>서울생활사박물관 일대 (실내외)</p>
+						        </div>
+						      </a>
+						      <button type="button" class="btn btn-ico btn-like-festival" value="913" onclick="toggleValue(this.value)" data-toggle-class>
+						        <i class="ico ico-like-festival"></i>
+						        <span class="sr-only">관심 축제 등록</span>
+						      </button>
+						    </div>
+						
+							<div class="main-card-type-4">
+						      <a href="/festival/main/festivalView.do?festacode=838" class="card-inner">
+						        <div class="card-img">
+						        	
+										<img src="/cmmn/file/getImage.do?atchFileId=eb38e9a986ba4ff5a3afdf9828475c4b&thumb=Y" alt="서울 헤리티지 & 웰니스 걷기 페스티벌 외국인과 함께하는 글로벌 걷기 축제! [프로그램] 공연, 체험부스, 걷기퍼레이드 등 [참가인원] 오전타임 (09:30-13:00) 500명 오후타임 (12:10-15:00) 500명 [테마] 한강의 매력, 서울 글로벌 걷기 퍼레이드 Han River Vibes: Seoul Global Walking Parade 선착순 접수 QR (무료) 2026.09.19.(토) 서울함공원 일대 09:30-15:00">
+									
+									
+						        </div>
+						        <div class="card-info">
+						          <div class="badge-group">
+						            <span class="badge" data-category="관광/체육">관광/체육</span>
+						            <span class="badge">마포구</span>
+						          </div>
+						          <p class="title">2026 서울 헤리티지 & 웰니스 걷기 페스티벌</p>
+						          <p class="text date"><b class="label">기간</b>
+						          	
+										
+										
+											 2026-09-19 ~ 2026-09-19
+										
+									
+						          </p>
+						          <p class="text location"><b class="label">장소</b>서울함공원 광장 및 한강변 산책로(홍제천 쪽)</p>
+						        </div>
+						      </a>
+						      <button type="button" class="btn btn-ico btn-like-festival" value="838" onclick="toggleValue(this.value)" data-toggle-class>
+						        <i class="ico ico-like-festival"></i>
+						        <span class="sr-only">관심 축제 등록</span>
+						      </button>
+						    </div>
+						
+							<div class="main-card-type-4">
+						      <a href="/festival/main/festivalView.do?festacode=821" class="card-inner">
+						        <div class="card-img">
+						        	
+										<img src="/cmmn/file/getImage.do?atchFileId=ac71c82817134ed789488066832a54f9&thumb=Y" alt="Beautiful Life in Seoul 2026 디자인북페어 2026.8.22 SAT - 8.23 SUN @DDP">
+									
+									
+						        </div>
+						        <div class="card-info">
+						          <div class="badge-group">
+						            <span class="badge" data-category="기타">기타</span>
+						            <span class="badge">중구</span>
+						          </div>
+						          <p class="title">DDP 디자인 북 페어</p>
+						          <p class="text date"><b class="label">기간</b>
+						          	
+										
+										
+											 2026-08-22 ~ 2026-08-23
+										
+									
+						          </p>
+						          <p class="text location"><b class="label">장소</b>DDP 디자인랩 3층 디자인홀</p>
+						        </div>
+						      </a>
+						      <button type="button" class="btn btn-ico btn-like-festival" value="821" onclick="toggleValue(this.value)" data-toggle-class>
+						        <i class="ico ico-like-festival"></i>
+						        <span class="sr-only">관심 축제 등록</span>
+						      </button>
+						    </div>
+						
+						
+					</div>
+					<!-- //card-list -->
+				</div>
+			<!-- //section-content -->
+			</div>
+		</section>
+		
+		<!-- //detail-section -->
+		
+		<!-- detail-section -->
+		<section class="detail-section detail-section-5">
+			<div class="title-wrap">
+				<i class="ico ico-comment"></i>
+				<h3 class="title">후기</h3>
+			</div>
+			<p class="text">
+				축제 행사에 대한 기대평, 참여 후기 등을 남기는 공간으로 일반 문의에 대한 답변을 제공하지 않습니다. </br>
+				축제 문의는 <span style="font-weight: bold;" >개별 홈페이지 </span>또는 <span style="font-weight: bold;">02-120</span> 으로 문의 주세요.
+			</p>
+			<!-- section-content -->
+			<div class="section-content">
+				<div class="seoul_comments">
+					<!--라이브리 프리미엄 설치코드-->
+					
+					<div id='lv-container' data-id='seoul' data-uid='MTkzNi81OTkwMS8zNjM2Mw=='>
+					 <script>
+						window.livereOptions = {
+							refer: 'festival.seoul.go.kr/festival/main/festivalView.do;jsessionid=FCD676D6BDF6F5150E5743A6C5361697?festacode=916',
+							site: 'https://festival.seoul.go.kr/festival/main/festivalView.do;jsessionid=FCD676D6BDF6F5150E5743A6C5361697?festacode=916'
+						};
+						(function(d,s) {
+							var j, e=d.getElementsByTagName(s)[0];
+							if (typeof LivereTower === 'function') {return;}
+							j=d.createElement(s);
+							j.src='https://cdn-city.livere.com/js/embed.dist.js';
+							j.async=true;
+							e.parentNode.insertBefore(j,e);
+						})(document,'script');
+					</script>
+					<noscript>라이브리 댓글 작성을 위해 JavaScript를 활성화해주세요</noscript>
+					</div>
+					<!--라이브리 프리미엄 설치 코드 끝-->
+         		</div>
+			</div>
+			<!-- //section-content -->
+		</section>
+		<!-- //detail-section -->
+		
+	</div>
+	<!-- //sub-content -->
+</div>
+<!-- //content-inner -->
+
+<script>
+//현재 위치 근처의 행사장 위치 데이터
+//var markerLocations = [{ title: "2026 제3회 여민락 문화교류축제 [인사 in Seoul]", addr: "서울특별시 중구 세종대로 124 한국프레스센터", la:'37.57149486594492', lo:'126.9873643137763'}];
+var markerLocations = [{ title: "2026 제3회 여민락 문화교류축제 [인사 in Seoul]", addr: "서울특별시 종로구 인사동길 6", la:'37.57149486594492', lo:'126.9873643137763'}];
+</script>	
+
+<script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=08a6d5642b4285709e14b277e017f2c6&libraries=services,geometry"></script>
+<link rel="stylesheet" type="text/css" href="https://map.seoul.go.kr/openapi/v5/KEY306_611ebaba0a6d451d9791942083c3c76f/public/map/css/5.0">
+<script src="https://map.seoul.go.kr/openapi/v5/KEY306_611ebaba0a6d451d9791942083c3c76f/public/map/js/5.0"></script>
+<script src="https://map.seoul.go.kr/openapi/v5/KEY306_611ebaba0a6d451d9791942083c3c76f/public/map/base/js/5179/5.0"></script>
+<script>var smgisAppKey = 'KEY306_611ebaba0a6d451d9791942083c3c76f';</script>
+<script src="/resources/js/map.js"></script>
+
+<script>
+
+	var addr = '서울특별시 종로구 인사동길 6';
+	
+	$( document ).ready(function() {
+		
+		if(addr.length > 0){
+			setTimeout(() => {
+				initKaKaoMap();
+				},100);
+		}else{
+			$('.detail-section-4').hide();
+		}
+	});
+
+</script>
+
+				
+			</main>
+			<!-- //content -->
+		</div>
+		<!-- //content-wrap -->
+		
+		<!-- //chatbot-wrap -->
+		<div class="chatbot-wrap">
+	      <!-- 챗봇 아이콘 주석 처리
+	      <button type="button" class="btn btn-quick-chatbot" aria-controls="modal-chatbot">
+	        <i class="ico ico-quick-chatbot"></i>
+	        <span class="label">챗봇검색</span>
+	      </button>
+	      -->
+	      <dialog id="modal-chatbot" class="modal-chatbot" aria-labelledby="chatbot-title">
+	        <div class="chatbot">
+	          <div class="chatbot-inner">
+	            <div class="chatbot-header">
+	              <h2 id="chatbot-title" class="chatbot-title" tabindex="-1">
+	                <span class="logo" aria-hidden="true">
+	                  <img src="/resources/img/main/logo-chatbot.svg" alt="">
+	                </span>
+	                <span class="text">펀서울 챗봇</span>
+	              </h2>
+	            </div>
+	            <div class="chatbot-keywords">
+	              <h3 class="sr-only">추천 키워드</h3>
+	              <div class="keyword-wrap">
+	                <button type="button" class="btn btn-chatbot-keyword" data-keyword="추천 축제">
+	                  <i class="ico" aria-hidden="true"></i>
+	                  <span class="text">추천 축제</span>
+	                </button>
+	                <button type="button" class="btn btn-chatbot-keyword" data-keyword="어린이">
+	                  <span class="text">어린이</span>
+	                </button>
+	                <button type="button" class="btn btn-chatbot-keyword" data-keyword="한강">
+	                  <span class="text">한강</span>
+	                </button>
+	                <button type="button" class="btn btn-chatbot-keyword" data-keyword="푸드">
+	                  <span class="text">푸드</span>
+	                </button>
+	                <button type="button" class="btn btn-chatbot-keyword" data-keyword="체험">
+	                  <span class="text">체험</span>
+	                </button>
+	                <button type="button" class="btn btn-chatbot-keyword" data-keyword="버스킹">
+	                  <span class="text">버스킹</span>
+	                </button>
+	                <button type="button" class="btn btn-chatbot-keyword" data-keyword="글로벌">
+	                  <span class="text">글로벌</span>
+	                </button>
+	                <button type="button" class="btn btn-chatbot-keyword" data-keyword="야간">
+	                  <span class="text">야간</span>
+	                </button>
+	              </div>
+	            </div>
+	            <div class="chatbot-messages">
+	              <h3 id="chatbot-messages-title" class="sr-only">대화 내용</h3>
+	              <div class="message-wrap" role="log" aria-live="polite" aria-labelledby="chatbot-messages-title">
+	                <!-- <div class="message message-user">
+	            <span class="sr-only">사용자: </span>
+	            <div class="bubble">
+	              <p class="msg-text">오늘 갈만한 축제 있을까?</p>
+	            </div>
+	          </div> -->
+	                <!-- <div class="message message-bot">
+	            <span class="sr-only">챗봇: </span>
+	            <div class="bubble">
+	              <p class="msg-title">제목 텍스트</p>
+	              <p class="msg-text">일반 텍스트</p>
+	              <ul class="msg-list">
+	                <li class="msg-item">
+	                  <p class="msg-title">1. 제 25회 작곡가의 밤 [김영임]</p>
+	                  <p class="msg-text">장소: 서울갤러리 지하 1층 공연장</p>
+	                  <p class="msg-text">기간: 2026-04-22 ~ 2026-05-22</p>
+	                </li>
+	                <li class="msg-item">
+	                  <p class="msg-title">2. 제 26회 작곡가의 밤 [한정임]</p>
+	                  <p class="msg-text">장소: 서울갤러리 지하 1층 공연장</p>
+	                  <p class="msg-text">기간: 2026-04-22 ~ 2026-05-22</p>
+	                </li>
+	              </ul>
+	            </div>
+	          </div> -->
+	              </div>
+	            </div>
+	            <div class="chatbot-footer">
+	              <div class="chatbot-form">
+	                <label for="chatbot-textarea" class="sr-only">
+	                  메시지 입력 (최대 300자, 전송 키: Enter, 줄바꿈 키: Shift + Enter)
+	                </label>
+	                <textarea id="chatbot-textarea" class="chatbot-textarea" name="message" placeholder="궁금한 사항을 입력해주세요." maxlength="300" style="height: 0px;"></textarea>
+	                <div class="form-actions">
+	                  <p class="chatbot-counter" aria-hidden="true">
+	                    <span class="counter-current">0</span>/<span class="counter-max">300</span>
+	                  </p>
+	                  <button type="button" class="btn btn-chatbot-send">
+	                    <span class="sr-only">메시지 전송</span>
+	                  </button>
+	                </div>
+	              </div>
+	              <p class="chatbot-notice">
+				                챗봇이 제공하는 정보는 참고용이며,<br>
+				                자세한 내용은 각 기관의 홈페이지를 확인해주세요.
+	              </p>
+	            </div>
+	            <div class="sr-only chatbot-status" role="status"></div>
+	            <div class="chatbot-control">
+	              <button type="button" class="btn btn-chatbot-reset">
+	                <span class="sr-only">대화 내용 초기화</span>
+	              </button>
+	              <button type="button" class="btn btn-chatbot-close">
+	                <span class="sr-only">챗봇 닫기</span>
+	              </button>
+	            </div>
+	          </div>
+	        </div>
+	        <!-- 챗봇 메시지 영역에 타이핑 인디케이터 추가 -->
+	        <div id="typing-indicator-container" class="hidden px-4 pb-4">
+	          <div class="typing-indicator">
+	            <div class="typing-dot"></div>
+	            <div class="typing-dot"></div>
+	            <div class="typing-dot"></div>
+	          </div>
+	        </div>
+	      </dialog>
+    	</div>
+		
+		<!-- footer(s)// -->
+		<!--  서울시 실시간웹로그 수집 및 분석 js start  -->
+<script src='//weblog.eseoul.go.kr/wlo/js/install.js' ></script>
+<!--  서울시 실시간웹로그 수집 및 분석 js end  -->
+
+<!-- footer -->
+<footer class="footer">
+	<!-- footer-inner -->
+	<div class="footer-inner">
+		<p class="footer-logo">
+			<span class="sr-only">서울문화포털(SEOUL CULTURE PORTAL)</span>
+		</p>
+		<!-- footer-info -->
+		<div class="footer-info">
+			<address>
+				우)04520 서울특별시 중구 세종대로 124 한국프레스센터 4층 서울시 문화정책과<br>
+				대표전화 : 02-120(축제 문의) 또는 02-2133-2538(축제 등록 문의)
+			</address>
+			<p>
+				<span id="btn-lang-trigger">축</span>제 등록 문의는 09:00부터 18:00 까지 가능합니다. (점심시간 12:00 ~ 13:00  제외)
+			</p>
+			<!-- <p class="copyright">
+				Seoul Metropolitan Government all rights reserved
+			</p> -->
+			<p class="copyright">Seoul Metropolitan Government all rights reserved<span style="cursor: pointer; user-select: none;" onclick="if(window.FEUI && window.FEUI.uiChatbot) { window.FEUI.uiChatbot.open(this); }">.</span>
+		</div>
+		
+		<div id="lang-select-layer" style="display: none; position: absolute; z-index: 9999; background: #fff; border: 1px solid #ccc; padding: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+		    <!-- GTranslate 위젯이 로드되는 영역 -->
+		    <div class="gtranslate_wrapper"></div>
+		</div>
+		
+		<script>window.gtranslateSettings = {"default_language":"ko","native_language_names":true,"url_structure":"sub_directory","languages":["ko","en","zh-CN","zh-TW","ja","vi","tl","th","ru","id","fr","es","hi","de","ms","ar","bn","ur","pt","tr","it","fa","uk","nl","pl","sw","ro","sv","cs","el"],"wrapper_selector":".gtranslate_wrapper"}</script>
+		<script src="https://cdn.gtranslate.net/widgets/latest/dwf.js" defer></script>
+		
+		<script>
+			$(document).ready(function() {
+			    var isLanguagesLoaded = false;
+
+			    // '문' 자 클릭 시 레이어 팝업 토글
+			    $('#btn-lang-trigger').on('click', function(e) {
+			        e.preventDefault();
+			        e.stopPropagation();
+			        $('#lang-select-layer').toggle();
+			    });
+
+			    // 레이어 내부 클릭 시 닫히지 않도록 방지
+		        $('#lang-select-layer').on('click', function(e) {
+		            e.stopPropagation();
+		        });
+
+		        // 화면 바깥 영역 클릭 시 레이어 닫기
+		        $(document).on('click', function() {
+		            $('#lang-select-layer').hide();
+		        });
+			});
+		</script>
+		
+		<!-- footer-info -->
+		<!-- footer-link -->
+		<div class="footer-link">
+			<ul class="sns-link">
+				<li>
+					<a href="https://www.instagram.com/seoulcity_culture/" class="btn btn-ico" target="_blank" rel="noopener noreferrer" aria-label="서울문화포털 인스타그램(새 창 열림)">
+						<i class="ico ico-mask ico-instagram"></i>
+						<span class="sr-only">서울문화포털 인스타그램</span>
+					</a>
+				</li>
+				<li>
+					<a href="https://blog.naver.com/seoul_culture" class="btn btn-ico" target="_blank" rel="noopener noreferrer" aria-label="서울문화포털 블로그(새 창 열림)">
+						<i class="ico ico-mask ico-blog"></i>
+						<span class="sr-only">서울문화포털 블로그</span>
+					</a>
+				</li>
+				<li>
+					<a href="https://www.youtube.com/@seoul_culture" class="btn btn-ico" target="_blank" rel="noopener noreferrer" aria-label="서울문화포털 유튜브(새 창 열림)">
+						<i class="ico ico-mask ico-youtube"></i>
+						<span class="sr-only">서울문화포털 유튜브</span>
+					</a>
+				</li>
+				<li>
+					<a href="https://www.facebook.com/culture.seoul.go.kr" class="btn btn-ico" target="_blank" rel="noopener noreferrer" aria-label="서울문화포털 페이스북(새 창 열림)">
+						<i class="ico ico-mask ico-facebook"></i>
+						<span class="sr-only">서울문화포털 페이스북</span>
+					</a>
+				</li>
+			</ul>
+		</div>
+		<!-- footer-link -->
+		
+		<div class="banner">
+			<!-- Dighty : [서울문화포털] 메인하단 (300*100) 태그 -->
+			<script>
+				
+				//<![CDATA[
+				var m3_b = '';
+				var m3_u = (location.protocol=='https:'?'https://delivery.dighty.com/www/delivery/ajs.php':'http://delivery.dighty.com/www/delivery/ajs.php');
+				var m3_r = Math.floor(Math.random()*99999999999);
+				if(document.cookie.indexOf('ACEUACS=')>-1){
+				var m3_b = document.cookie.substr(document.cookie.indexOf('ACEUACS=')+8,19);}
+				if (!document.MAX_used) document.MAX_used = ',';
+				document.write ("<scr"+"ipt type='text/javascript' src='"+m3_u);
+				document.write ("?zoneid=940");
+				document.write ('&amp;cb=' + m3_r);
+				if (m3_b!='')document.write('&amp;bd=' + m3_b);
+				if (document.MAX_used != ',') document.write ("&amp;exclude=" + document.MAX_used);
+				document.write (document.charset ? '&amp;charset='+document.charset : (document.characterSet ? '&amp;charset='+document.characterSet : ''));
+				document.write ("&amp;loc=" + escape(window.location));
+				if (document.referrer) document.write ("&amp;referer=" + escape(document.referrer));
+				if (document.context) document.write ("&context=" + escape(document.context));
+				if (document.mmm_fo) document.write ("&amp;mmm_fo=1");
+				document.write ("'><\/scr"+"ipt>");
+				//]]> 
+				
+			</script>
+			<noscript>
+				<a href='https://delivery.dighty.com/www/delivery/ck.php?n=8d6dc35e&amp;cb=INSERT_RANDOM_NUMBER_HERE' target='_blank'>
+					<img src='https://delivery.dighty.com/www/delivery/avw.php?zoneid=940&amp;cb=INSERT_RANDOM_NUMBER_HERE&amp;n=8d6dc35e' alt="">
+				</a>
+			</noscript>
+		</div>
+	</div>
+	<!-- //footer-inner -->
+</footer>
+<!-- //footer -->
+		<!-- //footer(e) -->
+	</div>
+	<!-- //wrapper(e) -->
+	
+	<!-- modal 관심축제-->
+	<dialog class="modal-wrap modal-size-body modal-scroll-content" id="likesModal" data-modal-name="modal-관심축제">
+		
+
+
+
+
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<script>
+
+$(document).ready(function() {
+	applyActiveClass();
+	var url = "/festival/main/searchItem.do?";
+	getItemList2(url);
+});
+
+
+//저장된 값 불러오기
+function loadValues2() {
+	let saved = localStorage.getItem("myItems");
+	let arr = saved ? JSON.parse(saved) : [];
+	
+	//list에서 새로고침해도 보이도록
+	//applyActiveClass();
+	
+	return arr; // 배열 반환
+}
+
+//배열 값과 버튼 value 비교 후 active 클래스 추가
+function applyActiveClass() {
+    const arr = loadValues2(); // 저장된 배열 가져오기
+    const buttons = document.querySelectorAll(".btn-like-festival");
+
+    buttons.forEach(btn => {
+        if (arr.includes(btn.value)) {
+            btn.classList.add("active");
+        } else {
+            btn.classList.remove("active"); // 필요하다면 기존 active 제거
+        }
+    });
+}
+
+//AJAX로 서버 조회
+function getItemList2(url) {
+	let arr = loadValues2();
+	
+	let container = $("#modalCardList");
+	
+	if (arr.length === 0) {
+		 container.append(`
+            <div class="no-item">
+                <p class="text">등록된 관심 축제가 없습니다.</p>
+            </div>
+        `);
+        return;
+	}
+	
+	$.ajax({
+		 url: url,              // Controller 매핑 주소
+		 type: "POST",
+		 traditional: true,     // 배열 전달 시 필요
+		 data: { items: arr },  // 선택된 값 배열 전달
+		 success: function(response) {
+			// console.log("success :::: " + JSON.stringify(response))
+			 
+			container.empty(); // 기존 내용 제거
+		    
+			if (!response || response.length === 0) {
+		        container.append(`
+		            <div class="no-item">
+		                <p class="text">등록된 관심 축제가 없습니다.</p>
+		            </div>
+		        `);
+		        return;
+		    }
+
+		    response.forEach(result => {
+		    	
+		    	let periodText = "";
+	            
+	            if (!result.strt_date || result.strt_date === "") {
+	                // 시작일이 없을 때
+	                periodText = `
+	                    ${result.period_yn === "N" ? "(예정)" : ""}
+	                    ${result.time || ""}
+	                `;
+	            } else {
+	                // 시작일이 있을 때
+	                periodText = `
+	                    ${result.period_yn === "N" ? "(예정)" : ""}
+	                    ${result.strt_date} ~ ${result.end_date}
+	                `;
+	            }
+	         	// 이미지 태그를 조건에 따라 미리 생성
+	            let imgTag = "";
+	         	
+	         	if (!result.main_img || result.main_img === "") {
+	         		imgTag = `
+	         			<img src="/resources/img/poster/img_ready_${result.subjcode}.png" alt="">
+	         			`;
+	         	} else{
+	         		imgTag = `
+	         			<img src="/cmmn/file/getImage.do?isThumb=Y&atchFileId=${result.main_img}" alt="${result.thumb_desc}">
+	         			`;
+	         	}
+	         	
+	         	// console.log("@imgTag@" , imgTag);
+	            
+	            // 카드 전체 HTML
+	            let html = `
+	                <div class="main-card-type-4">
+	                    <a href="/festival/main/festivalView.do?festacode=${result.festa_code}" class="card-inner">
+		                    <div class="card-img">
+		                     	${imgTag}
+			                </div>
+	                        <div class="card-info">
+	                            <div class="badge-group">
+	                                <span class="badge" data-category="${result.subjname}">${result.subjname}</span>
+	                                <span class="badge">${result.gname}</span>
+	                            </div>
+	                            <p class="title">${result.festa_name}</p>
+	                            <p class="text date"><b class="label">기간</b>${periodText}</p>
+	                            <p class="text location"><b class="label">장소</b>${result.place}</p>
+	                        </div>
+	                    </a>
+	                    <button type="button" class="btn btn-ico btn-like-festival active"
+	                            value="${result.festa_code}" onclick="toggleValue2(this.value)" data-toggle-class>
+	                        <i class="ico ico-like-festival"></i>
+	                        <span class="sr-only">관심 축제 등록</span>
+	                    </button>
+	                </div>`;
+
+	            // 컨테이너에 추가
+	            container.append(html);
+	            
+	            //console.log("@html@" , html);
+		    });
+		 },
+		 error: function(xhr, status, error) {
+		   console.error("AJAX 오류:", error);
+		 }
+	});
+}
+
+</script>
+
+<div class="inner"><!-- modal-info -->
+	<div class="modal-info">
+		<h2 class="title">관심 축제</h2>
+		<button type="button" class="btn btn-ico modal-close" aria-label="관심 축제 닫기">
+			<i class="ico ico-mask ico-close"></i>
+		</button>
+	</div>
+	<!-- //modal-info --><!-- modal-content -->
+	<div class="modal-content"><!-- modal-content-inner -->
+		<div class="modal-content-inner">
+			<!-- card-list-wrap -->
+			<div class="card-list-wrap">
+				<!-- card-list -->
+				<div class="card-list" id="modalCardList"></div>
+				<!-- //card-list -->
+			</div>
+			<!-- //card-list-wrap -->
+		</div>
+		<!-- //modal-content-inner -->
+	</div>
+	<!-- //modal-content -->
+		<div class="modal-bottom">
+			<ul class="list-dot list-style-1">
+				<li>관심 축제 정보는 사용 중인 브라우저에 임시로 저장됩니다.</li>
+				<li> 브라우저의 쿠키를 삭제하거나 다른 기기에서 접속할 경우, 이전에 등록한 관심 축제 정보는 유지되지 않을 수 있습니다.</li>
+			</ul>
+		</div>
+	</div>
+	</dialog>
+	<!-- modal 월간축제-->
+	<dialog class="modal-wrap modal-size-calendar" id="monthlyModal" data-modal-name="modal-월간축제">
+		
+
+
+
+
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<div class="inner">
+	<!-- modal-info -->
+	<div class="modal-info">
+		<button type="button" class="btn btn-ico modal-close" aria-label="월간 축제 캘린더 닫기">
+			<i class="ico ico-mask ico-close"></i>
+		</button>
+		<h2 class="title">월간 축제 캘린더</h2>
+	</div>
+	<!-- //modal-info -->
+	<!-- modal-content -->
+	<div class="modal-content">
+		<!-- modal-content-inner -->
+		<div class="modal-content-inner">
+			<!-- btn-group -->
+			<div class="btn-group">
+				<div class="center">
+					<button type="button" class="btn btn-ico" id="bfMonth">
+						<i class="ico ico-mask ico-arrow"></i>
+						<span class="sr-only">이전 버튼</span>
+					</button>
+					<button type="button" class="btn btn-ico" id="afMonth" disabled>
+						<i class="ico ico-mask ico-arrow"></i>
+						<span class="sr-only">다음 버튼</span>
+					</button>
+				</div>
+			</div>
+			<!-- //btn-group -->
+			<!-- event-calendar -->
+			<div class="event-calendar calendar-type-2604" id="calendar2604" style="display: none;">
+				<!-- PC -->
+				<!-- 4월 -->
+				<div class="month-calender pc-view-only">
+					<img src="/resources/img/calender/2026/04-monthly-pc.png" alt="월간 축제 캘린더 2026년 4월">
+					<div class="sr-only">
+						<h3>4월</h3>
+						<h4>기타 축제</h4>
+						<ul>
+							<li>2026 서울야외도서관(4-6월,9-10월)</li>
+							<li>책읽는 서울광장, 광화문 책마당, 책일는 맑은냇가(4-6월, 9-10월)</li>
+							<li>한강역사탐방(4.3~11.30)</li>
+						</ul>
+					</div>
+					<div class="cal-week-1">
+						<h4 class="sr-only">1주차(1일 수요일 ~ 5일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=676" data-event-order="1" data-event-start-day="3" data-event-duration="5"><b>양재천 벚꽃등축제</b>(3.30~4.19)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=587" data-event-order="5" data-event-start-day="5" data-event-duration="3"><b>여의도 봄꽃축제</b>(4.3~4.7)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=463" data-event-order="2" data-event-start-day="6" data-event-duration="2"><b>서울대공원 벚꽃축제</b>(4.4~12)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=375" data-event-order="3" data-event-start-day="6" data-event-duration="1"><b>부활절 퍼레이드</b></a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=510" data-event-order="4" data-event-start-day="6" data-event-duration="2"><b>동대문구 봄꽃 축제</b>(4.4~5)</a></li>
+						</ul>
+					</div>
+					<div class="cal-week-2">
+						<h4 class="sr-only">2주차(6일 월요일 ~ 12일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=676" data-event-order="2" data-event-start-day="1" data-event-duration="7"><b>양재천 벚꽃등축제</b>(3.30~4.19)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=587" data-event-order="4" data-event-start-day="1" data-event-duration="2"><b>여의도 봄꽃축제</b>(4.8~12)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=463" data-event-order="3" data-event-start-day="1" data-event-duration="7"><b>서울대공원 벚꽃축제</b>(4.3~4.7)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=347" data-event-order="1" data-event-start-day="5" data-event-duration="3"><b>서울 스프링페스티벌</b>(4.10~5.5)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=348" data-event-order="4" data-event-start-day="5" data-event-duration="1"><b>한강 불빛 공연</b></a></li>
+						</ul>
+					</div>
+					<div class="cal-week-3">
+						<h4 class="sr-only">3주차(13일 월요일 ~ 19일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=347" data-event-order="1" data-event-start-day="1" data-event-duration="7"><b>서울 스프링페스티벌</b>(4.10~5.5)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=676" data-event-order="2" data-event-start-day="1" data-event-duration="7"><b>양재천 벚꽃등축제</b>(3.30~4.19)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=419" data-event-order="3" data-event-start-day="6" data-event-duration="1"><b>4.19혁명 전야제</b></a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=368" data-event-order="4" data-event-start-day="6" data-event-duration="1"><b>지구의 날 기념행사</b></a></li>
+						</ul>
+					</div>
+					<div class="cal-week-4">
+						<h4 class="sr-only">4주차(20일 월요일 ~ 26일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=347" data-event-order="1" data-event-start-day="1" data-event-duration="7"><b>서울 스프링페스티벌</b>(4.10~5.5)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=438" data-event-order="2" data-event-start-day="6" data-event-duration="2"><b>서울식물원 해봄축제</b>(4.25~26)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=682" data-event-order="3" data-event-start-day="6" data-event-duration="1"><b>서울러너축제</b></a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=348" data-event-order="4" data-event-start-day="6" data-event-duration="1"><b>한강 불빛 공연</b></a></li>
+						</ul>
+					</div>
+					<div class="cal-week-5">
+						<h4 class="sr-only">5주차(27일 월요일 ~ 30일 목요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=347" data-event-order="1" data-event-start-day="1" data-event-duration="4"><b>서울 스프링페스티벌</b>(4.10~5.5)</a></li>
+						</ul>
+					</div>
+				</div>
+				<!-- //PC -->
+				<!-- Mobile -->
+				<div class="month-calender mobile-view-only">
+					<img src="/resources/img/calender/2026/04-monthly-mo.png" alt="월간 축제 캘린더 2026년 4월">
+					<div class="cal-month">
+						<h3 class="sr-only">4월(1일 수요일 ~ 30일 목요일)</h3>
+						<ul>
+							<li><span class="sr-only">3월 30일 월요일</span></li>
+							<li><span class="sr-only">3월 31일 화요일</span></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="1" data-event-code="676">1일 수요일 1건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="2" data-event-code="676">2일 목요일 1건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="3" data-event-code="676,587">3일 금요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="4" data-event-code="676,463,375,510,587">4일 토요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="5" data-event-code="676,463,510,587">5일 일요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="6" data-event-code="676,463,587">6일 월요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="7" data-event-code="676,463,587">7일 화요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="8" data-event-code="676,463">8일 수요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="9" data-event-code="676,463">9일 목요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="10" data-event-code="676,463,347,348">10일 금요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="11" data-event-code="676,463,347">11일 토요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="12" data-event-code="676,463,347">12일 일요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="13" data-event-code="676,347">13일 월요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="14" data-event-code="676,347">14일 화요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="15" data-event-code="676,347">15일 수요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="16" data-event-code="676,347">16일 목요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="17" data-event-code="676,347">17일 금요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="18" data-event-code="676,347,419,368">18일 토요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="19" data-event-code="676,347">19일 일요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="20" data-event-code="347">20일 월요일 1건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="21" data-event-code="347">21일 화요일 1건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="22" data-event-code="347">22일 수요일 1건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="23" data-event-code="347">23일 목요일 1건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="24" data-event-code="347">24일 금요일 1건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="25" data-event-code="347,348,438,682">25일 토요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="26" data-event-code="347,438">26일 일요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="27" data-event-code="347">27일 월요일 1건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="28" data-event-code="347">28일 화요일 1건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="29" data-event-code="347">29일 수요일 1건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="4" data-event-date="30" data-event-code="347">30일 목요일 1건</a></li>
+						</ul>
+					</div>
+				</div>
+				<!-- //Mobile -->
+			</div>
+			<!-- event-calendar -->
+			<div class="event-calendar calendar-type-2605" id="calendar202605">
+				<!-- PC -->
+				<!-- 5월 -->
+				<div class="month-calender pc-view-only">
+					<img src="/resources/img/calender/2026/05-monthly-pc.png" alt="월간 축제 캘린더 2026년 5월">
+					<div class="sr-only">
+						<h3>5월</h3>
+						<h4>기타 축제</h4>
+						<ul>
+							<li>국제정원박람회(5.1.~10.27.)</li>
+							<li>DDP 축제(5.2.~5.5.)</li>
+							<li>책읽는 한강공원(4.11.~5.23. 및 9~10월 - 매주 토요일)</li>
+							<li>문화가 흐르는 서울광장(5-11월 연중)</li>
+							<li>2026 차없는 잠수교 뚜벅뚜벅 축제(상반기 5.3.~6.21. 하반기 9.6.~10.25. - 매주 일요일)</li>
+							<li>한강야경투어(5.8.~6.27. 및 9.4.~10.31.)</li>
+							<li>한강 서래섬 꽃 축제(5월 및 10월 중 각 4일간)</li>
+						</ul>
+					</div>
+					<div class="cal-week-1">
+						<h4 class="sr-only">1주차(1일 금요일 ~ 3일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=347" data-event-order="1" data-event-start-day="5" data-event-duration="3"><b>서울 스프링페스티벌</b>(4.10~5.5)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=364" data-event-order="2" data-event-start-day="6" data-event-duration="2"><b>광화문 가족동행축제</b>(5.2.~5.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=398" data-event-order="3" data-event-start-day="6" data-event-duration="2"><b>2026 한강페스티벌(봄)</b>(5.2.~10.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=397" data-event-order="4" data-event-start-day="6" data-event-duration="1"><b>한강 대학가요제</b></a></li>
+						</ul>
+					</div>
+					<div class="cal-week-2">
+						<h4 class="sr-only">2주차(4일 월요일 ~ 10일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=347" data-event-order="1" data-event-start-day="1" data-event-duration="2"><b>서울 스프링페스티벌</b>(4.10~5.5)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=364" data-event-order="2" data-event-start-day="1" data-event-duration="2"><b>광화문 가족동행축제</b>(5.2.~5.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=398" data-event-order="3" data-event-start-day="1" data-event-duration="7"><b>2026 한강페스티벌(봄)</b>(5.2.~10.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=381" data-event-order="5" data-event-start-day="1" data-event-duration="2"><b>서울서커스페스티벌</b>(5.4.~5.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=430" data-event-order="4" data-event-start-day="2" data-event-duration="6"><b>서울어린이정원 페스티벌</b>(5.5.~18.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=457" data-event-order="5" data-event-start-day="6" data-event-duration="2"><b>서울세계도시문화축제</b>(5.9.~10.)</a></li>
+						</ul>
+					</div>
+					<div class="cal-week-3">
+						<h4 class="sr-only">3주차(11일 월요일 ~ 17일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=430" data-event-order="1" data-event-start-day="1" data-event-duration="7"><b>서울어린이정원 페스티벌</b>(5.5.~18.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=604" data-event-order="5" data-event-start-day="5" data-event-duration="3"><b>중랑장미축제</b>(5.15.~23.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=686" data-event-order="2" data-event-start-day="6" data-event-duration="2"><b>서울드럼페스티벌</b>(5.16.~17.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=341" data-event-order="3" data-event-start-day="6" data-event-duration="2"><b>사이언스 페스티벌</b>(5.16.~17.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=374" data-event-order="4" data-event-start-day="6" data-event-duration="2"><b>연등회</b>(5.16.~17.)</a></li>
+						</ul>
+					</div>
+					<div class="cal-week-4">
+						<h4 class="sr-only">4주차(18일 월요일 ~ 24일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=430" data-event-order="1" data-event-start-day="1" data-event-duration="1"><b>서울어린이정원 페스티벌</b></a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=604" data-event-order="2" data-event-start-day="1" data-event-duration="6"><b>중랑장미축제</b>(5.15.~23.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=429" data-event-order="1" data-event-start-day="5" data-event-duration="3"><b>세종썸머페스티벌</b>(5.22.~24.)</a></li>
+						</ul>
+					</div>
+					<div class="cal-week-5">
+						<h4 class="sr-only">5주차(25일 월요일 ~ 31일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=464" data-event-order="1" data-event-start-day="6" data-event-duration="2"><b>서울대공원 장미원축제</b>(5.30.~6.7.)</a></li>
+						</ul>
+					</div>
+				</div>
+				<!-- //PC -->
+				<!-- Mobile -->
+				<div class="month-calender mobile-view-only">
+					<img src="/resources/img/calender/2026/05-monthly-mo.png" alt="월간 축제 캘린더 2026년 5월">
+					<div class="cal-month">
+						<h3 class="sr-only">5월(1일 수요일 ~ 30일 목요일)</h3>
+						<ul>
+							<li><span class="sr-only">4월 27일 월요일</span></li>
+							<li><span class="sr-only">4월 28일 화요일</span></li>
+							<li><span class="sr-only">4월 29일 수요일</span></li>
+							<li><span class="sr-only">4월 30일 목요일</span></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="1" data-event-code="347,431">1일 금요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="2" data-event-code="347,364,398,397,431,454">2일 토요일 6건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="3" data-event-code="347,364,431,454,398">3일 일요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="4" data-event-code="347,364,431,454,398,381">4일 월요일 6건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="5" data-event-code="347,364,431,454,398,381,430">5일 화요일 7건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="6" data-event-code="431,398,430">6일 수요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="7" data-event-code="431,398,430">7일 목요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="8" data-event-code="431,398,430">8일 금요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="9" data-event-code="431,398,430,457">9일 토요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="10" data-event-code="431,398,430,457">10일 일요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="11" data-event-code="431,430">11일 월요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="12" data-event-code="431,430">12일 화요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="13" data-event-code="431,430">13일 수요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="14" data-event-code="431,430">14일 목요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="15" data-event-code="431,430,604">15일 금요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="16" data-event-code="431,430,604,686,341,374">16일 토요일 6건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="17" data-event-code="431,430,604,686,341,374">17일 일요일 6건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="18" data-event-code="431,430,604">18일 월요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="19" data-event-code="431,604">19일 화요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="20" data-event-code="431,604">20일 수요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="21" data-event-code="431,604">21일 목요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="22" data-event-code="431,604,429">22일 금요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="23" data-event-code="431,604,429">23일 토요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="24" data-event-code="431,429">24일 일요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="25" data-event-code="431">25일 월요일 1건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="26" data-event-code="431">26일 화요일 1건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="27" data-event-code="431">27일 수요일 1건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="28" data-event-code="431">28일 목요일 1건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="29" data-event-code="431">29일 금요일 1건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="30" data-event-code="431,464">30일 토요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="5" data-event-date="31" data-event-code="431,464">31일 일요일 2건</a></li>
+						</ul>
+					</div>
+				</div>
+				<!-- //Mobile -->
+			</div>
+			<!-- //event-calendar -->
+			<!-- event-calendar -->
+			<div class="event-calendar calendar-type-2606" id="calendar202606">
+				<!-- PC -->
+				<div class="month-calender pc-view-only">
+					<img src="/resources/img/calender/2026/06-monthly-pc.png" alt="월간 축제 캘린더 2026년 6월">
+					<div class="sr-only">
+						<h3>6월</h3>
+						<h4>기타 축제</h4>
+						<ul>
+							<li>서울 거리공연 구석구석 라이브(4월 ~ 12월)</li>
+							<li>문화가 흐르는 서울광장(5-12월 연중)</li>
+						</ul>
+					</div>
+					<div class="cal-week-1">
+						<h4 class="sr-only">1주차(1일 월요일 ~ 7일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=464" data-event-order="1" data-event-start-day="1" data-event-duration="7"><b>서울대공원 장미원축제</b>(5.30.~6.7.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=679" data-event-order="2" data-event-start-day="5" data-event-duration="3"><b>제 3회 쉬엄쉬엄 한강 3종 축제</b>(6.5.~6.7.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=667" data-event-order="3" data-event-start-day="7" data-event-duration="1"><b>성북세계음식축제 누리마실</b></a></li>
+						</ul>
+					</div>
+					<div class="cal-week-2">
+						<h4 class="sr-only">2주차(8일 월요일 ~ 14일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=417" data-event-order="1" data-event-start-day="5" data-event-duration="3"><b>제 10회 대한민국 곤충경진대회</b>(6.12.~6.14.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=675" data-event-order="2" data-event-start-day="5" data-event-duration="3"><b>서초 클래식 테마파크</b>(6.12.~6.14.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=536" data-event-order="3" data-event-start-day="6" data-event-duration="2"><b>제 4회 경춘선 공릉숲길 커피축제</b>(6.13.~6.14.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=701" data-event-order="4" data-event-start-day="6" data-event-duration="1"><b>강변 음악회</b></a></li>
+						</ul>
+					</div>
+					<div class="cal-week-3">
+						<h4 class="sr-only">3주차(15일 월요일 ~ 21일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=540" data-event-order="1" data-event-start-day="2" data-event-duration="5"><b>도봉옛길문화제</b>(6.16.~6.20.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=689" data-event-order="2" data-event-start-day="5" data-event-duration="1"><b>2026 서울국악축제</b></a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=327" data-event-order="2" data-event-start-day="6" data-event-duration="1"><b>제 4회 서울 퓨처랩 축제</b></a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=568" data-event-order="3" data-event-start-day="6" data-event-duration="1"><b>프랑스 거리음악 축제</b></a></li>
+						</ul>
+					</div>
+					<div class="cal-week-4">
+						<h4 class="sr-only">4주차(22일 월요일 ~ 28일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=369" data-event-order="1" data-event-start-day="4" data-event-duration="2"><b>서울 기후테크 컨퍼런스</b>(6.25.~6.26.)</a></li>
+						</ul>
+					</div>
+					<div class="cal-week-5">
+						<h4 class="sr-only">5주차(29일 월요일 ~ 30일 화요일)</h4>
+						<ul><li></li></ul>
+					</div>
+				</div>
+				<!-- //PC -->
+				<!-- Mobile -->
+				<div class="month-calender mobile-view-only">
+					<img src="/resources/img/calender/2026/06-monthly-mo.png" alt="월간 축제 캘린더 2026년 6월">
+					<div class="cal-month">
+						<h3 class="sr-only">6월(1일 월요일 ~ 30일 화요일)</h3>
+						<ul>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="1" data-event-code="727,378,464">1일 월요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="2" data-event-code="727,378,464">2일 화요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="3" data-event-code="727,378,464">3일 수요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="4" data-event-code="727,378,464">4일 목요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="5" data-event-code="727,378,464,679">5일 금요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="6" data-event-code="727,378,464,679">6일 토요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="7" data-event-code="727,378,464,679,667">7일 일요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="8" data-event-code="727,378">8일 월요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="9" data-event-code="727,378">9일 화요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="10" data-event-code="727,378">10일 수요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="11" data-event-code="727,378">11일 목요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="12" data-event-code="727,378,417,675">12일 금요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="13" data-event-code="727,378,417,675,536,701">13일 토요일 6건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="14" data-event-code="727,378,417,675,536">14일 일요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="15" data-event-code="727,378">15일 월요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="16" data-event-code="727,378,540">16일 화요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="17" data-event-code="727,378,540">17일 수요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="18" data-event-code="727,378,540">18일 목요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="19" data-event-code="727,378,540,689">19일 금요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="20" data-event-code="727,378,540,327,568">20일 토요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="21" data-event-code="727,378">21일 일요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="22" data-event-code="727,378">22일 월요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="23" data-event-code="727,378">23일 화요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="24" data-event-code="727,378">24일 수요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="25" data-event-code="727,378,369">25일 목요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="26" data-event-code="727,378,369">26일 금요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="27" data-event-code="727,378">27일 토요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="28" data-event-code="727,378">28일 일요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="29" data-event-code="727,378">29일 월요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="6" data-event-date="30" data-event-code="727,378">30일 화요일 2건</a></li>
+						</ul>
+					</div>
+				</div>
+				<!-- //Mobile -->
+			</div>
+			<!-- //event-calendar -->
+			<!-- event-calendar -->
+			<div class="event-calendar calendar-type-2607" id="calendar202607">
+				<!-- PC -->
+				<div class="month-calender pc-view-only">
+					<img src="/resources/img/calender/2026/07-monthly-pc.png" alt="월간 축제 캘린더 2026년 7월">
+					<div class="sr-only">
+						<h3>7월</h3>
+						<h4>기타 축제</h4>
+						<ul>
+							<li>서울 거리공연 구석구석 라이브(4월~12월)</li>
+							<li>달빛요가(7월 1일 ~ 8월 31일)</li>
+							<li>문화가 흐르는 서울광장(5~12월 연중)</li>
+						</ul>
+					</div>
+					<div class="cal-week-1">
+						<h4 class="sr-only">1주차(1일 수요일 ~ 5일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=677" data-event-order="1" data-event-start-day="4" data-event-duration="1"><b>서초 뮤직 앤 아트 페스티벌</b></a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=483" data-event-order="1" data-event-start-day="6" data-event-duration="1"><b>우장산 그린빛페스타</b></a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=575" data-event-order="2" data-event-start-day="6" data-event-duration="1"><b>두모포 뮤지컬 페스티벌</b></a></li>
+						</ul>
+					</div>
+					<div class="cal-week-2">
+						<h4 class="sr-only">2주차(6일 월요일 ~ 12일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=624" data-event-order="1" data-event-start-day="6" data-event-duration="2"><b>그루브 인 관악</b>(7.11.~7.12.)</a></li>
+						</ul>
+					</div>
+					<div class="cal-week-3">
+						<h4 class="sr-only">3주차(13일 월요일 ~ 19일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=792" data-event-order="1" data-event-start-day="3" data-event-duration="5"><b>식물원은 미술관</b>(7.15.~7.26.)</a></li>
+						</ul>
+					</div>
+					<div class="cal-week-4">
+						<h4 class="sr-only">4주차(20일 월요일 ~ 26일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=359" data-event-order="1" data-event-start-day="1" data-event-duration="7"><b>2026 서울 썸머비치</b>(7.20.~8.9.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=792" data-event-order="2" data-event-start-day="1" data-event-duration="7"><b>식물원은 미술관</b>(7.15.~7.26.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=751" data-event-order="3" data-event-start-day="4" data-event-duration="4"><b>아시테지 국제여름축제</b>(7.23.~8.2.)</a></li>
+						</ul>
+					</div>
+					<div class="cal-week-5">
+						<h4 class="sr-only">5주차(27일 월요일 ~ 31일 금요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=359" data-event-order="1" data-event-start-day="1" data-event-duration="5"><b>2026 서울 썸머비치</b>(7.20.~8.9.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=342" data-event-order="2" data-event-start-day="3" data-event-duration="3"><b>한여름의 과학관</b>(7.29.~8.2.)</a></li>
+						</ul>
+					</div>
+				</div>
+				<!-- //PC -->
+				<!-- Mobile -->
+				<div class="month-calender mobile-view-only">
+					<img src="/resources/img/calender/2026/07-monthly-mo.png" alt="월간 축제 캘린더 2026년 7월">
+					<div class="cal-month">
+						<h3 class="sr-only">7월(1일 수요일 ~ 31일 금요일)</h3>
+						<ul>
+							<li><span class="sr-only">6월 29일 월요일</span></li>
+							<li><span class="sr-only">6월 30일 화요일</span></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="1" data-event-code="727,365,378" >1일 수요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="2" data-event-code="727,365,378,677">2일 목요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="3" data-event-code="727,365,378">3일 금요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="4" data-event-code="727,365,378,483,575">4일 토요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="5" data-event-code="727,365,378">5일 일요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="6" data-event-code="727,365,378">6일 월요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="7" data-event-code="727,365,378">7일 화요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="8" data-event-code="727,365,378">8일 수요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="9" data-event-code="727,365,378">9일 목요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="10" data-event-code="727,365,378">10일 금요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="11" data-event-code="727,365,378,624">11일 토요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="12" data-event-code="727,365,378,624">12일 일요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="13" data-event-code="727,365,378">13일 월요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="14" data-event-code="727,365,378">14일 화요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="15" data-event-code="727,365,378,792">15일 수요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="16" data-event-code="727,365,378,792">16일 목요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="17" data-event-code="727,365,378,792">17일 금요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="18" data-event-code="727,365,378,792">18일 토요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="19" data-event-code="727,365,378,792">19일 일요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="20" data-event-code="727,365,378,792,359">20일 월요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="21" data-event-code="727,365,378,792,359">21일 화요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="22" data-event-code="727,365,378,792,359">22일 수요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="23" data-event-code="727,365,378,792,359,751">23일 목요일 6건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="24" data-event-code="727,365,378,792,359,751">24일 금요일 6건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="25" data-event-code="727,365,378,792,359,751">25일 토요일 6건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="26" data-event-code="727,365,378,792,359,751">26일 일요일 6건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="27" data-event-code="727,365,378,359">27일 월요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="28" data-event-code="727,365,378,359">28일 화요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="29" data-event-code="727,365,378,359,342">29일 수요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="30" data-event-code="727,365,378,359,342">30일 목요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="7" data-event-date="31" data-event-code="727,365,378,359,342">31일 금요일 5건</a></li>
+						</ul>
+					</div>
+				</div>
+				<!-- //Mobile -->
+			</div>
+			<!-- //event-calendar -->
+			<!-- event-calendar -->
+			<div class="event-calendar calendar-type-2608" id="calendar202608">
+				<!-- PC -->
+				<div class="month-calender pc-view-only">
+					<img src="/resources/img/calender/2026/08-monthly-pc.png" alt="월간 축제 캘린더 2026년 8월">
+					<div class="sr-only">
+						<h3>8월</h3>
+						<h4>기타 축제</h4>
+						<ul>
+							<li>달빛요가(7월 1일 ~ 8월 31일)</li>
+							<li>서울 거리공연 구석구석 라이브(4월~12월)</li>
+							<li>문화가 흐르는 서울광장(5~12월 연중)</li>
+						</ul>
+					</div>
+					<div class="cal-week-1">
+						<h4 class="sr-only">1주차(1일 토요일 ~ 2일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=359" data-event-order="1" data-event-start-day="6" data-event-duration="2"><b>2026 서울 썸머비치</b>(7.20.~8.9.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=342" data-event-order="2" data-event-start-day="6" data-event-duration="2"><b>한여름의 과학관</b>(7.25.~8.2.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=744" data-event-order="3" data-event-start-day="6" data-event-duration="2"><b>한강페스티벌 (여름)</b>(8.1.~8.16.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=799" data-event-order="4" data-event-start-day="6" data-event-duration="2"><b>DDP 바캉스:뮤직 페스티벌</b>(7.31.~8.2.)</a></li>
+						</ul>
+					</div>
+					<div class="cal-week-2">
+						<h4 class="sr-only">2주차(3일 월요일 ~ 9일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=359" data-event-order="1" data-event-start-day="1" data-event-duration="7"><b>2026 서울 썸머비치</b>(7.20.~8.9.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=744" data-event-order="2" data-event-start-day="1" data-event-duration="7"><b>한강페스티벌 (여름)</b>(8.1.~8.16.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=411" data-event-order="3" data-event-start-day="6" data-event-duration="1"><b>한강 다리밑 영화제</b></a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=410" data-event-order="4" data-event-start-day="6" data-event-duration="1"><b>서울함 워터피크닉</b>(8.8.~8.22.)</a></li>
+						</ul>
+					</div>
+					<div class="cal-week-3">
+						<h4 class="sr-only">3주차(10일 월요일 ~ 16일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=744" data-event-order="1" data-event-start-day="1" data-event-duration="7"><b>한강페스티벌 (여름)</b>(8.1.~8.16.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=567" data-event-order="2" data-event-start-day="6" data-event-duration="2"><b>서대문 독립축제</b>(8.15.~8.16.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=388" data-event-order="3" data-event-start-day="6" data-event-duration="1"><b>광복절 기념 타종행사</b></a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=411" data-event-order="4" data-event-start-day="6" data-event-duration="1"><b>한강 다리밑 영화제</b></a></li>
+						</ul>
+					</div>
+					<div class="cal-week-4">
+						<h4 class="sr-only">4주차(17일 월요일 ~ 23일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=411" data-event-order="1" data-event-start-day="6" data-event-duration="1"><b>한강 다리밑 영화제</b></a></li>
+						</ul>
+					</div>
+					<div class="cal-week-5">
+						<h4 class="sr-only">5주차(24일 월요일 ~ 30일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=515" data-event-order="1" data-event-start-day="5" data-event-duration="2"><b>동대문구 맥주축제</b>(8.28.~8.29.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=393" data-event-order="2" data-event-start-day="6" data-event-duration="2"><b>서울 조각페스티벌</b>(8.29.~9.4.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=677" data-event-order="3" data-event-start-day="6" data-event-duration="2"><b>서초뮤직앤아트페스티벌</b>(8.29.~8.30.)</a></li>
+						</ul>
+					</div>
+					<div class="cal-week-6">
+						<h4 class="sr-only">6주차(31일 월요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=393" data-event-order="1" data-event-start-day="1" data-event-duration="1"><b>서울 조각페스티벌</b>(8.29.~9.4.)</a></li>
+						</ul>
+					</div>
+				</div>
+				<!-- //PC -->
+				<!-- Mobile -->
+				<div class="month-calender mobile-view-only">
+					<img src="/resources/img/calender/2026/08-monthly-mo.png" alt="월간 축제 캘린더 2026년 8월">
+					<div class="cal-month">
+						<h3 class="sr-only">8월(1일 토요일 ~ 31일 월요일)</h3>
+						<ul>
+							<li><span class="sr-only">7월 27일 월요일</span></li>
+							<li><span class="sr-only">7월 28일 화요일</span></li>
+							<li><span class="sr-only">7월 29일 수요일</span></li>
+							<li><span class="sr-only">7월 30일 목요일</span></li>
+							<li><span class="sr-only">7월 31일 금요일</span></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="1" data-event-code="727,365,378,359,342,744,799">1일 토요일 7건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="2" data-event-code="727,365,378,359,342,744,799">2일 일요일 7건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="3" data-event-code="727,365,378,359,744">3일 월요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="4" data-event-code="727,365,378,359,744">4일 화요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="5" data-event-code="727,365,378,359,744">5일 수요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="6" data-event-code="727,365,378,359,744">6일 목요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="7" data-event-code="727,365,378,359,744">7일 금요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="8" data-event-code="727,365,378,359,744,410,411">8일 토요일 7건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="9" data-event-code="727,365,378,359,744">9일 일요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="10" data-event-code="727,365,378,744">10일 월요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="11" data-event-code="727,365,378,744">11일 화요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="12" data-event-code="727,365,378,744">12일 수요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="13" data-event-code="727,365,378,744">13일 목요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="14" data-event-code="727,365,378,744">14일 금요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="15" data-event-code="727,365,378,744,567,388,411">15일 토요일 7건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="16" data-event-code="727,365,378,744,567">16일 일요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="17" data-event-code="727,365,378">17일 월요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="18" data-event-code="727,365,378">18일 화요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="19" data-event-code="727,365,378">19일 수요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="20" data-event-code="727,365,378">20일 목요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="21" data-event-code="727,365,378">21일 금요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="22" data-event-code="727,365,378,411">22일 토요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="23" data-event-code="727,365,378">23일 일요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="24" data-event-code="727,365,378">24일 월요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="25" data-event-code="727,365,378">25일 화요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="26" data-event-code="727,365,378">26일 수요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="27" data-event-code="727,365,378">27일 목요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="28" data-event-code="727,365,378,515">28일 금요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="29" data-event-code="727,365,378,515,393,677">29일 토요일 6건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="30" data-event-code="727,365,378,393,677">30일 일요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="8" data-event-date="31" data-event-code="727,365,378,393">31일 월요일 4건</a></li>
+						</ul>
+					</div>
+				</div>
+				<!-- //Mobile -->
+			</div>
+			<!-- //event-calendar -->
+			<!-- event-calendar -->
+			<div class="event-calendar calendar-type-2609" id="calendar202609">
+				<!-- PC -->
+				<div class="month-calender pc-view-only">
+					<img src="/resources/img/calender/2026/09-monthly-pc.png" alt="월간 축제 캘린더 2026년 9월">
+					<div class="sr-only">
+						<h3>9월</h3>
+						<h4>기타 축제</h4>
+						<ul>
+							<li>한강 야경투어(8.28.~9.26.)</li>
+							<li>서울 거리공연 구석구석 라이브(4월~12월)</li>
+							<li>문화가 흐르는 서울광장(5~12월)</li>
+							<li>차없는 잠수교 뚜벅뚜벅 축제(9.6.~10.25.)</li>
+						</ul>
+					</div>
+					<div class="cal-week-1">
+						<h4 class="sr-only">1주차(1일 화요일 ~ 6일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=393" data-event-order="1" data-event-start-day="2" data-event-duration="4"><b>서울 조각 페스티벌</b>(8.29.~ 9.4. - 전시기간 : 8.29.~11.30.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=338" data-event-order="2" data-event-start-day="2" data-event-duration="6"><b>2026 추계 서울 패션위크</b>(9.1.~ 9.6.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=451" data-event-order="3" data-event-start-day="4" data-event-duration="4"><b>서울라이트 DDP 2026 가을</b>(9.3.~9.13.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=379" data-event-order="4" data-event-start-day="5" data-event-duration="2"><b>서울세계불꽃축제</b>(9.4. : 전야제 / 9.5. : 불꽃쇼)</a></li>
+						</ul>
+					</div>
+					<div class="cal-week-2">
+						<h4 class="sr-only">2주차(7일 월요일 ~ 13일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=451" data-event-order="1" data-event-start-day="1" data-event-duration="7"><b>서울라이트 DDP 2026 가을</b>(9.3.~9.13.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=815" data-event-order="2" data-event-start-day="3" data-event-duration="2"><b>Try Everything</b>(9.9.~ 9.10.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=390" data-event-order="2" data-event-start-day="6" data-event-duration="2"><b>서울 무형문화 축제</b>(9.12.~ 9.13.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=436" data-event-order="3" data-event-start-day="6" data-event-duration="2"><b>2026 천호공원 가을축제</b>(9.12.~ 9.13.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=691" data-event-order="4" data-event-start-day="6" data-event-duration="2"><b>서울 아트굿즈 페스티벌</b>(9.12.~ 9.13.)</a></li>
+						</ul>
+					</div>
+					<div class="cal-week-3">
+						<h4 class="sr-only">3주차(14일 월요일 ~ 20일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=383" data-event-order="1" data-event-start-day="5" data-event-duration="3"><b>2026 서울 어텀 페스타</b>(9.18.~ 11.29.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=333" data-event-order="2" data-event-start-day="4" data-event-duration="4"><b>엔터테크 서울</b>(9.17.~ 9.20.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=334" data-event-order="3" data-event-start-day="5" data-event-duration="3"><b>GES 2026</b>(9.18.~ 9.20.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=382" data-event-order="4" data-event-start-day="6" data-event-duration="2"><b>서울거리예술축제</b>(9.19.~ 9.20.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=678" data-event-order="5" data-event-start-day="6" data-event-duration="2"><b>2026 서리풀 뮤직페스티벌</b>(9.19.~ 9.20.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=702" data-event-order="6" data-event-start-day="6" data-event-duration="1"><b>파크 콘서트</b></a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=363" data-event-order="6" data-event-start-day="7" data-event-duration="1"><b>서울 걷자 페스티벌</b></a></li>
+						</ul>
+					</div>
+					<div class="cal-week-4">
+						<h4 class="sr-only">4주차(21일 월요일 ~ 27일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=383" data-event-order="1" data-event-start-day="1" data-event-duration="7"><b>2026 서울 어텀 페스타</b>(9.18.~ 11.29.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=367" data-event-order="2" data-event-start-day="4" data-event-duration="4"><b>빛모락 가을축제</b>(9.24.~ 9.27.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=852" data-event-order="3" data-event-start-day="5" data-event-duration="3"><b>남산골 추석축제</b>(9.25.~ 9.27.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=468" data-event-order="4" data-event-start-day="6" data-event-duration="1"><b>한가위 한마당</b></a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=836" data-event-order="5" data-event-start-day="6" data-event-duration="1"><b>한성백제박물관 한가위 큰잔치</b></a></li>
+						</ul>
+					</div>
+					<div class="cal-week-5">
+						<h4 class="sr-only">5주차(28일 월요일 ~ 30일 수요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=383" data-event-order="1" data-event-start-day="1" data-event-duration="3"><b>2026 서울 어텀 페스타</b>(9.18.~ 11.29.)</a></li>
+						</ul>
+					</div>
+				</div>
+				<!-- //PC -->
+				<!-- Mobile -->
+				<div class="month-calender mobile-view-only">
+					<img src="/resources/img/calender/2026/09-monthly-mo.png" alt="월간 축제 캘린더 2026년 9월">
+					<div class="cal-month">
+						<h3 class="sr-only">9월(1일 화요일 ~ 30일 수요일)</h3>
+						<ul>
+							<li><span class="sr-only">8월 31일 월요일</span></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="1" data-event-code="405,727,403,378,393,338">1일 화요일 6건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="2" data-event-code="405,727,403,378,393,338">2일 수요일 6건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="3" data-event-code="405,727,403,378,393,338,451">3일 목요일 7건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="4" data-event-code="405,727,403,378,393,338,451,379">4일 금요일 8건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="5" data-event-code="405,727,403,378,338,451,379">5일 토요일 7건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="6" data-event-code="405,727,403,378,338,451">6일 일요일 6건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="7" data-event-code="405,727,403,378,451">7일 월요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="8" data-event-code="405,727,403,378,451">8일 화요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="9" data-event-code="405,727,403,378,451,815">9일 수요일 6건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="10" data-event-code="405,727,403,378,451,815">10일 목요일 6건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="11" data-event-code="405,727,403,378,451">11일 금요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="12" data-event-code="405,727,403,378,451,390,436,691">12일 토요일 8건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="13" data-event-code="405,727,403,378,451,390,436,691">13일 일요일 8건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="14" data-event-code="405,727,403,378">14일 월요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="15" data-event-code="405,727,403,378">15일 화요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="16" data-event-code="405,727,403,378">16일 수요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="17" data-event-code="405,727,403,378,333">17일 목요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="18" data-event-code="405,727,403,378,333,383,334">18일 금요일 7건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="19" data-event-code="405,727,403,378,333,383,334,382,678,702">19일 토요일 10건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="20" data-event-code="405,727,403,378,333,383,334,382,678,363">20일 일요일 10건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="21" data-event-code="405,727,403,378,383">21일 월요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="22" data-event-code="405,727,403,378,383">22일 화요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="23" data-event-code="405,727,403,378,383">23일 수요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="24" data-event-code="405,727,403,378,383,367">24일 목요일 6건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="25" data-event-code="405,727,403,378,383,367,852">25일 금요일 7건(추석)</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="26" data-event-code="405,727,403,378,383,367,852,468,836">26일 토요일 9건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="27" data-event-code="405,727,403,378,383,367,852">27일 일요일 7건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="28" data-event-code="405,727,403,378,383">28일 월요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="29" data-event-code="405,727,403,378,383">29일 화요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="9" data-event-date="30" data-event-code="405,727,403,378,383">30일 수요일 5건</a></li>
+						</ul>
+					</div>
+				</div>
+				<!-- //Mobile -->
+			</div>
+			<!-- //event-calendar -->
+			<!-- event-calendar -->
+			<div class="event-calendar calendar-type-2610" id="calendar202610">
+				<!-- PC -->
+				<div class="month-calender pc-view-only">
+					<img src="/resources/img/calender/2026/10-monthly-pc.png" alt="월간 축제 캘린더 2026년 10월">
+					<div class="sr-only">
+						<h3>10월</h3>
+						<h4>기타 축제</h4>
+						<ul>
+							<li>2026 서울국제정원박람회(5.1. ~ 10.27.)</li>
+							<li>2026 서울 어텀 페스타(9.18.~ 11.29.)</li>
+						</ul>
+					</div>
+					<div class="cal-week-1">
+						<h4 class="sr-only">1주차(1일 목요일 ~ 4일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=371" data-event-order="1" data-event-start-day="5" data-event-duration="3"><b>2026 서울라이트 한강 빛섬축제</b>(10.2.~ 10.11.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=479" data-event-order="2" data-event-start-day="5" data-event-duration="3"><b>서울한옥위크</b>(10.2.~10.11.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=610" data-event-order="3" data-event-start-day="6" data-event-duration="2"><b>강남 페스티벌</b>(10.3.~ 10.5.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=391" data-event-order="4" data-event-start-day="7" data-event-duration="1"><b>정조대왕 능행차 공동재현</b></a></li>
+						</ul>
+					</div>
+					<div class="cal-week-2">
+						<h4 class="sr-only">2주차(5일 월요일 ~ 11일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=371" data-event-order="1" data-event-start-day="1" data-event-duration="7"><b>2026 서울라이트 한강 빛섬축제</b>(10.2.~ 10.11.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=479" data-event-order="2" data-event-start-day="1" data-event-duration="7"><b>서울한옥위크</b>(10.2.~10.11.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=577" data-event-order="3" data-event-start-day="1" data-event-duration="7"><b>2026 크리에이티브x성수</b>(10.5.~ 10.11.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=610" data-event-order="4" data-event-start-day="1" data-event-duration="1"><b>강남 페스티벌</b></a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=325" data-event-order="4" data-event-start-day="2" data-event-duration="3"><b>스마트라이프위크(SLW) 2026</b>(10.6.~ 10.8.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=328" data-event-order="5" data-event-start-day="2" data-event-duration="3"><b>2026 서울AI로봇쇼</b>(10.6.~ 10.8.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=335" data-event-order="4" data-event-start-day="5" data-event-duration="2"><b>서울드라마어워즈</b>(10.9.~ 10.10.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=444" data-event-order="5" data-event-start-day="5" data-event-duration="1"><b>한글날 시민참여 행사</b></a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=412" data-event-order="5" data-event-start-day="6" data-event-duration="1"><b>한강 종이비행기 축제</b></a></li>
+						</ul>
+					</div>
+					<div class="cal-week-3">
+						<h4 class="sr-only">3주차(12일 월요일 ~ 18일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=449" data-event-order="1" data-event-start-day="3" data-event-duration="5"><b>2026 서울디자인위크</b>(10.14.~ 10.18.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=535" data-event-order="2" data-event-start-day="5" data-event-duration="3"><b>노원달빛산책</b>(10.16.~ 11.8.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=556" data-event-order="3" data-event-start-day="5" data-event-duration="3"><b>제19회 마포나루 새우젓축제</b>(10.16.~ 10.18.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=400" data-event-order="4" data-event-start-day="6" data-event-duration="2"><b>2026 한강페스티벌-가을</b>(10.17.~ 10.25.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=683" data-event-order="5" data-event-start-day="6" data-event-duration="2"><b>제25회 서울억새축제</b>(10.17.~ 10.23.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=413" data-event-order="6" data-event-start-day="6" data-event-duration="1"><b>사각사각 가을축제</b></a></li>
+						</ul>
+					</div>
+					<div class="cal-week-4">
+						<h4 class="sr-only">4주차(19일 월요일 ~ 25일 일요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=535" data-event-order="1" data-event-start-day="1" data-event-duration="7"><b>노원달빛산책</b>(10.16.~ 11.8.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=400" data-event-order="2" data-event-start-day="1" data-event-duration="7"><b>2026 한강페스티벌-가을</b>(10.17.~ 10.25.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=683" data-event-order="3" data-event-start-day="1" data-event-duration="5"><b>제25회 서울억새축제</b>(10.17.~ 10.23.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=350" data-event-order="3" data-event-start-day="6" data-event-duration="2"><b>2026 서울 바비큐 페스티벌</b>(10.24.~ 10.25.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=848" data-event-order="4" data-event-start-day="6" data-event-duration="1"><b>2026 서울뮤직페스티벌</b></a></li>
+						</ul>
+					</div>
+					<div class="cal-week-5">
+						<h4 class="sr-only">5주차(26일 월요일 ~ 31일 토요일)</h4>
+						<ul>
+							<li><a href="/festival/main/festivalView.do?festacode=535" data-event-order="1" data-event-start-day="1" data-event-duration="6"><b>노원달빛산책</b>(10.16.~ 11.8.)</a></li>
+							<li><a href="/festival/main/festivalView.do?festacode=601" data-event-order="2" data-event-start-day="4" data-event-duration="3"><b>정동야행</b>(10.29.~ 10.31.)</a></li>
+						</ul>
+					</div>
+				</div>
+				<!-- //PC -->
+				<!-- Mobile -->
+				<div class="month-calender mobile-view-only">
+					<img src="/resources/img/calender/2026/10-monthly-mo.png" alt="월간 축제 캘린더 2026년 10월">
+					<div class="cal-month">
+						<h3 class="sr-only">10월(1일 목요일 ~ 31일 토요일)</h3>
+						<ul>
+							<li><span class="sr-only">9월 28일 월요일</span></li>
+							<li><span class="sr-only">9월 29일 화요일</span></li>
+							<li><span class="sr-only">9월 30일 수요일</span></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="1" data-event-code="431,383">1일 목요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="2" data-event-code="431,383,371,479">2일 금요일 4건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="3" data-event-code="431,383,371,479,610">3일 토요일 5건(개천절)</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="4" data-event-code="431,383,371,479,610,391">4일 일요일 6건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="5" data-event-code="431,383,371,479,610,577">5일 월요일 6건(개천절 대체휴일)</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="6" data-event-code="431,383,371,479,577,325,328">6일 화요일 7건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="7" data-event-code="431,383,371,479,577,325,328">7일 수요일 7건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="8" data-event-code="431,383,371,479,577,325,328">8일 목요일 7건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="9" data-event-code="431,383,371,479,577,335,444">9일 금요일 7건(한글날)</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="10" data-event-code="431,383,371,479,577,335,412">10일 토요일 7건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="11" data-event-code="431,383,371,479,577">11일 일요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="12" data-event-code="431,383">12일 월요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="13" data-event-code="431,383">13일 화요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="14" data-event-code="431,383,449">14일 수요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="15" data-event-code="431,383,449">15일 목요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="16" data-event-code="431,383,449,535,556">16일 금요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="17" data-event-code="431,383,449,535,556,400,683,413">17일 토요일 8건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="18" data-event-code="431,383,449,535,556,400,683">18일 일요일 7건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="19" data-event-code="431,383,535,400,683">19일 월요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="20" data-event-code="431,383,535,400,683">20일 화요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="21" data-event-code="431,383,535,400,683">21일 수요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="22" data-event-code="431,383,535,400,683">22일 목요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="23" data-event-code="431,383,535,400,683">23일 금요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="24" data-event-code="431,383,535,400,350,848">24일 토요일 6건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="25" data-event-code="431,383,535,400,350">25일 일요일 5건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="26" data-event-code="431,383,535">26일 월요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="27" data-event-code="431,383,535">27일 화요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="28" data-event-code="383,535">28일 수요일 2건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="29" data-event-code="383,535,601">29일 목요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="30" data-event-code="383,535,601">30일 금요일 3건</a></li>
+							<li><a href="#" class="daily" data-modal-target="modal-월간축제상세" data-event-month="10" data-event-date="31" data-event-code="383,535,601">31일 토요일 3건</a></li>
+						</ul>
+					</div>
+				</div>
+				<!-- //Mobile -->
+			</div>
+			<!-- //event-calendar -->
+		</div>
+		<!-- //modal-content-inner -->
+	</div>
+	<!-- //modal-content -->
+</div>
+
+<script>
+//월별 이동 및 화면 처리
+const calendars = document.querySelectorAll(".event-calendar");
+const prevBtn = document.getElementById("bfMonth");
+const nextBtn = document.getElementById("afMonth");
+
+const today = new Date();
+const currentYear = today.getFullYear();
+const currentMonth = today.getMonth() + 1;
+
+//현재 월 인덱스 (2026년 4월 부터 0시작)
+let currentIndex = Array.from(calendars).findIndex(cal => {
+    const id = cal.id.replace("calendar", "");
+    const year = parseInt(id.slice(0, 4), 10);
+    const month = parseInt(id.slice(4, 6), 10);
+    return year === currentYear && month === currentMonth;
+  });
+  
+// 못 찾으면 기본값 0(2026/04월)
+if (currentIndex === -1) currentIndex = 0;
+
+function showCalendar(index) {
+  calendars.forEach((cal, i) => {
+    cal.style.display = (i === index) ? "block" : "none";
+  });
+
+  // 버튼 활성/비활성 처리
+  prevBtn.disabled = (index === 0);
+  nextBtn.disabled = (index === calendars.length - 1);
+}
+
+prevBtn.addEventListener("click", () => {
+  if (currentIndex > 0) {
+    currentIndex--;
+    showCalendar(currentIndex);
+  }
+});
+
+nextBtn.addEventListener("click", () => {
+  if (currentIndex < calendars.length - 1) {
+    currentIndex++;
+    showCalendar(currentIndex);
+  }
+});
+
+// 현재 월 기준 화면 표시
+showCalendar(currentIndex);
+
+
+//모바일 상세 페이지 이동
+function openDaily(code, month, date) {
+	//		  e.preventDefault();
+	
+	let container = $("#modalCardList2");
+	let title = $("#dailtTitle");
+    
+    // Ajax로 리스트 데이터 불러오기
+    $.ajax({
+        url: '/festival/main/mo/monthDetailList.do',
+        type: 'POST',
+        data: { items: code },
+        success: function(response) {
+        	//console.log("success :::: " + JSON.stringify(response))
+			 
+        	title.empty();
+			container.empty(); // 기존 내용 제거
+		    
+			if (!response || response.length === 0) {
+		        container.append(`
+		            <div class="no-item">
+		                <p class="text">오늘은 축제가 없습니다.</p>
+		            </div>
+		        `);
+		        return;
+		    }
+			
+			let titleHtml = month+'월' + " " + date + "일" ;			
+			title.append(titleHtml);
+			
+		    response.forEach(result => {
+		    	
+		    	let periodText = "";
+	            
+	            if (!result.strt_date || result.strt_date === "") {
+	                // 시작일이 없을 때
+	                periodText = `
+	                    ${result.period_yn === "N" ? "(예정)" : ""}
+	                    ${result.time || ""}
+	                `;
+	            } else {
+	                // 시작일이 있을 때
+	                periodText = `
+	                    ${result.period_yn === "N" ? "(예정)" : ""}
+	                    ${result.strt_date} ~ ${result.end_date}
+	                `;
+	            }
+	         	// 이미지 태그를 조건에 따라 미리 생성
+	            let imgTag = "";
+	         	
+	         	if (!result.main_img || result.main_img === "") {
+	         		imgTag = `
+	         			<img src="/resources/img/poster/img_ready_${result.subjcode}.png" alt="">
+	         			`;
+	         	} else{
+	         		imgTag = `
+	         			<img src="/cmmn/file/getImage.do?isThumb=Y&atchFileId=${result.main_img}" alt="${result.thumb_desc}">
+	         			`;
+	         	}
+	         	
+	         	// console.log("@imgTag@" , imgTag);
+	            
+	            // 카드 전체 HTML
+	            let html = `
+	                <div class="main-card-type-4">
+	                    <a href="/festival/main/festivalView.do?festacode=${result.festa_code}" class="card-inner">
+		                    <div class="card-img">
+		                     	${imgTag}
+			                </div>
+	                        <div class="card-info">
+	                            <div class="badge-group">
+	                                <span class="badge" data-category="${result.subjname}">${result.subjname}</span>
+	                                <span class="badge">${result.gname}</span>
+	                            </div>
+	                            <p class="title">${result.festa_name}</p>
+	                            <p class="text date"><b class="label">기간</b>${periodText}</p>
+	                            <p class="text location"><b class="label">장소</b>${result.place}</p>
+	                        </div>
+	                    </a>
+	                    <button type="button" class="btn btn-ico btn-like-festival"
+	                            value="${result.festa_code}" onclick="toggleValue2(this.value)" data-toggle-class>
+	                        <i class="ico ico-like-festival"></i>
+	                        <span class="sr-only">관심 축제 등록</span>
+	                    </button>
+	                </div>`;
+
+	            // 컨테이너에 추가
+	            container.append(html);
+	            
+	          //  console.log("@html@" , html);
+		    });
+		 },
+		 error: function(xhr, status, error) {
+		   console.error("AJAX 오류:", error);
+		 }
+	});
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+	document.querySelectorAll(".daily").forEach(code => {
+		code.addEventListener("click", function() {
+		  openDaily(this.dataset.eventCode, this.dataset.eventMonth, this.dataset.eventDate);
+	  });
+	});
+});	
+</script>
+	</dialog>
+	<dialog class="modal-wrap modal-scroll-content modal-calendar-detail" id="monthlyDetailModal" data-modal-name="modal-월간축제상세">
+		
+
+
+
+
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+	<div class="inner"><!-- modal-info -->
+		<input type="hidden" id="festaCodes" value="" />
+		<div class="modal-info">
+			<button type="button" class="btn btn-ico modal-close" aria-label="월간 축제 캘린더 상세화면 닫기">
+				<i class="ico ico-mask ico-close"></i>
+			</button>
+			<h2 class="title" id="dailtTitle"></h2>
+		</div>
+		<!-- //modal-info --><!-- modal-content -->
+		<div class="modal-content"><!-- modal-content-inner -->
+			<div class="modal-content-inner">
+				<!-- card-list-wrap -->
+				<div class="card-list-wrap">
+					<!-- card-list -->
+					<div class="card-list" id="modalCardList2"></div>
+					<!-- //card-list -->
+				</div>
+				<!-- //card-list-wrap -->
+			</div>
+			<!-- //modal-content-inner -->
+		</div>
+	<!-- //modal-content -->
+		<div class="modal-bottom">
+			<ul class="list-dot list-style-1">
+				<li>관심 축제 정보는 사용 중인 브라우저에 임시로 저장됩니다.</li>
+				<li> 브라우저의 쿠키를 삭제하거나 다른 기기에서 접속할 경우, 이전에 등록한 관심 축제 정보는 유지되지 않을 수 있습니다.</li>
+			</ul>
+		</div>
+	</div>
+	</dialog>
+	<!-- modal 축제찾기-->
+	<dialog class="modal-wrap modal-size-body modal-scroll-content" data-modal-name="modal-축제찾기">
+		
+
+
+
+
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<div class="inner"><!-- modal-info -->
+	<div class="modal-info">
+		<button type="button" class="btn btn-ico modal-close" aria-label="축제 찾기 닫기">
+			<i class="ico ico-mask ico-close"></i>
+		</button>
+		<h2 class="title">축제 찾기</h2>
+	</div>
+	<!-- //modal-info --><!-- modal-content -->
+	<div class="modal-content"><!-- modal-content-inner -->
+		<div class="modal-content-inner">
+			<!-- search-form -->
+			<div class="search-form">
+				<!-- <form name="frm" id="frm" method=post action="/festival/main/searchModal.do"> -->
+				<form name="searchModal" id="searchModal" method=post action="/festival/main/searchModal.do">
+					<fieldset>
+						<legend>축제 찾기</legend>
+						<!-- search-wrap -->
+						<div class="search-wrap">
+							<div class="form-group">
+								<span class="form-label">지역</span>
+								<select class="select" aria-label="지역" name="searchGcode">
+									<option value="">지역 선택</option>
+									<option value="">서울시 전체</option>
+									<option value="11680">강남구</option>
+									<option value="11740">강동구</option>
+									<option value="11305">강북구</option>
+									<option value="11500">강서구</option>
+									<option value="11620">관악구</option>
+									<option value="11215">광진구</option>
+									<option value="11530">구로구</option>
+									<option value="11545">금천구</option>
+									<option value="11350">노원구</option>
+									<option value="11320">도봉구</option>
+									<option value="11230">동대문구</option>
+									<option value="11590">동작구</option>
+									<option value="11440">마포구</option>
+									<option value="11410">서대문구</option>
+									<option value="11650">서초구</option>
+									<option value="11200">성동구</option>
+									<option value="11290">성북구</option>
+									<option value="11710">송파구</option>
+									<option value="11470">양천구</option>
+									<option value="11560">영등포구</option>
+									<option value="11170">용산구</option>
+									<option value="11380">은평구</option>
+									<option value="11110">종로구</option>
+									<option value="11140">중구</option>
+									<option value="11260">중랑구</option>
+									<option value="11000">서울외지역</option>
+								</select>
+							</div>
+							<div class="form-group">
+								<span class="form-label">기간</span>
+								<div class="form-group form-minmax">
+									<input type="date" class="textfield" name="searchStrtDate" value="" aria-label="기간, 축제 시작일">
+									<span class="form-label">~</span>
+									<input type="date" class="textfield" name="searchEndDate" value="" aria-label="기간, 축제 종료일">
+								</div>
+							</div>
+							<div class="form-group grid-span-all">
+								<span class="form-label">키워드</span>
+								<div class="form-group align-center">
+									<select class="select form-size-20p" aria-label="키워드, 분류" name="searchSubjCode">
+										<option value="">분류 선택</option>
+										<option value="">전체</option>
+										<option value="20">문화/예술</option>
+										<option value="21">자연/경관</option>
+										<option value="22">전통/역사</option>
+										<option value="24">관광/체육</option>
+										<option value="23">시민화합</option>
+										<option value="12">기타행사</option>
+									</select>	
+
+									<input type="search" class="textfield" aria-label="키워드, 축제명" name="searchKeyword" value="" placeholder="축제명을 입력해주세요.">
+									<button type="submit" class="btn btn-submit">검색</button>
+								</div>
+							</div>
+						</div>
+						<!-- //search-wrap -->
+					</fieldset>
+				</form>
+			</div>
+			<!-- //search-form -->
+			<!-- card-list-wrap -->
+			<div class="card-list-wrap">
+				<!-- card-list -->
+				<div class="card-list" id="modalResultArea"></div>
+				<!-- //card-list -->
+			</div>
+			<!-- //card-list-wrap -->
+		</div>
+		<!-- //modal-content-inner -->
+	</div>
+	<!-- //modal-content -->
+</div>
+
+<script>
+
+let html = "";
+
+$(document).ready(function() {
+	
+	  $("#searchModal").on("submit", function(e) {
+	    e.preventDefault(); // 기본 submit 막기
+	
+	    // 폼 데이터 가져오기
+	    const formData = $(this).serialize();
+	
+	    // AJAX 요청
+	    $.ajax({
+	      url: "/festival/main/searchModal.do",
+	      type: "POST",
+	      data: formData,
+	      dataType: "json",
+	      success: function(data) {
+	    	 html = "";
+	    	$("#modalResultArea").html(html);   
+	        renderSearchResult(data);
+	      },
+	      error: function() {
+
+	    	  html = `
+	    	    <div class="no-item">
+	                <p class="text">검색 결과가 없습니다.</p>
+	            </div>
+	        	`;
+	    	  $("#modalResultArea").html(html);
+	      }
+	    });
+	  });
+});
+
+
+function renderSearchResult(data) {
+
+    if (data.length > 0) {
+        data.forEach(result => {
+        	let periodText = "";
+            
+            if (!result.strt_date || result.strt_date === "") {
+                // 시작일이 없을 때
+                periodText = `
+                    ${result.period_yn === "N" ? "(예정)" : ""}
+                    ${result.time || ""}
+                `;
+            } else {
+                // 시작일이 있을 때
+                periodText = `
+                    ${result.period_yn === "N" ? "(예정)" : ""}
+                    ${result.strt_date} ~ ${result.end_date}
+                `;
+            }
+
+
+            html += `
+            	<div class="main-card-type-4">
+	            <a href="/festival/main/festivalView.do?festacode=${result.festa_code}" class="card-inner">
+	                <div class="card-img">
+	                    ${result.main_img 
+	                        ? `<img src="/cmmn/file/getImage.do?atchFileId=${result.main_img}&thumb=Y" alt="${result.thumb_desc}">`
+	                        : `<img src="/resources/img/poster/img_ready_${result.subjcode}.png" alt="">`}
+	                </div>
+	                <div class="card-info">
+	                    <div class="badge-group">
+	                        <span class="badge" data-category="${result.subjname}">${result.subjname}</span>
+	                        <span class="badge">${result.gname}</span>
+	                    </div>
+	                    <p class="title">${result.festa_name}</p>
+	                    <p class="text date"><b class="label">기간</b>
+	                    ${periodText}
+	                    </p>
+	                    <p class="text location"><b class="label">장소</b>${result.place}</p>
+	                </div>
+	            </a>
+	            <button type="button" class="btn btn-ico btn-like-festival" 
+	                    value="${result.festa_code}" onclick="toggleValue2(this.value)" data-toggle-class>
+	                <i class="ico ico-like-festival"></i>
+	                <span class="sr-only">관심 축제 등록</span>
+	            </button>
+	        </div>`;
+        });
+    } else {
+        html = `
+            <div class="no-item">
+                <p class="text">검색 결과가 없습니다.</p>
+            </div>
+        `;
+    }
+
+    $("#modalResultArea").html(html);
+}
+
+
+</script>
+	
+	</dialog>
+	
+	<script>
+
+		const modal = document.getElementById("btn-quick-like");
+	
+		// 모달 열기 버튼 클릭 시
+		document.getElementById("btn-quick-like").addEventListener("click", () => {
+		    var url = "/festival/main/searchItem.do?";
+		    getItemList(url);   // 데이터 호출
+		    //openModal("likesModal"); // 모달 열기
+		});
+
+	</script>
+	
+	<div id="chatbot-root"></div>
+</body>
+</html>
