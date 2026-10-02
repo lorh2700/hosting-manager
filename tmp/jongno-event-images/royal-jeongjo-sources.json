@@ -1,0 +1,98 @@
+{
+  "royal": {
+    "file": "C:/voidproject/hosting-manager/tmp/jongno-event-images/royal-original.png",
+    "sourceUrl": "https://khs.go.kr/newsBbz/selectNewsBbzView.do?newsItemId=155706327&sectionId=b_sec_1&mn=NS_01_02_02",
+    "imageUrl": "https://www.khs.go.kr/newopen/cmm/seditor/getImageFile.do?seId=ff0172ed7d03481fbe8e99723c03a2aa",
+    "credit": "국가유산청·국가유산진흥원, 2026 가을 궁중문화축전 (공공누리 제1유형)",
+    "alt": "2026 가을 궁중문화축전 공식 포스터",
+    "license": "KOGL type 1 explicitly on originating khs.go.kr post. Commercial use and changes allowed with attribution.",
+    "confirmedDates": "2026-10-07/2026-10-11",
+    "metadata": {
+      "format": "jpeg",
+      "width": 857,
+      "height": 1238,
+      "space": "srgb",
+      "channels": 3,
+      "depth": "uchar",
+      "density": 72,
+      "chromaSubsampling": "4:2:0",
+      "isProgressive": false,
+      "isPalette": false,
+      "hasProfile": false,
+      "hasAlpha": false,
+      "autoOrient": {
+        "width": 857,
+        "height": 1238
+      }
+    }
+  },
+  "jeongjo": {
+    "file": "C:/voidproject/hosting-manager/tmp/jongno-event-images/jeongjo-original.png",
+    "sourceUrl": "https://festival.seoul.go.kr/festival/main/festivalView.do?festacode=391",
+    "imageUrl": "https://festival.seoul.go.kr/resources/culture/img/editor/funSeoul/editor_20260916175927_18497.png",
+    "credit": "서울특별시·경기도·수원특례시·화성시, 2026 정조대왕 능행차",
+    "alt": "2026 정조대왕 능행차 공동재현 공식 포스터",
+    "license": "No KOGL on FUN SEOUL page. Related Seoul press release and mediahub article explicitly KOGL type4 noncommercial/no derivatives. Do not label type1. Permission not confirmed.",
+    "confirmedDates": "2026-10-04",
+    "metadata": {
+      "format": "png",
+      "width": 1000,
+      "height": 1411,
+      "space": "srgb",
+      "channels": 3,
+      "depth": "uchar",
+      "density": 96,
+      "isProgressive": false,
+      "isPalette": false,
+      "bitsPerSample": 8,
+      "hasProfile": false,
+      "hasAlpha": false,
+      "autoOrient": {
+        "width": 1000,
+        "height": 1411
+      },
+      "comments": [
+        {
+          "keyword": "Author",
+          "text": ""
+        },
+        {
+          "keyword": "Description",
+          "text": ""
+        },
+        {
+          "keyword": "Copyright",
+          "text": ""
+        },
+        {
+          "keyword": "Creation time",
+          "text": ""
+        },
+        {
+          "keyword": "Software",
+          "text": ""
+        },
+        {
+          "keyword": "Disclaimer",
+          "text": ""
+        },
+        {
+          "keyword": "Warning",
+          "text": ""
+        },
+        {
+          "keyword": "Source",
+          "text": ""
+        },
+        {
+          "keyword": "Comment",
+          "text": ""
+        },
+        {
+          "keyword": "Title",
+          "text": ""
+        }
+      ]
+    }
+  }
+}
