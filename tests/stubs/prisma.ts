@@ -7,12 +7,15 @@ type Row = Record<string, any>;
 
 export const db: Record<string, Row[]> = {};
 export const calls: string[] = [];
+// Individual infrastructure tests can supply a local DB adapter or a precise DB failure.
+export const prismaOverrides: Record<string, any> = {};
 let seq = 0;
 
 export function resetDb() {
   for (const k of Object.keys(db)) delete db[k];
   calls.length = 0;
   seq = 0;
+  for (const key of Object.keys(prismaOverrides)) delete prismaOverrides[key];
 }
 
 export const nextId = (prefix = 'id') => `${prefix}-${++seq}`;
@@ -178,8 +181,11 @@ function collection(model: string) {
     create: async (args: Row) => {
       record('create');
       const row = { id: nextId(model), ...args.data };
-      if (model === 'checkoutSignal' && rows().some(r => r.id === row.id)) {
-        throw Object.assign(new Error('Duplicate checkout signal primary key'), { code: 'P2002' });
+      if (['checkoutSignal', 'laundryBatch', 'supplyRequest', 'inventoryCountRecord'].includes(model) && rows().some(r => r.id === row.id)) {
+        throw Object.assign(new Error(`Duplicate ${model} primary key`), { code: 'P2002' });
+      }
+      if (model === 'inventorySnapshot' && rows().some(r => r.propertyId === row.propertyId)) {
+        throw Object.assign(new Error('Duplicate inventory snapshot primary key'), { code: 'P2002' });
       }
       rows().push(row);
       return project(row, args.select, args.include);
@@ -252,6 +258,7 @@ function inquiryDefaults(model: string, data: Row): Row {
 
 export const prisma: any = new Proxy({}, {
   get(_target, name: string) {
+    if (Object.prototype.hasOwnProperty.call(prismaOverrides, name)) return prismaOverrides[name];
     if (name === '$transaction') return (ops: Promise<any>[] | ((tx: any) => Promise<any>)) => (typeof ops === 'function' ? ops(prisma) : Promise.all(ops));
     if (name === '$queryRaw') return async () => [];
     if (typeof name !== 'string' || name.startsWith('then')) return undefined;

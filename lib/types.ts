@@ -214,6 +214,7 @@ export interface CleaningIssue {
 export interface SupplyItem {
   name: string;
   quantity: number;
+  unit?: string;
   note?: string;
 }
 
@@ -224,6 +225,7 @@ export interface SupplyRequest {
   propertyId: string;
   requestedBy: string;
   requestedByName: string;
+  requestText?: string;
   items: SupplyItem[];
   urgency: IssueUrgency;
   status: SupplyRequestStatus;

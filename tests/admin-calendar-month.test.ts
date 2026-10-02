@@ -4,7 +4,8 @@ import { GET } from '../app/api/admin/calendar/route';
 import { GET as getSupplies } from '../app/api/admin/calendar/supply-todos/route';
 import { calendarGridRange, calendarMonthRange } from '../lib/calendar-month';
 import { kstYearMonth, monthRange } from '../lib/dates';
-import { db, resetDb } from './stubs/prisma';
+import { db, resetDb, prisma, prismaOverrides } from './stubs/prisma';
+import type { StubResponse } from './stubs/next-server';
 import { actAsAdmin, actAsAnonymous, actAsManager } from './stubs/auth';
 import { callRoute } from './helpers/beds24-mock';
 
@@ -83,6 +84,51 @@ test('both monthly endpoints retain authentication and property scope', async ()
   actAsAnonymous();
   assert.equal((await callRoute(GET, request('2026-09'))).status, 401);
   assert.equal((await callRoute(getSupplies, request('2026-09'))).status, 401);
+});
+
+test('cleaning lookup starts before a slow staff directory finishes', async () => {
+  const userRead = prisma.user.findMany;
+  const cleaningRead = prisma.cleaning.findMany;
+  let releaseStaff!: () => void;
+  let announceCleaning!: () => void;
+  const staffBlocked = new Promise<void>(resolve => { releaseStaff = resolve; });
+  const cleaningStarted = new Promise<void>(resolve => { announceCleaning = resolve; });
+  prismaOverrides.user = {
+    findMany: async (args: unknown) => { await staffBlocked; return userRead(args); },
+  };
+  prismaOverrides.cleaning = {
+    findMany: async (args: unknown) => { announceCleaning(); return cleaningRead(args); },
+  };
+
+  const response = GET(request('2026-09'), { params: Promise.resolve({}) });
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      cleaningStarted,
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => reject(new Error('cleaning lookup waited for staff')), 2000);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeout);
+    releaseStaff();
+    assert.equal((await response).status, 200);
+  }
+});
+
+test('calendar timings distinguish database stages and authentication without exposing records', async () => {
+  const response = await GET(request('2026-09'), { params: Promise.resolve({}) }) as unknown as StubResponse;
+  const timing = response.headers.get('Server-Timing') ?? '';
+  for (const stage of ['properties', 'events', 'bookings', 'cleanings', 'assignees', 'queries', 'total', 'auth', 'handler']) {
+    assert.match(timing, new RegExp(`(?:^|, )${stage};dur=\\d+\\.\\d`));
+  }
+  assert.equal(response.headers.get('Cache-Control'), 'private, no-store');
+  assert.ok(!timing.includes('p1'));
+  assert.ok(!timing.includes('admin-1'));
+  actAsManager([]);
+  const empty = await GET(request('2026-09'), { params: Promise.resolve({}) }) as unknown as StubResponse;
+  assert.match(empty.headers.get('Server-Timing') ?? '', /properties;dur=/);
+  assert.equal(empty.headers.get('Cache-Control'), 'private, no-store');
 });
 
 test('October 2 assignment is identical from September and October grids', async()=>{

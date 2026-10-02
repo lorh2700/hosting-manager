@@ -16,19 +16,15 @@ import { createOpsSnapshotCache } from '@/lib/ops-loading';
 import { opsActionsBlocked } from '@/lib/ops-freshness';
 import { useRefetchOnReturn } from '@/lib/hooks/useRefetchOnReturn';
 import { GUEST_FLAG_LABEL, type GuestFlag } from '@/lib/ops-flags';
+import { mergeTodayConversation, type TodayOverview, type TodayConversation } from '@/lib/ops-today-client';
 const CreateMaintenanceModal = dynamic(() => import('@/app/admin/calendar/components/CreateMaintenanceModal').then(m => m.CreateMaintenanceModal));
 import type { OpsProperty, OpsReservation } from '@/app/api/ops/today/route';
 
-interface OpsData {
-  today: string;
-  detailsLoaded?: boolean;
-  unavailable?: string[];
-  properties: OpsProperty[];
-  cleaners: { id: string; name: string }[];
-  counts: { pendingApplications: number | null; openIssues: number | null; pendingSupplies: number | null };
-}
+type OpsData = TodayOverview;
 
-const snapshotCache = createOpsSnapshotCache<OpsData>();
+// A same-day snapshot can render while the authoritative read is in progress.
+// It is memory-only and never permits actions before that read succeeds.
+const snapshotCache = createOpsSnapshotCache<OpsData>(5 * 60_000);
 const todayStr = todayKst;
 const hhmm = (iso: string) => format(new Date(iso), 'HH:mm');
 const stay = (r: OpsReservation) => `${format(parseISO(r.start), 'M/d')}–${format(parseISO(r.end), 'M/d')} · ${r.nights}박`;
@@ -37,8 +33,14 @@ const chatHref = (r: OpsReservation) => `/admin/messages?eventId=${r.id}&guestNa
 const FLAG_TONE: Record<GuestFlag, 'info' | 'warning' | 'brand'> = { early_checkin: 'info', late_checkout: 'warning', request: 'brand' };
 
 /** 게스트 한 명: 이름·투숙·채널 → 태그 → 최근 대화 → 대화 열기 */
-function GuestBlock({ r, statusLine, action }: { r: OpsReservation; statusLine?: React.ReactNode; action?: React.ReactNode }) {
+function GuestBlock({ r, statusLine, action, loading, error, enabled, onLoad }: {
+  r: OpsReservation; statusLine?: React.ReactNode; action?: React.ReactNode;
+  loading: boolean; error: string; enabled: boolean; onLoad: (eventId: string) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    if (enabled && expanded && r.messagesLoaded === false && !loading && !error) onLoad(r.id);
+  }, [enabled, expanded, r.id, r.messagesLoaded, loading, error, onLoad]);
   return (
     <div className="space-y-2">
       <div className="flex items-baseline gap-2 flex-wrap">
@@ -64,7 +66,9 @@ function GuestBlock({ r, statusLine, action }: { r: OpsReservation; statusLine?:
           {r.flags.map(f => <Badge key={f} tone={FLAG_TONE[f]}>{GUEST_FLAG_LABEL[f]}</Badge>)}
         </div>
       )}
-      {expanded && (r.messagesAvailable === false ? <p className="t-caption text-amber-800">대화 정보를 확인하지 못했습니다. 대화 열기에서 확인해 주세요.</p> : r.messages.length > 0 ? (
+      {expanded && (loading || r.messagesLoaded === false && !error ? <p role="status" className="t-caption text-stone-500">최근 대화를 확인하고 있습니다…</p> : error ? (
+        <div className="space-y-2"><p role="alert" className="t-caption text-amber-800">{error}</p><Button variant="secondary" size="sm" onClick={() => onLoad(r.id)}>대화 다시 불러오기</Button></div>
+      ) : r.messagesAvailable === false ? <p className="t-caption text-amber-800">대화 정보를 확인하지 못했습니다. 대화 열기에서 확인해 주세요.</p> : r.messages.length > 0 ? (
         <div className="bg-stone-50 border border-stone-100 px-3 py-2 space-y-1">
           {r.messages.slice(-3).map(m => (
             <p key={m.id} className="t-caption text-stone-700 line-clamp-2">
@@ -94,40 +98,65 @@ function GuestBlock({ r, statusLine, action }: { r: OpsReservation; statusLine?:
 export default function OpsPage() {
   const { user, profile } = useAuth();
   const scopeKey = user && profile ? JSON.stringify([user.id, profile.role, profile.status, [...profile.propertyIds].sort()]) : '';
-  const [data, setData] = useState<OpsData | null>(null);
+  const activeScope = useRef(scopeKey);
+  activeScope.current = scopeKey;
+  const [snapshot, setSnapshot] = useState(() => {
+    const cached = snapshotCache.read(scopeKey);
+    return { scopeKey, data: cached?.data ?? null, savedAt: cached?.savedAt ?? null };
+  });
+  // Permission/account changes must not briefly render the previous scope.
+  const data = snapshot.scopeKey === scopeKey ? snapshot.data : null;
+  const updatedAt = snapshot.scopeKey === scopeKey && snapshot.savedAt != null ? new Date(snapshot.savedAt) : null;
   const mounted = useRef(false);
   const summaryController = useRef<AbortController | null>(null);
+  const overviewRevision = useRef(0);
+  const lazyControllers = useRef(new Map<string, AbortController>());
+  const [conversationReads, setConversationReads] = useState<Record<string, { loading: boolean; error: string }>>({});
+  const [cleanersLoading, setCleanersLoading] = useState(false);
+  const [cleanersError, setCleanersError] = useState('');
   const [refreshing, setRefreshing] = useState(true);
   const [currentDay, setCurrentDay] = useState(todayKst);
   const [detailsError, setDetailsError] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [delivery, setDelivery] = useState<Record<string, string>>({});
   const loadingRef = useRef(false);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [busy, setBusyState] = useState<string | null>(null);
+  const busyRef = useRef<string | null>(null);
+  const setBusy = useCallback((value: string | null) => { busyRef.current = value; setBusyState(value); }, []);
   const [assign, setAssign] = useState<Record<string, string>>({});
   const [cameraFor, setCameraFor] = useState<string | null>(null);
   const [showMaintenance, setShowMaintenance] = useState(false);
 
-  const load = useCallback(async (silent = false) => {
-    if (loadingRef.current) return;
+  const load = useCallback(async (silent = false, afterMutation = false) => {
+    if (!scopeKey || activeScope.current !== scopeKey || busyRef.current && !afterMutation) return;
+    if (loadingRef.current) {
+      if (!afterMutation) return;
+      // A read started before a successful write cannot confirm its result.
+      // Discard it and always perform the authoritative post-write read.
+      summaryController.current?.abort();
+    }
     loadingRef.current = true;
     setRefreshing(true);
     const request = new AbortController();
     summaryController.current = request;
+    for (const controller of lazyControllers.current.values()) controller.abort();
+    lazyControllers.current.clear();
+    setConversationReads({}); setCleanersLoading(false); setCleanersError('');
     if (!silent) setLoading(true);
     try {
-      const next = await readOps<OpsData>('/api/ops/today?view=details&includeCounts=false', request.signal);
+      const next = await readOps<OpsData>('/api/ops/today?view=board&includeCounts=false', request.signal);
       if (!mounted.current || request.signal.aborted) return;
       if (next.today !== todayKst()) throw new Error('날짜가 변경되었습니다. 다시 불러와 주세요.');
+      overviewRevision.current++;
       snapshotCache.write(scopeKey, next);
-      setData(next); setUpdatedAt(new Date()); setLoadError(''); setDetailsError(''); setLoading(false);
+      setSnapshot({ scopeKey, data: next, savedAt: Date.now() }); setLoadError(''); setDetailsError(''); setLoading(false);
       setDelivery({});
       if (next.unavailable?.length) setDetailsError('일부 운영 정보를 확인하지 못했습니다. 다시 불러와 주세요.');
     } catch (error) {
       if (!mounted.current || request.signal.aborted) return;
-      snapshotCache.clear();
+      // Keep a previous same-scope snapshot for display; failed reads remain
+      // visibly stale and all operational actions stay blocked.
       setLoadError((error instanceof Error ? error.message : '오늘 현황을 불러오지 못했습니다.') + ' 표시된 자료는 이전 정보일 수 있습니다.');
     } finally {
       if (summaryController.current === request) {
@@ -139,19 +168,74 @@ export default function OpsPage() {
 
   useEffect(() => {
     mounted.current = true;
+    overviewRevision.current++;
+    const lazyRequests = lazyControllers.current;
     const cached = snapshotCache.read(scopeKey);
-    setData(cached?.data ?? null);
-    setUpdatedAt(cached ? new Date(cached.savedAt) : null);
+    setSnapshot({ scopeKey, data: cached?.data ?? null, savedAt: cached?.savedAt ?? null });
     setLoadError(''); setDetailsError('');
+    setConversationReads({}); setCleanersLoading(false); setCleanersError(''); setAssign({}); setDelivery({});
+    setCameraFor(null); setShowMaintenance(false);
+    setBusy(null);
     setLoading(!cached); setRefreshing(true);
     if (scopeKey) void load(!!cached);
     else snapshotCache.clear();
     return () => {
       mounted.current = false; summaryController.current?.abort(); summaryController.current = null;
+      for (const controller of lazyRequests.values()) controller.abort();
+      lazyRequests.clear();
       loadingRef.current = false;
     };
-  }, [scopeKey, load]);
-  useRefetchOnReturn(() => load(true));
+  }, [scopeKey, load, setBusy]);
+  useEffect(() => {
+    if (snapshot.scopeKey === scopeKey && snapshot.data && snapshot.savedAt != null) snapshotCache.write(scopeKey, snapshot.data, snapshot.savedAt);
+  }, [snapshot, scopeKey]);
+  useRefetchOnReturn(() => load(true), { enabled: !!scopeKey });
+
+  const loadConversation = useCallback(async (eventId: string) => {
+    const key = `conversation:${eventId}`;
+    if (!scopeKey || loadingRef.current || lazyControllers.current.has(key)) return;
+    const request = new AbortController(); lazyControllers.current.set(key, request);
+    setConversationReads(current => ({ ...current, [eventId]: { loading: true, error: '' } }));
+    try {
+      const incoming = await readOps<TodayConversation>(`/api/ops/today?view=conversation&eventId=${encodeURIComponent(eventId)}`, request.signal);
+      if (!mounted.current || request.signal.aborted || activeScope.current !== scopeKey) return;
+      if (incoming.today !== todayKst() || incoming.eventId !== eventId) throw new Error('날짜가 변경되었습니다. 오늘 현황을 다시 불러와 주세요.');
+      if (!incoming.messagesAvailable) throw new Error('최근 대화를 확인하지 못했습니다.');
+      setSnapshot(current => current.scopeKey === scopeKey && current.data
+        ? { ...current, data: mergeTodayConversation(current.data, incoming) } : current);
+    } catch (error) {
+      if (!mounted.current || request.signal.aborted || activeScope.current !== scopeKey) return;
+      setConversationReads(current => ({ ...current, [eventId]: { loading: false, error: error instanceof Error ? error.message : '최근 대화를 불러오지 못했습니다.' } }));
+    } finally {
+      if (lazyControllers.current.get(key) === request) {
+        lazyControllers.current.delete(key);
+        if (mounted.current) setConversationReads(current => ({ ...current, [eventId]: { ...current[eventId], loading: false } }));
+      }
+    }
+  }, [scopeKey]);
+
+  const loadCleaners = useCallback(async () => {
+    const key = 'assignees';
+    if (!scopeKey || loadingRef.current || lazyControllers.current.has(key)) return;
+    const request = new AbortController(); lazyControllers.current.set(key, request);
+    setCleanersLoading(true); setCleanersError('');
+    try {
+      const incoming = await readOps<{ today: string; cleaners: OpsData['cleaners']; cleanersLoaded: boolean }>('/api/ops/today?view=assignees', request.signal);
+      if (!mounted.current || request.signal.aborted) return;
+      if (incoming.today !== todayKst()) throw new Error('날짜가 변경되었습니다. 오늘 현황을 다시 불러와 주세요.');
+      if (!incoming.cleanersLoaded) throw new Error('배정 후보를 확인하지 못했습니다.');
+      setSnapshot(current => current.scopeKey === scopeKey && current.data?.today === incoming.today
+        ? { ...current, data: { ...current.data, cleaners: incoming.cleaners, cleanersLoaded: true } } : current);
+    } catch (error) {
+      if (!mounted.current || request.signal.aborted) return;
+      setCleanersError(error instanceof Error ? error.message : '배정 후보를 불러오지 못했습니다.');
+    } finally {
+      if (lazyControllers.current.get(key) === request) {
+        lazyControllers.current.delete(key);
+        if (mounted.current) setCleanersLoading(false);
+      }
+    }
+  }, [scopeKey]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -163,15 +247,18 @@ export default function OpsPage() {
   }, [data, load]);
   const detailsReady = !!data?.detailsLoaded && !data.unavailable?.some(s => ['cleaning', 'checkout', 'cleaners', 'messages'].includes(s));
   const actionsBlocked = opsActionsBlocked({ ...data, refreshing, loadError: !!loadError });
-  const actionState = useRef<{ blocked: boolean; date: string; data: OpsData | null }>({ blocked: true, date: '', data: null });
-  actionState.current = { blocked: actionsBlocked, date: data?.today ?? '', data };
+  const actionRevision = overviewRevision.current;
+  const actionState = useRef({ blocked: true, date: '', scopeKey: '' });
+  actionState.current = { blocked: actionsBlocked, date: data?.today ?? '', scopeKey };
   const canAct = () => {
-    if (actionState.current.blocked || actionState.current.date !== todayKst() || actionState.current.data !== data) {
+    if (actionState.current.blocked || actionState.current.date !== todayKst()
+      || actionState.current.scopeKey !== scopeKey || overviewRevision.current !== actionRevision) {
       toast.error('최신 운영 정보를 불러온 후 다시 시도해 주세요.');
       return false;
     }
     return true;
   };
+  const isCurrentScope = () => mounted.current && activeScope.current === scopeKey;
 
   const confirmCheckout = async (p: OpsProperty) => {
     if (!canAct()) return;
@@ -182,10 +269,11 @@ export default function OpsPage() {
     try {
       const res = await fetch('/api/checkout/confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyId: p.id, date: data!.today }) });
       const d = await res.json().catch(() => ({}));
+      if (!isCurrentScope()) return;
       if (!res.ok) { toast.error(d.error || '확인에 실패했습니다.'); return; }
       toast.success(d.notified ? `청소담당자 ${d.notified}명에게 알렸습니다.` : '체크아웃을 확인했습니다.');
-      await load(true);
-    } catch { toast.error('확인에 실패했습니다.'); } finally { setBusy(null); }
+      await load(true, true);
+    } catch { if (isCurrentScope()) toast.error('확인에 실패했습니다.'); } finally { if (isCurrentScope()) setBusy(null); }
   };
 
   const assignCleaner = async (p: OpsProperty) => {
@@ -198,10 +286,11 @@ export default function OpsPage() {
       const res = p.cleaning
         ? await fetch('/api/cleanings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: p.cleaning.id, cleanerId, status: 'pending', isOpen: false }) })
         : await fetch('/api/cleanings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyId: p.id, date: data!.today, cleanerId, status: 'pending' }) });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d.error || '배정에 실패했습니다.'); return; }
+      if (!isCurrentScope()) return;
+      if (!res.ok) { const d = await res.json().catch(() => ({})); if (isCurrentScope()) toast.error(d.error || '배정에 실패했습니다.'); return; }
       toast.success(`${data?.cleaners.find(c => c.id === cleanerId)?.name ?? '담당자'}에게 배정했습니다.`);
-      await load(true);
-    } catch { toast.error('배정에 실패했습니다.'); } finally { setBusy(null); }
+      await load(true, true);
+    } catch { if (isCurrentScope()) toast.error('배정에 실패했습니다.'); } finally { if (isCurrentScope()) setBusy(null); }
   };
 
   /** 청소 완료: 청소 행을 done 으로, 오늘 체크인 게스트(Beds24)가 있으면 청소 완료 안내. 캘린더와 같은 순서. */
@@ -220,11 +309,12 @@ export default function OpsPage() {
       const res = p.cleaning
         ? await fetch('/api/cleanings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: p.cleaning.id, status: 'done', completedAt: new Date().toISOString() }) })
         : await fetch('/api/cleanings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyId: p.id, date: data!.today, status: 'done' }) });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d.error || '청소 완료 처리에 실패했습니다.'); return; }
+      if (!isCurrentScope()) return;
+      if (!res.ok) { const d = await res.json().catch(() => ({})); if (isCurrentScope()) toast.error(d.error || '청소 완료 처리에 실패했습니다.'); return; }
       if (checkin?.hasChat) await sendReady(p, checkin, true);
       else toast.success('청소 완료로 기록했습니다.');
-      await load(true);
-    } catch { toast.error('청소 완료 처리에 실패했습니다.'); } finally { setBusy(null); }
+      await load(true, true);
+    } catch { if (isCurrentScope()) toast.error('청소 완료 처리에 실패했습니다.'); } finally { if (isCurrentScope()) setBusy(null); }
   };
 
   const sendReady = async (p: OpsProperty, checkin: OpsReservation, alreadyConfirmed = false) => {
@@ -237,31 +327,33 @@ export default function OpsPage() {
     try {
       const res = await fetch('/api/beds24/messages/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ eventId: checkin.id, propertyId: p.id, text: p.readyMessage }) });
       const result = await res.json();
+      if (!isCurrentScope()) return;
       if (!res.ok || result.deliveryStatus !== 'sent') throw new Error('전송 결과를 확인하지 못했습니다. 대화에서 확인 후 다시 보내 주세요.');
       setDelivery(prev => ({ ...prev, [checkin.id]: 'sent' }));
     } catch (err) {
-      setDelivery(prev => ({ ...prev, [checkin.id]: err instanceof Error ? err.message : '안내 전송에 실패했습니다.' }));
-    } finally { setBusy(null); }
+      if (isCurrentScope()) setDelivery(prev => ({ ...prev, [checkin.id]: err instanceof Error ? err.message : '안내 전송에 실패했습니다.' }));
+    } finally { if (isCurrentScope()) setBusy(null); }
   };
 
   const allProps = (data?.properties ?? []).map(p => ({ id: p.id, name: p.name }));
   return (
     <PullToRefresh onRefresh={() => load(true)}>
       <TodayBoard
-        data={data} loading={loading} refreshing={refreshing} updatedAt={updatedAt}
-        loadError={loadError}
-        detailsError={detailsError || (data && data.today !== currentDay ? '날짜가 변경되어 최신 정보를 확인하고 있습니다.' : '')}
+        data={data} loading={loading || snapshot.scopeKey !== scopeKey} refreshing={refreshing} updatedAt={updatedAt}
+        loadError={snapshot.scopeKey === scopeKey ? loadError : ''}
+        detailsError={(snapshot.scopeKey === scopeKey ? detailsError : '') || (data && data.today !== currentDay ? '날짜가 변경되어 최신 정보를 확인하고 있습니다.' : '')}
         detailsReady={detailsReady} actionsBlocked={actionsBlocked} busy={busy}
         delivery={delivery} assign={assign}
+        cleanersLoading={cleanersLoading} cleanersError={cleanersError} onLoadCleaners={loadCleaners}
         onRefresh={() => { void load(!!data); }}
         onAssignChange={(propertyId, cleanerId) => setAssign(prev => ({ ...prev, [propertyId]: cleanerId }))}
         onAssign={p => { void assignCleaner(p); }} onCheckout={p => { void confirmCheckout(p); }}
         onComplete={p => { void completeCleaning(p); }} onSendReady={(p, r) => { void sendReady(p, r); }}
         onCamera={setCameraFor} onMaintenance={() => setShowMaintenance(true)}
-        renderGuest={(r, statusLine, action) => <GuestBlock r={r} statusLine={statusLine} action={action} />}
+        renderGuest={(r, statusLine, action) => <GuestBlock r={r} statusLine={statusLine} action={action} loading={conversationReads[r.id]?.loading ?? false} error={conversationReads[r.id]?.error ?? ''} enabled={!refreshing && !loadError} onLoad={loadConversation} />}
       />
-      <CameraSheet propertyId={cameraFor} properties={allProps} onSelect={setCameraFor} onClose={() => setCameraFor(null)} />
-      {showMaintenance && <CreateMaintenanceModal properties={allProps} onClose={() => setShowMaintenance(false)} onCreated={() => { setShowMaintenance(false); toast.success('객실정비를 등록했습니다.'); void load(true); }} />}
+      <CameraSheet key={`${scopeKey}:${currentDay}`} propertyId={snapshot.scopeKey === scopeKey ? cameraFor : null} properties={allProps} onSelect={setCameraFor} onClose={() => setCameraFor(null)} />
+      {showMaintenance && snapshot.scopeKey === scopeKey && <CreateMaintenanceModal key={scopeKey} properties={allProps} onClose={() => setShowMaintenance(false)} onCreated={() => { if (!isCurrentScope()) return; setShowMaintenance(false); toast.success('객실정비를 등록했습니다.'); void load(true, true); }} />}
     </PullToRefresh>
   );
 }

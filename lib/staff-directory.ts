@@ -37,11 +37,20 @@ export async function eligibleStaff(propertyId: string) {
   return users.filter(user => user.role === 'admin' || user.assignments.some(item => item.propertyId === propertyId));
 }
 
-export async function listAssignees(auth: SessionAuth) {
-  const visible = await getVisiblePropertyIds(auth);
-  const users = await staffDirectory.findMany({ where: { status: { in: ['active', 'no_account'] } } });
-  return users.filter(u => visible === null || (visible.length > 0 && u.role === 'admin') || u.assignments.some(p => visible.includes(p.propertyId)))
-    .map(u => ({ id: u.id, name: u.name, phone: u.phone, role: u.role, assignedPropertyIds: u.assignments.map(p => p.propertyId) }));
+export async function listAssignees(auth: SessionAuth, resolvedVisible?: string[] | null) {
+  const visible = resolvedVisible === undefined ? await getVisiblePropertyIds(auth) : resolvedVisible;
+  if (visible?.length === 0) return [];
+  // Scope in SQL and fetch only assignment fields. A caller which already
+  // checked its scope need not resolve the same identity/property links again.
+  const users = await prisma.user.findMany({
+    where: { status: { in: ['active', 'no_account'] }, ...(visible === null ? {} : {
+      OR: [{ role: { in: ['admin', 'super_admin'] } }, { properties: { some: { propertyId: { in: visible } } } }],
+    }) },
+    select: { id: true, displayName: true, email: true, phone: true, role: true, properties: { select: { propertyId: true } } },
+    orderBy: { displayName: 'asc' },
+  });
+  return users.filter(u => visible === null || normalizeRole(u.role) === 'admin' || u.properties.some(p => visible.includes(p.propertyId)))
+    .map(u => ({ id: u.id, name: u.displayName || u.email, phone: u.phone, role: normalizeRole(u.role), assignedPropertyIds: u.properties.map(p => p.propertyId) }));
 }
 
 export async function requireAssignee(userId: string, propertyId: string) {

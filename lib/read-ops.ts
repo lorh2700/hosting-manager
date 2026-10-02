@@ -3,7 +3,13 @@ export async function readOps<T>(url: string, signal: AbortSignal, timeoutMs = 1
   for (let attempt = 0; attempt < 2; attempt++) {
     signal.throwIfAborted();
     try {
+      const started = Date.now();
       const response = await fetch(url, { cache: 'no-store', signal: AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) });
+      if (process.env.NODE_ENV === 'development') console.info('[ops/read]', url, JSON.stringify({
+        durationMs: Date.now() - started,
+        status: response.status,
+        serverTiming: response.headers.get('Server-Timing'),
+      }));
       if (response.status === 401) throw new Error('로그인이 만료되었습니다. 다시 로그인해 주세요.');
       if (response.status === 403) throw new Error('조회 권한이 없습니다. 관리자에게 문의해 주세요.');
       if (response.status >= 500 && attempt === 0) continue;

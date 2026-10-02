@@ -99,6 +99,7 @@ export default function CleanerPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
+  const [showLaundry, setShowLaundry] = useState(false);
 
   // chat dialog
   const [chatGuest, setChatGuest] = useState<Reservation | null>(null);
@@ -567,13 +568,14 @@ export default function CleanerPage() {
           {format(new Date(), 'M월 d일 EEEE', { locale: ko })}
         </h1>
         <p className="text-stone-500 mt-2 t-caption">청소부터 세탁 입고까지, 오늘 할 일을 한곳에서 확인하세요.</p>
+        <Link href="/cleaner/records" className="inline-flex items-center justify-center gap-2 min-h-12 mt-5 rounded-xl bg-stone-900 px-5 text-sm font-semibold text-white">재고·세탁 빠른 기록</Link>
       </header>
 
       {loadError && <div role="alert" className="bg-amber-50 border border-amber-300 rounded-xl p-4 text-sm"><p>{loadError}</p><button type="button" onClick={loadTasks} className="min-h-12 underline font-medium">다시 불러오기</button></div>}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[['남은 청소',tasks.filter(t=>t.date===today&&t.status!=='done').length,'#today-cleaning'],['청소 완료',tasks.filter(t=>t.date===today&&t.status==='done').length,'#today-cleaning'],['퇴실 확인 대기',todayCheckouts.filter(r=>!checkoutToday[r.propertyId]?.confirmed).length,'#today-cleaning'],['오늘 입실',todayCheckins.length,'#today-cleaning']].map(([label,count,href])=><a key={label} href={String(href)} className="rounded-2xl border border-stone-200 bg-white p-4"><p className="text-xs text-stone-500">{label}</p><p className="text-2xl font-semibold mt-2">{count}<span className="text-xs font-normal ml-1">건</span></p></a>)}
       </div>
-      <nav className="flex gap-2 flex-wrap text-sm" aria-label="업무 바로가기"><a href="#today-laundry" className="min-h-11 rounded-xl bg-stone-900 text-white px-4 py-3">세탁 수거·입고</a>{[['/cleaner/calendar','이번 달 일정'],['/cleaner/supplies','비품 관리'],['/cleaner/issues','문제 신고']].map(([href,label])=><Link key={href} href={href} className="min-h-11 rounded-xl border px-4 py-3 bg-white">{label}</Link>)}</nav>
+      <nav className="flex gap-2 flex-wrap text-sm" aria-label="업무 바로가기">{[['/cleaner/records?mode=receive','세탁 입고 확인'],['/cleaner/calendar','이번 달 일정'],['/cleaner/supplies','비품 요청 내역'],['/cleaner/issues','문제 신고']].map(([href,label])=><Link key={href} href={href} className="min-h-11 rounded-xl border px-4 py-3 bg-white">{label}</Link>)}</nav>
       <section id="today-cleaning" className="space-y-4 scroll-mt-6" aria-label="숙소별 오늘 업무">
         <div><h2 className="text-xl font-semibold">숙소별 오늘 업무</h2><p className="text-sm text-stone-500 mt-1">오늘 입실을 앞두고 청소가 남은 숙소부터 표시합니다.</p></div>
         {operations.map(op=><details key={op.propertyId} open={!op.completed} className="group rounded-2xl border border-stone-200 bg-white overflow-hidden">
@@ -581,6 +583,7 @@ export default function CleanerPage() {
             {op.completed&&<span className="block mt-2 text-xs text-stone-500">{op.arrivals.length?op.arrivals.map(r=>`${r.guests || '인원 미확인'}${r.guests?'명':''} · ${differenceInCalendarDays(parseISO(r.end),parseISO(r.start))}박`).join(' / '):'오늘 입실 없음'} · 펼쳐서 상세 보기</span>}
           </summary>
           <div className="px-5 pb-5 space-y-4 border-t border-stone-100">
+            <Link href={`/cleaner/records?propertyId=${encodeURIComponent(op.propertyId)}`} className="inline-flex min-h-11 items-center rounded-xl border border-stone-300 px-4 mt-4 text-sm font-medium">{op.name} 재고·세탁 기록</Link>
             <section className="pt-4"><h3 className="text-xs font-semibold text-stone-500 mb-2">퇴실</h3>
               {op.departures.map(r=><p key={r.id} className="text-sm">{r.title || '게스트'}</p>)}
               {checkoutToday[op.propertyId]?.confirmed?<p className="text-sm text-emerald-700">퇴실 확인 완료{checkoutToday[op.propertyId].confirmedAt&&` · ${format(parseISO(checkoutToday[op.propertyId].confirmedAt!), 'HH:mm')}`}</p>:<p className="text-sm text-amber-800">{op.departures.length?'퇴실 확인 대기 · 확인 전에는 들어가지 마세요.':'오늘 퇴실 예약 정보 없음 · 출입 전 확인해주세요.'}</p>}
@@ -597,7 +600,7 @@ export default function CleanerPage() {
         </details>)}
         {!loadError&&!operations.length&&<p className="rounded-xl bg-white border p-5 text-sm text-stone-500">오늘 등록된 청소·입실·퇴실 일정이 없습니다.</p>}
       </section>
-      <section id="today-laundry" className="scroll-mt-6 rounded-2xl bg-stone-50 border border-stone-200 p-4 sm:p-6"><LaundryWorkspace embedded /></section>
+      <section id="today-laundry" className="scroll-mt-6 rounded-2xl bg-stone-50 border border-stone-200 p-4 sm:p-6"><button type="button" aria-expanded={showLaundry} aria-controls="today-laundry-list" onClick={() => setShowLaundry(value => !value)} className="flex w-full items-center justify-between gap-3 min-h-11 text-left font-medium">세탁 일정과 진행 내역{showLaundry ? <ChevronUp size={18} aria-hidden="true" /> : <ChevronDown size={18} aria-hidden="true" />}</button>{showLaundry && <div id="today-laundry-list" className="mt-4"><LaundryWorkspace embedded /></div>}</section>
       {loadError && tasks.length === 0 ? null : tasks.length === 0 ? (
         <div className="flex flex-col items-center text-stone-400 py-16">
           <CalendarDays size={32} className="mb-4 opacity-50" />

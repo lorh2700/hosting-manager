@@ -33,6 +33,7 @@ const HOST_GROUPS: AdminNavGroup[] = [
   ] },
   { id: 'maintenance', label: '객실 정비', items: [
     { href: '/admin/cleaning-requests', label: '청소 배정·신청', icon: 'cleaning', roles: MANAGERS },
+    { href: '/admin/inventory', label: '재고·세탁 기록', icon: 'supplies', roles: MANAGERS },
     { href: '/admin/laundry', label: '세탁 관리', icon: 'laundry', roles: MANAGERS },
     { href: '/admin/issues', label: '이슈 관리', icon: 'issues', roles: MANAGERS },
     { href: '/admin/supplies', label: '비품 요청', icon: 'supplies', roles: MANAGERS },

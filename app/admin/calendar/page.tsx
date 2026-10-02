@@ -1,18 +1,43 @@
 'use client';
 
-import { useState } from 'react';
-import MobileBookingCalendar from '@/components/MobileBookingCalendar';
+import { memo, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import dynamic from 'next/dynamic';
 import { useCalendarData } from './hooks/useCalendarData';
 import { useEventModal } from './hooks/useEventModal';
 import { CalendarHeader } from './components/CalendarHeader';
 import { PropertyFilter } from './components/PropertyFilter';
 import { CalendarGrid } from './components/CalendarGrid';
 import { MobileWeeklyCalendar } from './components/MobileWeeklyCalendar';
-import { EventDetailPanel } from './components/EventDetailPanel';
 import { SupplyTodoList } from './components/SupplyTodoList';
+
+const MonthCalendar = memo(CalendarGrid);
+const WeeklyCalendar = memo(MobileWeeklyCalendar);
+const MobileBookingCalendar = dynamic(() => import('@/components/MobileBookingCalendar'), { loading: CalendarPlaceholder });
+const EventDetailPanel = dynamic(() => import('./components/EventDetailPanel').then(module => module.EventDetailPanel), {
+  loading: () => <p role="status" className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-stone-900 px-4 py-3 text-sm text-white">예약 상세를 여는 중…</p>,
+});
+
+function subscribeViewport(onChange: () => void) {
+  const media = window.matchMedia('(max-width: 767px)');
+  media.addEventListener('change', onChange);
+  return () => media.removeEventListener('change', onChange);
+}
+const mobileSnapshot = () => window.matchMedia('(max-width: 767px)').matches;
+const serverSnapshot = () => null;
+
+function CalendarPlaceholder() {
+  return <div role="status" aria-live="polite" className="space-y-3 rounded-2xl border border-stone-200 bg-white p-4">
+    <p className="text-sm text-stone-500">예약과 청소 일정을 불러오는 중…</p>
+    <div aria-hidden="true" className="grid grid-cols-7 gap-2 motion-safe:animate-pulse">
+      {Array.from({ length: 28 }, (_, index) => <span key={index} className="h-12 rounded-lg bg-stone-100" />)}
+    </div>
+  </div>;
+}
 
 export default function UnifiedCalendarPage() {
   const [mobileView, setMobileView] = useState<'weekly' | 'bars' | 'daily'>('weekly');
+  // CSS-hidden calendars still build every cell. Mount only the visible view.
+  const isMobile = useSyncExternalStore(subscribeViewport, mobileSnapshot, serverSnapshot);
   const data = useCalendarData();
   const modal = useEventModal({
     user: data.user,
@@ -22,21 +47,14 @@ export default function UnifiedCalendarPage() {
     setAllSupplyTodos: data.setAllSupplyTodos,
     setEvents: data.setEvents,
   });
+  const closeModal = modal.closeModal;
+  useEffect(() => {
+    if (data.loading || data.error) closeModal();
+  }, [data.loading, data.error, closeModal]);
 
-  if (data.loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-6 h-6 border-t-2 border-[var(--brand)] rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (data.error) {
-    return <div role="alert" className="mx-auto max-w-7xl space-y-4 p-6">
-      <p className="text-sm text-stone-600">{data.error}</p>
-      <button type="button" onClick={data.retry} className="min-h-11 bg-stone-900 px-4 text-sm text-white">다시 시도</button>
-    </div>;
-  }
+  const dailyEvents = useMemo(() => isMobile && mobileView === 'daily'
+    ? data.processedEvents.map(event => ({ ...event, propertyName: event.propName, cleaningDone: event.status === 'done' }))
+    : [], [isMobile, mobileView, data.processedEvents]);
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -46,11 +64,15 @@ export default function UnifiedCalendarPage() {
         prevMonth={data.prevMonth}
         nextMonth={data.nextMonth}
         goToday={data.goToday}
-        unassignedCleanings={data.unassignedCleanings}
-        sortedUnassigned={data.sortedUnassigned}
+        unassignedCleanings={data.loading ? [] : data.unassignedCleanings}
+        sortedUnassigned={data.loading ? [] : data.sortedUnassigned}
         openModal={modal.openModal}
       />
 
+      {data.error ? <div role="alert" className="space-y-4 rounded-xl border border-amber-200 bg-amber-50 p-5">
+        <p className="text-sm text-stone-600">{data.error}</p>
+        <button type="button" onClick={data.retry} className="min-h-11 rounded-xl bg-stone-900 px-4 text-sm text-white">다시 시도</button>
+      </div> : data.loading || isMobile === null ? <CalendarPlaceholder /> : <>
       <PropertyFilter
         properties={data.properties}
         activeProps={data.activeProps}
@@ -71,15 +93,15 @@ export default function UnifiedCalendarPage() {
         {mobileView === 'bars' && <p className="mt-3 text-xs leading-5 text-stone-500">막대로 체크인부터 체크아웃까지 확인하세요. 좌우로 밀어 날짜를 보고, 막대를 누르면 예약 상세가 열립니다.</p>}
       </div>
 
-      {mobileView === 'weekly' && <div className="md:hidden"><MobileWeeklyCalendar
+      {isMobile && mobileView === 'weekly' && <WeeklyCalendar
         viewDate={data.viewDate} today={data.today} onDateChange={data.setViewDate}
         properties={data.activeProperties} eventsByProp={data.eventsByProp} channelMap={data.channelMap} openModal={modal.openModal}
-      /></div>}
+      />}
 
-      <div className={mobileView === 'daily' ? 'md:hidden' : 'hidden'}><MobileBookingCalendar key={data.viewDate.getTime()} month={data.viewDate} today={data.today}
-        events={Array.from(data.eventsByProp.values()).flat().filter(e => data.activeProperties.some(p => p.id === e.propertyId)).map(e => ({ ...e, propertyName: e.propName, cleaningDone: e.status === 'done' }))}
-        onEventClick={id => { const event = Array.from(data.eventsByProp.values()).flat().find(e => e.id === id); if (event) modal.openModal(event); }} /></div>
-      <div className={mobileView === 'bars' ? 'min-w-0' : 'hidden md:block'}><CalendarGrid
+      {isMobile && mobileView === 'daily' && <MobileBookingCalendar key={data.viewDate.getTime()} month={data.viewDate} today={data.today}
+        events={dailyEvents}
+        onEventClick={id => { const event = data.processedEvents.find(e => e.id === id); if (event) modal.openModal(event); }} />}
+      {(!isMobile || mobileView === 'bars') && <div className="min-w-0"><MonthCalendar
         weeks={data.weeks}
         viewDate={data.viewDate}
         today={data.today}
@@ -88,15 +110,16 @@ export default function UnifiedCalendarPage() {
         openModal={modal.openModal}
       />
 
-      </div>
+      </div>}
 
       <SupplyTodoList
         allSupplyTodos={data.allSupplyTodos}
         onToggle={modal.handleToggleSupply}
         onDelete={modal.handleDeleteSupply}
       />
+      </>}
 
-      {modal.selectedEvent && (
+      {!data.loading && !data.error && modal.selectedEvent && (
         <EventDetailPanel
           selectedEvent={modal.selectedEvent}
           today={data.today}

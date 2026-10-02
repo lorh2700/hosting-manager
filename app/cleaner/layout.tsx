@@ -19,13 +19,14 @@ import {
   MoreHorizontal,
 } from 'lucide-react';
 
-// 매일 쓰는 하단 탭 5개. 세탁은 오늘 대시보드에서 관리한다.
+// 매일 쓰는 하단 탭 5개. 재고·세탁·비품은 기록 탭에서 바로 입력한다.
 const NAV_ITEMS = [
   { href: '/cleaner', label: '오늘', icon: ClipboardList },
   { href: '/cleaner/schedule', label: '청소 신청', icon: Hand },
   { href: '/cleaner/calendar', label: '일정', icon: CalendarIcon },
-  { href: '/cleaner/supplies', label: '비품', icon: Package },
+  { href: '/cleaner/records', label: '기록', icon: Package },
   { href: '/cleaner/issues', label: '신고', icon: AlertTriangle },
+  { href: '/cleaner/supplies', label: '비품 요청 내역', icon: Package },
   { href: '/cleaner/history', label: '청소 기록', icon: History },
   { href: '/cleaner/settings', label: '설정', icon: Settings },
 ];

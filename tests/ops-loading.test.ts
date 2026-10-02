@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createOpsSnapshotCache, mapOpsReads } from '../lib/ops-loading';
+import { createOpsReadQueue, createOpsSnapshotCache, mapOpsReads } from '../lib/ops-loading';
 test('snapshot is scoped to account/permissions, expires, and never crosses KST midnight', () => {
  const cache = createOpsSnapshotCache<{today:string; value:number}>();
  const now=Date.parse('2026-09-26T10:00:00Z');
@@ -23,4 +23,22 @@ test('bounded reads overlap without exceeding two active queries and preserve or
  });
  assert.equal(peak,2);assert.deepEqual(result,[2,4,6,8,10,12]);
  assert.deepEqual(await mapOpsReads([],async n=>n),[]);
+});
+
+test('shared query queue limits independent sections and releases a failed slot', async () => {
+ const read = createOpsReadQueue(3);
+ let active = 0, peak = 0;
+ const tasks = Array.from({ length: 9 }, (_, index) => read(async () => {
+  active++; peak = Math.max(peak, active);
+  try {
+   await new Promise(resolve => setTimeout(resolve, 5));
+   if (index === 2) throw new Error('read failed');
+   return index;
+  } finally { active--; }
+ }));
+ const results = await Promise.allSettled(tasks);
+ assert.equal(peak, 3); assert.equal(active, 0);
+ assert.equal(results.filter(result => result.status === 'fulfilled').length, 8);
+ assert.equal(results[2].status, 'rejected');
+ assert.deepEqual(results.at(-1), { status: 'fulfilled', value: 8 });
 });

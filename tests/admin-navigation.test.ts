@@ -6,7 +6,7 @@ test('host managers can reach daily and maintenance work without administrator-o
   const navigation = getAdminNavigation('host', 'manager');
   const paths = navigation.groups.flatMap(group => group.items.map(item => item.href));
   assert.deepEqual(navigation.primary.map(item => item.href), ['/admin', '/admin/calendar', '/admin/messages']);
-  for (const href of ['/admin/issues', '/admin/supplies', '/admin/integrations', '/admin/payments']) assert.ok(paths.includes(href));
+  for (const href of ['/admin/inventory', '/admin/issues', '/admin/supplies', '/admin/integrations', '/admin/payments']) assert.ok(paths.includes(href));
   assert.ok(!paths.includes('/admin/guests'));
   assert.ok(!paths.includes('/admin/api-clients'));
   assert.equal(navigation.secondary[0].href, '/cleaner');

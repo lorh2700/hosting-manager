@@ -114,6 +114,8 @@ model Property {
   cameraSnapshots      CameraSnapshot[]
   welcomepadConfig     WelcomepadConfig?
   laundryBatches       LaundryBatch[]
+  inventorySnapshot    InventorySnapshot?
+  inventoryCounts      InventoryCountRecord[]
   inquiryNotificationSettings InquiryNotificationSettings?
   inquiryAutomationSettings InquiryAutomationSettings?
   guestServiceRequests GuestServiceRequest[]
@@ -215,6 +217,36 @@ model LaundryBatch {
   @@index([propertyId, pickupDate])
   @@index([status, deliveryDate])
   @@map("laundry_batches")
+}
+
+// Clean stock physically counted at a property. Laundry does not update this snapshot.
+model InventorySnapshot {
+  propertyId String @id @map("property_id")
+  version Int @default(0)
+  items Json @default("[]")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+
+  @@map("inventory_snapshots")
+}
+
+// Append-only physical count and its original response, retained for safe retries.
+model InventoryCountRecord {
+  id String @id
+  propertyId String @map("property_id")
+  requestHash String @map("request_hash")
+  baseVersion Int @map("base_version")
+  version Int
+  items Json
+  resultItems Json @map("result_items")
+  checkedById String @map("checked_by_id")
+  checkedBy String @map("checked_by")
+  checkedAt DateTime @default(now()) @map("checked_at")
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+
+  @@unique([propertyId, version])
+  @@index([propertyId, checkedAt])
+  @@map("inventory_count_records")
 }
 
 // ── 외부 API 클라이언트 (파트너사용 v1 API key) ──

@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { withAuth,ok,created,fail,readJson,visibleScope } from '@/lib/core/http';
-import { laundryDate,createLaundry,laundryItems,laundryStatus,receiveLaundry } from '@/lib/laundry';
+import { laundryDate,parseLaundryCreation,prepareLaundryBatch,laundryItems,laundryStatus,receiveLaundry,laundryCreationPayload,isLaundryCreationRetry } from '@/lib/laundry';
 import { z } from 'zod';
 
 export const GET=withAuth('laundry',async(req,{auth})=>{
@@ -12,13 +12,26 @@ export const GET=withAuth('laundry',async(req,{auth})=>{
   return ok({batches,properties});
 });
 export const POST=withAuth('laundry',async(req,{auth})=>{
-  const parsed=createLaundry.safeParse(await readJson(req));if(!parsed.success)throw fail(400,parsed.error.issues[0].message);
+  const parsed=parseLaundryCreation(await readJson(req));if(!parsed.success)throw fail(400,parsed.error.issues[0].message);
   const data=parsed.data,ids=await visibleScope(auth);
   if(ids!==null&&!ids.includes(data.propertyId))throw fail(403,'담당 숙소만 등록할 수 있습니다.');
   if(!await prisma.property.findUnique({where:{id:data.propertyId},select:{id:true}}))throw fail(404,'숙소를 찾을 수 없습니다.');
+  function retry(old: NonNullable<Awaited<ReturnType<typeof prisma.laundryBatch.findUnique>>>) {
+    if(old.createdBy!==auth.session.userId||old.propertyId!==data.propertyId||!isLaundryCreationRetry(old,data))throw fail(409,'같은 요청 번호로 다른 내용을 저장할 수 없습니다. 새 요청으로 등록해주세요.');
+    return ok(old);
+  }
   const old=await prisma.laundryBatch.findUnique({where:{id:data.id}});
-  if(old){if(old.createdBy!==auth.session.userId||old.propertyId!==data.propertyId)throw fail(409,'이미 등록된 요청입니다.');return ok(old);}
-  return created(await prisma.laundryBatch.create({data:{...data,createdBy:auth.session.userId,history:[{at:new Date().toISOString(),actorId:auth.session.userId,actor:auth.user.displayName||auth.user.email,action:'등록',items:data.items}]}}));
+  if(old)return retry(old);
+  const now=new Date(),{batch,collected,quickSend}=prepareLaundryBatch(data,now);
+  try {
+    return created(await prisma.laundryBatch.create({data:{...batch,version:1,status:collected?'collected':'scheduled',collectedAt:collected?now:null,createdBy:auth.session.userId,history:[{at:now.toISOString(),actorId:auth.session.userId,actor:auth.user.displayName||auth.user.email,action:quickSend?'빠른 보냄 기록':collected?'보냄 기록':'등록',items:data.items,request:laundryCreationPayload(data),...(quickSend?{pickupDateSource:'recorded',recordedDate:batch.pickupDate}:{})}]}}));
+  } catch(error) {
+    if(error&&typeof error==='object'&&'code' in error&&error.code==='P2002') {
+      const concurrent=await prisma.laundryBatch.findUnique({where:{id:data.id}});
+      if(concurrent)return retry(concurrent);
+    }
+    throw error;
+  }
 });
 const update=z.object({id:z.string().uuid(),version:z.number().int().positive(),action:z.enum(['collect','washing','shipping','receive','correct','cancel','schedule']),schedule:z.object({pickupDate:laundryDate,deliveryDate:laundryDate,vendor:z.string().trim().min(1).max(100),vendorPhone:z.string().max(40),notes:z.string().max(2000)}).refine(v=>v.deliveryDate>=v.pickupDate).optional(),note:z.string().max(2000).default(''),items:laundryItems.optional(),incoming:z.array(z.object({name:z.string(),quantity:z.number(),damaged:z.number().default(0),rewash:z.number().default(0)})).max(30).optional()});
 export const PATCH=withAuth('laundry',async(req,{auth})=>{

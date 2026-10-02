@@ -10,7 +10,7 @@ import {
 } from '../types';
 
 export function useCalendarData() {
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const [properties, setProperties] = useState<Property[]>([]);
   const [channelMap, setChannelMap] = useState<Record<string, string>>({});
   const [events, setEvents] = useState<RawEvent[]>([]);
@@ -22,11 +22,17 @@ export function useCalendarData() {
   const [viewDate, setViewDate] = useState(new Date());
   const month = `${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, '0')}`;
   const scopeKey = JSON.stringify([user?.id, profile?.role, profile?.status, [...(profile?.propertyIds ?? [])].sort()]);
+  const requestedKey = `${scopeKey}:${month}`;
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const [errorKey, setErrorKey] = useState<string | null>(null);
   const knownPropertyIds = useRef(new Set<string>());
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    // Keep the initial loading state until session resolution. The anonymous
+    // branch would otherwise clear it before the authenticated read starts.
+    if (authLoading) return;
     const isLoggedIn = !!JSON.parse(scopeKey)[0];
     let cancelled = false;
     const controller = new AbortController();
@@ -80,6 +86,7 @@ export function useCalendarData() {
             status: c.status || 'pending', supplies: c.supplies,
           })));
           setCleaners(data.cleaners ?? []);
+          setLoadedKey(requestedKey);
           setLoading(false);
 
           // Supply todos are deferred to a second roundtrip so the calendar
@@ -110,18 +117,20 @@ export function useCalendarData() {
           setAllSupplyTodos([]);
           knownPropertyIds.current = new Set();
           setActiveProps(new Set());
+          setLoadedKey(requestedKey);
         }
       } catch (err) {
         if (cancelled) return;
         console.error('Failed to load calendar data', err);
         setError('해당 월의 캘린더 정보를 불러오지 못했습니다. 다시 시도해 주세요.');
+        setErrorKey(requestedKey);
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
     fetchAll();
     return () => { cancelled = true; controller.abort(); };
-  }, [scopeKey, month, reloadKey]);
+  }, [authLoading, scopeKey, month, requestedKey, reloadKey]);
 
   // Weeks for current month view
   const weeks = useMemo(() => {
@@ -253,10 +262,15 @@ export function useCalendarData() {
 
   const goToday = useCallback(() => setViewDate(new Date()), []);
 
+  const visibleError = errorKey === requestedKey ? error : null;
+  // Month/scope changes render before the read effect sets loading. Never let
+  // that render expose the previous month's assignments or an open work panel.
+  const loadingCurrent = authLoading || loading || (loadedKey !== requestedKey && !visibleError);
+
   return {
     user, properties, channelMap, cleaners, cleanings, setCleanings,
     events, setEvents,
-    loading, error, retry: () => setReloadKey(key => key + 1), activeProps, viewDate, weeks, today,
+    loading: loadingCurrent, error: visibleError, retry: () => setReloadKey(key => key + 1), activeProps, viewDate, weeks, today,
     processedEvents, activeProperties, eventsByProp,
     unassignedCleanings, sortedUnassigned,
     allSupplyTodos, setAllSupplyTodos,

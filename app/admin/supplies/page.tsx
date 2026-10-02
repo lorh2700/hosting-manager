@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -8,6 +9,7 @@ import { Package, Check, X } from 'lucide-react';
 import type { SupplyRequest } from '@/lib/types';
 import { SUPPLY_STATUS_CONFIG } from '@/lib/constants';
 import { fetchPropertyNames, enrichWithPropertyName, apiPut } from '@/lib/api-client';
+import SupplyRequestContent from '@/components/SupplyRequestContent';
 
 export default function AdminSuppliesPage() {
   const { user, profile } = useAuth();
@@ -20,7 +22,6 @@ export default function AdminSuppliesPage() {
   useEffect(() => {
     if (!user || !profile) return;
     loadData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, profile]);
 
   const loadData = async () => {
@@ -78,6 +79,7 @@ export default function AdminSuppliesPage() {
       <header className="border-b border-stone-200 pb-5 sm:pb-6">
         <p className="text-[12px] tracking-[0.3em] text-stone-500 mb-3">관리</p>
         <h1 className="text-2xl sm:text-3xl font-light tracking-tight text-stone-900">비품 요청 관리</h1>
+        <Link href="/admin/inventory?mode=supplies" className="inline-flex min-h-11 items-center rounded-xl border border-stone-300 bg-white px-4 mt-4 text-sm font-medium">비품 빠른 요청</Link>
         {pendingCount > 0 && (
           <p className="text-amber-600 text-sm mt-2">{pendingCount}건의 새 요청</p>
         )}
@@ -127,14 +129,8 @@ export default function AdminSuppliesPage() {
                   </p>
                 </div>
 
-                {/* Items */}
-                <div className="bg-stone-100 p-3 space-y-1">
-                  {req.items.map((item, i) => (
-                    <div key={i} className="flex items-center justify-between text-xs">
-                      <span className="text-stone-700">{item.name}</span>
-                      <span className="text-stone-500">{item.quantity}개</span>
-                    </div>
-                  ))}
+                <div className="min-w-0 rounded-xl bg-stone-100 p-3">
+                  <SupplyRequestContent request={req} />
                 </div>
 
                 {req.statusNote && (

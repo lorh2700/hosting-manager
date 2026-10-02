@@ -5,7 +5,57 @@ const quantity = z.number().int().min(0).max(10000);
 export const laundryItem = z.object({name:z.string().trim().min(1).max(60),sent:quantity,received:quantity.default(0),damaged:quantity.default(0),rewash:quantity.default(0)}).refine(i=>i.received<=i.sent && i.damaged+i.rewash<=i.received,'입고 및 불량 수량을 확인해주세요.');
 export const laundryItems = z.array(laundryItem).min(1).max(30).refine(items=>new Set(items.map(i=>i.name)).size===items.length,'품목 이름이 중복됩니다.').refine(items=>items.some(i=>i.sent>0),'수량을 입력해주세요.');
 export type LaundryItem = z.infer<typeof laundryItem>;
-export const createLaundry = z.object({id:z.string().uuid(),propertyId:z.string().min(1),pickupDate:laundryDate,deliveryDate:laundryDate,vendor:z.string().trim().min(1).max(100),vendorPhone:z.string().trim().max(40).default(''),notes:z.string().max(2000).default(''),items:laundryItems}).refine(v=>v.deliveryDate>=v.pickupDate,'배송일은 수거일 이후여야 합니다.').refine(v=>v.items.every(i=>i.received===0&&i.damaged===0&&i.rewash===0),'신규 건은 입고 수량이 0이어야 합니다.');
+export const createLaundry = z.object({id:z.string().uuid(),propertyId:z.string().min(1),pickupDate:laundryDate,deliveryDate:laundryDate,vendor:z.string().trim().min(1).max(100),vendorPhone:z.string().trim().max(40).default(''),notes:z.string().max(2000).default(''),collected:z.boolean().default(false),items:laundryItems}).refine(v=>v.deliveryDate>=v.pickupDate,'배송일은 수거일 이후여야 합니다.').refine(v=>v.items.every(i=>i.received===0&&i.damaged===0&&i.rewash===0),'신규 건은 입고 수량이 0이어야 합니다.');
+export type LaundryCreation = z.infer<typeof createLaundry>;
+/** Quantity-only sending records do not claim that a vendor or actual pickup date was confirmed. */
+export const quickSendLaundry = z.object({
+  id: z.string().uuid(), propertyId: z.string().trim().min(1), quickSend: z.literal(true),
+  items: laundryItems, notes: z.string().max(2000).default(''),
+  pickupDate: z.never().optional(), deliveryDate: z.never().optional(),
+  vendor: z.never().optional(), vendorPhone: z.never().optional(), collected: z.never().optional(),
+}).refine(input => input.items.every(item => item.received === 0 && item.damaged === 0 && item.rewash === 0), '신규 건은 입고 수량이 0이어야 합니다.');
+export type QuickLaundryCreation = z.infer<typeof quickSendLaundry>;
+export type LaundryCreateRequest = LaundryCreation | QuickLaundryCreation;
+export function isQuickLaundryCreation(input: LaundryCreateRequest): input is QuickLaundryCreation {
+  return 'quickSend' in input && input.quickSend === true;
+}
+export function parseLaundryCreation(value: unknown) {
+  const quickSend = value && typeof value === 'object' ? (value as Record<string, unknown>).quickSend : undefined;
+  return quickSend !== undefined && quickSend !== false ? quickSendLaundry.safeParse(value) : createLaundry.safeParse(value);
+}
+export function laundryRecordedDate(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+}
+export function prepareLaundryBatch(input: LaundryCreateRequest, now: Date) {
+  if (isQuickLaundryCreation(input)) return { collected: true, quickSend: true, batch: {
+    id: input.id, propertyId: input.propertyId, pickupDate: laundryRecordedDate(now), deliveryDate: '',
+    vendor: '', vendorPhone: '', notes: input.notes, items: input.items,
+  } };
+  const { collected, ...batch } = input;
+  return { collected, quickSend: false, batch };
+}
+export const LAUNDRY_RECEIVE_STATUSES = ['collected', 'washing', 'shipping', 'partial'] as const;
+export function isLaundryAwaitingReceipt(status: string): boolean {
+  return (LAUNDRY_RECEIVE_STATUSES as readonly string[]).includes(status);
+}
+export function laundryCreationPayload(input: LaundryCreateRequest) {
+  if (isQuickLaundryCreation(input)) return { propertyId: input.propertyId, quickSend: true, items: input.items, notes: input.notes };
+  const { id: _id, ...payload } = input;
+  return payload;
+}
+function laundryCreationFingerprint(input: LaundryCreateRequest): string {
+  const payload = laundryCreationPayload(input);
+  return JSON.stringify({ mode: isQuickLaundryCreation(input) ? 'quickSend' : 'detailed', ...payload, items: [...payload.items].sort((a, b) => a.name.localeCompare(b.name)) });
+}
+/** New rows retain the original request in history, so later receipts or date edits do not break retries. */
+export function isLaundryCreationRetry(existing: Record<string, unknown>, input: LaundryCreateRequest): boolean {
+  const first = Array.isArray(existing.history) ? existing.history[0] as Record<string, unknown> | undefined : undefined;
+  const original = first?.request && typeof first.request === 'object'
+    ? { id: input.id, ...first.request as Record<string, unknown> }
+    : { ...existing, id: input.id, collected: false, items: first?.items ?? existing.items };
+  const parsed = parseLaundryCreation(original);
+  return parsed.success && laundryCreationFingerprint(parsed.data) === laundryCreationFingerprint(input);
+}
 export function laundryStatus(items:LaundryItem[]) {return items.every(i=>i.received===i.sent)?'completed':items.some(i=>i.received>0)?'partial':'collected';}
 export function receiveLaundry(items:LaundryItem[], incoming:{name:string;quantity:number;damaged:number;rewash:number}[]) {
   if(!incoming.some(i=>i.quantity>0))throw Error('입고 수량을 입력해주세요.');

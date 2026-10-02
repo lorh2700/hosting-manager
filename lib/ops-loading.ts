@@ -23,3 +23,22 @@ export async function mapOpsReads<T, R>(items: readonly T[], read: (item: T) => 
   }));
   return results;
 }
+
+/** Share a small DB budget across independent sections of the same request. */
+export function createOpsReadQueue(concurrency = 3) {
+  let active = 0;
+  const waiting: (() => void)[] = [];
+  return function read<T>(task: () => Promise<T>): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const run = () => {
+        active++;
+        Promise.resolve().then(task).then(resolve, reject).finally(() => {
+          active--;
+          waiting.shift()?.();
+        });
+      };
+      if (active < concurrency) run();
+      else waiting.push(run);
+    });
+  };
+}
