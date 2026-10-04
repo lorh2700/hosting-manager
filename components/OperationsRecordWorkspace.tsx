@@ -6,8 +6,9 @@ import { useAuth } from '@/components/AuthProvider';
 import LaundryWorkspace from '@/components/LaundryWorkspace';
 import { buildRecordPayload, confirmedItems, createRecordDraft, draftStorageKey, hasDraftContent, legacySendReference, LINEN_ITEMS, parseQuantityInput, parseRecordDraft, QUANTITY_LIMIT, quickSendNotes, validateRecordDraft, type RecordDraft, type RecordMode } from '@/lib/operations-records';
 import styles from './OperationsRecordWorkspace.module.css';
+import { canUseModule, isModuleEnabled } from '@/lib/operational-permissions';
 
-type PropertyChoice = { id: string; name: string };
+type PropertyChoice = { id: string; name: string; operationalModules?: string[] };
 type StockItem = { name: string; quantity: number; checkedAt: string; checkedBy: string };
 type InventoryResponse = { properties: PropertyChoice[]; version: number; items: StockItem[]; available: boolean };
 type Snapshot = InventoryResponse & { propertyId: string };
@@ -33,7 +34,7 @@ function checkedTime(value: string): string {
 }
 
 export default function OperationsRecordWorkspace({ initialMode = 'stock', initialPropertyId = '', preview = false }: Props) {
-  const { user, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const accountId = preview ? 'preview-operator' : user?.id || '';
   const [mode, setMode] = useState<RecordMode>(initialMode);
   const [properties, setProperties] = useState<PropertyChoice[]>([]);
@@ -60,6 +61,22 @@ export default function OperationsRecordWorkspace({ initialMode = 'stock', initi
   const scopeKey = accountId && propertyId ? draftStorageKey(accountId, propertyId, mode, preview) : '';
   const activeScopeRef = useRef(scopeKey);
   const propertyName = properties.find(property => property.id === propertyId)?.name || '선택한 숙소';
+  const propertyModules = properties.find(property => property.id === propertyId)?.operationalModules;
+  const availableModes = MODES.filter(item => {
+    if (preview) return true;
+    const operationalModule = item.key === 'stock' ? 'inventory' : item.key === 'supplies' ? 'supplies' : 'laundry';
+    return !!profile && (profile.role === 'super_admin' || (canUseModule(profile.role, profile.enabledModules, operationalModule) && isModuleEnabled(operationalModule, profile.organizationFeatures) && (!propertyModules || propertyModules.includes(operationalModule))));
+  });
+  const modeAccessKey = availableModes.map(item => item.key).join(',');
+  useEffect(() => { const allowed = modeAccessKey.split(',').filter(Boolean) as RecordMode[]; if (!saving && allowed.length && !allowed.includes(mode)) setMode(allowed[0]); }, [modeAccessKey, mode, saving]);
+
+  const fetchProperties = useCallback(async (signal: AbortSignal): Promise<PropertyChoice[]> => {
+    if (preview) return DEMO_PROPERTIES;
+    const response = await fetch('/api/properties?work=cleaner', { cache: 'no-store', signal });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || '담당 숙소를 불러오지 못했습니다.');
+    return Array.isArray(data) ? data : [];
+  }, [preview]);
 
   const fetchInventory = useCallback(async (selectedId: string, signal: AbortSignal): Promise<InventoryResponse> => {
     if (preview) return {
@@ -79,19 +96,19 @@ export default function OperationsRecordWorkspace({ initialMode = 'stock', initi
     setProperties([]); setSnapshot(null); setPropertyId(initialPropertyId); setMode(initialMode);
     setReview(false); setSavedMessage(''); setError(''); setLoading(true); setLoadError('');
     if (!accountId) { setLoading(false); return; }
-    void fetchInventory('', controller.signal).then(data => {
+    void fetchProperties(controller.signal).then(data => {
       if (controller.signal.aborted || generationRef.current !== generation) return;
-      setProperties(data.properties || []);
-      const selectedId = data.properties.some(property => property.id === initialPropertyId) ? initialPropertyId : data.properties[0]?.id || '';
+      setProperties(data);
+      const selectedId = data.some(property => property.id === initialPropertyId) ? initialPropertyId : data[0]?.id || '';
       setPropertyId(selectedId);
-      if (!data.available) setSnapshot({ ...data, propertyId: selectedId });
     }).catch(cause => { if (!controller.signal.aborted) setLoadError(cause instanceof Error ? cause.message : '정보 조회에 실패했습니다.'); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [accountId, initialMode, initialPropertyId, fetchInventory, pickerRefresh]);
+  }, [accountId, initialMode, initialPropertyId, fetchProperties, pickerRefresh]);
 
   useEffect(() => {
     if (!accountId || !propertyId) return;
+    if (mode !== 'stock' || !modeAccessKey.split(',').includes('stock')) { setSnapshot(null); setLoading(false); setLoadError(''); return; }
     const controller = new AbortController();
     const generation = generationRef.current;
     setLoading(true); setLoadError('');
@@ -101,7 +118,7 @@ export default function OperationsRecordWorkspace({ initialMode = 'stock', initi
     }).catch(cause => { if (!controller.signal.aborted) setLoadError(cause instanceof Error ? cause.message : '재고 조회에 실패했습니다.'); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [accountId, propertyId, refresh, pickerRefresh, fetchInventory]);
+  }, [accountId, propertyId, mode, modeAccessKey, refresh, pickerRefresh, fetchInventory]);
 
   useEffect(() => {
     activeScopeRef.current = scopeKey;
@@ -212,13 +229,14 @@ export default function OperationsRecordWorkspace({ initialMode = 'stock', initi
 
   if (!preview && authLoading) return <div className={styles.workspace} role="status">로그인을 확인하고 있습니다…</div>;
   if (!preview && !user) return <div className={styles.workspace}>로그인 후 빠른 기록을 사용할 수 있습니다.</div>;
+  if (!preview && !availableModes.length && !loading) return <div className={styles.workspace}>이 숙소에서 사용할 수 있는 기록 기능이 없습니다. 관리자에게 메뉴 권한을 확인해 주세요.</div>;
 
   return <div className={styles.workspace}>
     <header className={styles.header}><div><p className={styles.eyebrow}>객실 정비</p><h1>빠른 기록</h1><p className={styles.subtitle}>숙소를 선택하고 확인한 내용만 남겨 주세요.</p></div><span className={styles.draftTag}><Save size={15} aria-hidden="true" />{storageUnavailable ? '이 기기에서 임시 보관 불가' : draft && hasDraftContent(draft) ? '이 기기에 임시 보관 중' : '확인 후 저장'}</span></header>
     {preview && <div className={styles.previewBanner} role="status">테스트 화면 · 실제 기록에 저장되지 않음</div>}
     <section className={styles.context} aria-label="기록할 숙소와 업무">
       <label className={styles.propertyLabel}>숙소<select className={styles.input} value={propertyId} disabled={saving || loading && !properties.length} onChange={event => { setPropertyId(event.target.value); setSnapshot(null); }}><option value="">숙소 선택</option>{properties.map(property => <option key={property.id} value={property.id}>{property.name}</option>)}</select></label>
-      <div className={styles.modes} aria-label="기록 종류">{MODES.map(({ key, label, icon: Icon }) => <button key={key} type="button" disabled={saving} aria-pressed={mode === key} onClick={() => setMode(key)}><Icon size={21} aria-hidden="true" /><span>{label}</span></button>)}</div>
+      <div className={styles.modes} aria-label="기록 종류">{availableModes.map(({ key, label, icon: Icon }) => <button key={key} type="button" disabled={saving} aria-pressed={mode === key} onClick={() => setMode(key)}><Icon size={21} aria-hidden="true" /><span>{label}</span></button>)}</div>
     </section>
     {loadError && <div role="alert" className={styles.warning}>{loadError}<button type="button" className={styles.secondary} onClick={() => { if (!properties.length) setPickerRefresh(value => value + 1); else setRefresh(value => value + 1); }}><RefreshCw size={16} aria-hidden="true" />다시 불러오기</button></div>}
     {loading && !properties.length && <div role="status" className={styles.loading}>숙소 정보를 불러오는 중…</div>}

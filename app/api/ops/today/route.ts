@@ -9,6 +9,8 @@ import { CAMERA_BUCKET } from '@/lib/camera-types';
 import { createSignedUrl } from '@/lib/supabaseStorage';
 import { detectGuestFlags, nightsBetween, type GuestFlag } from '@/lib/ops-flags';
 import { getRoomReadyMessage, type Property as CalendarProperty, getChannelLabel } from '@/app/admin/calendar/types';
+import { assertOperationalAccess, propertyAllowsModule } from '@/lib/operational-access';
+import { OPERATIONAL_MODULES, canUseModule, isModuleEnabled, type OperationalModule } from '@/lib/operational-permissions';
 
 /**
  * 오늘 정비·입실·퇴실과 안내 발송 상태를 반환한다. board는 최근 대화와
@@ -46,6 +48,9 @@ export interface OpsProperty {
   checkouts: OpsReservation[];
   checkins: OpsReservation[];
   camera: { id: string; capturedAt: string; url: string | null; leaving: boolean; summary: string | null }[];
+  operationalModules?: OperationalModule[];
+  canSendMessages?: boolean;
+  canCreateMaintenance?: boolean;
 }
 
 const MESSAGES_PER_GUEST = 4;
@@ -54,6 +59,13 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
   const started = performance.now();
   const search = new URL(req.url).searchParams;
   const view = search.get('view');
+  // The reservation board may contain optional sections; an optional section
+  // never inherits reservation access merely because it shares this endpoint.
+  const allowed = (module: OperationalModule) => auth.role === 'super_admin' ||
+    (canUseModule(auth.role, auth.user.enabledModules, module) && isModuleEnabled(module, auth.organizationFeatures));
+  if (view === 'conversation') assertOperationalAccess(auth, 'messages');
+  if (view === 'cameras') assertOperationalAccess(auth, 'guestServices');
+  if (view === 'assignees') assertOperationalAccess(auth, 'cleaning');
   const summaryOnly = view === 'summary';
   const boardOnly = view === 'board';
   const includeCounts = !boardOnly && search.get('includeCounts') !== 'false';
@@ -84,7 +96,12 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
   const today = todayKst();
   const visible = await timed('scope', () => visibleScope(auth));
   if (view === 'assignees') {
-    const cleaners = await timed('cleaners', () => listAssignees(auth, visible));
+    const properties = await timed('properties', () => prisma.property.findMany({
+      where: visible === null ? {} : { id: { in: visible } },
+      select: { id: true, featureOverrides: true, organization: { select: { status: true, features: true } } },
+    }));
+    const cleaningIds = properties.filter(property => auth.role === 'super_admin' || propertyAllowsModule(property, 'cleaning')).map(property => property.id);
+    const cleaners = await timed('cleaners', () => listAssignees(auth, cleaningIds));
     return respond({ today, cleaners, cleanersLoaded: true });
   }
   if (view === 'conversation') {
@@ -97,9 +114,10 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
         type: 'reservation', channelId: 'beds24',
         NOT: { OR: [{ tags: { has: 'inquiry' } }, { title: { startsWith: '[문의]' } }] },
         OR: [{ startDate: today }, { endDate: today }],
-      }, select: { id: true },
+      }, select: { id: true, propertyId: true, property: { select: { featureOverrides: true, organization: { select: { status: true, features: true } } } } },
     }));
     if (!event) throw fail(404, '오늘 확인할 예약을 찾을 수 없습니다.');
+    if (auth.role !== 'super_admin' && (!event.property || !propertyAllowsModule(event.property, 'messages'))) throw fail(403, '이 지점에서는 고객 메시지를 사용할 수 없습니다.');
     const recent = await timed('messages', () => prisma.message.findMany({
       where: { eventId: event.id, type: 'message' },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: MESSAGES_PER_GUEST,
@@ -112,10 +130,18 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
   }
   const properties = await timed('properties', () => prisma.property.findMany({
     where: visible === null ? {} : { id: { in: visible } },
-    select: { id: true, name: true, roomReadyMessage: true, doorPassword: true, addressUrl: true },
+    select: { id: true, name: true, roomReadyMessage: true, doorPassword: true, addressUrl: true,
+      featureOverrides: true, organization: { select: { status: true, features: true } } },
     orderBy: { name: 'asc' },
   }));
   const propIds = properties.map(p => p.id);
+  const idsFor = (module: OperationalModule) => allowed(module)
+    ? properties.filter(property => auth.role === 'super_admin' || propertyAllowsModule(property, module)).map(property => property.id) : [];
+  const cleaningIds = idsFor('cleaning');
+  const messageIds = idsFor('messages');
+  const cameraIds = idsFor('guestServices');
+  const issueIds = idsFor('issues');
+  const supplyIds = idsFor('supplies');
   if (propIds.length === 0) {
     return respond({ today, unavailable: [], detailsLoaded: !summaryOnly, cleanersLoaded: !summaryOnly && !boardOnly,
       properties: [], cleaners: [], counts: { pendingApplications: 0, openIssues: 0, pendingSupplies: 0 } });
@@ -124,11 +150,12 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
   // Optional media must never delay the operational summary. Each property is
   // bounded independently so a busy camera cannot crowd out other properties.
   if (view === 'cameras') {
+    if (!cameraIds.length) return respond({ today, properties: [] });
     const photoGroups = await timed('camera_index', () => prisma.cameraSnapshot.groupBy({
-      by: ['propertyId'], where: { propertyId: { in: propIds }, date: today }, _count: { _all: true },
+      by: ['propertyId'], where: { propertyId: { in: cameraIds }, date: today }, _count: { _all: true },
     }));
     const withPhotos = new Set(photoGroups.map(group => group.propertyId));
-    const previews = await timed('camera_previews', () => mapOpsReads(propIds, async propertyId => {
+    const previews = await timed('camera_previews', () => mapOpsReads(cameraIds, async propertyId => {
       if (!withPhotos.has(propertyId)) return { id: propertyId, camera: [] };
       const rows = await prisma.cameraSnapshot.findMany({ where: { propertyId, date: today },
         orderBy: { capturedAt: 'desc' }, take: 3,
@@ -158,23 +185,24 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
       select: { id: true, propertyId: true, name: true, checkIn: true, checkOut: true, guests: true, source: true, channelBookingRef: true, checkout: { select: { stayOptions: true, beds24Id: true } } },
     })),
   ]));
-  const cleaningRead = optional('cleaning', () => read(() => prisma.cleaning.findMany({
-    where: { propertyId: { in: propIds }, date: today },
+  const cleaningRead = !cleaningIds.length ? Promise.resolve([]) : optional('cleaning', () => read(() => prisma.cleaning.findMany({
+    where: { propertyId: { in: cleaningIds }, date: today },
     select: { id: true, propertyId: true, status: true, cleanerId: true, supplies: true, notes: true, cleaner: { select: { displayName: true } } },
     orderBy: { createdAt: 'desc' },
   })), []);
   const checkoutRead = optional('checkout', () => read(() => checkoutStatusByProperty(propIds, today)), {});
-  const cleanersRead = boardOnly ? Promise.resolve([]) : optional('cleaners', () => read(() => listAssignees(auth, visible)), []);
+  const cleanersRead = boardOnly || !cleaningIds.length ? Promise.resolve([]) : optional('cleaners', () => read(() => listAssignees(auth, cleaningIds)), []);
   const [events, bookings] = await reservations;
 
   const conversationRead = optional('messages', async () => {
     const result: Record<string, { messages: OpsMessage[]; unread: number; readyDelivery: string | null; flags: GuestFlag[] }> = {};
-    if (!events.length) return result;
-    const eventIds = events.map(event => event.id);
+    const messageEvents = events.filter(event => messageIds.includes(event.propertyId));
+    if (!messageEvents.length) return result;
+    const eventIds = messageEvents.map(event => event.id);
     const [unreadRows, readyRows] = await Promise.all([
       read(() => prisma.message.groupBy({ by: ['eventId'], where: { eventId: { in: eventIds }, type: 'message', sender: 'guest', read: false }, _count: { _all: true } })),
       read(() => prisma.message.findMany({
-        where: { type: 'message', sender: 'host', OR: events.map(event => ({ eventId: event.id, text: getRoomReadyMessage(properties as unknown as CalendarProperty[], event.propertyId) })) },
+        where: { type: 'message', sender: 'host', OR: messageEvents.map(event => ({ eventId: event.id, text: getRoomReadyMessage(properties as unknown as CalendarProperty[], event.propertyId) })) },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], distinct: ['eventId'],
         select: { eventId: true, deliveryStatus: true },
       })),
@@ -182,12 +210,12 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
     const unreadByEvent = new Map(unreadRows.map(row => [row.eventId, row._count._all]));
     const readyByEvent = new Map(readyRows.map(row => [row.eventId, row.deliveryStatus]));
     if (boardOnly) {
-      for (const event of events) result[event.id] = { unread: unreadByEvent.get(event.id) ?? 0,
+      for (const event of messageEvents) result[event.id] = { unread: unreadByEvent.get(event.id) ?? 0,
         readyDelivery: readyByEvent.get(event.id) ?? null, flags: [], messages: [] };
       return result;
     }
     // Bound each reservation independently; never apply one global take to all guests.
-    await mapOpsReads(events, async event => {
+    await mapOpsReads(messageEvents, async event => {
       const where = { eventId: event.id, type: 'message' };
       const recent = await read(() => prisma.message.findMany({ where,
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: MESSAGES_PER_GUEST,
@@ -201,9 +229,9 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
     return result;
   }, {});
   const countsRead = Promise.all([
-    !includeCounts ? null : optional<number | null>('applications', () => read(() => prisma.cleaningApplication.count({ where: { status: 'pending', propertyId: { in: propIds } } })), null),
-    !includeCounts ? null : optional<number | null>('issues', () => read(() => prisma.cleaningIssue.count({ where: { status: { in: ['open', 'in_progress'] }, propertyId: { in: propIds } } })), null),
-    !includeCounts ? null : optional<number | null>('supplies', () => read(() => prisma.supplyTodo.count({ where: { done: false, propertyId: { in: propIds } } })), null),
+    !includeCounts ? null : !cleaningIds.length ? 0 : optional<number | null>('applications', () => read(() => prisma.cleaningApplication.count({ where: { status: 'pending', propertyId: { in: cleaningIds } } })), null),
+    !includeCounts ? null : !issueIds.length ? 0 : optional<number | null>('issues', () => read(() => prisma.cleaningIssue.count({ where: { status: { in: ['open', 'in_progress'] }, propertyId: { in: issueIds } } })), null),
+    !includeCounts ? null : !supplyIds.length ? 0 : optional<number | null>('supplies', () => read(() => prisma.supplyTodo.count({ where: { done: false, propertyId: { in: supplyIds } } })), null),
   ]);
   const [cleanings, checkoutStatus, cleaners, conversations, counts] = await Promise.all([
     cleaningRead, checkoutRead, cleanersRead, conversationRead, countsRead,
@@ -233,7 +261,7 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
           ? e.source?.trim() || 'Beds24 · 플랫폼 확인 필요'
           : label;
       })(),
-      hasChat: e.channelId === 'beds24',
+      hasChat: e.channelId === 'beds24' && messageIds.includes(e.propertyId),
       unread: conversation?.unread ?? 0,
       flags: conversation?.flags ?? [],
       messages: conversation?.messages ?? [],
@@ -270,7 +298,10 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
     return {
       id: p.id,
       name: p.name,
-      readyMessage: getRoomReadyMessage(properties as unknown as CalendarProperty[], p.id),
+      readyMessage: messageIds.includes(p.id) ? getRoomReadyMessage(properties as unknown as CalendarProperty[], p.id) : '',
+      operationalModules: OPERATIONAL_MODULES.map(module => module.key).filter(module => allowed(module) && (auth.role === 'super_admin' || propertyAllowsModule(p, module))),
+      canSendMessages: messageIds.includes(p.id) && (auth.role === 'super_admin' || propertyAllowsModule(p, 'integrations')),
+      canCreateMaintenance: allowed('reservations') && (auth.role === 'super_admin' || propertyAllowsModule(p, 'integrations')),
       hasWork: !!cl || checkouts.length > 0 || checkins.length > 0,
       cleaning: cl ? { id: cl.id, status: cl.status, cleanerId: cl.cleanerId, cleanerName: cl.cleaner?.displayName ?? null, supplies: cl.supplies, notes: cl.notes } : null,
       checkoutStatus: checkoutStatus[p.id] ?? null,

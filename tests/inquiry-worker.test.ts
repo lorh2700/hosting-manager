@@ -28,6 +28,20 @@ beforeEach(async () => {
 
 async function runAll(custom = deps) { for (let i = 0; i < 8; i++) if (!await processInquiryJob(custom)) break; }
 
+test('사업자 메시지 옵션을 끄면 새 자동응답과 이미 생성한 답변 모두 전송하지 않는다', async () => {
+  db.property[0].organization = { status: 'active', features: { messages: false } };
+  db.property[0].featureOverrides = { messages: true };
+  await enqueueInquiries();
+  assert.equal((db.inquiryJob ?? []).length, 0);
+  db.property[0].organization.features.messages = true;
+  await enqueueInquiries();
+  await processInquiryJob(deps);
+  db.property[0].organization.features.messages = false;
+  await runAll();
+  assert.equal(db.inquiryJob[0].status, 'skipped');
+  assert.equal(sent.length, 0);
+});
+
 test('담당자 응대 중에도 단순 감사에는 AI 호출·자동답변·카카오 알림을 만들지 않는다', async () => {
   db.message[0].text = 'Thank you! 😊';
   await setInquiryPaused('e1', true);

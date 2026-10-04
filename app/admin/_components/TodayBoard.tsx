@@ -7,7 +7,7 @@ import { Camera, Check, ChevronDown, ChevronRight, PawPrint, RefreshCw, Search, 
 import { NavigationLink as Link } from '@/components/NavigationFeedback';
 import { Logo } from '@/components/Logo';
 import type { OpsProperty, OpsReservation } from '@/app/api/ops/today/route';
-import { needsOpsCleaning, opsCleaningLabel, opsDeliveryLabel, opsNextAction } from '@/lib/ops-attention';
+import { canUseOpsModule, needsOpsCleaning, opsCleaningLabel, opsDeliveryLabel, opsNextAction } from '@/lib/ops-attention';
 import styles from './TodayBoard.module.css';
 
 const mobileQuery = '(max-width: 899px)';
@@ -53,6 +53,7 @@ interface TodayBoardProps {
 }
 
 function CleaningStatus({ property, ready }: { property: OpsProperty; ready: boolean }) {
+  if (!canUseOpsModule(property, 'cleaning')) return null;
   const label = opsCleaningLabel(property, ready);
   const tone = label === '완료' ? styles.good : label === '미배정' || label === '확인 필요' ? styles.warn : label === '배정 완료' ? styles.info : '';
   return <span className={`${styles.badge} ${tone}`}>{label}</span>;
@@ -75,13 +76,13 @@ function PropertyDetails({ property: p, board, context }: { property: OpsPropert
     ? <p className={styles.confirmed}><Check size={14} aria-hidden="true"/>{p.checkoutStatus.confirmedBy === 'guest_pad' ? '게스트가 패드에서 퇴실 확인' : '퇴실 확인됨'}{p.checkoutStatus.confirmedAt ? ` · ${format(new Date(p.checkoutStatus.confirmedAt), 'HH:mm')}` : ''}</p>
     : <p className={styles.muted}>아직 퇴실 확인 전 · 필요하면 카메라에서 확인해 주세요.</p>;
   return <div id={`${context}-detail-${p.id}`} className={styles.details} role="region" aria-label={`${p.name} 오늘 업무 상세`}>
-    <div className={styles.detailHeading}><h2>{p.name} · 오늘 업무</h2><div className={styles.actions}><Link className={styles.textLink} href={`/admin/inventory?propertyId=${encodeURIComponent(p.id)}`}>재고·세탁 기록<ChevronRight size={14} aria-hidden="true"/></Link><button type="button" className={styles.button} onClick={() => board.onCamera(p.id)}><Camera size={16} aria-hidden="true"/>복도 카메라</button></div></div>
+    <div className={styles.detailHeading}><h2>{p.name} · 오늘 업무</h2><div className={styles.actions}>{canUseOpsModule(p, 'inventory') && <Link className={styles.textLink} href={`/admin/inventory?propertyId=${encodeURIComponent(p.id)}`}>재고·세탁 기록<ChevronRight size={14} aria-hidden="true"/></Link>}{canUseOpsModule(p, 'guestServices') && <button type="button" className={styles.button} onClick={() => board.onCamera(p.id)}><Camera size={16} aria-hidden="true"/>복도 카메라</button>}</div></div>
     <div className={styles.detailGrid}>
       <div className={styles.detailColumn}>
         {p.checkouts.length > 0 && <section className={styles.detailSection}><h3>퇴실</h3>{p.checkouts.map(reservation => <div key={reservation.id}>{board.renderGuest(reservation, checkoutLine,
           !p.checkoutStatus?.confirmed ? <button type="button" className={`${styles.button} ${styles.primary}`} disabled={disabled} onClick={() => board.onCheckout(p)}>{board.busy === `checkout:${p.id}` ? '확인 중…' : '퇴실 확인'}</button> : undefined
         )}</div>)}</section>}
-        <section className={styles.detailSection}><h3>청소</h3><p className={styles.statusLine}><CleaningStatus property={p} ready={board.detailsReady}/>{p.cleaning?.cleanerName && <span>{p.cleaning.cleanerName}</span>}</p>
+        {canUseOpsModule(p, 'cleaning') && <section className={styles.detailSection}><h3>청소</h3><p className={styles.statusLine}><CleaningStatus property={p} ready={board.detailsReady}/>{p.cleaning?.cleanerName && <span>{p.cleaning.cleanerName}</span>}</p>
           {!canClean ? <p className={styles.muted}>오늘 청소 일정이 없습니다. 입실 안내는 별도로 확인할 수 있습니다.</p> : <>
             {(p.cleaning?.supplies || p.cleaning?.notes) && <p>{[p.cleaning.supplies, p.cleaning.notes].filter(Boolean).join(' · ')}</p>}
             {!done && !p.cleaning?.cleanerId && <>
@@ -91,14 +92,14 @@ function PropertyDetails({ property: p, board, context }: { property: OpsPropert
             </>}
             {!done && <div><button type="button" className={`${styles.button} ${styles.primary}`} disabled={disabled} onClick={() => board.onComplete(p)}>{board.busy === `done:${p.id}` ? '처리 중…' : '청소 완료'}</button></div>}
           </>}
-        </section>
+        </section>}
       </div>
       <div className={styles.detailColumn}>
         <section className={styles.detailSection}><h3>입실</h3>{p.checkins.length ? p.checkins.map(reservation => <div key={reservation.id}>{board.renderGuest(reservation)}</div>) : <p className={styles.muted}>오늘 입실 없음</p>}</section>
         {p.checkins.some(reservation => reservation.hasChat) && <section className={styles.detailSection}><h3>입실 안내 · 청소 기록과 별도</h3><details className={styles.messagePreview}><summary>안내 내용 보기</summary><p>{p.readyMessage}</p></details>
           {p.checkins.filter(reservation => reservation.hasChat).map(reservation => {
             const state = board.delivery[reservation.id] ?? reservation.readyDelivery;
-            return <div key={reservation.id} className={styles.delivery}><p>{reservation.guestName} · <span className={state && !['sent','sending','pending','queued'].includes(state) ? styles.warning : styles.muted}>{opsDeliveryLabel(state)}</span></p>{state === 'sent' && <p className={styles.caption}>게스트 플랫폼 도착 여부는 대화에서 확인해 주세요.</p>}{state && !['sent','sending','pending','queued','failed','local_only'].includes(state) && <p className={styles.warning}>{state}</p>}<div className={styles.actions}>{state !== 'sent' && <button type="button" className={styles.button} disabled={disabled} onClick={() => board.onSendReady(p, reservation)}>{state === 'sending' ? '전송 중…' : '입실 안내 보내기'}</button>}<Link className={styles.textLink} href={`/admin/messages?eventId=${encodeURIComponent(reservation.id)}&guestName=${encodeURIComponent(reservation.guestName)}&propertyId=${encodeURIComponent(p.id)}`}>{reservation.channel} 대화 확인<ChevronRight size={14} aria-hidden="true"/></Link></div></div>;
+            return <div key={reservation.id} className={styles.delivery}><p>{reservation.guestName} · <span className={state && !['sent','sending','pending','queued'].includes(state) ? styles.warning : styles.muted}>{opsDeliveryLabel(state)}</span></p>{state === 'sent' && <p className={styles.caption}>게스트 플랫폼 도착 여부는 대화에서 확인해 주세요.</p>}{state && !['sent','sending','pending','queued','failed','local_only'].includes(state) && <p className={styles.warning}>{state}</p>}<div className={styles.actions}>{state !== 'sent' && p.canSendMessages !== false && <button type="button" className={styles.button} disabled={disabled} onClick={() => board.onSendReady(p, reservation)}>{state === 'sending' ? '전송 중…' : '입실 안내 보내기'}</button>}<Link className={styles.textLink} href={`/admin/messages?eventId=${encodeURIComponent(reservation.id)}&guestName=${encodeURIComponent(reservation.guestName)}&propertyId=${encodeURIComponent(p.id)}`}>{reservation.channel} 대화 확인<ChevronRight size={14} aria-hidden="true"/></Link></div></div>;
           })}
         </section>}
       </div>
@@ -139,7 +140,7 @@ export default function TodayBoard(board: TodayBoardProps) {
       })}</tbody></table></div>
       <div className={styles.mobile}>{visible.map(p=>{const action=opsNextAction(p,board.detailsReady,board.delivery);const pets=p.checkins.reduce((sum,r)=>sum+(r.pets??0),0);return <article className={styles.mobileProperty} key={p.id}><div className={styles.mobileHeading}><button type="button" className={styles.propertyName} aria-expanded={expanded===p.id} aria-controls={`today-mobile-detail-${p.id}`} onClick={()=>toggle(p.id)}>{p.name}<ChevronDown size={14} className={expanded===p.id?styles.rotated:''} aria-hidden="true"/></button><CleaningStatus property={p} ready={board.detailsReady}/></div><p className={styles.mobileEvents}><span>퇴실 <strong>{p.checkouts.length?`${p.checkouts.length}건`:'없음'}</strong></span><span aria-hidden="true">→</span><span>입실 <strong>{p.checkins.length?`${p.checkins.length}건`:'없음'}</strong></span>{pets>0&&<span className={`${styles.badge} ${styles.warn}`}><PawPrint size={12} aria-hidden="true"/>반려견 {pets}마리</span>}</p><div className={styles.mobileAction}><span className={styles.muted}>{p.cleaning?.cleanerName||(!p.hasWork?'오늘 일정 없음':action?.tone==='danger'?'안내 전송 확인 필요':opsCleaningLabel(p,board.detailsReady))}</span><button type="button" className={`${styles.button} ${action?.tone==='danger'?styles.danger:''}`} aria-expanded={expanded===p.id} aria-controls={`today-mobile-detail-${p.id}`} onClick={()=>toggle(p.id)}>{action?.label||'상세 보기'}<ChevronRight size={14} aria-hidden="true"/></button></div>{expanded===p.id&&isMobile&&<PropertyDetails property={p} board={board} context="today-mobile"/>}</article>;})}</div>
       {!visible.length&&<p className={styles.empty}>{properties.length?'조건에 맞는 숙소가 없습니다.':'관리하는 숙소가 없습니다.'}</p>}
-      <footer className={styles.footer}><button type="button" className={styles.textLink} onClick={board.onMaintenance}><Wrench size={15} aria-hidden="true"/>객실 정비 등록</button><Link href="/admin/inventory" className={styles.textLink}>재고·세탁 기록<ChevronRight size={14} aria-hidden="true"/></Link><Link href="/admin/cleaning-report" className={styles.textLink}>청소 정산 내역<ChevronRight size={14} aria-hidden="true"/></Link></footer>
+      <footer className={styles.footer}>{properties.some(p => p.canCreateMaintenance !== false) && <button type="button" className={styles.textLink} onClick={board.onMaintenance}><Wrench size={15} aria-hidden="true"/>객실 정비 등록</button>}{properties.some(p => canUseOpsModule(p, 'inventory')) && <Link href="/admin/inventory" className={styles.textLink}>재고·세탁 기록<ChevronRight size={14} aria-hidden="true"/></Link>}{properties.some(p => canUseOpsModule(p, 'settlement')) && <Link href="/admin/cleaning-report" className={styles.textLink}>청소 정산 내역<ChevronRight size={14} aria-hidden="true"/></Link>}</footer>
     </>}
   </div>;
 }

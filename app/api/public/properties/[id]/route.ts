@@ -1,7 +1,9 @@
 import { stayOptionPolicy } from '@/lib/payments/stay-options';
 import { prisma } from '@/lib/prisma';
 import { checkoutConfig } from '@/lib/payments/config';
-import { getPropertyDisplay, propertyImagePaths, slugCandidates } from '@/lib/property-display';
+import { slugCandidates } from '@/lib/property-display';
+import { propertyPublicInfo } from '@/lib/property-public-info';
+import { propertyAllowsModule } from '@/lib/operational-access';
 import { withErrors, ok, fail } from '@/lib/core/http';
 
 // GET /api/public/properties/{idOrSlug}
@@ -14,11 +16,13 @@ export const GET = withErrors<{ id: string }>('public/properties/id', async (_re
   // slugCandidates — 리네임된 지점은 구/신 슬러그 양쪽으로 찾는다.
   const property = await prisma.property.findFirst({
     where: UUID_REGEX.test(key) ? { id: key } : { slug: { in: slugCandidates(key) } },
+    include: { organization: { select: { status: true, features: true } } },
   });
   if (!property) throw fail(404, 'Property not found');
+  if (property.status === 'closed' || !propertyAllowsModule(property, 'reservations')) throw fail(404, '현재 공개되지 않은 숙소입니다.');
 
-  const display = property.slug ? getPropertyDisplay(property.slug) : null;
-  const images = display ? propertyImagePaths(display).map((p) => p.src) : [];
+  const display = propertyPublicInfo(property);
+  const images = display.images;
 
   const checkoutMethods = (['card', 'paypal'] as const).filter(method => {
     try { checkoutConfig(property.id, method, property.slug); return method !== 'paypal' || Number(process.env.CHECKOUT_KRW_PER_USD) > 0; }

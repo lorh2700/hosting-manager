@@ -15,10 +15,10 @@ beforeEach(() => {
   db.property = [{ id: 'p1' }, { id: 'p2' }];
   db.user = [
     { id: 'u1', displayName: '예약 담당자', email: 'staff@test', phone: '+82 10-1234-5678', role: 'manager', status: 'active' },
-    { id: 'u2', displayName: '관리자', phone: '01098765432', role: 'admin', status: 'active' },
+    { id: 'u2', displayName: '관리자', phone: '01098765432', role: 'super_admin', status: 'active' },
     { id: 'u3', displayName: '다른 숙소', phone: '01011112222', role: 'manager', status: 'active' },
-    { id: 'u4', displayName: '정지', phone: '01011113333', role: 'admin', status: 'suspended' },
-    { id: 'u5', displayName: '번호 없음', phone: null, role: 'admin', status: 'active' },
+    { id: 'u4', displayName: '정지', phone: '01011113333', role: 'super_admin', status: 'suspended' },
+    { id: 'u5', displayName: '번호 없음', phone: null, role: 'super_admin', status: 'active' },
     { id: 'u6', displayName: '청소', phone: '01011114444', role: 'cleaner', status: 'active' },
   ];
   db.userProperty = [{ userId: 'u1', propertyId: 'p1' }, { userId: 'u3', propertyId: 'p2' }];

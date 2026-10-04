@@ -16,14 +16,14 @@ function where(input: DirectoryWhere = {}): Prisma.UserWhereInput {
 }
 async function findMany(options: Options = {}) {
   const users = await prisma.user.findMany({ where: where(options.where),
-    select: { id: true, displayName: true, phone: true, email: true, role: true, status: true, ownerId: true, publicToken: true, notifyNewOpen: true, createdAt: true, properties: { select: { propertyId: true } } },
+    select: { id: true, displayName: true, phone: true, email: true, role: true, status: true, ownerId: true, organizationId: true, publicToken: true, notifyNewOpen: true, createdAt: true, properties: { select: { propertyId: true } } },
     orderBy: { displayName: 'asc' }, ...(options.take ? { take: options.take } : {}),
   });
   return users.map(user => ({
     id: user.id, userId: user.id, name: user.displayName || user.email, phone: user.phone,
-    ownerId: user.ownerId, publicToken: user.publicToken, notifyNewOpen: user.notifyNewOpen,
+    ownerId: user.ownerId, organizationId: user.organizationId || null, publicToken: user.publicToken, notifyNewOpen: user.notifyNewOpen,
     role: normalizeRole(user.role), status: user.status, createdAt: user.createdAt,
-    noProperties: normalizeRole(user.role) !== 'admin' && user.properties.length === 0,
+    noProperties: !['super_admin', 'admin'].includes(normalizeRole(user.role)) && user.properties.length === 0,
     assignments: user.properties, user: { id: user.id, displayName: user.displayName, phone: user.phone, email: user.email, role: user.role, status: user.status },
     invitations: [] as { id: string; email: string; token: string; expiresAt: Date }[],
   }));
@@ -33,8 +33,10 @@ export const staffDirectory = { findMany, findFirst, findUnique: findFirst };
 
 /** People assignable to this property, regardless of whether their role is manager or cleaner. */
 export async function eligibleStaff(propertyId: string) {
+  const property = await prisma.property.findUnique({ where: { id: propertyId }, select: { organizationId: true } });
+  if (!property) return [];
   const users = await staffDirectory.findMany({ where: { status: { in: ['active', 'no_account'] } } });
-  return users.filter(user => user.role === 'admin' || user.assignments.some(item => item.propertyId === propertyId));
+  return users.filter(user => user.role === 'super_admin' || ((user.organizationId || null) === (property.organizationId || null) && ((user.role === 'admin' && !!user.organizationId) || user.assignments.some(item => item.propertyId === propertyId))));
 }
 
 export async function listAssignees(auth: SessionAuth, resolvedVisible?: string[] | null) {
@@ -44,12 +46,13 @@ export async function listAssignees(auth: SessionAuth, resolvedVisible?: string[
   // checked its scope need not resolve the same identity/property links again.
   const users = await prisma.user.findMany({
     where: { status: { in: ['active', 'no_account'] }, ...(visible === null ? {} : {
-      OR: [{ role: { in: ['admin', 'super_admin'] } }, { properties: { some: { propertyId: { in: visible } } } }],
+      organizationId: auth.user.organizationId || null,
+      OR: [{ role: 'admin', organizationId: auth.user.organizationId || '__no_organization__' }, { properties: { some: { propertyId: { in: visible } } } }],
     }) },
-    select: { id: true, displayName: true, email: true, phone: true, role: true, properties: { select: { propertyId: true } } },
+    select: { id: true, displayName: true, email: true, phone: true, role: true, organizationId: true, properties: { select: { propertyId: true } } },
     orderBy: { displayName: 'asc' },
   });
-  return users.filter(u => visible === null || normalizeRole(u.role) === 'admin' || u.properties.some(p => visible.includes(p.propertyId)))
+  return users.filter(u => visible === null || ((u.organizationId || null) === (auth.user.organizationId || null) && ((normalizeRole(u.role) === 'admin' && !!auth.user.organizationId) || u.properties.some(p => visible.includes(p.propertyId)))))
     .map(u => ({ id: u.id, name: u.displayName || u.email, phone: u.phone, role: normalizeRole(u.role), assignedPropertyIds: u.properties.map(p => p.propertyId) }));
 }
 

@@ -1,4 +1,4 @@
-import { staffDirectory } from '@/lib/staff-directory';
+import { resolveCleanerLink } from '@/lib/cleaner-link-access';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
@@ -39,9 +39,7 @@ export default async function CleanerPublicCalendar({ params, searchParams }: Pa
   const { token } = await params;
   const { m } = await searchParams;
 
-  const cleaner = await staffDirectory.findUnique({
-    where: { publicToken: token },
-  });
+  const cleaner = await resolveCleanerLink(token);
   if (!cleaner) notFound();
 
   const monthDate = parseMonthParam(m);
@@ -53,6 +51,7 @@ export default async function CleanerPublicCalendar({ params, searchParams }: Pa
   const cleanings = await prisma.cleaning.findMany({
     where: {
       cleanerId: cleaner.id,
+      propertyId: { in: cleaner.propertyIds },
       date: {
         gte: format(gridStart, 'yyyy-MM-dd'),
         lte: format(gridEnd, 'yyyy-MM-dd'),

@@ -1,6 +1,6 @@
 import { staffDirectory } from '@/lib/staff-directory';
 import { prisma } from '@/lib/prisma';
-import { withAuth, ok, created, fail, MESSAGES, requireManage, readJson, str, idList, query } from '@/lib/core/http';
+import { withAuth, ok, created, fail, MESSAGES, requireManage, visibleScope, readJson, str, idList, query } from '@/lib/core/http';
 
 export const GET = withAuth('messages', async (req, { auth }) => {
   const eventId = query(req, 'eventId');
@@ -8,7 +8,7 @@ export const GET = withAuth('messages', async (req, { auth }) => {
   const where: Record<string, unknown> = {};
   if (eventId) where.eventId = eventId;
 
-  if (auth.role === 'admin') {
+  if (auth.role === 'super_admin') {
     if (requested) where.propertyId = { in: requested };
   } else if (auth.role === 'cleaner') {
     // 청소담당자는 자기가 배정된 청소가 있는 숙소의 메시지만 본다 (배정 지점보다 좁은 규칙).
@@ -22,25 +22,30 @@ export const GET = withAuth('messages', async (req, { auth }) => {
     if (ids.length === 0) return ok([]);
     where.propertyId = { in: ids };
   } else {
-    const allowed = auth.propertyIds ?? [];
+    const allowed = await visibleScope(auth) ?? [];
     const ids = requested ? requested.filter(id => allowed.includes(id)) : allowed;
     if (ids.length === 0) return ok([]);
     where.propertyId = { in: ids };
   }
 
-  return ok(await prisma.message.findMany({ where, orderBy: { createdAt: 'asc' } }));
+  return ok(await prisma.message.findMany({ where, orderBy: { createdAt: 'asc' }, take: 500 }));
 });
 
 export const POST = withAuth('messages', async (req, { auth }) => {
   const body = await readJson(req);
   const text = str(body, 'text', { required: true, max: 4000 })!;
   const sender = str(body, 'sender', { required: true, max: 20 })!;
-  const propertyId = str(body, 'propertyId');
-  if (propertyId) requireManage(auth, propertyId);
+  const eventId = str(body, 'eventId');
+  const event = eventId ? await prisma.event.findUnique({ where: { id: eventId }, select: { propertyId: true } }) : null;
+  if (eventId && !event) throw fail(404, MESSAGES.notFound);
+  const propertyId = str(body, 'propertyId') || event?.propertyId;
+  if (!propertyId) throw fail(400, '메시지를 연결할 숙소가 필요합니다.');
+  requireManage(auth, propertyId);
+  if (event && event.propertyId !== propertyId) throw fail(400, '예약과 숙소가 일치하지 않습니다.');
 
   const message = await prisma.message.create({
     data: {
-      eventId: str(body, 'eventId') ?? null,
+      eventId: eventId ?? null,
       propertyId: propertyId ?? null,
       guestName: str(body, 'guestName', { max: 100 }) ?? null,
       text,

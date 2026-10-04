@@ -1,7 +1,10 @@
 import { staffDirectory, eligibleStaff } from '@/lib/staff-directory';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireApiClient, propertyScopeFilter, type ApiClient } from '@/lib/api-auth';
+import { requireApiClient, propertyScopeFilter, isApiClient } from '@/lib/api-auth';
+import { deriveExternalSource, legacyExternalSource, ownsExternalCleaning } from '@/lib/external-cleaning-ownership';
+import { externalCleaningTransaction, requireExternalCleaningProperty, recordExternalCleaningAudit } from '@/lib/external-cleaning-commands';
+import { withErrors, fail } from '@/lib/core/http';
 import {
   cleaningsQuerySchema,
   cleaningCreateSchema,
@@ -9,17 +12,12 @@ import {
   zodIssuesToDetails,
 } from '@/lib/v1-schemas';
 
-// 외부 파트너의 client.name (e.g. "Stayfolio Korea") → externalSource 식별자.
-// 같은 파트너의 모든 키는 같은 externalSource 를 발생시키도록 첫 단어를 소문자화.
-export function deriveExternalSource(client: ApiClient): string {
-  return client.name.toLowerCase().split(/\s+/)[0] || 'partner';
-}
-
+// Each client owns its stable namespace. Older labels require an unambiguous owner.
 // GET /api/v1/cleanings
 // Scope: cleanings:read
-export async function GET(req: Request) {
+export const GET = withErrors('v1/cleanings', async (req) => {
   const auth = await requireApiClient(req, { scope: 'cleanings:read' });
-  if (auth instanceof Response) return auth;
+  if (!isApiClient(auth)) return auth;
 
   const url = new URL(req.url);
   const parsed = cleaningsQuerySchema.safeParse(Object.fromEntries(url.searchParams));
@@ -54,9 +52,9 @@ export async function GET(req: Request) {
 
   return NextResponse.json(
     { items: cleanings.map(serializeCleaning) },
-    { headers: { 'Cache-Control': 'private, max-age=10, stale-while-revalidate=60' } },
+    { headers: { 'Cache-Control': 'private, no-store' } },
   );
-}
+});
 
 // POST /api/v1/cleanings
 // Scope: cleanings:write
@@ -64,9 +62,9 @@ export async function GET(req: Request) {
 // 멱등성: (externalSource = client 이름 derived, externalId = body 명시) 쌍이 이미
 // 있으면 update 후 200 반환. 처음이면 (propertyId, date) 슬롯이 다른 source/내부
 // 청소로 점유돼 있는지 확인 — 점유돼 있으면 409 first-write-wins.
-export async function POST(req: Request) {
+export const POST = withErrors('v1/cleanings/create', async (req) => {
   const auth = await requireApiClient(req, { scope: 'cleanings:write' });
-  if (auth instanceof Response) return auth;
+  if (!isApiClient(auth)) return auth;
 
   let body: unknown;
   try { body = await req.json(); }
@@ -82,7 +80,7 @@ export async function POST(req: Request) {
   const data = parsed.data;
 
   // 지점 권한 확인
-  if (auth.propertyIds.length > 0 && !auth.propertyIds.includes(data.propertyId)) {
+  if (!auth.propertyIds.includes(data.propertyId)) {
     return NextResponse.json(
       { error: 'Forbidden', code: 'property_out_of_scope' },
       { status: 403 },
@@ -103,65 +101,32 @@ export async function POST(req: Request) {
     }
   }
 
-  const externalSource = deriveExternalSource(auth);
-
-  // 멱등성: 동일 (externalSource, externalId) 면 update
-  const existing = await prisma.cleaning.findFirst({
-    where: { externalSource, externalId: data.externalId },
-    include: { cleaner: { select: { displayName: true, phone: true } } },
+  return externalCleaningTransaction(async tx => {
+    const property = await requireExternalCleaningProperty(tx, auth, data.propertyId);
+    const externalSource = deriveExternalSource(auth);
+    let existing = await tx.cleaning.findFirst({ where: { externalSource, externalId: data.externalId } });
+    if (!existing) {
+      const legacy = await tx.cleaning.findFirst({ where: { externalSource: legacyExternalSource(auth), externalId: data.externalId } });
+      if (legacy && await ownsExternalCleaning(auth, legacy, tx)) existing = legacy;
+      else if (legacy?.propertyId === data.propertyId) throw fail(409, '기존 외부 청소의 소유권 확인이 필요합니다.', { code: 'legacy_source_ambiguous' });
+    }
+    if (existing && existing.propertyId !== data.propertyId) {
+      throw fail(409, '외부 청소 ID를 다른 숙소로 이동할 수 없습니다.', { code: 'external_id_property_mismatch' });
+    }
+    const slot = await tx.cleaning.findFirst({ where: { propertyId: data.propertyId, date: data.date, ...(existing ? { id: { not: existing.id } } : {}) } });
+    if (slot) throw fail(409, '해당 날짜에 청소 일정이 이미 있습니다.', { code: 'slot_already_claimed' });
+    const values = { date: data.date, cleanerId: data.cleanerId ?? null,
+      externalCleanerName: data.externalCleanerName ?? null, externalCleanerPhone: data.externalCleanerPhone ?? null,
+      status: data.status, supplies: data.supplies ?? null, notes: data.notes ?? null,
+      completedAt: data.status === 'done' ? existing?.completedAt ?? new Date() : null,
+    };
+    const saved = existing ? await tx.cleaning.update({ where: { id: existing.id }, data: values,
+      include: { cleaner: { select: { displayName: true, phone: true } } } })
+      : await tx.cleaning.create({ data: { ...values, propertyId: data.propertyId, externalSource,
+        externalId: data.externalId, assignmentType: 'external', origin: 'external' },
+      include: { cleaner: { select: { displayName: true, phone: true } } } });
+    await recordExternalCleaningAudit(tx, auth, property, saved.id, existing ? 'external.cleaning.update' : 'external.cleaning.create',
+      req.headers.get('x-request-id'), Object.keys(data).filter(key => !['externalId', 'propertyId'].includes(key)));
+    return NextResponse.json(serializeCleaning(saved), { status: existing ? 200 : 201 });
   });
-  if (existing) {
-    const updated = await prisma.cleaning.update({
-      where: { id: existing.id },
-      data: {
-        propertyId: data.propertyId,
-        date: data.date,
-        cleanerId: data.cleanerId ?? null,
-        externalCleanerName: data.externalCleanerName ?? null,
-        externalCleanerPhone: data.externalCleanerPhone ?? null,
-        status: data.status,
-        supplies: data.supplies ?? null,
-        notes: data.notes ?? null,
-      },
-      include: { cleaner: { select: { displayName: true, phone: true } } },
-    });
-    return NextResponse.json(serializeCleaning(updated), { status: 200 });
-  }
-
-  // First-write-wins 충돌 검사 — 같은 (propertyId, date) 슬롯이 이미 점유?
-  const slotConflict = await prisma.cleaning.findFirst({
-    where: { propertyId: data.propertyId, date: data.date },
-    include: { cleaner: { select: { displayName: true, phone: true } } },
-  });
-  if (slotConflict) {
-    return NextResponse.json(
-      {
-        error: 'Conflict',
-        code: 'slot_already_claimed',
-        existing: serializeCleaning(slotConflict),
-      },
-      { status: 409 },
-    );
-  }
-
-  const created = await prisma.cleaning.create({
-    data: {
-      propertyId: data.propertyId,
-      date: data.date,
-      cleanerId: data.cleanerId ?? null,
-      externalCleanerName: data.externalCleanerName ?? null,
-      externalCleanerPhone: data.externalCleanerPhone ?? null,
-      externalSource,
-      externalId: data.externalId,
-      status: data.status,
-      supplies: data.supplies ?? null,
-      notes: data.notes ?? null,
-      assignmentType: 'external',
-      // 파트너가 push 한 청소 — 예약 취소 정리(origin='auto') 대상이 아니다.
-      origin: 'external',
-    },
-    include: { cleaner: { select: { displayName: true, phone: true } } },
-  });
-
-  return NextResponse.json(serializeCleaning(created), { status: 201 });
-}
+});

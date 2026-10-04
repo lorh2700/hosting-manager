@@ -10,6 +10,8 @@ interface Property {
   name: string;
   timezone: string;
   ownerId: string;
+  organizationId?: string | null;
+  organization?: { id: string; name: string } | null;
 }
 
 export default function PropertiesPage() {
@@ -17,7 +19,10 @@ export default function PropertiesPage() {
   const [loading, setLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newPropertyName, setNewPropertyName] = useState('');
-  const { user } = useAuth();
+  const [organizationId, setOrganizationId] = useState('');
+  const [organizations, setOrganizations] = useState<{ id: string; name: string }[]>([]);
+  const { user, profile } = useAuth();
+  const isSuper = profile?.role === 'super_admin';
 
   const fetchProperties = async () => {
     if (!user) return;
@@ -38,6 +43,8 @@ export default function PropertiesPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  useEffect(() => { if (user && isSuper) void fetch('/api/admin/organizations').then(async response => { if (response.ok) setOrganizations((await response.json()).organizations || []); }).catch(() => {}); }, [user, isSuper]);
+
   const handleAddProperty = async () => {
     if (!user || !newPropertyName.trim()) return;
     setLoading(true);
@@ -46,7 +53,7 @@ export default function PropertiesPage() {
       const res = await fetch('/api/properties', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newPropertyName.trim() }),
+        body: JSON.stringify({ name: newPropertyName.trim(), organizationId: organizationId || null }),
       });
       if (!res.ok) throw new Error('Failed to add property');
       setNewPropertyName('');
@@ -67,13 +74,13 @@ export default function PropertiesPage() {
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-stone-900">숙소 관리</h1>
           <p className="text-stone-500 mt-2 text-sm">숙소와 채널 연결을 관리하세요.</p>
         </div>
-        <button
+        {isSuper ? <button
           onClick={() => setIsAddModalOpen(true)}
           className="bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white text-xs font-semibold uppercase tracking-widest px-5 py-2.5 flex items-center justify-center gap-2 active:scale-[0.98] transition-colors shrink-0"
         >
           <Plus size={15} />
           숙소 추가
-        </button>
+        </button> : profile?.role === 'admin' ? <Link href="/admin/settings?tab=requests" className="inline-flex min-h-11 items-center justify-center gap-2 border border-stone-300 bg-white px-5 text-sm"><Plus size={15} />지점 추가 요청</Link> : null}
       </header>
 
       {loading ? (
@@ -103,7 +110,7 @@ export default function PropertiesPage() {
                     <ChevronRight size={18} className="text-stone-300 group-hover:text-stone-700 transition-colors" />
                   </div>
                   <h2 className="text-base sm:text-lg font-semibold text-stone-900 mb-1 truncate">{property.name}</h2>
-                  <p className="text-xs text-stone-500">시간대: {property.timezone}</p>
+                  <p className="text-xs text-stone-500">{property.organization?.name || '사업자 미지정'} · {property.timezone}</p>
                 </Link>
               ))}
             </div>
@@ -127,6 +134,7 @@ export default function PropertiesPage() {
               autoFocus
               onKeyDown={(e) => { if (e.key === 'Enter') handleAddProperty(); }}
             />
+            <label className="mb-6 block text-sm">소속 사업자<select className="mt-2 w-full border border-stone-200 px-4 py-3" value={organizationId} onChange={event => setOrganizationId(event.target.value)}><option value="">사업자 미지정</option>{organizations.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => { setIsAddModalOpen(false); setNewPropertyName(''); }}

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireApiClient, propertyScopeFilter } from '@/lib/api-auth';
+import { requireApiClient, propertyScopeFilter, isApiClient } from '@/lib/api-auth';
 import {
   bookingsQuerySchema,
   serializeEventAsBooking,
@@ -26,7 +26,7 @@ const EVENT_STATUS_TYPE_FILTER: Record<string, Record<string, unknown>> = {
 
 export async function GET(req: Request) {
   const auth = await requireApiClient(req, { scope: 'bookings:read' });
-  if (auth instanceof Response) return auth;
+  if (!isApiClient(auth)) return auth;
 
   const url = new URL(req.url);
   const parsed = bookingsQuerySchema.safeParse(Object.fromEntries(url.searchParams));
@@ -119,6 +119,6 @@ export async function GET(req: Request) {
 
   return NextResponse.json(
     { items },
-    { headers: { 'Cache-Control': 'private, max-age=10, stale-while-revalidate=60' } },
+    { headers: { 'Cache-Control': 'private, no-store' } },
   );
 }

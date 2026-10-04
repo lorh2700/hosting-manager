@@ -7,7 +7,7 @@
  *  - cleaner 청소담당자: Cleaner 프로필이 정체성, 로그인은 선택. 배정 지점(CleanerProperty)만 본다
  * DB 에 남아 있을 수 있는 옛 값(super_admin/host/viewer)은 lib/access.normalizeRole 이 흡수한다.
  */
-export type UserRole = 'admin' | 'manager' | 'cleaner';
+export type UserRole = 'super_admin' | 'admin' | 'manager' | 'cleaner';
 export type UserStatus = 'active' | 'suspended' | 'pending_invite';
 
 export interface UserProfile {

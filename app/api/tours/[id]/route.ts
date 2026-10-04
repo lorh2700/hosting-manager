@@ -5,7 +5,7 @@ import { withAuth, ok, fail, MESSAGES } from '@/lib/core/http';
 type Params = { id: string };
 
 export const GET = withAuth<Params>('tours/id', async (_req, { auth, params }) => {
-  if (!(await authorizeTour(params.id, auth.session.userId, { isAdmin: auth.isAdmin }))) throw fail(403, MESSAGES.forbidden);
+  if (!(await authorizeTour(params.id, auth.session.userId, { isAdmin: auth.isAdmin, auth }))) throw fail(403, MESSAGES.forbidden);
 
   const tour = await prisma.tour.findUnique({
     where: { id: params.id },

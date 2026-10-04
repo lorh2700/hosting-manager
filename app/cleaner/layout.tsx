@@ -7,6 +7,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { Sidebar } from '@/components/sidebar';
 import ManagerInstall from '@/components/ManagerInstall';
 import { Logo } from '@/components/Logo';
+import { mayUseOperationalPath } from '@/lib/operational-permissions';
 import {
   AlertTriangle,
   Package,
@@ -40,7 +41,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading && profile && !['cleaner','admin','manager'].includes(profile.role)) {
+    if (!loading && profile && !['cleaner','admin','manager','super_admin'].includes(profile.role)) {
       router.replace('/admin');
     }
   }, [loading, profile, router]);
@@ -68,11 +69,12 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
 
   if (!user) return <div role="status" className="min-h-dvh grid place-items-center">로그인 화면으로 이동 중…</div>;
 
-  if (profile && !['cleaner','admin','manager'].includes(profile.role)) return null;
+  if (profile && !['cleaner','admin','manager','super_admin'].includes(profile.role)) return null;
 
-  const showAdminNavigation = profile?.role === 'admin' || profile?.role === 'manager';
-  const mainItems = NAV_ITEMS.slice(0, MOBILE_PRIMARY_COUNT);
-  const moreItems = NAV_ITEMS.slice(MOBILE_PRIMARY_COUNT);
+  const showAdminNavigation = profile?.role === 'super_admin' || profile?.role === 'admin' || profile?.role === 'manager';
+  const allowedItems = NAV_ITEMS.filter(item => !!profile && mayUseOperationalPath(profile, item.href));
+  const mainItems = allowedItems.slice(0, MOBILE_PRIMARY_COUNT);
+  const moreItems = allowedItems.slice(MOBILE_PRIMARY_COUNT);
   const isMoreActive = moreItems.some(item =>
     pathname === item.href || (item.href !== '/cleaner' && pathname.startsWith(item.href)),
   );
@@ -141,7 +143,7 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
 
       <main className="p-4 pb-28 md:p-8 md:pb-28 max-w-2xl mx-auto">
         <ManagerInstall />
-        {children}
+        {profile && mayUseOperationalPath(profile, pathname) ? children : <section className="border bg-white p-5"><h1 className="font-semibold">사용 권한이 없는 메뉴입니다.</h1><p className="mt-3 text-sm text-stone-500">담당 숙소와 메뉴 권한을 관리자에게 확인해 주세요.</p><Link href={allowedItems[0]?.href || '/cleaner/settings'} className="mt-5 inline-block underline">사용 가능한 메뉴로 이동</Link></section>}
       </main>
 
       {/* Mobile bottom nav */}

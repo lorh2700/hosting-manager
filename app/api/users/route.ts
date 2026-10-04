@@ -1,11 +1,12 @@
 import { prisma } from '@/lib/prisma';
-import { normalizeRole } from '@/lib/access';
+import { normalizeRole, canManageCleaner } from '@/lib/access';
 import { randomBytes } from 'crypto';
 import { withAuth, ok, created, fail, MESSAGES, readJson, str } from '@/lib/core/http';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { phoneSchema } from '@/lib/inquiry-notification-settings';
 import { isSyntheticEmail, phoneToSyntheticEmail } from '@/lib/phone';
+import { canAdministerUser, staffTenantWhere } from '@/lib/user-management';
 
 const STATUSES = ['active', 'suspended', 'pending_invite'] as const;
 
@@ -17,31 +18,37 @@ const createUserSchema = z.object({
     .refine(value => Buffer.byteLength(value, 'utf8') <= 72, '비밀번호가 너무 깁니다. 영문 72자 또는 한글 24자 이내로 입력해 주세요.'),
   role: z.enum(['admin', 'manager']),
   propertyIds: z.array(z.string().min(1)).max(200).default([]),
+  organizationId: z.string().min(1).nullable().optional(),
 }).strict();
 
 /** Admin-created accounts are immediately active; never replace the administrator's session. */
-export const POST = withAuth('users/create', async req => {
+export const POST = withAuth('users/create', async (req, { auth }) => {
   const parsed = createUserSchema.safeParse(await readJson(req));
   if (!parsed.success) throw fail(400, parsed.error.issues[0]?.message || '사용자 정보를 확인해 주세요.');
   const { email, password, displayName, role, phone } = parsed.data;
+  if (auth.role !== 'super_admin' && role !== 'manager') throw fail(403, '사업자 관리자 초대는 슈퍼매니저가 관리합니다.');
+  const organizationId = auth.role === 'super_admin' ? parsed.data.organizationId || null : auth.user.organizationId;
+  if (role === 'admin' && !organizationId) throw fail(400, '사업자 관리자는 소속 사업자를 지정해야 합니다.');
+  if (auth.role === 'admin' && (!organizationId || (parsed.data.organizationId && parsed.data.organizationId !== organizationId))) throw fail(403, '자기 사업자의 사용자만 등록할 수 있습니다.');
+  if (organizationId && !(await prisma.organization.findFirst({ where: { id: organizationId, status: 'active' }, select: { id: true } }))) throw fail(400, '사용 중인 사업자를 선택해 주세요.');
   const propertyIds = role === 'manager' ? [...new Set(parsed.data.propertyIds)] : [];
   const emailWhere = { equals: email, mode: 'insensitive' as const };
   if (await prisma.user.findFirst({ where: { email: emailWhere }, select: { id: true } })) throw fail(409, '이미 등록된 이메일입니다. 기존 계정을 확인해 주세요.');
   if (await prisma.invitation.findFirst({ where: { email: emailWhere, status: 'pending', role: 'cleaner' }, select: { id: true } })) throw fail(400, '청소담당자 계정은 청소 담당자 관리에서 등록해 주세요.');
   if (propertyIds.length) {
-    const count = await prisma.property.count({ where: { id: { in: propertyIds } } });
+    const count = await prisma.property.count({ where: { id: { in: propertyIds }, organizationId } });
     if (count !== propertyIds.length) throw fail(400, '선택한 숙소 중 존재하지 않는 숙소가 있습니다. 새로고침 후 다시 선택해 주세요.');
   }
   const hashed = await bcrypt.hash(password, 12);
   try {
     const user = await prisma.$transaction(async tx => {
-      const saved = await tx.user.create({ data: { email, password: hashed, displayName, phone, role, status: 'active', publicToken: randomBytes(24).toString('base64url') } });
+      const saved = await tx.user.create({ data: { email, password: hashed, displayName, phone, role, organizationId, ownerId: auth.session.userId, status: 'active', publicToken: randomBytes(24).toString('base64url') } });
       if (propertyIds.length) await tx.userProperty.createMany({ data: propertyIds.map(propertyId => ({ userId: saved.id, propertyId })) });
       // Superseded links should no longer appear as pending or be used to register again.
       await tx.invitation.updateMany({ where: { email: emailWhere, status: 'pending' }, data: { status: 'expired', expiresAt: new Date() } });
       return saved;
     });
-    return created({ id: user.id, email: user.email, displayName: user.displayName, phone: user.phone, role: user.role, status: user.status, propertyIds, createdAt: user.createdAt });
+    return created({ id: user.id, email: user.email, displayName: user.displayName, phone: user.phone, role: user.role, status: user.status, organizationId: user.organizationId, version: user.accessVersion, propertyIds, createdAt: user.createdAt });
   } catch (error) {
     if (typeof error === 'object' && error !== null && 'code' in error) {
       if (error.code === 'P2002') throw fail(409, '이미 등록된 이메일입니다. 기존 계정을 확인해 주세요.');
@@ -49,17 +56,23 @@ export const POST = withAuth('users/create', async req => {
     }
     throw error;
   }
-}, { admin: true });
+}, { businessAdmin: true });
 
 /**
  * 유저 관리 목록: 관리자·매니저 계정만. 청소담당자 로그인 계정은 Cleaner 프로필과 함께
  * 청소 담당자 화면(/api/cleaners)에서 관리하므로 여기서는 제외한다.
  */
-export const GET = withAuth('users', async () => {
+export const GET = withAuth('users', async (_req, { auth }) => {
+  if (auth.role === 'admin' && !auth.user.organizationId) return ok([]);
+  const organizationId = new URL(_req.url).searchParams.get('organizationId');
+  if (auth.role === 'admin' && organizationId && organizationId !== auth.user.organizationId) throw fail(403, '다른 사업자의 사용자를 조회할 수 없습니다.');
   const users = await prisma.user.findMany({
-    include: { properties: { include: { property: { select: { name: true } } } } },
+    where: { ...staffTenantWhere(auth), ...(organizationId ? { organizationId } : {}), role: { not: 'cleaner' } },
+    select: { id: true, email: true, displayName: true, phone: true, role: true, status: true, organizationId: true, accessVersion: true, lastLoginAt: true, createdAt: true, properties: { select: { propertyId: true, property: { select: { name: true } } } } },
     orderBy: { createdAt: 'desc' },
+    take: 2001,
   });
+  if (users.length > 2000) throw fail(400, '사용자가 많습니다. 사업자를 선택해 조회해 주세요.');
   return ok(users
     .filter(u => normalizeRole(u.role) !== 'cleaner')
     .map(u => ({
@@ -69,12 +82,14 @@ export const GET = withAuth('users', async () => {
       phone: u.phone,
       role: normalizeRole(u.role),
       status: u.status,
+      organizationId: u.organizationId ?? null,
+      version: u.accessVersion,
       lastLoginAt: u.lastLoginAt,
       createdAt: u.createdAt,
       propertyIds: u.properties.map(p => p.propertyId),
       propertyNames: u.properties.map(p => p.property.name),
     })));
-}, { admin: true });
+}, { businessAdmin: true });
 
 /**
  * 사용자 수정.
@@ -92,10 +107,13 @@ export const PUT = withAuth('users', async (req, { auth }) => {
 
 
   const target = isSelf ? auth.user : await prisma.user.findUnique({ where: { id: targetId } });
-  if (!target) throw fail(auth.role === 'admin' ? 404 : 403, MESSAGES.notFound);
+  if (!target) throw fail(auth.role === 'super_admin' ? 404 : 403, MESSAGES.notFound);
   const targetRole = normalizeRole(target.role);
-  const canEditOwned = auth.role === 'manager' && targetRole === 'cleaner' && target.ownerId === auth.session.userId;
-  if (!isSelf && auth.role !== 'admin' && !canEditOwned) throw fail(403, MESSAGES.forbidden);
+  const assignments = auth.role === 'manager' && targetRole === 'cleaner'
+    ? await prisma.userProperty.findMany({ where: { userId: target.id }, select: { propertyId: true } }) : [];
+  const canEditOwned = auth.role === 'manager' && targetRole === 'cleaner' && canManageCleaner(auth, { ...target, assignments });
+  const canAdminister = canAdministerUser(auth, target);
+  if (!isSelf && !canAdminister && !canEditOwned) throw fail(403, MESSAGES.forbidden);
 
   const data: Record<string, unknown> = {};
   const displayName = str(body, 'displayName', { max: 100 });
@@ -108,7 +126,7 @@ export const PUT = withAuth('users', async (req, { auth }) => {
     } else data.phone = null;
   }
 
-  if (auth.role === 'admin' && !isSelf) {
+  if (canAdminister && !isSelf) {
     const email = str(body, 'email');
     if (email !== undefined) {
       const normalized = email.trim().toLowerCase();
@@ -118,6 +136,8 @@ export const PUT = withAuth('users', async (req, { auth }) => {
     const role = str(body, 'role');
     if (role !== undefined) {
       if (!['admin', 'manager', 'cleaner'].includes(role)) throw fail(400, '유효하지 않은 역할입니다.');
+      if (auth.role !== 'super_admin' && !['manager', 'cleaner'].includes(role)) throw fail(403, '관리자 역할은 슈퍼매니저만 지정할 수 있습니다.');
+      if (role === 'admin' && !target.organizationId) throw fail(400, '사업자 소속을 먼저 설정해 주세요.');
       data.role = role;
     }
     const status = str(body, 'status');
@@ -133,7 +153,7 @@ export const PUT = withAuth('users', async (req, { auth }) => {
   }
 
   const effectiveRole = (data.role as string | undefined) ?? targetRole;
-  const propertyIds = !isSelf && (auth.role === 'admin' || canEditOwned) && effectiveRole !== 'admin' && Array.isArray(body.propertyIds)
+  const propertyIds = !isSelf && (canAdminister || canEditOwned) && !['admin', 'super_admin'].includes(effectiveRole) && Array.isArray(body.propertyIds)
     ? (body.propertyIds as unknown[]).filter((p): p is string => typeof p === 'string' && p.length > 0)
     : null;
 
@@ -143,14 +163,15 @@ export const PUT = withAuth('users', async (req, { auth }) => {
     if (!data.phone) throw fail(400, '전화번호 로그인 계정의 연락처는 비워둘 수 없습니다.');
     data.email = phoneToSyntheticEmail(String(data.phone));
   }
-  if (propertyIds && auth.role !== 'admin' && propertyIds.some(id => !auth.propertyIds?.includes(id))) throw fail(403, '관리할 수 있는 숙소만 배정할 수 있습니다.');
+  if (propertyIds && auth.role !== 'super_admin' && propertyIds.some(id => !auth.propertyIds?.includes(id))) throw fail(403, '관리할 수 있는 숙소만 배정할 수 있습니다.');
+  if (propertyIds?.length && await prisma.property.count({ where: { id: { in: [...new Set(propertyIds)] }, organizationId: target.organizationId || null } }) !== new Set(propertyIds).size) throw fail(400, '같은 사업자의 숙소만 배정할 수 있습니다.');
   if (typeof body.notifyNewOpen === 'boolean') data.notifyNewOpen = body.notifyNewOpen;
   if (body.notifyNewOpen === true && !target.publicToken) data.publicToken = randomBytes(24).toString('base64url');
   if (body.regenerateToken === true) data.publicToken = randomBytes(24).toString('base64url');
   if (!Object.keys(data).length && propertyIds === null) throw fail(400, '변경할 수 있는 필드가 없습니다.');
   if (propertyIds?.length && await prisma.property.count({ where: { id: { in: [...new Set(propertyIds)] } } }) !== new Set(propertyIds).size) throw fail(400, '존재하지 않는 숙소가 포함되어 있습니다.');
   const updated = await prisma.$transaction(async tx => {
-    const saved = Object.keys(data).length ? await tx.user.update({ where: { id: targetId }, data }) : target;
+    const saved = Object.keys(data).length || propertyIds !== null ? await tx.user.update({ where: { id: targetId }, data: { ...data, accessVersion: { increment: 1 } } }) : target;
     if (propertyIds !== null) {
       await tx.userProperty.deleteMany({ where: { userId: targetId } });
       if (propertyIds.length) await tx.userProperty.createMany({ data: [...new Set(propertyIds)].map(propertyId => ({ userId: targetId, propertyId })) });

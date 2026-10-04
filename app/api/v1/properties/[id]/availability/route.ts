@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireApiClient } from '@/lib/api-auth';
+import { requireApiClient, isApiClient } from '@/lib/api-auth';
 import {
   availabilityQuerySchema,
   zodIssuesToDetails,
@@ -17,13 +17,13 @@ import {
 // from 포함 ~ to 미포함 (hotel night convention: check-in ≤ date < check-out 일 때 점유).
 
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const auth = await requireApiClient(req, { scope: 'properties:read' });
-  if (auth instanceof Response) return auth;
+  const auth = await requireApiClient(req, { scope: 'properties:read', module: 'reservations' });
+  if (!isApiClient(auth)) return auth;
 
   const { id: propertyId } = await ctx.params;
 
   // ApiClient.propertyIds 제한 확인
-  if (auth.propertyIds.length > 0 && !auth.propertyIds.includes(propertyId)) {
+  if (!auth.propertyIds.includes(propertyId)) {
     return NextResponse.json(
       { error: 'Forbidden', code: 'property_out_of_scope' },
       { status: 403 },
@@ -99,6 +99,6 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
 
   return NextResponse.json(
     { propertyId, from, to, days },
-    { headers: { 'Cache-Control': 'private, max-age=15, stale-while-revalidate=60' } },
+    { headers: { 'Cache-Control': 'private, no-store' } },
   );
 }

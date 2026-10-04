@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { requireUnpaidBedsBooking } from '@/lib/payments/guard';
+import { canUseModule } from '@/lib/operational-permissions';
 import {
   withAuth, ok, created, fail, MESSAGES,
   requireManage, visibleScope, readJson, dateStr, str, idList, query, requireQuery,
@@ -45,7 +46,11 @@ export const GET = withAuth('events', async (req, { auth }) => {
   const limit = Math.min(Number(query(req, 'limit')) || 1000, 2000);
   const offset = Number(query(req, 'offset')) || 0;
 
-  const events = await prisma.event.findMany({ where, orderBy: { startDate: 'asc' }, take: limit, skip: offset });
+  const cleaningOnly = auth.operationalModule === 'cleaning' || auth.role === 'cleaner' || !canUseModule(auth.role, auth.user.enabledModules, 'reservations');
+  const events = await prisma.event.findMany({ where, orderBy: { startDate: 'asc' }, take: limit, skip: offset,
+    ...(cleaningOnly ? { select: { id: true, propertyId: true, title: true, startDate: true, endDate: true,
+      type: true, source: true, channelId: true, numAdults: true, numChildren: true } } : {}),
+  });
   return ok(events);
 });
 

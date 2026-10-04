@@ -14,7 +14,7 @@ test('host managers can reach daily and maintenance work without administrator-o
 });
 
 test('tour bottom navigation prioritizes tour bookings and products instead of cleaning', () => {
-  const navigation = getAdminNavigation('tour', 'admin');
+  const navigation = getAdminNavigation('tour', 'super_admin');
   assert.deepEqual(navigation.primary.map(item => item.href), ['/admin', '/admin/tour-bookings', '/admin/tours']);
   const paths = navigation.groups.flatMap(group => group.items.map(item => item.href));
   assert.ok(paths.includes('/admin/tour-operators'));
@@ -27,7 +27,7 @@ test('tour bottom navigation prioritizes tour bookings and products instead of c
 
 test('Jongno event editing stays administrator-only in both management modes', () => {
   for (const mode of ['host', 'tour'] as const) {
-    const administrator = getAdminNavigation(mode, 'admin').groups.flatMap(group => group.items);
+    const administrator = getAdminNavigation(mode, 'super_admin').groups.flatMap(group => group.items);
     const manager = getAdminNavigation(mode, 'manager').groups.flatMap(group => group.items);
     assert.ok(administrator.some(item => item.href === '/admin/jongno-events'));
     assert.ok(!manager.some(item => item.href === '/admin/jongno-events'));
@@ -49,4 +49,15 @@ test('active menu follows nested routes and the Today alias without partial path
   assert.equal(isAdminNavActive('/admin/properties/anon/calendar', '/admin/properties'), true);
   assert.equal(isAdminNavActive('/admin/properties-old', '/admin/properties'), false);
   assert.equal(isAdminNavActive('/admin/tour-bookings', '/admin/tours'), false);
+});
+
+test('a manager sees granted modules while business administrators do not acquire platform tools', () => {
+  const limited = getAdminNavigation('host', 'manager', { enabledModules: ['cleaning', 'laundry', 'staff'], organizationFeatures: { laundry: false } });
+  const paths = limited.groups.flatMap(group => group.items.map(item => item.href));
+  assert.ok(paths.includes('/admin/cleaning-requests'));
+  assert.ok(paths.includes('/admin/staff'));
+  for (const hidden of ['/admin/calendar', '/admin/messages', '/admin/laundry', '/admin/settings', '/admin/activity']) assert.ok(!paths.includes(hidden));
+  const business = getAdminNavigation('host', 'admin').groups.flatMap(group => group.items.map(item => item.href));
+  assert.ok(business.includes('/admin/settings')); assert.ok(business.includes('/admin/activity'));
+  assert.ok(!business.includes('/admin/api-clients')); assert.ok(!business.includes('/admin/guests'));
 });

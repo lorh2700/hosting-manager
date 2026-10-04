@@ -10,11 +10,13 @@ export const calls: string[] = [];
 // Individual infrastructure tests can supply a local DB adapter or a precise DB failure.
 export const prismaOverrides: Record<string, any> = {};
 let seq = 0;
+let transactionQueue = Promise.resolve();
 
 export function resetDb() {
   for (const k of Object.keys(db)) delete db[k];
   calls.length = 0;
   seq = 0;
+  transactionQueue = Promise.resolve();
   for (const key of Object.keys(prismaOverrides)) delete prismaOverrides[key];
 }
 
@@ -27,6 +29,7 @@ const RELATIONS: Record<string, { model: string; localKey?: string; foreignKey?:
   property: { model: 'property', localKey: 'propertyId' },
   user: { model: 'user', localKey: 'userId' },
   owner: { model: 'user', localKey: 'ownerId' },
+  organization: { model: 'organization', localKey: 'organizationId' },
   event: { model: 'event', localKey: 'eventId' },
   applications: { model: 'cleaningApplication', foreignKey: 'cleaningId', many: true },
   properties: { model: 'userProperty', foreignKey: 'userId', many: true },
@@ -131,7 +134,8 @@ function sortRows(rows: Row[], orderBy: any): Row[] {
   const clauses = (Array.isArray(orderBy) ? orderBy : [orderBy]).flatMap((o: Row) => Object.entries(o));
   return [...rows].sort((a, b) => {
     for (const [field, dir] of clauses) {
-      const av = a[field], bv = b[field];
+      const av = a[field] instanceof Date ? a[field].getTime() : a[field];
+      const bv = b[field] instanceof Date ? b[field].getTime() : b[field];
       if (av === bv) continue;
       const cmp = av > bv ? 1 : -1;
       return (typeof dir === 'string' ? dir : (dir as Row)?.sort) === 'desc' ? -cmp : cmp;
@@ -144,6 +148,25 @@ function notFound(model: string): Error {
   const e = new Error(`Record not found in ${model}`) as Error & { code: string };
   e.code = 'P2025';
   return e;
+}
+
+function applyData(row: Row, data: Row) {
+  for (const [key, value] of Object.entries(data)) {
+    if (value && typeof value === 'object' && value.constructor?.name === 'DbNull') row[key] = null;
+    else if (value && typeof value === 'object' && Object.keys(value).length === 1 && 'increment' in value) row[key] = Number(row[key] ?? 0) + Number(value.increment);
+    else if (value && typeof value === 'object' && Object.keys(value).length === 1 && 'decrement' in value) row[key] = Number(row[key] ?? 0) - Number(value.decrement);
+    else row[key] = value;
+  }
+}
+
+function settingsDefaults(model: string): Row {
+  const now = new Date();
+  if (model === 'user') return { organizationId: null, enabledModules: null, accessVersion: 1 };
+  if (model === 'property') return { organizationId: null, featureOverrides: {}, featureVersion: 1 };
+  if (model === 'organization') return { status: 'active', features: {}, version: 1, createdAt: now, updatedAt: now };
+  if (model === 'auditLog') return { createdAt: now, details: {}, outcome: 'success' };
+  if (model === 'propertyRequest') return { status: 'requested', note: '', decisionNote: '', version: 1, createdAt: now, decidedAt: null };
+  return {};
 }
 
 function collection(model: string) {
@@ -180,7 +203,7 @@ function collection(model: string) {
     count: async (args: Row = {}) => { record('count'); return rows().filter(r => matches(r, args.where)).length; },
     create: async (args: Row) => {
       record('create');
-      const row = { id: nextId(model), ...args.data };
+      const row = { id: nextId(model), ...settingsDefaults(model), ...args.data };
       if (['checkoutSignal', 'laundryBatch', 'supplyRequest', 'inventoryCountRecord'].includes(model) && rows().some(r => r.id === row.id)) {
         throw Object.assign(new Error(`Duplicate ${model} primary key`), { code: 'P2002' });
       }
@@ -199,19 +222,19 @@ function collection(model: string) {
       record('update');
       const r = rows().find(r => matches(r, args.where));
       if (!r) throw notFound(model);
-      Object.assign(r, args.data);
+      applyData(r, args.data);
       return project(r, args.select, args.include);
     },
     updateMany: async (args: Row) => {
       record('updateMany');
       const targets = rows().filter(r => matches(r, args.where));
-      for (const r of targets) Object.assign(r, args.data);
+      for (const r of targets) applyData(r, args.data);
       return { count: targets.length };
     },
     upsert: async (args: Row) => {
       record('upsert');
       const r = rows().find(r => matches(r, args.where));
-      if (r) { Object.assign(r, args.update); return project(r, args.select, args.include); }
+      if (r) { applyData(r, args.update); return project(r, args.select, args.include); }
       const row = { id: nextId(model), ...args.create };
       rows().push(row);
       return project(row, args.select, args.include);
@@ -259,7 +282,17 @@ function inquiryDefaults(model: string, data: Row): Row {
 export const prisma: any = new Proxy({}, {
   get(_target, name: string) {
     if (Object.prototype.hasOwnProperty.call(prismaOverrides, name)) return prismaOverrides[name];
-    if (name === '$transaction') return (ops: Promise<any>[] | ((tx: any) => Promise<any>)) => (typeof ops === 'function' ? ops(prisma) : Promise.all(ops));
+    if (name === '$transaction') return async (ops: Promise<any>[] | ((tx: any) => Promise<any>)) => {
+      if (typeof ops !== 'function') return Promise.all(ops);
+      const previous = transactionQueue;
+      let release!: () => void;
+      transactionQueue = new Promise<void>(resolve => { release = resolve; });
+      await previous;
+      const snapshot = structuredClone(db);
+      try { return await ops(prisma); }
+      catch (error) { for (const key of Object.keys(db)) delete db[key]; Object.assign(db, snapshot); throw error; }
+      finally { release(); }
+    };
     if (name === '$queryRaw') return async () => [];
     if (typeof name !== 'string' || name.startsWith('then')) return undefined;
     const base = collection(name);

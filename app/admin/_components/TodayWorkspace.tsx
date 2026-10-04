@@ -9,7 +9,7 @@ import { PawPrint, ExternalLink, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { Badge, Button, Sheet, SkeletonList, PullToRefresh, toast, confirmDialog } from '@/components/ui';
 import TodayBoard from './TodayBoard';
-import { needsOpsCleaning } from '@/lib/ops-attention';
+import { canUseOpsModule, needsOpsCleaning } from '@/lib/ops-attention';
 import { todayKst } from '@/lib/dates';
 import { readOps } from '@/lib/read-ops';
 import { createOpsSnapshotCache } from '@/lib/ops-loading';
@@ -277,6 +277,7 @@ export default function OpsPage() {
   };
 
   const assignCleaner = async (p: OpsProperty) => {
+    if (!canUseOpsModule(p, 'cleaning')) return;
     if (!canAct()) return;
     const cleanerId = assign[p.id];
     if (!cleanerId) return;
@@ -295,10 +296,11 @@ export default function OpsPage() {
 
   /** 청소 완료: 청소 행을 done 으로, 오늘 체크인 게스트(Beds24)가 있으면 청소 완료 안내. 캘린더와 같은 순서. */
   const completeCleaning = async (p: OpsProperty) => {
+    if (!canUseOpsModule(p, 'cleaning')) return;
     if (!canAct()) return;
     if (!needsOpsCleaning(p)) { toast.error('청소 일정이 없는 날입니다. 입실 안내에서 메시지를 보내 주세요.'); return; }
     const checkin = p.checkins.find(r => r.hasChat) ?? p.checkins[0];
-    const msg = checkin?.hasChat
+    const msg = checkin?.hasChat && p.canSendMessages !== false
       ? `${p.name} 청소를 완료로 기록하고, 오늘 체크인 게스트(${checkin.guestName})에게 청소 완료 안내를 보냅니다.`
       : `${p.name} 청소를 완료로 기록합니다.`;
     if (!(await confirmDialog({ title: '청소 완료', message: msg, confirmLabel: '완료' }))) return;
@@ -311,13 +313,14 @@ export default function OpsPage() {
         : await fetch('/api/cleanings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyId: p.id, date: data!.today, status: 'done' }) });
       if (!isCurrentScope()) return;
       if (!res.ok) { const d = await res.json().catch(() => ({})); if (isCurrentScope()) toast.error(d.error || '청소 완료 처리에 실패했습니다.'); return; }
-      if (checkin?.hasChat) await sendReady(p, checkin, true);
+      if (checkin?.hasChat && p.canSendMessages !== false) await sendReady(p, checkin, true);
       else toast.success('청소 완료로 기록했습니다.');
       await load(true, true);
     } catch { if (isCurrentScope()) toast.error('청소 완료 처리에 실패했습니다.'); } finally { if (isCurrentScope()) setBusy(null); }
   };
 
   const sendReady = async (p: OpsProperty, checkin: OpsReservation, alreadyConfirmed = false) => {
+    if (!canUseOpsModule(p, 'messages') || p.canSendMessages === false) return;
     if (!canAct()) return;
     if (!alreadyConfirmed && !(await confirmDialog({ title: `${p.name} 입실 안내`, message: `${checkin.guestName}님께 ${checkin.channel} 대화로 아래 안내를 보냅니다. 객실 준비 상태를 확인해 주세요.\n\n${p.readyMessage}`, confirmLabel: '안내 보내기' }))) return;
     if (!canAct()) return;
@@ -335,7 +338,8 @@ export default function OpsPage() {
     } finally { if (isCurrentScope()) setBusy(null); }
   };
 
-  const allProps = (data?.properties ?? []).map(p => ({ id: p.id, name: p.name }));
+  const cameraProperties = (data?.properties ?? []).filter(p => canUseOpsModule(p, 'guestServices'));
+  const maintenanceProperties = (data?.properties ?? []).filter(p => p.canCreateMaintenance !== false);
   return (
     <PullToRefresh onRefresh={() => load(true)}>
       <TodayBoard
@@ -352,8 +356,8 @@ export default function OpsPage() {
         onCamera={setCameraFor} onMaintenance={() => setShowMaintenance(true)}
         renderGuest={(r, statusLine, action) => <GuestBlock r={r} statusLine={statusLine} action={action} loading={conversationReads[r.id]?.loading ?? false} error={conversationReads[r.id]?.error ?? ''} enabled={!refreshing && !loadError} onLoad={loadConversation} />}
       />
-      <CameraSheet key={`${scopeKey}:${currentDay}`} propertyId={snapshot.scopeKey === scopeKey ? cameraFor : null} properties={allProps} onSelect={setCameraFor} onClose={() => setCameraFor(null)} />
-      {showMaintenance && snapshot.scopeKey === scopeKey && <CreateMaintenanceModal key={scopeKey} properties={allProps} onClose={() => setShowMaintenance(false)} onCreated={() => { if (!isCurrentScope()) return; setShowMaintenance(false); toast.success('객실정비를 등록했습니다.'); void load(true, true); }} />}
+        <CameraSheet key={`${scopeKey}:${currentDay}`} propertyId={snapshot.scopeKey === scopeKey ? cameraFor : null} properties={cameraProperties} onSelect={setCameraFor} onClose={() => setCameraFor(null)} />
+        {showMaintenance && maintenanceProperties.length > 0 && snapshot.scopeKey === scopeKey && <CreateMaintenanceModal key={scopeKey} properties={maintenanceProperties} onClose={() => setShowMaintenance(false)} onCreated={() => { if (!isCurrentScope()) return; setShowMaintenance(false); toast.success('객실정비를 등록했습니다.'); void load(true, true); }} />}
     </PullToRefresh>
   );
 }

@@ -12,6 +12,9 @@ import { StayBookingSearch } from '@/components/StayBookingSearch';
 import { Logo } from '@/components/Logo';
 import { PROPERTY_DISPLAY, PROPERTY_DISPLAY_ORDER } from '@/lib/property-display';
 
+type StayCard = { slug: string; name: string; status: string; region: string; maxGuests: number; maxPets?: number | null; openingLabel?: string | null; images: string[]; basePrice?: number | null };
+const initialCards: StayCard[] = PROPERTY_DISPLAY_ORDER.map(slug => ({ ...PROPERTY_DISPLAY[slug], images: PROPERTY_DISPLAY[slug].imageFiles.map(file => `/images/${PROPERTY_DISPLAY[slug].imageFolder}/${file}.webp`) }));
+
 export default function PublicPortal() {
   const { t, language } = usePublicLanguage();
   const en = language === 'en';
@@ -19,7 +22,20 @@ export default function PublicPortal() {
   const [results, setResults] = useState<StaySearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState(false);
+  const [cards, setCards] = useState<StayCard[]>(initialCards);
   const controller = useRef<AbortController | null>(null);
+  useEffect(() => {
+    const request = new AbortController();
+    fetch('/api/public/properties', { signal: request.signal, cache: 'no-store' }).then(async response => {
+      if (!response.ok) return;
+      const listings: StayCard[] = await response.json();
+      if (!request.signal.aborted) setCards(listings.filter(item => item.slug && (item.status === 'active' || item.images.length > 0)).sort((a, b) => {
+        const ai = PROPERTY_DISPLAY_ORDER.indexOf(a.slug), bi = PROPERTY_DISPLAY_ORDER.indexOf(b.slug);
+        return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
+      }));
+    }).catch(() => {});
+    return () => request.abort();
+  }, []);
   useEffect(() => {
     return () => { controller.current?.abort(); controller.current = null; };
   }, []);
@@ -43,12 +59,11 @@ export default function PublicPortal() {
     }
   }
 
-  const visibleSlugs = PROPERTY_DISPLAY_ORDER.filter(slug => {
-    const property = PROPERTY_DISPLAY[slug];
+  const visibleCards = cards.filter(property => {
     if (!property || property.status === 'closed') return false;
     if (!search) return true;
     return !searching && !searchError && property.status === 'active'
-      && results.some(result => result.slug === slug && result.status === 'available');
+      && results.some(result => result.slug === property.slug && result.status === 'available');
   });
   const hasSearchErrors = searchError || results.some(result => result.status === 'error');
 
@@ -73,20 +88,18 @@ export default function PublicPortal() {
           {searching && <p role="status">{en ? 'Checking live rates and availability…' : '실시간 요금과 예약 가능 여부를 확인하고 있습니다…'}</p>}
           {search && results.some(r => r.status === 'available' && !r.includesAllFees) && <p>{en ? 'Any additional mandatory fees will be confirmed at checkout.' : '별도 필수 요금이 있는 경우 결제 단계에서 확인할 수 있습니다.'}</p>}
           {search && !searching && hasSearchErrors && <p role="alert">{en ? 'Availability could not be confirmed for some stays. Only confirmed available stays are shown.' : '일부 지점의 예약 가능 여부를 확인하지 못했습니다. 예약 가능한 것으로 확인된 지점만 표시합니다.'} <button type="button" onClick={() => findStays(search)} className="ml-3 min-h-11 underline">{en ? 'Retry search' : '다시 검색'}</button></p>}
-          {search && !searching && !hasSearchErrors && visibleSlugs.length === 0 && <p>{en ? 'No stays match these dates and guests. Please try another date or guest count.' : '선택한 날짜와 인원에 체크인 가능한 지점이 없습니다. 날짜나 인원을 변경해 검색해주세요.'}</p>}
-          {search && !searching && visibleSlugs.length > 0 && <p>{en ? `${visibleSlugs.length} stays available for your dates and guests.` : `선택한 날짜와 인원에 예약 가능한 지점 ${visibleSlugs.length}곳입니다.`}</p>}
+          {search && !searching && !hasSearchErrors && visibleCards.length === 0 && <p>{en ? 'No stays match these dates and guests. Please try another date or guest count.' : '선택한 날짜와 인원에 체크인 가능한 지점이 없습니다. 날짜나 인원을 변경해 검색해주세요.'}</p>}
+          {search && !searching && visibleCards.length > 0 && <p>{en ? `${visibleCards.length} stays available for your dates and guests.` : `선택한 날짜와 인원에 예약 가능한 지점 ${visibleCards.length}곳입니다.`}</p>}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-10 md:gap-y-14">
-          {visibleSlugs.map((slug) => {
-            const p = PROPERTY_DISPLAY[slug];
+          {visibleCards.map((p) => {
             if (!p) return null;
             const isComingSoon = p.status === 'coming_soon';
             const result = results.find(item => item.slug === p.slug);
-            const hasImage = p.imageFiles.length > 0;
-            const coverWebp = hasImage ? `/images/${p.imageFolder}/${p.imageFiles[0]}.webp` : null;
+            const coverWebp = p.images[0] || null;
             return (
-              <article key={slug} className="stay-reveal">
+              <article key={p.slug} className="stay-reveal">
                 <Link
                   href={`/book/${p.slug}${search && result?.status === 'available' ? `?${staySearchQuery(search)}` : ''}`}
                   className="group block focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#d8c3a4]"
@@ -96,6 +109,7 @@ export default function PublicPortal() {
                   {coverWebp ? (
                       <Image
                         src={coverWebp}
+                        unoptimized={coverWebp.startsWith('https://')}
                         alt={t(p.name)}
                         fill
                         sizes="(max-width: 767px) 100vw, (max-width: 1480px) 50vw, 700px"

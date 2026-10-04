@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireApiClient, propertyScopeFilter } from '@/lib/api-auth';
+import { requireApiClient, propertyScopeFilter, isApiClient } from '@/lib/api-auth';
 import { serializeEventAsBooking, serializeBookingRow } from '@/lib/v1-schemas';
 import { withErrors } from '@/lib/core/http';
 
 // GET /api/v1/bookings/{id} — Scope: bookings:read. ID 는 Event.id 또는 Booking.id (둘 다 UUID).
 export const GET = withErrors<{ id: string }>('v1/bookings/id', async (req, { params }) => {
   const auth = await requireApiClient(req, { scope: 'bookings:read' });
-  if (auth instanceof Response) return auth;
+  if (!isApiClient(auth)) return auth;
 
   const scope = propertyScopeFilter(auth);
   const ev = await prisma.event.findFirst({

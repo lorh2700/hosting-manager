@@ -4,6 +4,7 @@ import { withErrors, readJson, fail, ok } from '@/lib/core/http';
 import { pickupRequestSchema, guestGuide, arrivalDateAllowed } from '@/lib/guest-guide';
 import { slugCandidates } from '@/lib/property-display';
 import { rateLimit, clientIp } from '@/lib/rateLimit';
+import { propertyAllowsModule } from '@/lib/operational-access';
 
 export const POST = withErrors('guest-services/create', async req => {
   const limit = rateLimit(`guest-service:${clientIp(req)}`, 10, 10 * 60 * 1000);
@@ -22,8 +23,9 @@ export const POST = withErrors('guest-services/create', async req => {
   const existing = await prisma.guestServiceRequest.findUnique({ where: { id }, select: { requestHash: true } });
   if (existing) return receipt(existing);
   if (!arrivalDateAllowed(input.arrivalDate)) throw fail(400, '오늘부터 1년 이내 도착일을 선택해 주세요. / Choose an arrival within the next year.');
-  const property = await prisma.property.findFirst({ where: { slug: { in: slugCandidates(guide.slug) }, status: 'active' }, select: { id: true } });
+  const property = await prisma.property.findFirst({ where: { slug: { in: slugCandidates(guide.slug) }, status: 'active' }, select: { id: true, featureOverrides: true, organization: { select: { status: true, features: true } } } });
   if (!property) throw fail(409, '현재 신청을 접수할 수 없습니다. 예약하신 채널로 문의해 주세요. / Please contact your host through your booking channel.');
+  if (!propertyAllowsModule(property, 'guestServices')) throw fail(403, '현재 이 숙소에서 신청을 접수할 수 없습니다. 예약 채널로 문의해 주세요. / Please contact your host through your booking channel.');
   try {
     await prisma.guestServiceRequest.create({ data: { id, propertyId: property.id, ...input, kind: 'airport_pickup', status: 'requested', quotedPrice: guide.pickupPrice, requestHash } });
   } catch (e) {

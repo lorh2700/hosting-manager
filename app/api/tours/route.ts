@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { authorizeTour } from '@/lib/auth';
 import { uniqueSlug } from '@/lib/slug';
+import { tourOwnershipWhere } from '@/lib/tour-access';
 import { withAuth, ok, created, fail, MESSAGES, readJson, str, requireQuery } from '@/lib/core/http';
 
 // Allowed fields for client-supplied input — guards against mass assignment.
@@ -21,7 +22,7 @@ function pickWritable(body: Record<string, unknown>): TourWritable {
 
 export const GET = withAuth('tours', async (_req, { auth }) => {
   const tours = await prisma.tour.findMany({
-    where: auth.isAdmin ? undefined : { ownerId: auth.session.userId },
+    where: tourOwnershipWhere(auth),
     orderBy: { createdAt: 'desc' },
     include: { operator: { select: { id: true, name: true } }, _count: { select: { schedules: true, bookings: true } } },
   });
@@ -42,7 +43,7 @@ export const POST = withAuth('tours', async (req, { auth }) => {
   // If linking to an operator, ensure the user owns it.
   if (body.operatorId) {
     const owned = await prisma.tourOperator.findFirst({
-      where: { id: String(body.operatorId), ...(auth.isAdmin ? {} : { ownerId: auth.session.userId }) },
+      where: { AND: [{ id: String(body.operatorId) }, tourOwnershipWhere(auth)] },
       select: { id: true },
     });
     if (!owned) throw fail(403, '운영업체에 대한 권한이 없습니다.');
@@ -71,13 +72,13 @@ export const POST = withAuth('tours', async (req, { auth }) => {
 export const PUT = withAuth('tours', async (req, { auth }) => {
   const body = await readJson(req);
   const id = str(body, 'id', { required: true })!;
-  if (!(await authorizeTour(id, auth.session.userId, { isAdmin: auth.isAdmin }))) throw fail(403, MESSAGES.forbidden);
+  if (!(await authorizeTour(id, auth.session.userId, { isAdmin: auth.isAdmin, auth }))) throw fail(403, MESSAGES.forbidden);
 
   const data = pickWritable(body);
   // operatorId change → must own the new operator (unless setting to null)
   if (data.operatorId) {
     const owned = await prisma.tourOperator.findFirst({
-      where: { id: data.operatorId as string, ...(auth.isAdmin ? {} : { ownerId: auth.session.userId }) },
+      where: { AND: [{ id: data.operatorId as string }, tourOwnershipWhere(auth)] },
       select: { id: true },
     });
     if (!owned) throw fail(403, '운영업체에 대한 권한이 없습니다.');
@@ -88,7 +89,7 @@ export const PUT = withAuth('tours', async (req, { auth }) => {
 
 export const DELETE = withAuth('tours', async (req, { auth }) => {
   const id = requireQuery(req, 'id');
-  if (!(await authorizeTour(id, auth.session.userId, { isAdmin: auth.isAdmin }))) throw fail(403, MESSAGES.forbidden);
+  if (!(await authorizeTour(id, auth.session.userId, { isAdmin: auth.isAdmin, auth }))) throw fail(403, MESSAGES.forbidden);
 
   const bookingCount = await prisma.tourBooking.count({ where: { tourId: id } });
   if (bookingCount > 0) throw fail(409, `예약이 있는 투어는 삭제할 수 없습니다. (${bookingCount}건). 비활성화로 전환하세요.`);

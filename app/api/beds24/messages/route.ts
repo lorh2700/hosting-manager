@@ -1,6 +1,7 @@
 import { beds24Get, describeBeds24Error } from '@/lib/beds24';
 import { prisma } from '@/lib/prisma';
 import { withAuth, withErrors, ok, fail, MESSAGES, cronOrSession, visibleScope, requireQuery, requireManage } from '@/lib/core/http';
+import { propertyAllowsModule } from '@/lib/operational-access';
 
 /**
  * GET /api/beds24/messages?bookingId=123  → Fetch messages for a specific Beds24 booking
@@ -69,12 +70,13 @@ export const POST = withErrors('beds24/messages', async (req) => {
   if (auth && scopedIds) for (const id of scopedIds) requireManage(auth, id);
   if (auth && scopedIds?.length === 0) return ok({ synced: 0, propertiesChecked: 0 });
 
-  const properties = await prisma.property.findMany({
+  const candidateProperties = await prisma.property.findMany({
     where: scopedIds?.length
       ? { id: { in: scopedIds }, beds24PropId: { not: null } }
       : { beds24PropId: { not: null } },
-    select: { id: true, name: true, beds24PropId: true },
+    select: { id: true, name: true, beds24PropId: true, featureOverrides: true, organization: { select: { status: true, features: true } } },
   });
+  const properties = candidateProperties.filter(p => propertyAllowsModule(p, 'integrations') && propertyAllowsModule(p, 'messages'));
   if (properties.length === 0) return ok({ synced: 0, message: 'No Beds24-linked properties' });
   const propertyIds = properties.map(p => p.id);
 

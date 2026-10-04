@@ -35,10 +35,12 @@ test('동일 이메일 대기 초대는 종료하고 직접 지정한 역할·�
   assert.equal(db.user[0].role, 'manager'); assert.equal(db.userProperty[0].propertyId, 'p1');
 });
 
-test('관리자는 별도 숙소 배정 없이 등록한다', async () => {
-  const result = await callRoute(CREATE, makeRequest({ ...body, role: 'admin', phone: '+82 10-1234-5678' }));
+test('사업자 관리자는 사업자 소속으로 등록하며 별도 지점 배정이 필요하지 않다', async () => {
+  db.organization = [{ id: 'org1', name: '사업자', status: 'active' }];
+  const result = await callRoute(CREATE, makeRequest({ ...body, role: 'admin', organizationId: 'org1', phone: '+82 10-1234-5678' }));
   assert.equal(result.status, 201); assert.deepEqual(result.body.propertyIds, []);
   assert.equal(result.body.phone, '01012345678');
+  assert.equal(db.user[0].organizationId, 'org1');
   assert.equal((db.userProperty ?? []).length, 0);
 });
 

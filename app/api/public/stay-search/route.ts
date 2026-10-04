@@ -3,14 +3,15 @@ import { withErrors, ok, fail, HttpError } from '@/lib/core/http';
 import { rateLimit, clientIp } from '@/lib/rateLimit';
 import { priceStay } from '@/lib/payments/checkout';
 import { stayOptionPolicy } from '@/lib/payments/stay-options';
-import { PROPERTY_DISPLAY } from '@/lib/property-display';
+import { propertyAllowsModule } from '@/lib/operational-access';
 import { parseStaySearch, type StaySearchResult } from '@/lib/stay-search';
 
 export const POST = withErrors('public/stay-search', async req => {
   if (!rateLimit(`stay-search:${clientIp(req)}`, 10, 60_000).ok) throw fail(429, '잠시 후 다시 시도해주세요. / Please try again later.');
   const search = parseStaySearch(await req.json());
   if (!search) throw fail(400, '날짜와 인원을 확인해주세요. / Check your dates and guest count.');
-  const properties = await prisma.property.findMany({ where: { status: 'active', slug: { in: Object.keys(PROPERTY_DISPLAY).filter(slug => PROPERTY_DISPLAY[slug].status === 'active') } }, select: { id: true, slug: true, maxGuests: true } });
+  const candidates = await prisma.property.findMany({ where: { status: 'active', slug: { not: null } }, take: 200, select: { id: true, slug: true, maxGuests: true, featureOverrides: true, organization: { select: { status: true, features: true } } } });
+  const properties = candidates.filter(property => propertyAllowsModule(property, 'reservations') && propertyAllowsModule(property, 'integrations'));
   const results: StaySearchResult[] = [];
   let index = 0;
   // Keep Beds24 requests bounded; a failed stay must not hide the other results.

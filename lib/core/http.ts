@@ -13,6 +13,10 @@ import { NextResponse } from 'next/server';
 import { getSessionWithUser, type SessionAuth } from '@/lib/auth';
 import { canManageProperty, getVisiblePropertyIds, isPropertyOwnerOrAdmin } from '@/lib/access';
 import { HttpError, fail } from './errors';
+import { assertOperationalAccess, requestOperationalModule, requestFeatureModules, propertyAllowsModule, isSelfProfileRequest } from '@/lib/operational-access';
+import { writeAuditLog } from '@/lib/audit-log';
+import { prisma } from '@/lib/prisma';
+import { resolveAuditTarget } from '@/lib/audit-target';
 export { HttpError, fail } from './errors';
 
 export const MESSAGES = {
@@ -47,6 +51,10 @@ export interface WithAuthOptions {
   serverTiming?: boolean;
   /** 관리자(admin)만 허용 */
   admin?: boolean;
+  /** 사업자 관리자 또는 슈퍼매니저. 데이터 범위는 visibleScope로 제한한다. */
+  businessAdmin?: boolean;
+  /** Transactional settings handlers write their own activity record. */
+  audit?: boolean;
   /** 승인 대기·정지 계정도 통과 (계정 상태 화면 등 극소수 경로) */
   allowInactive?: boolean;
 }
@@ -73,19 +81,114 @@ export function withAuth<P = Record<string, never>>(
     extra === undefined ? console.log(`[${name}] ${msg}`) : console.log(`[${name}] ${msg}`, extra);
 
   const fn = async (req: Request, routeCtx?: RouteContext<P>): Promise<Response> => {
+    let auditAuth: SessionAuth | null = null;
+    let metadata: { targetId?: string; propertyId?: string; organizationId?: string | null } = {};
+    let auditScopes: Array<{ propertyId?: string; organizationId: string | null }> = [];
+    const method = req.method || 'GET';
+    const mutation = !['GET', 'HEAD', 'OPTIONS'].includes(method);
+    const record = async (status: number) => {
+      if (!auditAuth || !mutation || opts.audit === false) return;
+      for (const target of auditScopes.length ? auditScopes.map(scope => ({ ...metadata, ...scope })) : [metadata]) await writeAuditLog(auditAuth, {
+        action: `${name}:${method}`, module: auditAuth.operationalModule,
+        targetType: name.split('/')[0], targetId: target.targetId, propertyId: target.propertyId,
+        organizationId: target.organizationId,
+        summary: `${name} · ${method} · ${status < 400 ? '처리 완료' : status === 403 ? '권한 거부' : '처리 실패'}`,
+        outcome: status < 400 ? 'success' : status === 403 ? 'denied' : 'failed',
+        requestId: req.headers.get('x-request-id'),
+        details: { method, path: new URL(req.url).pathname, status },
+      });
+    };
     try {
       const started = performance.now();
       const auth = await getSessionWithUser(req, { allowInactive: opts.allowInactive });
       const authenticated = performance.now();
       if (!auth) return errorResponse(401, MESSAGES.unauthorized);
-      if (opts.admin && auth.role !== 'admin') return errorResponse(403, MESSAGES.forbidden);
+      auditAuth = auth;
+      if (opts.admin && auth.role !== 'super_admin') throw fail(403, MESSAGES.forbidden);
+      if (opts.businessAdmin && !['super_admin', 'admin'].includes(auth.role)) throw fail(403, MESSAGES.forbidden);
+      auth.operationalModule = await isSelfProfileRequest(req, auth.session.userId) ? null : requestOperationalModule(req, auth, name);
+      auth.featureModules = requestFeatureModules(req, auth.operationalModule);
+      assertOperationalAccess(auth, auth.operationalModule, auth.featureModules);
       const params = routeCtx ? await routeCtx.params : ({} as P);
+      const query = new URL(req.url).searchParams;
+      metadata.propertyId = query.get('propertyId') ?? undefined;
+      metadata.targetId = query.get('id') ?? undefined;
+      if (typeof (params as Record<string, unknown>).id === 'string') metadata.targetId = (params as Record<string, string>).id;
+      const childIdentifier = name.startsWith('tours/') ? ['scheduleId', 'optionId', 'tierId'].find(key => query.has(key)) : undefined;
+      if (childIdentifier) metadata.targetId = query.get(childIdentifier) ?? metadata.targetId;
+      // Only identifiers are retained. Do not retain the cloned body or its values in logs.
+      if (mutation && req.headers.get('content-type')?.includes('application/json')) {
+        try {
+          const body = await req.clone().json();
+          if (body && typeof body === 'object' && !Array.isArray(body)) {
+            if (typeof body.propertyId === 'string') metadata.propertyId = body.propertyId;
+            for (const key of ['id', 'userId', 'cleanerId', 'cleaningId', 'eventId', 'bookingId']) if (typeof body[key] === 'string') { metadata.targetId ??= body[key]; break; }
+            if (name.startsWith('tours/')) for (const key of ['scheduleId', 'optionId', 'tierId']) if (typeof body[key] === 'string') { metadata.targetId = body[key]; break; }
+            if (name === 'messages' && Array.isArray(body.ids) && opts.audit !== false) {
+              const ids = [...new Set<string>((body.ids as unknown[]).filter((id: unknown): id is string => typeof id === 'string'))];
+              const messages = await prisma.message.findMany({ where: { id: { in: ids },
+                ...(auth.propertyIds === null ? {} : { propertyId: { in: auth.propertyIds ?? [] } }),
+              }, select: { propertyId: true } });
+              const propertyIds = [...new Set(messages.map(message => message.propertyId).filter((id): id is string => !!id))];
+              const properties = await prisma.property.findMany({ where: { id: { in: propertyIds } }, select: { id: true, organizationId: true } });
+              const groups = new Map<string | null, string[]>();
+              for (const property of properties) groups.set(property.organizationId, [...(groups.get(property.organizationId) ?? []), property.id]);
+              auditScopes = [...groups].map(([organizationId, propertyIds]) => ({ organizationId, propertyId: propertyIds.length === 1 ? propertyIds[0] : undefined }));
+            }
+          }
+        } catch { /* The handler owns invalid JSON validation. */ }
+      }
+      if (mutation && opts.audit !== false && metadata.targetId && !metadata.propertyId) {
+        Object.assign(metadata, await resolveAuditTarget(name, metadata.targetId));
+      }
+      if (mutation && opts.audit !== false && metadata.propertyId) {
+        const targetProperty = await prisma.property.findUnique({ where: { id: metadata.propertyId }, select: { organizationId: true } });
+        metadata.organizationId = targetProperty?.organizationId ?? auth.user.organizationId;
+      }
+      if (metadata.propertyId && auth.role !== 'super_admin') {
+        const visible = await getVisiblePropertyIds(auth, [metadata.propertyId]);
+        if (visible !== null && !visible.includes(metadata.propertyId)) throw fail(403, MESSAGES.forbidden);
+        const property = await prisma.property.findUnique({ where: { id: metadata.propertyId }, select: { featureOverrides: true, organization: { select: { status: true, features: true } } } });
+        if (!property || !auth.featureModules.every(feature => propertyAllowsModule(property, feature))) throw fail(403, MESSAGES.forbidden);
+      }
       const response = await handler(req, { auth, params, log });
+      // Creation IDs come from the completed handler, never from unvalidated organization input.
+      // Only known resources are read back; passwords or other response content are never retained.
+      const resource = name.split('/')[0];
+      if (mutation && opts.audit !== false && response.status < 400 && (method === 'POST' || !metadata.targetId) &&
+        ['users', 'staff', 'cleaners', 'properties', 'cleanings', 'cleaning-issues', 'supply-requests', 'messages', 'laundry', 'inventory', 'guest-services', 'tours', 'tour-operators', 'tour-bookings', 'bookings'].includes(resource)) {
+        try {
+          const result: unknown = response instanceof Response ? await response.clone().json() : (response as unknown as { body?: unknown }).body;
+          if (result && typeof result === 'object' && !Array.isArray(result)) {
+            const ids = result as Record<string, unknown>;
+            const id = [ids.id, ids.userId, ids.cleanerId, ids.bookingId].find((item): item is string => typeof item === 'string');
+            if (id) {
+              metadata.targetId = id;
+              if (resource === 'properties') {
+                metadata.propertyId = id;
+                const property = await prisma.property.findUnique({ where: { id }, select: { organizationId: true } });
+                metadata.organizationId = property?.organizationId;
+              } else if (['users', 'staff', 'cleaners'].includes(resource)) {
+                const user = await prisma.user.findUnique({ where: { id }, select: { organizationId: true } });
+                metadata.organizationId = user?.organizationId;
+              } else {
+                Object.assign(metadata, await resolveAuditTarget(name, id));
+                if (metadata.propertyId) {
+                  const property = await prisma.property.findUnique({ where: { id: metadata.propertyId }, select: { organizationId: true } });
+                  metadata.organizationId = property?.organizationId;
+                }
+              }
+            }
+          }
+        } catch { /* The completed operation remains successful if activity metadata is unavailable. */ }
+      }
+      await record(response.status);
       if (opts.serverTiming) response.headers.append('Server-Timing', `auth;dur=${(authenticated - started).toFixed(1)}, handler;dur=${(performance.now() - authenticated).toFixed(1)}`);
       return response;
     } catch (e) {
-      if (e instanceof HttpError) return errorResponse(e.status, e.message, e.extra);
+      if (e instanceof HttpError) { await record(e.status); return errorResponse(e.status, e.message, e.extra); }
       console.error(`[${name}] error:`, e);
+      await record(500);
       return errorResponse(500, MESSAGES.server);
     }
   };

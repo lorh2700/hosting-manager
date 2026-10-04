@@ -32,6 +32,8 @@ export const POST = withErrors('auth/login', async (req) => {
     user: { id: user.id, email: user.email },
     profile: {
       role: normalizeRole(user.role),
+      organizationId: user.organizationId,
+      enabledModules: user.enabledModules,
       propertyIds: user.properties.map((p) => p.propertyId),
       displayName: user.displayName || user.email,
       phone: user.phone,

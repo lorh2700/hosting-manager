@@ -127,7 +127,7 @@ export default function HostDashboard() {
   const [guestMessages, setGuestMessages] = useState<GuestMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const { user, profile } = useAuth();
-  const isAdmin = profile?.role === 'admin';
+  const isAdmin = profile?.role === 'super_admin' || profile?.role === 'admin';
   // 탭에 돌아오면 조용히 다시 불러온다 (스켈레톤 없이 값만 갱신).
   const [reloadKey, setReloadKey] = useState(0);
   useRefetchOnReturn(() => setReloadKey(k => k + 1));

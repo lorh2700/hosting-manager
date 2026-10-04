@@ -43,7 +43,7 @@ async function readResponse<T>(response: Response): Promise<T> {
 export default function JongnoEventsAdminPage() {
   const { user, profile, loading: authLoading } = useAuth();
   const accountId = user?.id ?? null;
-  const allowed = !!accountId && profile?.role === 'admin';
+  const allowed = !!accountId && profile?.role === 'super_admin';
   const [month, setMonth] = useState(() => today().slice(0, 7));
   const [status, setStatus] = useState('');
   const [events, setEvents] = useState<JongnoEventDTO[]>([]);

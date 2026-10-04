@@ -16,7 +16,7 @@ import { POST as INVITE } from '../app/api/cleaners/[id]/invite/route';
 
 beforeEach(() => {
   resetDb(); actAsManager(['p1']);
-  db.user = [{ ...authState.auth.user, displayName: '민들레', phone: '01011112222', password: 'secret', publicToken: 'keep' }, { id: 'admin-1', role: 'admin', status: 'active', email: 'admin@test.com', displayName: '관리자', password: 'admin-secret' }];
+  db.user = [{ ...authState.auth.user, displayName: '민들레', phone: '01011112222', password: 'secret', publicToken: 'keep' }, { id: 'admin-1', role: 'super_admin', status: 'active', email: 'admin@test.com', displayName: '슈퍼매니저', password: 'admin-secret' }];
   db.property = [{ id: 'p1', name: '담당 숙소', ownerId: 'host-1' }, { id: 'p2', name: '다른 숙소', ownerId: 'other' }];
   db.userProperty = [{ userId: 'host-1', propertyId: 'p1' }];
 });
@@ -93,9 +93,9 @@ test('이메일 초대 수락은 로그인 없는 User를 활성화하고 청소
   db.user.push({ id: 'link-staff', email: 'staff-link@staff.invalid', password: '', displayName: '초대 직원', role: 'cleaner', status: 'no_account', ownerId: 'host-1', publicToken: 'keep-link', phone: '01033334444' });
   db.userProperty.push({ userId: 'link-staff', propertyId: 'p1' });
   db.cleaning = [{ id: 'past', cleanerId: 'link-staff', propertyId: 'p1' }];
-  db.invitation = [{ id: 'invite', email: 'invited@example.com', role: 'cleaner', status: 'pending', cleanerId: 'link-staff', invitedBy: 'host-1', expiresAt: new Date(Date.now() + 60000) }];
+  db.invitation = [{ id: 'invite', token: 'valid-invitation-token', email: 'invited@example.com', role: 'cleaner', status: 'pending', cleanerId: 'link-staff', invitedBy: 'host-1', expiresAt: new Date(Date.now() + 60000) }];
   const count = db.user.length;
-  const result = await callRoute(REGISTER, makeRequest({ email: 'invited@example.com', password: 'safe-password', displayName: '초대 직원' }));
+  const result = await callRoute(REGISTER, makeRequest({ email: 'invited@example.com', password: 'safe-password', displayName: '초대 직원', invitationToken: 'valid-invitation-token' }));
   assert.equal(result.status, 200, JSON.stringify(result.body));
   assert.equal(result.body.user.id, 'link-staff'); assert.equal(db.user.length, count);
   assert.deepEqual(result.body.profile.propertyIds, ['p1']);

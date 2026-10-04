@@ -10,6 +10,9 @@ import { useAuth } from '@/components/AuthProvider';
 import { toast } from '@/components/ui';
 import InquiryNotificationSettings from './InquiryNotificationSettings';
 import InquiryAutomationSettings from './InquiryAutomationSettings';
+import PublicInfoEditor, { EMPTY_PUBLIC_INFO } from './PublicInfoEditor';
+import { publishRequirements, type PropertyPublicInfo } from '@/lib/property-public-info';
+import { DraftGuardProvider, useDraftGuard } from '@/app/admin/settings/operations/DraftGuard';
 
 interface Property {
   id: string;
@@ -27,9 +30,16 @@ interface Property {
   roomReadyMessage?: string;
   cameraName?: string;
   cameraNotes?: string;
+  status: string;
+  openingDate?: string | null;
+  publicInfo?: PropertyPublicInfo;
 }
 
 export default function PropertySettingsPage() {
+  return <DraftGuardProvider><PropertySettingsEditor /></DraftGuardProvider>;
+}
+
+function PropertySettingsEditor() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
   const { user } = useAuth();
@@ -51,6 +61,23 @@ export default function PropertySettingsPage() {
   const [roomReadyMessage, setRoomReadyMessage] = useState('');
   const [cameraName, setCameraName] = useState('');
   const [cameraNotes, setCameraNotes] = useState('');
+  const [status, setStatus] = useState('coming_soon');
+  const [slug, setSlug] = useState('');
+  const [openingDate, setOpeningDate] = useState('');
+  const [publicInfo, setPublicInfo] = useState<PropertyPublicInfo>(EMPTY_PUBLIC_INFO);
+  const [uploading, setUploading] = useState(false);
+  const [savedSnapshot, setSavedSnapshot] = useState('');
+  const form = { name, timezone, description, basePrice: basePrice === '' ? null : Number(basePrice), maxGuests: maxGuests === '' ? null : Number(maxGuests), beds24PropId: beds24PropId.trim() || null, beds24RoomId: beds24RoomId.trim() || null, doorPassword: doorPassword.trim() || null, addressUrl: addressUrl.trim() || null, roomReadyMessage: roomReadyMessage.trim() || null, cameraName: cameraName.trim() || null, cameraNotes: cameraNotes.trim() || null, status, ...(slug.trim() ? { slug: slug.trim() } : {}), openingDate: openingDate.trim() || null, publicInfo };
+  const snapshot = JSON.stringify(form);
+  const dirty = Boolean(savedSnapshot && snapshot !== savedSnapshot);
+  const missing = publishRequirements({ ...form, slug: slug.trim() || null });
+  useEffect(() => {
+    if (!dirty) return;
+    const leave = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', leave);
+    return () => window.removeEventListener('beforeunload', leave);
+  }, [dirty]);
+  useEffect(() => { if (property && !savedSnapshot) setSavedSnapshot(snapshot); }, [property, savedSnapshot, snapshot]);
 
   useEffect(() => {
     if (!user) return;
@@ -73,6 +100,10 @@ export default function PropertySettingsPage() {
           setRoomReadyMessage(data.roomReadyMessage || '');
           setCameraName(data.cameraName || '');
           setCameraNotes(data.cameraNotes || '');
+          setStatus(data.status || 'coming_soon');
+          setSlug(data.slug || '');
+          setOpeningDate(data.openingDate || '');
+          setPublicInfo(data.publicInfo || EMPTY_PUBLIC_INFO);
         }
       } catch (error) {
         console.error('Error fetching property', error);
@@ -86,36 +117,35 @@ export default function PropertySettingsPage() {
 
   const handleSave = async () => {
     if (!user || !property) return;
+    if (uploading || saving) throw new Error('사진 등록이나 저장이 끝난 뒤 다시 시도해 주세요.');
     setSaving(true);
     try {
       const res = await fetch(`/api/properties/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          timezone,
-          description,
-          basePrice: basePrice === '' ? null : Number(basePrice),
-          maxGuests: maxGuests === '' ? null : Number(maxGuests),
-          beds24PropId: beds24PropId.trim() || null,
-          beds24RoomId: beds24RoomId.trim() || null,
-          doorPassword: doorPassword.trim() || null,
-          addressUrl: addressUrl.trim() || null,
-          roomReadyMessage: roomReadyMessage.trim() || null,
-          cameraName: cameraName.trim() || null,
-          cameraNotes: cameraNotes.trim() || null,
-          updatedAt: new Date().toISOString()
-        }),
+        body: snapshot,
       });
-      if (!res.ok) throw new Error('Failed to save');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '저장에 실패했습니다.');
+      setProperty(data);
+      setSavedSnapshot(snapshot);
       toast.success('숙소 설정이 저장되었습니다.');
     } catch (error) {
       console.error('Error saving property', error);
-      toast.error('저장에 실패했습니다.');
+      toast.error(error instanceof Error ? error.message : '저장에 실패했습니다.');
+      throw error;
     } finally {
       setSaving(false);
     }
   };
+
+  const discard = () => {
+    if (!property) return;
+    setName(property.name || ''); setTimezone(property.timezone || 'Asia/Seoul'); setDescription(property.description || ''); setBasePrice(property.basePrice || ''); setMaxGuests(property.maxGuests || '');
+    setBeds24PropId(property.beds24PropId || ''); setBeds24RoomId(property.beds24RoomId || ''); setDoorPassword(property.doorPassword || ''); setAddressUrl(property.addressUrl || ''); setRoomReadyMessage(property.roomReadyMessage || '');
+    setCameraName(property.cameraName || ''); setCameraNotes(property.cameraNotes || ''); setStatus(property.status || 'coming_soon'); setSlug(property.slug || ''); setOpeningDate(property.openingDate || ''); setPublicInfo(property.publicInfo || EMPTY_PUBLIC_INFO);
+  };
+  useDraftGuard({ label: '숙소 기본·공개 정보', dirty, save: handleSave, discard });
 
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -140,7 +170,7 @@ export default function PropertySettingsPage() {
   if (!property) return <div className="text-center py-24 text-stone-500 font-light tracking-widest text-[13px]">숙소를 찾을 수 없습니다</div>;
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
+    <div className="max-w-6xl mx-auto space-y-8 pb-24 md:pb-0">
       <header className="flex flex-col gap-6 md:flex-row md:justify-between md:items-end border-b border-stone-200 pb-8">
         <div>
           <Link href="/admin/properties" className="text-stone-500 hover:text-stone-900 text-[12px] tracking-widest font-medium flex items-center gap-2 mb-6 transition-colors">
@@ -149,17 +179,17 @@ export default function PropertySettingsPage() {
           <h1 className="text-4xl font-light tracking-tight text-stone-900">{property.name}</h1>
           <p className="text-stone-500 mt-2 text-sm font-light tracking-wide">숙소의 기본 정보를 관리하세요.</p>
         </div>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-3">
           <Link
-            href={`/book/${id}`}
+            href={`/book/${property.slug || id}`}
             target="_blank"
             className="bg-transparent border border-stone-300 text-stone-700 px-6 py-3 text-[13px] tracking-widest font-semibold flex items-center gap-2 hover:bg-stone-100 hover:text-stone-900 transition-colors"
           >
             예약 페이지 보기
           </Link>
           <button
-            onClick={handleSave}
-            disabled={saving}
+            onClick={() => void handleSave().catch(() => {})}
+            disabled={saving || uploading || !dirty}
             className="bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white px-6 py-3 text-[13px] tracking-widest font-semibold uppercase flex items-center gap-3 transition-colors disabled:opacity-50"
           >
             <Save size={16} />
@@ -170,7 +200,9 @@ export default function PropertySettingsPage() {
 
       <PropertyNavigation propertyId={id} />
 
-      <div className="bg-white border border-stone-200 p-8 max-w-3xl">
+      <PublicInfoEditor propertyId={id} value={publicInfo} onChange={setPublicInfo} status={status} onStatusChange={setStatus} slug={slug} onSlugChange={setSlug} openingDate={openingDate} onOpeningDateChange={setOpeningDate} missing={missing} onUploadingChange={setUploading} />
+
+      <div className="bg-white border border-stone-200 p-4 sm:p-8 max-w-3xl">
         <h2 className="text-lg font-light tracking-wide text-stone-900 mb-8">기본 정보</h2>
 
         <div className="space-y-6">
@@ -316,6 +348,8 @@ export default function PropertySettingsPage() {
               <label className="block text-[12px] uppercase tracking-widest text-stone-500 mb-2">최대 수용 인원 (명)</label>
               <input
                 type="number"
+                min={2}
+                max={10}
                 value={maxGuests}
                 onChange={(e) => setMaxGuests(e.target.value ? Number(e.target.value) : '')}
                 placeholder="예: 4"
@@ -328,6 +362,8 @@ export default function PropertySettingsPage() {
 
       <InquiryNotificationSettings key={id} propertyId={id} />
       <InquiryAutomationSettings key={`automation-${id}`} propertyId={id} />
+
+      {dirty && <div className="fixed inset-x-0 bottom-[var(--admin-bottom-clearance,0px)] z-40 flex items-center justify-between gap-3 border-t border-stone-200 bg-white px-4 py-3 md:sticky md:bottom-0 md:rounded-lg" role="status"><span className="text-sm text-stone-600">저장하지 않은 변경사항</span><button type="button" disabled={saving || uploading} onClick={() => void handleSave().catch(() => {})} className="shrink-0 rounded-lg bg-[var(--brand)] px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">{saving ? '저장 중…' : '변경사항 저장'}</button></div>}
 
       <div className="bg-red-50 border border-red-200 p-8 max-w-3xl mt-12">
         <h2 className="text-lg font-light tracking-wide text-red-600 mb-2">위험 구역</h2>

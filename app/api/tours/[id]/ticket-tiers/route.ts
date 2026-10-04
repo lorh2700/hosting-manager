@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { authorizeTour } from '@/lib/auth';
+import { authorizeTour, type SessionAuth } from '@/lib/auth';
 import { withAuth, withErrors, ok, created, fail, MESSAGES, readJson, str, requireQuery } from '@/lib/core/http';
 
 type Params = { id: string };
@@ -17,7 +17,7 @@ export const GET = withErrors<Params>('tours/ticket-tiers', async (_req, { param
 });
 
 export const POST = withAuth<Params>('tours/ticket-tiers', async (req, { auth, params }) => {
-  if (!(await authorizeTour(params.id, auth.session.userId, { isAdmin: auth.isAdmin }))) throw fail(403, MESSAGES.forbidden);
+  if (!(await authorizeTour(params.id, auth.session.userId, { isAdmin: auth.isAdmin, auth }))) throw fail(403, MESSAGES.forbidden);
   const body = await readJson(req);
   const label = str(body, 'label', { required: true })!.trim();
   if (body.price === undefined || body.price === null) throw fail(400, 'price는 필수입니다.');
@@ -33,10 +33,10 @@ export const POST = withAuth<Params>('tours/ticket-tiers', async (req, { auth, p
   }));
 });
 
-async function requireTierOwner(tierId: string, auth: { session: { userId: string }; isAdmin: boolean }) {
+async function requireTierOwner(tierId: string, auth: SessionAuth) {
   const tier = await prisma.tourTicketTier.findUnique({ where: { id: tierId }, select: { tourId: true } });
   if (!tier) throw fail(404, MESSAGES.notFound);
-  if (!(await authorizeTour(tier.tourId, auth.session.userId, { isAdmin: auth.isAdmin }))) throw fail(403, MESSAGES.forbidden);
+  if (!(await authorizeTour(tier.tourId, auth.session.userId, { isAdmin: auth.isAdmin, auth }))) throw fail(403, MESSAGES.forbidden);
 }
 
 export const PUT = withAuth<Params>('tours/ticket-tiers', async (req, { auth }) => {

@@ -27,12 +27,12 @@ export function BookingPhotoGallery({ images, name, english, variant = 'hero' }:
     {variant === 'hero' ? <div className="relative">
       <div className="hidden h-[min(44vw,520px)] min-h-80 grid-cols-4 grid-rows-2 gap-2 overflow-hidden rounded-2xl md:grid">
         {images.slice(0, 5).map((src, i) => <button type="button" key={src} onClick={() => setView(i)} aria-label={`${imageLabel(i)} ${english ? 'enlarge' : '크게 보기'}`} className={`group relative overflow-hidden bg-stone-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] ${i === 0 ? 'col-span-2 row-span-2' : ''}`}>
-          <Image src={src} alt={imageLabel(i)} fill sizes={i === 0 ? '(min-width: 1280px) 620px, 50vw' : '(min-width: 1280px) 310px, 25vw'} priority={i === 0} className="object-cover motion-safe:transition-transform motion-safe:duration-500 group-hover:scale-[1.03]" />
+          <Image unoptimized={src.startsWith('https://')} src={src} alt={imageLabel(i)} fill sizes={i === 0 ? '(min-width: 1280px) 620px, 50vw' : '(min-width: 1280px) 310px, 25vw'} priority={i === 0} className="object-cover motion-safe:transition-transform motion-safe:duration-500 group-hover:scale-[1.03]" />
         </button>)}
       </div>
       <div className={`${styles.carousel} flex snap-x snap-mandatory overflow-x-auto md:hidden`} onScroll={event => { const el = event.currentTarget; setMobileIndex(Math.round(el.scrollLeft / Math.max(1, el.clientWidth))); }}>
         {images.slice(0, 5).map((src, i) => <button type="button" key={src} onClick={() => setView(i)} aria-label={`${imageLabel(i)} ${english ? 'enlarge' : '크게 보기'}`} className="relative aspect-[4/3] w-full shrink-0 snap-center bg-stone-900">
-          <Image src={src} alt={imageLabel(i)} fill sizes="100vw" priority={i === 0} className="object-cover" />
+          <Image unoptimized={src.startsWith('https://')} src={src} alt={imageLabel(i)} fill sizes="100vw" priority={i === 0} className="object-cover" />
         </button>)}
       </div>
       <div className="absolute bottom-4 right-4 flex items-center gap-2">
@@ -41,12 +41,12 @@ export function BookingPhotoGallery({ images, name, english, variant = 'hero' }:
     </div> : <div>
       <div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-medium">{english ? 'Photo gallery' : '사진 갤러리'}</h2><span aria-live="polite" className="text-sm text-stone-400">{selected + 1} / {images.length}</span></div>
       <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-stone-900" onTouchStart={event => { touch.current = { x: event.touches[0].clientX, y: event.touches[0].clientY }; }} onTouchEnd={event => { const start = touch.current; touch.current = null; if (!start) return; const dx = event.changedTouches[0].clientX - start.x; const dy = event.changedTouches[0].clientY - start.y; if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) moveSelected(dx > 0 ? -1 : 1); }}>
-        <button type="button" onClick={() => setView(selected)} aria-label={imageLabel(selected) + (english ? ' enlarge' : ' 크게 보기')} className="absolute inset-0"><Image src={images[selected]} alt={imageLabel(selected)} fill sizes="(max-width:1024px) 100vw, 720px" className="object-contain" /></button>
+        <button type="button" onClick={() => setView(selected)} aria-label={imageLabel(selected) + (english ? ' enlarge' : ' 크게 보기')} className="absolute inset-0"><Image unoptimized={images[selected].startsWith('https://')} src={images[selected]} alt={imageLabel(selected)} fill sizes="(max-width:1024px) 100vw, 720px" className="object-contain" /></button>
         <button type="button" onClick={() => moveSelected(-1)} aria-label={english ? 'Previous gallery photo' : '갤러리 이전 사진'} className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/60 p-3"><ChevronLeft /></button>
         <button type="button" onClick={() => moveSelected(1)} aria-label={english ? 'Next gallery photo' : '갤러리 다음 사진'} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/60 p-3"><ChevronRight /></button>
       </div>
       <div aria-label={english ? 'Choose photo' : '갤러리 사진 선택'} className={styles.carousel + ' mt-3 flex gap-2 overflow-x-auto pb-2'}>
-        {images.map((src, i) => <button type="button" key={src} aria-label={imageLabel(i)} aria-pressed={selected === i} onClick={() => setSelected(i)} className={'relative h-16 w-24 shrink-0 overflow-hidden rounded-md border-2 ' + (selected === i ? 'border-white' : 'border-transparent opacity-60 hover:opacity-100')}><Image src={src} alt="" fill sizes="96px" className="object-cover" /></button>)}
+        {images.map((src, i) => <button type="button" key={src} aria-label={imageLabel(i)} aria-pressed={selected === i} onClick={() => setSelected(i)} className={'relative h-16 w-24 shrink-0 overflow-hidden rounded-md border-2 ' + (selected === i ? 'border-white' : 'border-transparent opacity-60 hover:opacity-100')}><Image unoptimized={src.startsWith('https://')} src={src} alt="" fill sizes="96px" className="object-cover" /></button>)}
       </div>
     </div>}
     <dialog ref={dialog} onCancel={() => setView(null)} onClose={() => setView(null)} aria-label={english ? `${name} photos` : `${name} 사진 보기`} onKeyDown={event => {
@@ -59,7 +59,7 @@ export function BookingPhotoGallery({ images, name, english, variant = 'hero' }:
         <button type="button" autoFocus onClick={() => setView(null)} className="flex min-h-11 items-center gap-2 px-2 text-sm" aria-label={english ? 'Close photos' : '사진 닫기'}><X size={20} />{english ? 'Close' : '닫기'}</button>
       </div>
       {typeof view === 'number' && <div className="relative h-[calc(100dvh-4rem)]" onTouchStart={event => { touch.current = { x: event.touches[0].clientX, y: event.touches[0].clientY }; }} onTouchEnd={event => { const start = touch.current; touch.current = null; if (!start) return; const dx = event.changedTouches[0].clientX - start.x; const dy = event.changedTouches[0].clientY - start.y; if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) move(dx > 0 ? -1 : 1); }}>
-        <Image src={images[view]} alt={imageLabel(view)} fill sizes="100vw" className="object-contain p-2 sm:p-12" />
+        <Image unoptimized={images[view].startsWith('https://')} src={images[view]} alt={imageLabel(view)} fill sizes="100vw" className="object-contain p-2 sm:p-12" />
         <button type="button" onClick={() => move(-1)} aria-label={english ? 'Previous photo' : '이전 사진'} className="absolute left-2 top-1/2 rounded-full bg-black/60 p-3 sm:left-6"><ChevronLeft /></button>
         <button type="button" onClick={() => move(1)} aria-label={english ? 'Next photo' : '다음 사진'} className="absolute right-2 top-1/2 rounded-full bg-black/60 p-3 sm:right-6"><ChevronRight /></button>
       </div>}

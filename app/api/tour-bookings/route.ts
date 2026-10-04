@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { authorizeTourBooking, authorizeTourSchedule } from '@/lib/auth';
 import { notifyTourHostOfBooking, notifyTourGuestOfBooking } from '@/lib/notify';
+import { tourOwnershipWhere } from '@/lib/tour-access';
 import { withAuth, ok, created, fail, MESSAGES, readJson, str, query } from '@/lib/core/http';
 
 export const GET = withAuth('tour-bookings', async (req, { auth }) => {
@@ -8,7 +9,7 @@ export const GET = withAuth('tour-bookings', async (req, { auth }) => {
   const status = query(req, 'status');
   const bookings = await prisma.tourBooking.findMany({
     where: {
-      ...(auth.isAdmin ? {} : { tour: { ownerId: auth.session.userId } }),
+      tour: tourOwnershipWhere(auth),
       ...(tourId ? { tourId } : {}),
       ...(status ? { status } : {}),
     },
@@ -42,7 +43,7 @@ export const POST = withAuth('tour-bookings', async (req, { auth }) => {
   if (!scheduleId || !name || !body.guests) throw fail(400, '이름, 슬롯, 인원은 필수입니다.');
 
   // Verify the admin owns the tour behind this schedule.
-  if (!(await authorizeTourSchedule(scheduleId, auth.session.userId, { isAdmin: auth.isAdmin }))) throw fail(403, MESSAGES.forbidden);
+  if (!(await authorizeTourSchedule(scheduleId, auth.session.userId, { isAdmin: auth.isAdmin, auth }))) throw fail(403, MESSAGES.forbidden);
 
   const trimmedPhone = (str(body, 'phone') ?? '').trim();
   const durationOptionId = str(body, 'durationOptionId');
@@ -119,7 +120,7 @@ const BOOKING_WRITABLE_FIELDS = ['name', 'phone', 'email', 'message'] as const;
 export const PUT = withAuth('tour-bookings', async (req, { auth }) => {
   const body = await readJson(req);
   const id = str(body, 'id', { required: true })!;
-  const before = await authorizeTourBooking(id, auth.session.userId, { isAdmin: auth.isAdmin });
+  const before = await authorizeTourBooking(id, auth.session.userId, { isAdmin: auth.isAdmin, auth });
   if (!before) throw fail(403, MESSAGES.forbidden);
 
   const status = str(body, 'status');

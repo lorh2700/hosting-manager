@@ -3,14 +3,16 @@ import { getVisiblePropertyIds } from '@/lib/access';
 import { withAuth, ok, fail, readJson } from '@/lib/core/http';
 import { PUT as updateUser } from '@/app/api/users/route';
 import { POST as createStaff } from '@/app/api/staff/route';
+import { staffTenantWhere } from '@/lib/user-management';
+import { canManageCleaner } from '@/lib/access';
 
 // Compatibility URL; IDs are users.id and no cleaners table is read or written.
 export const GET = withAuth('staff/assignees', async (_req, { auth }) => {
   const visible = await getVisiblePropertyIds(auth);
-  const users = await staffDirectory.findMany({ where: { status: { in: ['active', 'no_account'] } } });
-  return ok(users.filter(u => visible === null || u.id === auth.session.userId || u.assignments.some(p => visible.includes(p.propertyId)) || (u.role === 'admin' && visible.length > 0)).map(u => ({
+  const users = await staffDirectory.findMany({ where: { ...staffTenantWhere(auth), status: { in: ['active', 'no_account'] } }, take: 1000 });
+  return ok(users.filter(u => visible === null || u.id === auth.session.userId || u.assignments.some(p => visible.includes(p.propertyId)) || (u.role === 'admin' && !!auth.user.organizationId && u.organizationId === auth.user.organizationId)).map(u => ({
     id: u.id, userId: u.id, name: u.name, phone: u.phone, role: u.role, ownerId: u.ownerId,
-    publicToken: auth.role === 'admin' || u.id === auth.session.userId || u.ownerId === auth.session.userId ? u.publicToken : null,
+    publicToken: u.id === auth.session.userId || (u.role === 'cleaner' && canManageCleaner(auth, u)) || auth.role === 'super_admin' ? u.publicToken : null,
     notifyNewOpen: u.notifyNewOpen, createdAt: u.createdAt, assignedPropertyIds: u.assignments.map(p => p.propertyId),
     login: u.status === 'no_account' ? null : { email: u.user.email, status: u.status }, pendingInvitation: null,
   })));

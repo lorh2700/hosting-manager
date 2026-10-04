@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { syncICalChannel, syncBeds24Property, logSync } from '@/lib/sync-engine';
 import { withErrors, ok, fail, MESSAGES, cronOrSession, requireManage, str } from '@/lib/core/http';
+import { propertyModuleEnabled } from '@/lib/operational-feature-store';
 
 type SyncOutcome = { eventsFound: number; eventsCreated: number; eventsUpdated: number; eventsRemoved: number; error?: string };
 const EMPTY: SyncOutcome = { eventsFound: 0, eventsCreated: 0, eventsUpdated: 0, eventsRemoved: 0 };
@@ -27,8 +28,14 @@ export const POST = withErrors('sync', async (req) => {
     : (await prisma.property.findMany({ select: { id: true } })).map(p => p.id);
 
   const results: Array<{ propertyId: string; integrationId: string; provider: string; result: SyncOutcome }> = [];
+  let propertiesSynced = 0;
 
   for (const propId of propertyIds) {
+    if (!await propertyModuleEnabled(propId, 'integrations')) {
+      if (propertyId) throw fail(403, '사업자 또는 숙소의 채널 연동 옵션이 꺼져 있습니다.', { code: 'service_disabled' });
+      continue;
+    }
+    propertiesSynced++;
     const syncedUrls = new Set<string>();
 
     // 1. iCal integrations
@@ -84,7 +91,7 @@ export const POST = withErrors('sync', async (req) => {
   return ok({
     success: true,
     summary: {
-      propertiesSynced: propertyIds.length,
+      propertiesSynced,
       channelsSynced: results.length,
       eventsCreated: results.reduce((s, r) => s + r.result.eventsCreated, 0),
       eventsUpdated: results.reduce((s, r) => s + r.result.eventsUpdated, 0),

@@ -7,7 +7,7 @@ import {
   Home, ClipboardList, CalendarDays, BookOpen, MessageSquare, Users, UserCog,
   LogOut, CircleUserRound, Menu, X, FileBarChart, Compass, Briefcase,
   CalendarCheck, Hand, KeyRound, Plane, Package, CircleAlert, Plug,
-  CreditCard, ChevronDown, ArrowUpRight,
+  CreditCard, ChevronDown, ArrowUpRight, Settings, History,
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { Logo } from '@/components/Logo';
@@ -22,6 +22,7 @@ const ICONS: Record<AdminNavIcon, typeof Home> = {
   guests: Users, pickup: Plane, integrations: Plug, api: KeyRound, account: CircleUserRound,
   tours: Compass, 'tour-bookings': CalendarCheck, 'tour-operators': Briefcase,
   'my-cleaning': ClipboardList,
+  settings: Settings, activity: History,
 };
 
 export function Sidebar() {
@@ -30,7 +31,7 @@ export function Sidebar() {
   const { user, profile } = useAuth();
   const role = profile?.role ?? 'manager';
   const { mode } = useAdminMode();
-  const navigation = useMemo(() => getAdminNavigation(mode, role), [mode, role]);
+  const navigation = useMemo(() => getAdminNavigation(mode, role, profile ?? {}), [mode, role, profile]);
   const [moreOpen, setMoreOpen] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [logoutPending, setLogoutPending] = useState(false);

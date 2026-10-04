@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { UserRole, UserStatus } from '@/lib/types';
+import type { OperationalModule } from '@/lib/operational-permissions';
 
 interface AuthUser {
   id: string;
@@ -15,6 +16,10 @@ interface UserProfile {
   displayName: string;
   phone?: string;
   status: UserStatus;
+  organizationId?: string | null;
+  organizationName?: string | null;
+  enabledModules?: OperationalModule[];
+  organizationFeatures?: unknown;
 }
 
 interface AuthContextType {

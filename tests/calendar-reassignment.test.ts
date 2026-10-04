@@ -4,7 +4,7 @@ import {PUT,POST} from '../app/api/cleanings/route';
 import {db,resetDb} from './stubs/prisma';
 import {actAsAdmin} from './stubs/auth';
 import {notifyCalls,resetNotify} from './stubs/notify';
-beforeEach(()=>{resetDb();resetNotify();actAsAdmin();db.property=[{id:'p',name:'Test'}];db.user=['old','new'].map(id=>({id,displayName:id,phone:'01000000000',status:'active',role:'admin',publicToken:id,properties:[]}));db.cleaning=[{id:'c',propertyId:'p',date:'2026-10-02',cleanerId:'old',status:'pending'}];});
+beforeEach(()=>{resetDb();resetNotify();actAsAdmin();db.property=[{id:'p',name:'Test'}];db.user=['old','new'].map(id=>({id,displayName:id,phone:'01000000000',status:'active',role:'super_admin',publicToken:id,properties:[]}));db.cleaning=[{id:'c',propertyId:'p',date:'2026-10-02',cleanerId:'old',status:'pending'}];});
 const req=(body:unknown)=>new Request('http://test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 test('reassignment cancels previous assignee and notifies new one exactly once',async()=>{
  const ctx={params:Promise.resolve({})};

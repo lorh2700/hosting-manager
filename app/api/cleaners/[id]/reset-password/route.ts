@@ -2,12 +2,15 @@ import { randomBytes } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { withAuth, ok, fail } from '@/lib/core/http';
-import { normalizeRole } from '@/lib/access';
+import { normalizeRole, canManageCleaner } from '@/lib/access';
 import { phoneToSyntheticEmail } from '@/lib/phone';
+import { canAdministerUser } from '@/lib/user-management';
 export const POST = withAuth<{ id: string }>('staff/reset-password', async (_req, { auth, params }) => {
   const user = await prisma.user.findUnique({ where: { id: params.id } });
   if (!user) throw fail(404, '직원을 찾을 수 없습니다.');
-  if (auth.role !== 'admin' && !(auth.role === 'manager' && normalizeRole(user.role) === 'cleaner' && user.ownerId === auth.session.userId)) throw fail(403, '권한이 없습니다.');
+  const assignments = auth.role === 'manager' && normalizeRole(user.role) === 'cleaner'
+    ? await prisma.userProperty.findMany({ where: { userId: user.id }, select: { propertyId: true } }) : [];
+  if (!canAdministerUser(auth, user) && !(auth.role === 'manager' && normalizeRole(user.role) === 'cleaner' && canManageCleaner(auth, { ...user, assignments }))) throw fail(403, '권한이 없습니다.');
   if (user.id === auth.session.userId) throw fail(400, '본인 비밀번호는 비밀번호 변경에서 수정해 주세요.');
   const initialPassword = randomBytes(12).toString('hex');
   const email = user.email.endsWith('@staff.invalid') ? phoneToSyntheticEmail(user.phone || '') : user.email;

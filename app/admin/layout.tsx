@@ -6,6 +6,8 @@ import { useAuth } from '@/components/AuthProvider';
 import { useAdminMode } from '@/lib/adminMode';
 import { NavigationLink } from '@/components/NavigationFeedback';
 import styles from './AdminShell.module.css';
+import { canUseModule, isModuleEnabled, moduleForAdminPath } from '@/lib/operational-permissions';
+import { getAdminNavigation } from '@/lib/admin-navigation';
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth();
   const { mode } = useAdminMode();
@@ -40,18 +42,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
+  const operationalModule = pathname === '/admin' && mode === 'tour' ? 'tours' : moduleForAdminPath(pathname);
+  const administratorPage = (pathname === '/admin/settings' || pathname.startsWith('/admin/settings/operations') || pathname.startsWith('/admin/activity'));
+  const allowed = !!profile && (!administratorPage || ['super_admin', 'admin'].includes(profile.role))
+    && (!operationalModule || profile.role === 'super_admin' || (canUseModule(profile.role, profile.enabledModules, operationalModule) && isModuleEnabled(operationalModule, profile.organizationFeatures)));
+  const firstPermitted = profile ? getAdminNavigation(mode, profile.role, profile).groups.flatMap(group => group.items).find(item => item.href !== '/admin/settings/profile') : undefined;
+
   return (
     <div className={styles.shell}>
       <Sidebar />
       <div className={styles.content}>
         <header className={styles.chrome}>
-          <span className={styles.mode}>{mode === 'tour' ? '투어 관리' : '숙박 관리'}</span>
+          <span className={styles.mode}>{profile?.role === 'super_admin' ? '슈퍼매니저' : profile?.organizationName || (mode === 'tour' ? '투어 관리' : '숙박 관리')}</span>
           <NavigationLink href="/admin/settings/profile" className={styles.account} aria-label="내 계정">
             <span className={styles.avatar} aria-hidden="true">{(profile?.displayName || '관리자').slice(0, 1)}</span>
             <span className={styles.accountName}>{profile?.displayName || '관리자'}</span>
           </NavigationLink>
         </header>
-        <main className={styles.main}>{children}</main>
+        <main className={styles.main}>{allowed ? children : <section className="mx-auto max-w-lg border bg-white p-8"><h1 className="text-xl font-semibold">사용 권한이 없는 메뉴입니다.</h1><p className="mt-3 text-sm text-stone-500">사업자 관리자에게 담당 숙소와 메뉴 권한을 확인해 주세요.</p><NavigationLink className="mt-6 inline-flex min-h-11 items-center border px-4 text-sm" href={firstPermitted?.href || '/admin/settings/profile'}>사용 가능한 메뉴로 이동</NavigationLink></section>}</main>
       </div>
     </div>
   );

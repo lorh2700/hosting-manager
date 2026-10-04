@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { withErrors, ok, fail, readJson, str, query, DATE_RE } from '@/lib/core/http';
 import { getCheckoutStatus, recordCheckoutSignal, notifyCheckoutRecipients } from '@/lib/checkout';
 import { todayKst } from '@/lib/dates';
+import { requirePropertyModule } from '@/lib/operational-feature-store';
 
 /**
  * 객실 패드 셀프 체크아웃.
@@ -18,6 +19,7 @@ function requirePadKey(req: Request): void {
 async function resolveProperty(propertyKey: string) {
   const property = await prisma.property.findUnique({ where: { welcomepadKey: propertyKey }, select: { id: true, name: true } });
   if (!property) throw fail(404, `propertyKey '${propertyKey}' not found`);
+  await requirePropertyModule(property.id, 'guestServices');
   return property;
 }
 

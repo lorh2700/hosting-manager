@@ -9,11 +9,20 @@ export const authState: { auth: any } = { auth: null };
 
 export function actAsAdmin() {
   authState.auth = {
-    role: 'admin',
+    role: 'super_admin',
     isAdmin: true,
     propertyIds: null,
-    user: { id: 'admin-1', email: 'admin@test', role: 'admin', status: 'active', phone: null },
+    user: { id: 'admin-1', email: 'admin@test', role: 'super_admin', status: 'active', phone: null },
     session: { userId: 'admin-1', email: 'admin@test' },
+  };
+}
+
+export function actAsBusinessAdmin(organizationId: string | null, propertyIds: string[] = []) {
+  authState.auth = {
+    role: 'admin', isAdmin: false, isBusinessAdmin: true, propertyIds,
+    organizationId,
+    user: { id: 'business-admin-1', email: 'business-admin@test', role: 'admin', status: 'active', organizationId },
+    session: { userId: 'business-admin-1', email: 'business-admin@test' },
   };
 }
 

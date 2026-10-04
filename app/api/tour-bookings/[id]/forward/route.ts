@@ -7,7 +7,7 @@ type Params = { id: string };
 
 // 예약을 운영업체에 전달(알림)하고 상태를 forwarded 로 바꾼다.
 export const POST = withAuth<Params>('tour-bookings/forward', async (_req, { auth, params }) => {
-  if (!(await authorizeTourBooking(params.id, auth.session.userId, { isAdmin: auth.isAdmin }))) throw fail(403, MESSAGES.forbidden);
+  if (!(await authorizeTourBooking(params.id, auth.session.userId, { isAdmin: auth.isAdmin, auth }))) throw fail(403, MESSAGES.forbidden);
 
   const booking = await prisma.tourBooking.findUnique({
     where: { id: params.id },

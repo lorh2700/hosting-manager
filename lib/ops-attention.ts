@@ -1,9 +1,13 @@
 import type { OpsProperty } from '../app/api/ops/today/route';
+import type { OperationalModule } from './operational-permissions';
 
 export type OpsNextAction = { label: string; tone: 'neutral' | 'warning' | 'danger'; kind: 'unknown' | 'checkout' | 'assign' | 'cleaning' | 'message' };
+export function canUseOpsModule(property: OpsProperty, module: OperationalModule): boolean {
+  return property.operationalModules === undefined || property.operationalModules.includes(module);
+}
 
 export function needsOpsCleaning(property: OpsProperty): boolean {
-  return property.checkouts.length > 0 || !!property.cleaning;
+  return canUseOpsModule(property, 'cleaning') && (property.checkouts.length > 0 || !!property.cleaning);
 }
 
 /** An accepted room-ready message is a separate task from cleaning and checkout. */
@@ -16,7 +20,7 @@ export function opsNextAction(property: OpsProperty, detailsReady: boolean, deli
       ? { label: '청소 진행 확인', tone: 'neutral', kind: 'cleaning' }
       : { label: '담당자 배정', tone: 'warning', kind: 'assign' };
   }
-  const unsent = property.checkins.filter(reservation => reservation.hasChat && (delivery[reservation.id] ?? reservation.readyDelivery) !== 'sent');
+  const unsent = property.canSendMessages === false ? [] : property.checkins.filter(reservation => reservation.hasChat && (delivery[reservation.id] ?? reservation.readyDelivery) !== 'sent');
   if (unsent.length) {
     const failed = unsent.some(reservation => {
       const state = delivery[reservation.id] ?? reservation.readyDelivery;
@@ -28,6 +32,7 @@ export function opsNextAction(property: OpsProperty, detailsReady: boolean, deli
 }
 
 export function opsCleaningLabel(property: OpsProperty, detailsReady: boolean): string {
+  if (!canUseOpsModule(property, 'cleaning')) return '청소 사용 안 함';
   if (!detailsReady && property.hasWork) return '확인 필요';
   if (!needsOpsCleaning(property)) return '청소 없음';
   if (property.cleaning?.status === 'done') return '완료';

@@ -3,6 +3,7 @@ import { config } from 'dotenv';
 import { Client } from 'pg';
 import { readFile, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
+import sharp from 'sharp';
 
 config({ path: '.env.local', quiet: true });
 const { prepareJongnoImage, jongnoImageFormat } = await import('../../lib/jongno-event-image.ts');
@@ -30,13 +31,17 @@ try {
     const row = (await client.query('SELECT version,images FROM jongno_events WHERE id=$1', [source.id])).rows[0];
     if (!row || row.version !== event.version) throw new Error('Event changed since reading');
     if (row.images.length) throw new Error('Event already has images; preserve the existing editorial content');
-    const bytes = new Uint8Array(await readFile(new URL(source.filename, root)));
+    const original = new Uint8Array(await readFile(new URL(source.filename, root)));
+    // Large licensed archive photos are reduced locally before the normal upload pipeline.
+    const bytes = original.length > 8 * 1024 * 1024
+      ? new Uint8Array(await sharp(original, { limitInputPixels: 32_000_000 }).rotate().resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true }).png().toBuffer())
+      : original;
     const format = jongnoImageFormat(bytes);
     const contentType = { jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }[format];
     if (!contentType) throw new Error('Unsupported image');
     const image = await prepareJongnoImage(bytes, contentType);
     parseJongnoEventInput({ ...event, images: [{ url: source.imageUrl, alt: source.alt, credit: source.credit, sourceUrl: source.sourceUrl }] });
-    prepared.push({ source, event, image, originalBytes: bytes.length });
+    prepared.push({ source, event, image, originalBytes: original.length });
   }
   if (apply) {
     for (const entry of prepared) {

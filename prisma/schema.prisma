@@ -45,6 +45,87 @@ model JongnoEvent {
   @@map("jongno_events")
 }
 
+// Independent, revocable credentials for reservation-scoped guest services.
+// Reservation references remain logical: a cancelled/deleted live stay must invalidate access.
+model GuestStayAccess {
+  id String @id @default(uuid())
+  propertyId String @map("property_id")
+  reservationKind String @map("reservation_kind")
+  reservationId String @map("reservation_id")
+  fingerprint String
+  source String
+  codeHash String? @unique @map("code_hash")
+  tokenHash String? @unique @map("token_hash")
+  tokenExpiresAt DateTime? @map("token_expires_at")
+  deviceId String? @map("device_id")
+  expiresAt DateTime @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdBy String? @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  sessions GuestStaySession[]
+  @@index([propertyId, reservationKind, reservationId], map: "guest_stay_accesses_reservation_idx")
+  @@index([deviceId, revokedAt], map: "guest_stay_accesses_device_idx")
+  @@map("guest_stay_accesses")
+}
+
+model GuestStaySession {
+  id String @id @default(uuid())
+  accessId String @map("access_id")
+  tokenHash String @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  access GuestStayAccess @relation(fields: [accessId], references: [id], onDelete: Cascade)
+  @@index([accessId, revokedAt], map: "guest_stay_sessions_access_idx")
+  @@map("guest_stay_sessions")
+}
+
+model GuestStayRequest {
+  id String @id
+  propertyId String @map("property_id")
+  reservationKind String @map("reservation_kind")
+  reservationId String @map("reservation_id")
+  guestName String @map("guest_name")
+  kind String
+  details Json
+  source String @default("mobile")
+  payloadHash String @map("payload_hash")
+  status String @default("requested")
+  publicReply String @default("") @map("public_reply")
+  internalNote String @default("") @map("internal_note")
+  version Int @default(1)
+  updatedBy String? @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@index([propertyId, reservationKind, reservationId, createdAt], map: "guest_stay_requests_reservation_idx")
+  @@index([propertyId, status, createdAt], map: "guest_stay_requests_status_idx")
+  @@map("guest_stay_requests")
+}
+
+model GuestStayAttempt {
+  keyHash String @id @map("key_hash")
+  count Int @default(1)
+  expiresAt DateTime @map("expires_at")
+  @@index([expiresAt], map: "guest_stay_attempts_expiry_idx")
+  @@map("guest_stay_attempts")
+}
+
+model GuestStayDevice {
+  id String @id @default(uuid())
+  propertyId String @map("property_id")
+  label String
+  pairingHash String? @unique @map("pairing_hash")
+  pairingExpiresAt DateTime @map("pairing_expires_at")
+  tokenHash String? @unique @map("token_hash")
+  pairedAt DateTime? @map("paired_at")
+  expiresAt DateTime @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdBy String @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([propertyId, revokedAt], map: "guest_stay_devices_property_idx")
+  @@map("guest_stay_devices")
+}
+
 // ── 사용자 ──
 model User {
   id          String    @id @default(uuid())
@@ -52,11 +133,15 @@ model User {
   password    String
   displayName String?   @map("display_name")
   phone       String?
-  role        String    @default("manager") // admin(관리자) | manager(매니저) | cleaner(청소담당자)
+  role        String    @default("manager") // super_admin(슈퍼매니저) | admin(사업자관리자) | manager | cleaner
   status      String    @default("active") // active, suspended, pending_invite
   lastLoginAt DateTime? @map("last_login_at")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
+  organizationId String? @map("organization_id")
+  enabledModules Json? @map("enabled_modules")
+  accessVersion Int @default(1) @map("access_version")
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
   properties      UserProperty[]
   ownedProperties Property[]
@@ -71,6 +156,7 @@ model User {
   tourOperators   TourOperator[] @relation("OwnedTourOperators")
   tours           Tour[]         @relation("OwnedTours")
 
+  @@index([organizationId])
   @@map("users")
 }
 
@@ -131,6 +217,11 @@ model Property {
   // "10월 오픈 예정" 같은 자유 형식 표시. YYYY-MM 또는 YYYY-MM-DD 권장.
   openingDate      String?  @map("opening_date")
   createdAt        DateTime @default(now()) @map("created_at")
+  organizationId   String? @map("organization_id")
+  featureOverrides Json @default("{}") @map("feature_overrides")
+  featureVersion   Int @default(1) @map("feature_version")
+  publicInfo       Json @default("{}") @map("public_info")
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
   owner                User                  @relation(fields: [ownerId], references: [id])
   users                UserProperty[]
@@ -156,7 +247,68 @@ model Property {
   inquiryAutomationSettings InquiryAutomationSettings?
   guestServiceRequests GuestServiceRequest[]
 
+  @@index([organizationId])
   @@map("properties")
+}
+
+// A business owns a logical portfolio. Operational assignments remain UserProperty.
+model Organization {
+  id String @id @default(uuid())
+  name String
+  status String @default("active")
+  features Json @default("{}")
+  version Int @default(1)
+  createdBy String? @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  properties Property[]
+  users User[]
+  invitations Invitation[]
+  propertyRequests PropertyRequest[]
+  @@index([status, name])
+  @@map("organizations")
+}
+
+// Append-only activity history intentionally has no deleting actor/property foreign keys.
+model AuditLog {
+  id String @id @default(uuid())
+  actorId String? @map("actor_id")
+  actorName String @default("") @map("actor_name")
+  action String
+  module String?
+  targetType String? @map("target_type")
+  targetId String? @map("target_id")
+  propertyId String? @map("property_id")
+  organizationId String? @map("organization_id")
+  summary String
+  outcome String @default("success")
+  requestId String? @map("request_id")
+  details Json @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([createdAt, id])
+  @@index([organizationId, createdAt, id])
+  @@index([propertyId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([module, outcome, createdAt])
+  @@map("audit_logs")
+}
+
+model PropertyRequest {
+  id String @id @default(uuid())
+  organizationId String @map("organization_id")
+  name String
+  note String @default("")
+  status String @default("requested")
+  requestedBy String @map("requested_by")
+  decidedBy String? @map("decided_by")
+  decisionNote String @default("") @map("decision_note")
+  propertyId String? @map("property_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  decidedAt DateTime? @map("decided_at")
+  version Int @default(1)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  @@index([organizationId, status, createdAt])
+  @@map("property_requests")
 }
 
 // 숙소별 고객 문의 알림 수신 설정. 전화번호는 관리 권한이 있는 전용 API에서만 노출한다.
@@ -728,6 +880,8 @@ model Invitation {
   token       String   @unique
   expiresAt   DateTime @map("expires_at")
   createdAt   DateTime @default(now()) @map("created_at")
+  organizationId String? @map("organization_id")
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
   inviter User?    @relation("InvitedBy", fields: [invitedBy], references: [id])
   cleaner User? @relation("StaffInvitations", fields: [cleanerId], references: [id], onDelete: SetNull)

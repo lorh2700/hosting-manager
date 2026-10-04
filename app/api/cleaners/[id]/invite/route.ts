@@ -21,16 +21,18 @@ export const POST = withAuth<Params>('cleaners/invite', async (req, { auth, para
   const cleaner = await staffDirectory.findUnique({ where: { id: params.id }, select: { id: true, userId: true, ownerId: true } });
   if (!cleaner) throw fail(404, '청소 담당자를 찾을 수 없습니다.');
   if (!canManageCleaner(auth, cleaner)) throw fail(403, MESSAGES.forbidden);
-  if (auth.role !== 'admin' && cleaner.role !== 'cleaner') throw fail(403, '관리 계정의 로그인 초대는 관리자만 발급할 수 있습니다.');
+  if (auth.role !== 'super_admin' && auth.role !== 'admin' && cleaner.role !== 'cleaner') throw fail(403, '관리 계정의 로그인 초대는 관리자만 발급할 수 있습니다.');
   if (cleaner.status !== 'no_account') throw fail(409, '이미 로그인 계정과 연결된 담당자입니다.');
 
   if (await prisma.user.findUnique({ where: { email } })) throw fail(409, '이미 가입된 이메일입니다.');
-  if (await prisma.invitation.findFirst({ where: { email, status: 'pending' } })) throw fail(409, '이미 대기중인 초대가 있습니다.');
+  if (await prisma.invitation.findFirst({ where: { email, status: 'pending', expiresAt: { gt: new Date() } } })) throw fail(409, '이미 대기중인 초대가 있습니다.');
+  await prisma.invitation.updateMany({ where: { email, status: 'pending', expiresAt: { lte: new Date() } }, data: { status: 'expired' } });
 
   const invitation = await prisma.invitation.create({
     data: {
       email,
       role: cleaner.role,
+      organizationId: cleaner.organizationId || null,
       propertyIds: [],
       invitedBy: auth.session.userId,
       cleanerId: cleaner.id,

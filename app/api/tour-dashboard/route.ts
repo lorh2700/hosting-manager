@@ -1,10 +1,11 @@
 import { prisma } from '@/lib/prisma';
 import { format, addDays } from 'date-fns';
 import { withAuth, ok } from '@/lib/core/http';
+import { tourOwnershipWhere } from '@/lib/tour-access';
 
 export const GET = withAuth('tour-dashboard', async (_req, { auth }) => {
-  const ownerWhere = auth.isAdmin ? {} : { ownerId: auth.session.userId };
-  const tourBookingWhere = auth.isAdmin ? {} : { tour: { ownerId: auth.session.userId } };
+  const ownerWhere = tourOwnershipWhere(auth);
+  const tourBookingWhere = { tour: ownerWhere };
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const weekEnd = format(addDays(new Date(), 6), 'yyyy-MM-dd');

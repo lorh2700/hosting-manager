@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { normalizeRole } from '@/lib/access';
 import { withAuth, ok, fail, MESSAGES } from '@/lib/core/http';
+import { requireUserAdministration } from '@/lib/user-management';
 
 type Params = { id: string };
 
@@ -13,8 +14,9 @@ export const DELETE = withAuth<Params>('users/id', async (_req, { auth, params }
 
   const target = await prisma.user.findUnique({ where: { id: params.id } });
   if (!target) throw fail(404, MESSAGES.notFound);
+  requireUserAdministration(auth, target);
   if (normalizeRole(target.role) === 'cleaner') throw fail(400, '청소담당자 계정은 청소 담당자 관리에서 삭제합니다.');
 
   await prisma.user.delete({ where: { id: params.id } });
   return ok({ ok: true });
-}, { admin: true });
+}, { businessAdmin: true });

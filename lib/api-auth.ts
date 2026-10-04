@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createHash, randomBytes } from 'node:crypto';
 import { prisma } from '@/lib/prisma';
+import { propertyAllowsModule } from '@/lib/operational-access';
+import type { OperationalModule } from '@/lib/operational-permissions';
 
 // v1 외부 파트너 API 인증.
 //
@@ -28,7 +30,7 @@ export type ApiAuthResult =
   | { ok: true; client: ApiClient }
   | { ok: false; error: ApiAuthError };
 
-const KEY_FORMAT = /^vd_(live|test)_[A-Za-z0-9]{20,64}$/;
+const KEY_FORMAT = /^vd_(live|test)_[A-Za-z0-9_-]{20,64}$/;
 const LAST_USED_DEBOUNCE_MS = 5 * 60 * 1000;
 
 function hashKey(plain: string): string {
@@ -57,7 +59,7 @@ export function generateApiKey(env: 'live' | 'test' = 'live'): {
  */
 export async function authenticateApiRequest(
   req: Request,
-  options: { scope?: string } = {},
+  options: { scope?: string; module?: OperationalModule } = {},
 ): Promise<ApiAuthResult> {
   const header = req.headers.get('authorization');
   if (!header) return { ok: false, error: { kind: 'missing_authorization' } };
@@ -90,6 +92,16 @@ export async function authenticateApiRequest(
     };
   }
 
+  // Resolve the configured property scope without guessing a business identity.
+  const module: OperationalModule = options.module ?? (options.scope?.startsWith('cleanings:') ? 'cleaning'
+    : options.scope?.startsWith('bookings:') ? 'reservations' : 'properties');
+  const properties = await prisma.property.findMany({
+    where: row.propertyIds.length ? { id: { in: row.propertyIds } } : {},
+    select: { id: true, featureOverrides: true, organization: { select: { status: true, features: true } } },
+  });
+  const propertyIds = properties.filter(property => propertyAllowsModule(property, module)
+    && propertyAllowsModule(property, 'integrations')).map(property => property.id);
+
   // last_used_at 갱신 (write 부하 줄이려 debounce)
   const lastUsedMs = row.lastUsedAt?.getTime() ?? 0;
   if (Date.now() - lastUsedMs > LAST_USED_DEBOUNCE_MS) {
@@ -105,7 +117,7 @@ export async function authenticateApiRequest(
       name: row.name,
       keyPrefix: row.keyPrefix,
       scopes: row.scopes,
-      propertyIds: row.propertyIds,
+      propertyIds,
     },
   };
 }
@@ -139,18 +151,22 @@ export function apiAuthErrorResponse(error: ApiAuthError): NextResponse {
  */
 export async function requireApiClient(
   req: Request,
-  options: { scope?: string } = {},
+  options: { scope?: string; module?: OperationalModule } = {},
 ): Promise<ApiClient | NextResponse> {
   const result = await authenticateApiRequest(req, options);
   if (!result.ok) return apiAuthErrorResponse(result.error);
   return result.client;
 }
 
+/** Works with native NextResponse and the isolated route-test response adapter. */
+export function isApiClient(value: ApiClient | NextResponse): value is ApiClient {
+  return 'id' in value && typeof value.id === 'string' && 'propertyIds' in value && Array.isArray(value.propertyIds);
+}
+
 /**
- * client.propertyIds 가 비어 있으면 모든 지점 접근, 아니면 그 지점들로 제한.
+ * 인증에서 허용 지점을 모두 해석한다. 비어 있는 결과는 접근할 지점이 없다는 뜻이다.
  * Prisma where 절에 그대로 끼워 쓸 수 있는 형태로 반환.
  */
 export function propertyScopeFilter(client: ApiClient) {
-  if (client.propertyIds.length === 0) return {};
   return { propertyId: { in: client.propertyIds } };
 }

@@ -1,10 +1,11 @@
 import { prisma } from '@/lib/prisma';
 import { syncBeds24Property } from '@/lib/sync-engine';
+import { propertyAllowsModule } from '@/lib/operational-access';
 
 export async function runBeds24Sync() {
   const properties = await prisma.property.findMany({
     where: { beds24PropId: { not: null } },
-    select: { id: true, name: true, beds24PropId: true },
+    select: { id: true, name: true, beds24PropId: true, featureOverrides: true, organization: { select: { status: true, features: true } } },
   });
 
   const results = [];
@@ -13,7 +14,7 @@ export async function runBeds24Sync() {
   let totalRemoved = 0;
 
   for (const p of properties) {
-    if (!p.beds24PropId) continue;
+    if (!p.beds24PropId || !propertyAllowsModule(p, 'integrations')) continue;
     const started = Date.now();
     const r = await syncBeds24Property(p.id, p.beds24PropId);
     totalCreated += r.eventsCreated;

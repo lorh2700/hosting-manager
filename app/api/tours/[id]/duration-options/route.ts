@@ -22,7 +22,7 @@ export const GET = withErrors<Params>('tours/duration-options', async (_req, { p
 });
 
 export const POST = withAuth<Params>('tours/duration-options', async (req, { auth, params }) => {
-  if (!(await authorizeTour(params.id, auth.session.userId, { isAdmin: auth.isAdmin }))) throw fail(403, MESSAGES.forbidden);
+  if (!(await authorizeTour(params.id, auth.session.userId, { isAdmin: auth.isAdmin, auth }))) throw fail(403, MESSAGES.forbidden);
   const body = await readJson(req);
   if (!body.durationMin || body.price === undefined || body.price === null) throw fail(400, 'durationMin과 price는 필수입니다.');
 
@@ -41,7 +41,7 @@ export const POST = withAuth<Params>('tours/duration-options', async (req, { aut
 export const PUT = withAuth<Params>('tours/duration-options', async (req, { auth }) => {
   const body = await readJson(req);
   const optionId = str(body, 'optionId', { required: true })!;
-  if (!(await authorizeTourDurationOption(optionId, auth.session.userId, { isAdmin: auth.isAdmin }))) throw fail(403, MESSAGES.forbidden);
+  if (!(await authorizeTourDurationOption(optionId, auth.session.userId, { isAdmin: auth.isAdmin, auth }))) throw fail(403, MESSAGES.forbidden);
 
   const data: { label?: string | null; durationMin?: number; price?: number; sortOrder?: number } = {};
   if (body.label !== undefined) data.label = typeof body.label === 'string' && body.label.trim() ? body.label.trim() : null;
@@ -54,7 +54,7 @@ export const PUT = withAuth<Params>('tours/duration-options', async (req, { auth
 
 export const DELETE = withAuth<Params>('tours/duration-options', async (req, { auth }) => {
   const optionId = requireQuery(req, 'optionId');
-  if (!(await authorizeTourDurationOption(optionId, auth.session.userId, { isAdmin: auth.isAdmin }))) throw fail(403, MESSAGES.forbidden);
+  if (!(await authorizeTourDurationOption(optionId, auth.session.userId, { isAdmin: auth.isAdmin, auth }))) throw fail(403, MESSAGES.forbidden);
 
   const usage = await prisma.tourBooking.count({ where: { durationOptionId: optionId } });
   if (usage > 0) throw fail(409, `예약(${usage}건)이 있는 코스는 삭제할 수 없습니다. 가격만 수정하세요.`);

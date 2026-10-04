@@ -5,6 +5,6 @@ import { withAuth, ok, fail } from '@/lib/core/http';
 export const POST = withAuth('setup', async (_req, { auth }) => {
   if (await prisma.user.findFirst({ where: { role: { in: ['admin', 'super_admin'] } } })) throw fail(409, '이미 관리자 계정이 존재합니다.');
 
-  const user = await prisma.user.update({ where: { id: auth.session.userId }, data: { role: 'admin', status: 'active' } });
+  const user = await prisma.user.update({ where: { id: auth.session.userId }, data: { role: 'super_admin', status: 'active' } });
   return ok({ message: `완료! ${user.email} 계정이 관리자로 설정되었습니다.`, email: user.email });
 });

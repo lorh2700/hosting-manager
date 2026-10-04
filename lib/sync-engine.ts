@@ -7,6 +7,7 @@ import { beds24Get, beds24WithRetry, describeBeds24Error, BEDS24_REFRESH_TOKEN }
 import { notifyNewOpenCleanings, notifyCleaningCancelled } from '@/lib/notify';
 import { todayKst, addMonthsToDateStr } from '@/lib/dates';
 import { isMaintenanceNotes, maintenanceReasonFromNotes, MAINTENANCE_TITLE } from '@/lib/beds24-booking';
+import { propertyModuleEnabled } from '@/lib/operational-feature-store';
 
 // ─── 동기화 정책 상수 ────────────────────────────────────────────────────────
 
@@ -189,6 +190,11 @@ export async function syncICalChannel(
   provider: string,
 ): Promise<SyncResult> {
   const result: SyncResult = { eventsFound: 0, eventsCreated: 0, eventsUpdated: 0, eventsRemoved: 0 };
+
+  if (!await propertyModuleEnabled(propertyId, 'integrations')) {
+    result.error = '사업자 또는 숙소의 채널 연동 옵션이 꺼져 있습니다.';
+    return result;
+  }
 
   if (!importUrl || !isAllowedICalUrl(importUrl)) {
     result.error = `차단된 iCal URL: ${importUrl}`;
@@ -477,6 +483,7 @@ export async function syncBeds24Property(
   if (!BEDS24_REFRESH_TOKEN) {
     return { total: 0, eventsCreated: 0, eventsUpdated: 0, eventsRemoved: 0, error: 'BEDS24_REFRESH_TOKEN is not configured' };
   }
+  if (!await propertyModuleEnabled(propertyId, 'integrations')) return { total: 0, eventsCreated: 0, eventsUpdated: 0, eventsRemoved: 0, error: '사업자 또는 숙소의 채널 연동 옵션이 꺼져 있습니다.' };
 
   // 조회 창 (체크아웃 기준). 창 밖의 로컬 이벤트는 아래 삭제 단계에서 제외된다.
   const today = todayKst();

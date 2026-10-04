@@ -1,0 +1,861 @@
+{
+  "en": {
+    "anon": [
+      {
+        "id": "rules",
+        "title": "House Rules",
+        "paragraphs": [
+          "Please remove shoes indoors per traditional Korean customs",
+          "No smoking allowed inside the property",
+          "Dispose of toilet paper only in the toilet",
+          "Cooking strongly odorous foods is prohibited"
+        ]
+      },
+      {
+        "id": "waste",
+        "title": "Garbage Disposal",
+        "paragraphs": [
+          "Please separate waste into general waste, food waste, and recycling.",
+          "Trash collection days: Tuesday, Thursday, and Sunday.",
+          "General Waste",
+          "Burnable waste — use designated pay-as-you-throw bags.",
+          "Paper, disposable chopsticks, tissues, masks",
+          "Food Waste",
+          "Squeeze out excess moisture before disposing in designated food waste bags.",
+          "Food waste: fruits, vegetables, rice, leftovers, meat",
+          "NOT food waste: bones, seashells, tea leaves, nutshells, eggshells, onion skins",
+          "Recyclable Waste",
+          "Place recyclable items into white bags.",
+          "Plastics, vinyl, glass bottles, metals",
+          "Paper items (boxes, newspapers) — flatten before disposal",
+          "If you're unsure how to separate the waste, feel free to ask for assistance."
+        ]
+      },
+      {
+        "id": "heating",
+        "title": "Heating System",
+        "paragraphs": [
+          "When you turn on the power, an orange light will illuminate and the temperature will be displayed.",
+          "Power On/Off",
+          "Press the [전원] (Power) button at the bottom left. The display will light up.",
+          "Floor Heating (Ondol)",
+          "Press the [온돌] button. Turn the center dial to set your desired temperature.",
+          "Recommended: 45°C ~ 55°C for a cozy floor.",
+          "It takes some time for the heat to rise through the floor.",
+          "In summer, please use the \"외출\" (Away) mode.",
+          "Hot Water (Shower)",
+          "Press the [온수] button. Turn the center dial to adjust temperature:",
+          "저 (Low) / 중 (Mid) / 고 (High)",
+          "Make sure the 온수 icon appears on the screen before using the water."
+        ]
+      },
+      {
+        "id": "cooling",
+        "title": "Air Conditioner",
+        "paragraphs": [
+          "Use the power button to turn on/off",
+          "If cool air is not coming out, press the \"모드\" (Mode) button and switch to \"냉방\" (Cooling)",
+          "Adjust the temperature using the \"온도\" (Temperature) switch"
+        ]
+      },
+      {
+        "id": "cooking",
+        "title": "Induction Stove",
+        "paragraphs": [
+          "The right burner is for large pans (19cm or larger). For smaller pans, use the left burner.",
+          "Controls",
+          "① Power Level / Timer — adjusts heat and sets timer",
+          "② Burner Selection — selects the desired burner",
+          "③ Child Lock — prevents operation by children",
+          "④ Pause — temporarily stops the burner",
+          "⑤ Timer — countdown to auto turn-off",
+          "⑥ Turbo — high heat mode (hold 3s for boost)",
+          "⑦ Power — turns stove on/off"
+        ]
+      }
+    ],
+    "unwadang": [
+      {
+        "id": "rules",
+        "title": "House Rules",
+        "paragraphs": [
+          "1. Please take off your shoes indoors",
+          "In accordance with traditional Korean etiquette, please take off your shoes indoors.",
+          "2. No smoking allowed",
+          "For a pleasant environment, smoking is prohibited inside the accommodation. We ask for your cooperation for everyone's health and cleanliness."
+        ]
+      },
+      {
+        "id": "speaker",
+        "title": "Bluetooth Speaker",
+        "paragraphs": [
+          "The Bluetooth speaker available in your room is the HK Aura Studio 3.",
+          "How to connect",
+          "Turn on Bluetooth on your phone or device",
+          "Look for HK Aura Studio 3 in the device list",
+          "Tap to pair and play your favorite music",
+          "Please keep the volume considerate of neighbors during quiet hours."
+        ]
+      },
+      {
+        "id": "laundry",
+        "title": "Washing Machine",
+        "paragraphs": [
+          "Detergent is located under the sink.",
+          "① Power Button",
+          "Turns the washer on/off",
+          "Auto-off after 10 minutes of no use",
+          "Press Pause/Start before powering off during a cycle",
+          "② Course / Add Function Button",
+          "Select wash programs",
+          "Press again to adjust temperature, rinse, spin, or extra features",
+          "Hold for 3 seconds to cancel added functions",
+          "③ Dial Knob",
+          "Turn to browse options",
+          "Press to confirm or activate selections on the screen",
+          "④ Pause / Start Button",
+          "Starts or pauses the wash cycle",
+          "Must press to resume after pause"
+        ]
+      },
+      {
+        "id": "waste",
+        "title": "Waste Disposal",
+        "paragraphs": [
+          "Please separate waste into general waste, food waste, and recycling.",
+          "Trash collection days: Tuesday, Thursday, and Sunday.",
+          "If you're unsure how to separate the waste, feel free to ask for assistance.",
+          "General Waste",
+          "Burnable waste — use designated pay-as-you-throw bags",
+          "All items that are not food waste",
+          "Examples: paper, disposable chopsticks, tissues, masks",
+          "Food Waste",
+          "Squeeze out excess moisture before disposing in food waste bags",
+          "Examples: fruits, vegetables, rice, leftovers, meat",
+          "NOT food waste: bones, seashells, tea leaves, nutshells, eggshells, onion skins",
+          "Recyclable Waste",
+          "Place recyclable items into white bags",
+          "Examples: plastics, vinyl, glass bottles, metals",
+          "For paper items (boxes, newspapers, books) — flatten neatly before disposal"
+        ]
+      },
+      {
+        "id": "heating",
+        "title": "Boiler (Winter Heating)",
+        "paragraphs": [
+          "The boiler thermostat is located in front of the bathroom.",
+          "Hot water indicator",
+          "The light on the faucet-shaped icon indicates hot water. If it turns off, hot water will not come out — always keep it on!",
+          "Temperature control",
+          "The temperature button is on the left side",
+          "If the house-shaped light is on, the thermostat is active",
+          "Adjust temperature using + / −",
+          "The set temperature is displayed at the top",
+          "Recommended: 20–23°C for a comfortable room."
+        ]
+      },
+      {
+        "id": "cooling",
+        "title": "Air Conditioner",
+        "paragraphs": [
+          "The air conditioner is operated via remote control.",
+          "① Turn on",
+          "Press the power button (10) on the remote control.",
+          "② Set mode to Cooling",
+          "Press [ 모드 ] (16). Each press changes the mode. Press repeatedly until \"냉방\" (Cooling) is shown on the remote's screen.",
+          "③ Set temperature",
+          "Use [ 온도 +/− ] (11) to set the desired temperature.",
+          "Recommended: 22–24°C.",
+          "④ Adjust fan speed",
+          "Use [ 바람 ] (17) — Low / Medium / High."
+        ]
+      },
+      {
+        "id": "water",
+        "title": "Water Purifier",
+        "paragraphs": [
+          "The water purifier in the kitchen provides hot, cold, and purified water.",
+          "Controls",
+          "① Dispense Lever — push to dispense water",
+          "④ Purified Water — room temperature",
+          "⑤ Hot Water (red light) — for tea, ramen, etc.",
+          "⑥ Cold Water (blue light) — chilled drinking water",
+          "⑦ Water Volume Control — adjusts how much pours out",
+          "Please be careful — hot water can scald."
+        ]
+      }
+    ],
+    "hwayeonjae": [
+      {
+        "id": "rules",
+        "title": "House Rules",
+        "paragraphs": [
+          "Please remove shoes indoors per Korean tradition",
+          "No smoking inside the property"
+        ]
+      },
+      {
+        "id": "laundry",
+        "title": "Washing Machine",
+        "paragraphs": [
+          "Use the power button, select a course, and press start.",
+          "Detergent is stored under the sink."
+        ]
+      },
+      {
+        "id": "waste",
+        "title": "Garbage Disposal",
+        "paragraphs": [
+          "Please separate waste into general waste, food waste, and recycling.",
+          "Trash collection days: Tuesday, Thursday, and Sunday.",
+          "General Waste",
+          "Burnable waste — use designated pay-as-you-throw bags.",
+          "Food Waste",
+          "Squeeze out excess moisture before disposing in food waste bags.",
+          "Recyclable Waste",
+          "Place recyclable items into white bags: plastics, vinyl, glass bottles, metals."
+        ]
+      },
+      {
+        "id": "heating",
+        "title": "Heating System",
+        "paragraphs": [
+          "Recommended temperature: 22°C."
+        ]
+      },
+      {
+        "id": "cooling",
+        "title": "Air Conditioner",
+        "paragraphs": [
+          "Operated via remote control."
+        ]
+      },
+      {
+        "id": "cooking",
+        "title": "Induction Stove",
+        "paragraphs": [
+          "The left burner is for small pans, the right burner for large pans (19cm or larger)."
+        ]
+      },
+      {
+        "id": "water",
+        "title": "Water Purifier",
+        "paragraphs": [
+          "Dispenses hot, cold, and purified water. Use the temperature buttons to select."
+        ]
+      }
+    ]
+  },
+  "ko": {
+    "anon": [
+      {
+        "id": "rules",
+        "title": "이용 수칙",
+        "paragraphs": [
+          "한국 전통에 따라 실내에서는 신발을 벗어 주세요",
+          "실내 금연입니다",
+          "화장지는 반드시 변기에만 버려 주세요",
+          "냄새가 강한 음식의 조리는 삼가 주세요"
+        ]
+      },
+      {
+        "id": "waste",
+        "title": "분리배출 안내",
+        "paragraphs": [
+          "일반 쓰레기 · 음식물 쓰레기 · 재활용품으로 분리해 주세요.",
+          "수거일: 화요일, 목요일, 일요일",
+          "일반 쓰레기",
+          "종량제 봉투에 담아 배출해 주세요.",
+          "종이, 일회용 젓가락, 휴지, 마스크 등",
+          "음식물 쓰레기",
+          "물기를 충분히 제거한 후 전용 음식물 봉투에 담아 주세요.",
+          "음식물에 해당: 과일, 채소, 밥, 잔반, 육류",
+          "음식물 아님: 뼈, 조개껍질, 찻잎, 견과류 껍데기, 계란 껍질, 양파 껍질",
+          "재활용품",
+          "흰색 투명 봉투에 담아 주세요.",
+          "플라스틱, 비닐, 유리병, 금속류",
+          "종이류(박스, 신문) — 접어서 배출",
+          "분리배출이 헷갈리시면 언제든 연락 주세요."
+        ]
+      },
+      {
+        "id": "heating",
+        "title": "난방 시스템",
+        "paragraphs": [
+          "전원을 켜면 주황색 불이 들어오고 현재 온도가 표시됩니다.",
+          "전원 ON/OFF",
+          "좌측 하단의 [전원] 버튼을 누르시면 화면이 켜집니다.",
+          "온돌 (바닥 난방)",
+          "[온돌] 버튼을 누르고 가운데 다이얼을 돌려 희망 온도를 설정하세요.",
+          "권장 온도: 45°C ~ 55°C",
+          "바닥까지 열이 전달되기까지 시간이 조금 걸립니다.",
+          "여름철에는 \"외출\" 모드를 사용해 주세요.",
+          "온수 (샤워)",
+          "[온수] 버튼을 누르고 가운데 다이얼로 온도를 조절하세요:",
+          "저 / 중 / 고",
+          "화면에 \"온수\" 아이콘이 표시된 것을 확인하고 사용해 주세요."
+        ]
+      },
+      {
+        "id": "cooling",
+        "title": "에어컨",
+        "paragraphs": [
+          "전원 버튼으로 켜고 끕니다",
+          "시원한 바람이 나오지 않을 때는 \"모드\" 버튼을 눌러 \"냉방\"으로 전환하세요",
+          "\"온도\" 스위치로 온도를 조절합니다"
+        ]
+      },
+      {
+        "id": "cooking",
+        "title": "인덕션",
+        "paragraphs": [
+          "우측 화구는 큰 냄비(지름 19cm 이상) 전용이며, 작은 냄비는 좌측 화구를 사용해 주세요.",
+          "조작 버튼",
+          "① 화력 / 타이머 — 화력 조절 및 타이머 설정",
+          "② 화구 선택 — 사용할 화구를 선택",
+          "③ 잠금 — 어린이 오작동 방지",
+          "④ 일시정지 — 잠시 화구 정지",
+          "⑤ 타이머 — 자동 꺼짐까지 카운트다운",
+          "⑥ 터보 — 강한 화력 (3초 길게 눌러 작동)",
+          "⑦ 전원 — 전체 ON/OFF"
+        ]
+      }
+    ],
+    "unwadang": [
+      {
+        "id": "rules",
+        "title": "이용 수칙",
+        "paragraphs": [
+          "한국 전통에 따라 실내에서는 신발을 벗어 주세요",
+          "실내 금연입니다"
+        ]
+      },
+      {
+        "id": "speaker",
+        "title": "블루투스 스피커",
+        "paragraphs": [
+          "스피커 모델: HK Aura Studio 3",
+          "블루투스로 기기와 연결해 사용하실 수 있습니다."
+        ]
+      },
+      {
+        "id": "laundry",
+        "title": "세탁기",
+        "paragraphs": [
+          "전원을 켜고 코스를 선택한 뒤, 다이얼로 세부 설정을 조정한 후 시작 버튼을 누르세요.",
+          "세제는 싱크대 하부장에 있습니다."
+        ]
+      },
+      {
+        "id": "waste",
+        "title": "분리배출 안내",
+        "paragraphs": [
+          "일반 쓰레기 · 음식물 쓰레기 · 재활용품으로 분리해 주세요.",
+          "수거일: 화요일, 목요일, 일요일",
+          "일반 쓰레기",
+          "종량제 봉투에 담아 배출해 주세요.",
+          "종이, 일회용 젓가락, 휴지, 마스크 등",
+          "음식물 쓰레기",
+          "물기를 제거한 후 음식물 봉투에 담아 주세요.",
+          "음식물에 해당: 과일, 채소, 밥, 잔반, 육류",
+          "음식물 아님: 뼈, 조개껍질, 찻잎, 견과류 껍데기, 계란 껍질, 양파 껍질",
+          "재활용품",
+          "흰색 투명 봉투에 담아 주세요.",
+          "플라스틱, 비닐, 유리병, 금속류",
+          "종이류 — 접어서 배출"
+        ]
+      },
+      {
+        "id": "heating",
+        "title": "난방 시스템",
+        "paragraphs": [
+          "보일러 온도조절기는 화장실 근처에 있습니다.",
+          "권장 온도: 20–23°C"
+        ]
+      },
+      {
+        "id": "cooling",
+        "title": "에어컨",
+        "paragraphs": [
+          "리모컨으로 조작합니다.",
+          "권장 온도: 22–24°C"
+        ]
+      },
+      {
+        "id": "water",
+        "title": "정수기",
+        "paragraphs": [
+          "주방 정수기에서 온수·냉수·정수를 레버로 선택해 사용하실 수 있습니다."
+        ]
+      }
+    ],
+    "hwayeonjae": [
+      {
+        "id": "rules",
+        "title": "이용 수칙",
+        "paragraphs": [
+          "한국 전통에 따라 실내에서는 신발을 벗어 주세요",
+          "실내 금연입니다"
+        ]
+      },
+      {
+        "id": "laundry",
+        "title": "세탁기",
+        "paragraphs": [
+          "전원을 켜고 코스를 선택한 뒤 시작 버튼을 누르세요.",
+          "세제는 싱크대 하부장에 있습니다."
+        ]
+      },
+      {
+        "id": "waste",
+        "title": "분리배출 안내",
+        "paragraphs": [
+          "일반 쓰레기 · 음식물 쓰레기 · 재활용품으로 분리해 주세요.",
+          "수거일: 화요일, 목요일, 일요일",
+          "일반 쓰레기",
+          "종량제 봉투에 담아 배출해 주세요.",
+          "음식물 쓰레기",
+          "물기를 제거한 후 음식물 봉투에 담아 주세요.",
+          "재활용품",
+          "흰색 투명 봉투에 담아 주세요: 플라스틱, 비닐, 유리병, 금속류."
+        ]
+      },
+      {
+        "id": "heating",
+        "title": "난방 시스템",
+        "paragraphs": [
+          "권장 온도: 22°C"
+        ]
+      },
+      {
+        "id": "cooling",
+        "title": "에어컨",
+        "paragraphs": [
+          "리모컨으로 조작합니다."
+        ]
+      },
+      {
+        "id": "cooking",
+        "title": "인덕션",
+        "paragraphs": [
+          "좌측 화구는 작은 냄비용, 우측 화구는 큰 냄비(지름 19cm 이상) 전용입니다."
+        ]
+      },
+      {
+        "id": "water",
+        "title": "정수기",
+        "paragraphs": [
+          "온수·냉수·정수가 제공되며, 온도 버튼으로 선택해 사용하세요."
+        ]
+      }
+    ]
+  },
+  "ja": {
+    "anon": [
+      {
+        "id": "rules",
+        "title": "ご利用規則",
+        "paragraphs": [
+          "韓国の伝統に従い、室内では靴をお脱ぎください",
+          "室内は禁煙です",
+          "トイレットペーパーはトイレにのみお流しください",
+          "強い匂いの料理はご遠慮ください"
+        ]
+      },
+      {
+        "id": "waste",
+        "title": "ごみの分別",
+        "paragraphs": [
+          "一般ごみ・生ごみ・リサイクル品に分別してください。",
+          "収集日: 火曜・木曜・日曜",
+          "一般ごみ",
+          "指定の従量制袋をご使用ください。",
+          "紙、割り箸、ティッシュ、マスクなど",
+          "生ごみ",
+          "水気をよく切って、専用袋に入れてください。",
+          "生ごみ対象: 果物、野菜、ごはん、残飯、肉類",
+          "生ごみではないもの: 骨、貝殻、茶葉、ナッツの殻、卵の殻、玉ねぎの皮",
+          "リサイクル品",
+          "白い透明袋に入れてください。",
+          "プラスチック、ビニール、ガラス瓶、金属類",
+          "紙類(段ボール、新聞)— 折りたたんでから廃棄",
+          "分別にご不明な点があればお気軽にご連絡ください。"
+        ]
+      },
+      {
+        "id": "heating",
+        "title": "暖房システム",
+        "paragraphs": [
+          "電源を入れるとオレンジ色のランプが点灯し、現在の温度が表示されます。",
+          "電源 ON/OFF",
+          "左下の [전원](電源)ボタンを押すとディスプレイが点灯します。",
+          "オンドル(床暖房)",
+          "[온돌] ボタンを押し、中央のダイヤルで希望温度に設定します。",
+          "推奨: 45°C ~ 55°C",
+          "床が温まるまで少し時間がかかります。",
+          "夏場は「외출」(外出)モードをご使用ください。",
+          "お湯(シャワー)",
+          "[온수] ボタンを押し、中央のダイヤルで温度調整:",
+          "저(低) / 중(中) / 고(高)",
+          "画面に「온수」アイコンが表示されていることを確認してからご使用ください。"
+        ]
+      },
+      {
+        "id": "cooling",
+        "title": "エアコン",
+        "paragraphs": [
+          "電源ボタンで ON/OFF",
+          "冷風が出ない場合は 「모드」(モード) を押して 「냉방」(冷房) に切替",
+          "「온도」(温度) スイッチで温度調整"
+        ]
+      },
+      {
+        "id": "cooking",
+        "title": "IH コンロ",
+        "paragraphs": [
+          "右側は大きな鍋(直径19cm以上)用、小さな鍋は左側をご使用ください。",
+          "操作ボタン",
+          "① 火力 / タイマー — 火力調整・タイマー設定",
+          "② コンロ選択 — 使用するコンロを選択",
+          "③ チャイルドロック — 誤操作防止",
+          "④ 一時停止 — 一時的に停止",
+          "⑤ タイマー — 自動停止までカウントダウン",
+          "⑥ ターボ — 強火モード(3秒長押し)",
+          "⑦ 電源 — 全体 ON/OFF"
+        ]
+      }
+    ],
+    "unwadang": [
+      {
+        "id": "rules",
+        "title": "ご利用規則",
+        "paragraphs": [
+          "韓国の伝統に従い、室内では靴をお脱ぎください",
+          "室内は禁煙です"
+        ]
+      },
+      {
+        "id": "speaker",
+        "title": "Bluetoothスピーカー",
+        "paragraphs": [
+          "機種: HK Aura Studio 3",
+          "お手持ちのデバイスから Bluetooth で接続してください。"
+        ]
+      },
+      {
+        "id": "laundry",
+        "title": "洗濯機",
+        "paragraphs": [
+          "電源を入れ、コースを選択し、ダイヤルで設定した後、スタートボタンを押してください。",
+          "洗剤はシンク下に保管されています。"
+        ]
+      },
+      {
+        "id": "waste",
+        "title": "ごみの分別",
+        "paragraphs": [
+          "一般ごみ・生ごみ・リサイクル品に分別してください。",
+          "収集日: 火曜・木曜・日曜",
+          "一般ごみ",
+          "指定の従量制袋をご使用ください。",
+          "紙、割り箸、ティッシュ、マスクなど",
+          "生ごみ",
+          "水気をよく切って専用袋に入れてください。",
+          "生ごみ対象: 果物、野菜、ごはん、残飯、肉類",
+          "生ごみではないもの: 骨、貝殻、茶葉、ナッツの殻、卵の殻、玉ねぎの皮",
+          "リサイクル品",
+          "白い透明袋に入れてください。",
+          "プラスチック、ビニール、ガラス瓶、金属類",
+          "紙類 — 折りたたんでから廃棄"
+        ]
+      },
+      {
+        "id": "heating",
+        "title": "暖房システム",
+        "paragraphs": [
+          "ボイラーの温度調節器はトイレの近くにあります。",
+          "推奨温度: 20–23°C"
+        ]
+      },
+      {
+        "id": "cooling",
+        "title": "エアコン",
+        "paragraphs": [
+          "リモコンで操作します。",
+          "推奨温度: 22–24°C"
+        ]
+      },
+      {
+        "id": "water",
+        "title": "浄水器",
+        "paragraphs": [
+          "キッチンの浄水器から、レバー操作でお湯・冷水・浄水をご利用いただけます。"
+        ]
+      }
+    ],
+    "hwayeonjae": [
+      {
+        "id": "rules",
+        "title": "ご利用規則",
+        "paragraphs": [
+          "韓国の伝統に従い、室内では靴をお脱ぎください",
+          "室内は禁煙です"
+        ]
+      },
+      {
+        "id": "laundry",
+        "title": "洗濯機",
+        "paragraphs": [
+          "電源を入れ、コースを選び、スタートボタンを押してください。",
+          "洗剤はシンク下に保管されています。"
+        ]
+      },
+      {
+        "id": "waste",
+        "title": "ごみの分別",
+        "paragraphs": [
+          "一般ごみ・生ごみ・リサイクル品に分別してください。",
+          "収集日: 火曜・木曜・日曜",
+          "一般ごみ",
+          "指定の従量制袋をご使用ください。",
+          "生ごみ",
+          "水気をよく切って専用袋に入れてください。",
+          "リサイクル品",
+          "白い透明袋に入れてください: プラスチック、ビニール、ガラス瓶、金属類。"
+        ]
+      },
+      {
+        "id": "heating",
+        "title": "暖房システム",
+        "paragraphs": [
+          "推奨温度: 22°C"
+        ]
+      },
+      {
+        "id": "cooling",
+        "title": "エアコン",
+        "paragraphs": [
+          "リモコンで操作します。"
+        ]
+      },
+      {
+        "id": "cooking",
+        "title": "IH コンロ",
+        "paragraphs": [
+          "左側は小さな鍋用、右側は大きな鍋(直径19cm以上)用です。"
+        ]
+      },
+      {
+        "id": "water",
+        "title": "浄水器",
+        "paragraphs": [
+          "お湯・冷水・浄水が使えます。温度ボタンで選択してください。"
+        ]
+      }
+    ]
+  },
+  "zh": {
+    "anon": [
+      {
+        "id": "rules",
+        "title": "入住须知",
+        "paragraphs": [
+          "依韩国传统,入室请脱鞋",
+          "室内严禁吸烟",
+          "卫生纸请仅丢入马桶",
+          "请勿烹煮气味浓烈的食物"
+        ]
+      },
+      {
+        "id": "waste",
+        "title": "垃圾分类",
+        "paragraphs": [
+          "请将垃圾分为一般垃圾、厨余垃圾和可回收物。",
+          "清运日: 周二、周四、周日",
+          "一般垃圾",
+          "请使用指定的按量收费垃圾袋。",
+          "纸类、一次性筷子、纸巾、口罩等",
+          "厨余垃圾",
+          "请沥干水分后投入厨余专用袋。",
+          "属于厨余: 水果、蔬菜、米饭、剩菜、肉类",
+          "不属于厨余: 骨头、贝壳、茶叶、坚果壳、蛋壳、洋葱皮",
+          "可回收物",
+          "请装入白色透明袋。",
+          "塑料、塑料薄膜、玻璃瓶、金属类",
+          "纸类(纸箱、报纸)— 请折叠后投放",
+          "如对分类有疑问,请随时与我们联系。"
+        ]
+      },
+      {
+        "id": "heating",
+        "title": "暖房系统",
+        "paragraphs": [
+          "开启电源后,橙色指示灯亮起并显示当前温度。",
+          "电源开关",
+          "按下左下方的 [전원](电源)键,显示屏即点亮。",
+          "温突(地暖)",
+          "按 [온돌] 键,旋转中央旋钮设定所需温度。",
+          "建议温度: 45°C ~ 55°C",
+          "地板升温需要一些时间。",
+          "夏季请使用\"외출\"(外出)模式。",
+          "热水(淋浴)",
+          "按 [온수] 键,旋转中央旋钮调节温度:",
+          "저(低) / 중(中) / 고(高)",
+          "请确认屏幕上出现\"온수\"图标后再使用。"
+        ]
+      },
+      {
+        "id": "cooling",
+        "title": "空调",
+        "paragraphs": [
+          "用 电源键 开关",
+          "若无冷风,请按 \"모드\"(模式) 切换至 \"냉방\"(制冷)",
+          "用 \"온도\"(温度) 开关调节温度"
+        ]
+      },
+      {
+        "id": "cooking",
+        "title": "电磁炉",
+        "paragraphs": [
+          "右炉为大锅(直径19cm以上)专用,小锅请使用左炉。",
+          "操作按钮",
+          "① 火力 / 定时 — 调节火力与设定定时",
+          "② 炉口选择 — 选择所用炉口",
+          "③ 童锁 — 防止误操作",
+          "④ 暂停 — 暂时停止",
+          "⑤ 定时 — 自动关闭倒计时",
+          "⑥ 强火 — 高火模式(长按3秒)",
+          "⑦ 电源 — 整体 ON/OFF"
+        ]
+      }
+    ],
+    "unwadang": [
+      {
+        "id": "rules",
+        "title": "入住须知",
+        "paragraphs": [
+          "依韩国传统,入室请脱鞋",
+          "室内严禁吸烟"
+        ]
+      },
+      {
+        "id": "speaker",
+        "title": "蓝牙音箱",
+        "paragraphs": [
+          "型号: HK Aura Studio 3",
+          "请通过您的设备使用蓝牙连接。"
+        ]
+      },
+      {
+        "id": "laundry",
+        "title": "洗衣机",
+        "paragraphs": [
+          "开启电源,选择程序,用旋钮调整设置后按下开始键。",
+          "洗涤剂置于水槽下方。"
+        ]
+      },
+      {
+        "id": "waste",
+        "title": "垃圾分类",
+        "paragraphs": [
+          "请将垃圾分为一般垃圾、厨余垃圾和可回收物。",
+          "清运日: 周二、周四、周日",
+          "一般垃圾",
+          "请使用指定的按量收费垃圾袋。",
+          "纸类、一次性筷子、纸巾、口罩等",
+          "厨余垃圾",
+          "请沥干水分后投入厨余专用袋。",
+          "属于厨余: 水果、蔬菜、米饭、剩菜、肉类",
+          "不属于厨余: 骨头、贝壳、茶叶、坚果壳、蛋壳、洋葱皮",
+          "可回收物",
+          "请装入白色透明袋。",
+          "塑料、塑料薄膜、玻璃瓶、金属类",
+          "纸类 — 请折叠后投放"
+        ]
+      },
+      {
+        "id": "heating",
+        "title": "暖房系统",
+        "paragraphs": [
+          "锅炉温控器位于卫生间附近。",
+          "建议温度: 20–23°C"
+        ]
+      },
+      {
+        "id": "cooling",
+        "title": "空调",
+        "paragraphs": [
+          "使用遥控器操作。",
+          "建议温度: 22–24°C"
+        ]
+      },
+      {
+        "id": "water",
+        "title": "净水器",
+        "paragraphs": [
+          "厨房净水器可通过拉杆选择热水、冷水与净水。"
+        ]
+      }
+    ],
+    "hwayeonjae": [
+      {
+        "id": "rules",
+        "title": "入住须知",
+        "paragraphs": [
+          "依韩国传统,入室请脱鞋",
+          "室内严禁吸烟"
+        ]
+      },
+      {
+        "id": "laundry",
+        "title": "洗衣机",
+        "paragraphs": [
+          "开启电源,选择程序,按下开始键即可。",
+          "洗涤剂置于水槽下方。"
+        ]
+      },
+      {
+        "id": "waste",
+        "title": "垃圾分类",
+        "paragraphs": [
+          "请将垃圾分为一般垃圾、厨余垃圾和可回收物。",
+          "清运日: 周二、周四、周日",
+          "一般垃圾",
+          "请使用指定的按量收费垃圾袋。",
+          "厨余垃圾",
+          "请沥干水分后投入厨余专用袋。",
+          "可回收物",
+          "请装入白色透明袋:塑料、塑料薄膜、玻璃瓶、金属类。"
+        ]
+      },
+      {
+        "id": "heating",
+        "title": "暖房系统",
+        "paragraphs": [
+          "建议温度: 22°C"
+        ]
+      },
+      {
+        "id": "cooling",
+        "title": "空调",
+        "paragraphs": [
+          "使用遥控器操作。"
+        ]
+      },
+      {
+        "id": "cooking",
+        "title": "电磁炉",
+        "paragraphs": [
+          "左炉为小锅专用,右炉为大锅(直径19cm以上)专用。"
+        ]
+      },
+      {
+        "id": "water",
+        "title": "净水器",
+        "paragraphs": [
+          "可提供热水、冷水与净水,请使用温度按钮选择。"
+        ]
+      }
+    ]
+  }
+}

@@ -16,6 +16,7 @@ import { assertHold, createHold, finalizeHold, findHold, getPrice, releaseHold }
 import { TossError } from './toss';
 import { confirmPayment, getPayment, refundPayment } from './provider';
 import { PayPalError, startPayPal } from './paypal';
+import { propertyAllowsModule } from '@/lib/operational-access';
 
 const hash = (token: string) => createHash('sha256').update(token).digest('hex');
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v => {
@@ -35,8 +36,11 @@ export async function priceStay(raw: unknown) {
   const data = parsed.data;
   const nights = (Date.parse(data.checkOut) - Date.parse(data.checkIn)) / 86400000;
   if (data.checkIn < todayKst() || nights < 1 || nights > 30) throw fail(400, '1~30박의 미래 일정을 선택해주세요.');
-  const property = await prisma.property.findUnique({ where: { id: data.propertyId } });
+  const property = await prisma.property.findUnique({ where: { id: data.propertyId }, include: { organization: { select: { status: true, features: true } } } });
   if (!property || property.status !== 'active' || !property.beds24RoomId || !property.beds24PropId || !property.maxGuests || data.guests > property.maxGuests) throw fail(400, '이 숙소의 온라인 요금을 조회할 수 없습니다.');
+  if (!propertyAllowsModule(property, 'reservations') || !propertyAllowsModule(property, 'integrations')) {
+    throw fail(403, '현재 이 숙소에서 해당 서비스를 사용할 수 없습니다.', { code: 'service_disabled' });
+  }
   const roomId = Number(property.beds24RoomId);
   const offerId = Number(process.env.CHECKOUT_BEDS24_OFFER_ID);
   if (!Number.isSafeInteger(roomId) || roomId < 1 || !Number.isSafeInteger(offerId) || offerId < 1) throw fail(503, '숙소 요금 설정을 확인 중입니다.');

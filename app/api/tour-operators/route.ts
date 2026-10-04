@@ -1,6 +1,7 @@
 import { randomBytes } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { authorizeTourOperator } from '@/lib/auth';
+import { tourOwnershipWhere } from '@/lib/tour-access';
 import { withAuth, ok, created, fail, MESSAGES, readJson, str, requireQuery } from '@/lib/core/http';
 
 const OPERATOR_WRITABLE_FIELDS = ['name', 'contactName', 'contactPhone', 'email', 'notifyChannel', 'notes'] as const;
@@ -16,7 +17,7 @@ const generatePublicToken = () => randomBytes(24).toString('base64url');
 
 export const GET = withAuth('tour-operators', async (_req, { auth }) => {
   const operators = await prisma.tourOperator.findMany({
-    where: auth.isAdmin ? undefined : { ownerId: auth.session.userId },
+    where: tourOwnershipWhere(auth),
     orderBy: { createdAt: 'desc' },
     include: { _count: { select: { tours: true } } },
   });
@@ -47,7 +48,7 @@ export const POST = withAuth('tour-operators', async (req, { auth }) => {
 export const PUT = withAuth('tour-operators', async (req, { auth }) => {
   const body = await readJson(req);
   const id = str(body, 'id', { required: true })!;
-  if (!(await authorizeTourOperator(id, auth.session.userId, { isAdmin: auth.isAdmin }))) throw fail(403, MESSAGES.forbidden);
+  if (!(await authorizeTourOperator(id, auth.session.userId, { isAdmin: auth.isAdmin, auth }))) throw fail(403, MESSAGES.forbidden);
 
   const data: OperatorWritable & { publicToken?: string } = pickWritable(body);
   if (body.regenerateToken === true) data.publicToken = generatePublicToken();
@@ -57,7 +58,7 @@ export const PUT = withAuth('tour-operators', async (req, { auth }) => {
 
 export const DELETE = withAuth('tour-operators', async (req, { auth }) => {
   const id = requireQuery(req, 'id');
-  if (!(await authorizeTourOperator(id, auth.session.userId, { isAdmin: auth.isAdmin }))) throw fail(403, MESSAGES.forbidden);
+  if (!(await authorizeTourOperator(id, auth.session.userId, { isAdmin: auth.isAdmin, auth }))) throw fail(403, MESSAGES.forbidden);
   await prisma.tourOperator.delete({ where: { id } });
   return ok({ success: true });
 });

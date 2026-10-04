@@ -98,11 +98,12 @@ test('assignees query is scoped and lean, and uses an already resolved scope', a
   prismaOverrides.user = { ...user, findMany: async (input: any) => { args = input; return user.findMany(input); } };
   const { status, body, response } = await read('view=assignees');
   assert.equal(status, 200); assert.equal(body.cleanersLoaded, true);
-  assert.deepEqual(body.cleaners.map((item: any) => item.id).sort(), ['admin', 'cleaner', 'legacy']);
+  assert.deepEqual(body.cleaners.map((item: any) => item.id).sort(), ['cleaner', 'legacy']);
   assert.equal(body.cleaners.find((item: any) => item.id === 'legacy').name, 'legacy@test');
   assert.deepEqual(args.where.OR[1], { properties: { some: { propertyId: { in: ['p'] } } } });
   assert.equal(args.select.publicToken, undefined); assert.equal(args.select.ownerId, undefined);
-  assert.deepEqual(calls, ['user.findMany']);
+  // The lazy reservation endpoint must separately validate the cleaning option.
+  assert.deepEqual(calls, ['property.findMany', 'user.findMany']);
   assert.equal(response.headers.get('Cache-Control'), 'private, no-store');
   calls.length = 0;
   assert.deepEqual(await listAssignees(authState.auth, []), []);

@@ -67,6 +67,18 @@ test('지난 체크아웃 날짜에는 청소를 만들지도, 신규 오픈 알
   assert.ok(db.cleaning.some(c => c.date === d(4)));
 });
 
+test('사업자 연동 옵션을 끄면 예약 동기화가 원격 호출이나 기존 일정 삭제를 하지 않는다', async () => {
+  db.property[0].organization = { status: 'active', features: { integrations: false } };
+  db.property[0].featureOverrides = { integrations: true };
+  db.event = [reservation('existing', d(1), d(2))];
+  seedBookingsPage([]);
+  const result = await syncBeds24Property(P, '111');
+  assert.match(result.error || '', /연동 옵션/);
+  assert.equal(fetchLog.length, 0);
+  assert.equal(db.event.length, 1);
+  assert.equal(result.eventsRemoved, 0);
+});
+
 test('직접 예약의 청소도 유지하며 마지막 예약 취소 시 신청과 함께 정리한다', async () => {
   db.booking = [{ id: 'direct', propertyId: P, status: 'confirmed', checkOut: d(3) }];
   db.cleaning = [{ id: 'applied', ...cleaning({ date: d(3), cleanerId: 'cl1', assignmentType: 'applied' }) }];

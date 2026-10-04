@@ -7,6 +7,8 @@ import { acquireInquirySend, releaseInquirySend, ensureInquiryConversation } fro
 import type { InquiryJob } from '@/generated/prisma/client';
 import { inquiryReplyDestination } from '@/lib/inquiry-platform';
 import { isSimpleInquiryThanks } from '@/lib/inquiry-acknowledgement';
+import { propertyModuleEnabled } from '@/lib/operational-feature-store';
+import { propertyAllowsModule } from '@/lib/operational-access';
 
 const defaults = { judge: judgeInquiry, verify: verifyInquiry, reservation: checkInquiryReservation, remote: checkInquiryRemote, reply: sendInquiryReply, kakao: sendInquiryKakao };
 type Dependencies = typeof defaults;
@@ -17,7 +19,7 @@ export async function enqueueInquiries(): Promise<number> {
   const settings = await prisma.inquiryAutomationSettings.findMany({ where: { enabled: true } });
   let count = 0;
   for (const config of settings) {
-    if (!config.enabledAt) continue;
+    if (!config.enabledAt || !await propertyModuleEnabled(config.propertyId, 'messages') || !await propertyModuleEnabled(config.propertyId, 'integrations')) continue;
     const after = new Date(Math.max(config.enabledAt.getTime(), Date.now() - 3 * 86400_000));
     const messages = await prisma.message.findMany({
       where: { propertyId: config.propertyId, sender: 'guest', source: 'beds24', beds24MessageType: 'guest', beds24MessageId: { not: null },
@@ -37,12 +39,12 @@ export async function enqueueInquiries(): Promise<number> {
 async function contextFor(job: InquiryJob) {
   const [config, event, conversation, message, history] = await Promise.all([
     prisma.inquiryAutomationSettings.findUnique({ where: { propertyId: job.propertyId } }),
-    prisma.event.findUnique({ where: { id: job.eventId }, include: { property: { select: { name: true, beds24PropId: true } } } }),
+    prisma.event.findUnique({ where: { id: job.eventId }, include: { property: { select: { name: true, beds24PropId: true, featureOverrides: true, organization: { select: { status: true, features: true } } } } } }),
     ensureInquiryConversation(job.eventId),
     prisma.message.findUnique({ where: { id: job.messageId } }),
     prisma.message.findMany({ where: { eventId: job.eventId, type: 'message' }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 30 }),
   ]);
-  if (!config?.enabled || !config.enabledAt || !config.knowledge.trim() || !event || event.type !== 'reservation'
+  if (!config?.enabled || !config.enabledAt || !config.knowledge.trim() || !event || !propertyAllowsModule(event.property, 'messages') || !propertyAllowsModule(event.property, 'integrations') || event.type !== 'reservation'
     || event.channelId !== 'beds24' || !/^\d+$/.test(event.originalUid || '') || !event.property.beds24PropId
     || event.propertyId !== job.propertyId || !message || message.eventId !== job.eventId || message.propertyId !== job.propertyId
     || message.sender !== 'guest' || message.beds24MessageType !== 'guest' || !message.beds24MessageId

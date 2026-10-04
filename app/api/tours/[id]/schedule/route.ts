@@ -6,7 +6,7 @@ type Params = { id: string };
 const TIME_RE = /^\d{2}:\d{2}$/;
 
 export const GET = withAuth<Params>('tours/schedule', async (req, { auth, params }) => {
-  if (!(await authorizeTour(params.id, auth.session.userId, { isAdmin: auth.isAdmin }))) throw fail(403, MESSAGES.forbidden);
+  if (!(await authorizeTour(params.id, auth.session.userId, { isAdmin: auth.isAdmin, auth }))) throw fail(403, MESSAGES.forbidden);
   const from = query(req, 'from');
   const to = query(req, 'to');
   return ok(await prisma.tourSchedule.findMany({
@@ -18,7 +18,7 @@ export const GET = withAuth<Params>('tours/schedule', async (req, { auth, params
 interface BulkSlot { date: string; startTime: string; capacity: number }
 
 export const POST = withAuth<Params>('tours/schedule', async (req, { auth, params }) => {
-  if (!(await authorizeTour(params.id, auth.session.userId, { isAdmin: auth.isAdmin }))) throw fail(403, MESSAGES.forbidden);
+  if (!(await authorizeTour(params.id, auth.session.userId, { isAdmin: auth.isAdmin, auth }))) throw fail(403, MESSAGES.forbidden);
   const body = await readJson(req);
   const slots: BulkSlot[] = Array.isArray(body.slots) ? (body.slots as BulkSlot[]) : [];
   if (slots.length === 0) throw fail(400, '추가할 슬롯이 없습니다.');
@@ -38,7 +38,7 @@ export const POST = withAuth<Params>('tours/schedule', async (req, { auth, param
 export const PUT = withAuth<Params>('tours/schedule', async (req, { auth }) => {
   const body = await readJson(req);
   const scheduleId = str(body, 'scheduleId', { required: true })!;
-  if (!(await authorizeTourSchedule(scheduleId, auth.session.userId, { isAdmin: auth.isAdmin }))) throw fail(403, MESSAGES.forbidden);
+  if (!(await authorizeTourSchedule(scheduleId, auth.session.userId, { isAdmin: auth.isAdmin, auth }))) throw fail(403, MESSAGES.forbidden);
 
   const data: { capacity?: number; status?: string; note?: string | null } = {};
   if (body.capacity !== undefined) data.capacity = Math.max(1, Math.min(1000, Number(body.capacity)));
@@ -53,7 +53,7 @@ export const PUT = withAuth<Params>('tours/schedule', async (req, { auth }) => {
 
 export const DELETE = withAuth<Params>('tours/schedule', async (req, { auth }) => {
   const scheduleId = requireQuery(req, 'scheduleId');
-  if (!(await authorizeTourSchedule(scheduleId, auth.session.userId, { isAdmin: auth.isAdmin }))) throw fail(403, MESSAGES.forbidden);
+  if (!(await authorizeTourSchedule(scheduleId, auth.session.userId, { isAdmin: auth.isAdmin, auth }))) throw fail(403, MESSAGES.forbidden);
 
   const schedule = await prisma.tourSchedule.findUnique({ where: { id: scheduleId }, select: { bookedCount: true } });
   if (!schedule) throw fail(404, MESSAGES.notFound);

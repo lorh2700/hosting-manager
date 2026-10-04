@@ -4,7 +4,7 @@ import { currentSettlementMonth, getSettlementPeriod, cleaningSettlementTotals }
 import { GET } from '../app/api/cleanings/route';
 import { db, resetDb } from './stubs/prisma';
 import { actAsManager } from './stubs/auth';
-beforeEach(()=>{resetDb();actAsManager(['p']);});
+beforeEach(()=>{resetDb();actAsManager(['p']);db.property=[{id:'p',name:'담당 숙소'},{id:'q',name:'다른 숙소'}];});
 test('settlement rolls over on the 26th in KST including year boundary',()=>{
  for(const [time,start,end] of [
   ['2026-09-25T14:59:59Z','2026-08-26','2026-09-25'],

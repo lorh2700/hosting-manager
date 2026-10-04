@@ -31,8 +31,8 @@ beforeEach(() => {
   ];
 });
 
-test('normalizeRole: 옛 값은 3종으로 흡수된다', () => {
-  assert.equal(normalizeRole('super_admin'), 'admin');
+test('normalizeRole: 슈퍼매니저와 사업자 관리자를 구분하고 옛 매니저 값은 흡수한다', () => {
+  assert.equal(normalizeRole('super_admin'), 'super_admin');
   assert.equal(normalizeRole('admin'), 'admin');
   assert.equal(normalizeRole('manager'), 'manager');
   assert.equal(normalizeRole('host'), 'manager');

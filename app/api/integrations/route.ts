@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { withAuth, ok, created, fail, MESSAGES, requireOwnerOrAdmin, requireVisible, readJson, str, int, query, requireQuery } from '@/lib/core/http';
+import { withAuth, ok, created, fail, MESSAGES, requireManage, requireVisible, readJson, str, int, query, requireQuery } from '@/lib/core/http';
 import type { IntegrationProvider, IntegrationType } from '@/lib/types';
 
 export const GET = withAuth('integrations', async (req, { auth }) => {
@@ -15,7 +15,7 @@ export const GET = withAuth('integrations', async (req, { auth }) => {
   return ok(await prisma.integration.findMany({ where: { propertyId: { in: propIds } } }));
 });
 
-// 연동 생성·수정·삭제는 숙소 소유자 또는 관리자만 (iCal URL 이 예약 데이터 원본이므로).
+// 연동 메뉴를 허용받은 담당 매니저는 배정 숙소의 연동을 관리한다.
 export const POST = withAuth('integrations', async (req, { auth }) => {
   const body = await readJson(req);
   const propertyId = str(body, 'propertyId', { required: true })!;
@@ -24,7 +24,7 @@ export const POST = withAuth('integrations', async (req, { auth }) => {
 
   const property = await prisma.property.findUnique({ where: { id: propertyId }, select: { id: true } });
   if (!property) throw fail(404, '숙소를 찾을 수 없습니다.');
-  await requireOwnerOrAdmin(auth, propertyId);
+  requireManage(auth, propertyId);
 
   const integration = await prisma.integration.create({
     data: {
@@ -46,7 +46,7 @@ export const PUT = withAuth('integrations', async (req, { auth }) => {
   const id = str(body, 'id', { required: true })!;
   const integ = await prisma.integration.findUnique({ where: { id }, select: { propertyId: true } });
   if (!integ) throw fail(404, '연동을 찾을 수 없습니다.');
-  await requireOwnerOrAdmin(auth, integ.propertyId);
+  requireManage(auth, integ.propertyId);
 
   const data: Record<string, unknown> = {};
   for (const key of UPDATABLE) if (key in body) data[key] = body[key];
@@ -58,7 +58,7 @@ export const DELETE = withAuth('integrations', async (req, { auth }) => {
   const id = requireQuery(req, 'id');
   const integ = await prisma.integration.findUnique({ where: { id }, select: { propertyId: true } });
   if (!integ) throw fail(404, '연동을 찾을 수 없습니다.');
-  await requireOwnerOrAdmin(auth, integ.propertyId);
+  requireManage(auth, integ.propertyId);
 
   await prisma.integration.delete({ where: { id } });
   return ok({ success: true });
