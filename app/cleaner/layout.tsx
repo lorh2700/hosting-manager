@@ -7,6 +7,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { Sidebar } from '@/components/sidebar';
 import ManagerInstall from '@/components/ManagerInstall';
 import { Logo } from '@/components/Logo';
+import AuthSessionNotice from '@/components/AuthSessionNotice';
 import { mayUseOperationalPath } from '@/lib/operational-permissions';
 import {
   AlertTriangle,
@@ -35,19 +36,19 @@ const NAV_ITEMS = [
 const MOBILE_PRIMARY_COUNT = 5;
 
 export default function CleanerLayout({ children }: { children: React.ReactNode }) {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, error, refreshProfile } = useAuth();
   const [moreOpen, setMoreOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading && profile && !['cleaner','admin','manager','super_admin'].includes(profile.role)) {
+    if (!loading && !error && profile && !['cleaner','admin','manager','super_admin'].includes(profile.role)) {
       router.replace('/admin');
     }
-  }, [loading, profile, router]);
+  }, [loading, error, profile, router]);
 
   useEffect(() => { setMoreOpen(false); }, [pathname]);
-  useEffect(() => { if (!loading && !user) router.replace('/login?next=' + encodeURIComponent(pathname + window.location.search)); }, [loading, user, pathname, router]);
+  useEffect(() => { if (!loading && !error && !user) router.replace('/login?next=' + encodeURIComponent(pathname + window.location.search)); }, [loading, error, user, pathname, router]);
 
   const handleLogout = async () => {
     try {
@@ -58,6 +59,8 @@ export default function CleanerLayout({ children }: { children: React.ReactNode 
       window.location.href = '/login';
     }
   };
+
+  if (error && !loading) return <AuthSessionNotice error={error} onRetry={refreshProfile} />;
 
   if (loading) {
     return (

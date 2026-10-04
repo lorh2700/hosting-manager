@@ -8,15 +8,17 @@ import { NavigationLink } from '@/components/NavigationFeedback';
 import styles from './AdminShell.module.css';
 import { canUseModule, isModuleEnabled, moduleForAdminPath } from '@/lib/operational-permissions';
 import { getAdminNavigation } from '@/lib/admin-navigation';
+import AuthSessionNotice from '@/components/AuthSessionNotice';
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, error, refreshProfile } = useAuth();
   const { mode } = useAdminMode();
   const router = useRouter(); const pathname = usePathname();
   useEffect(() => {
-    if (loading) return;
+    if (loading || error) return;
     if (!user) router.replace('/login?next=' + encodeURIComponent(pathname + window.location.search));
     else if (profile?.role === 'cleaner') router.replace('/cleaner');
-  }, [loading, user, profile?.role, pathname, router]);
+  }, [loading, error, user, profile?.role, pathname, router]);
+  if (error && !loading) return <AuthSessionNotice error={error} onRetry={refreshProfile} />;
   if (loading || !user) return <div role="status" className="min-h-dvh grid place-items-center text-stone-600">로그인 확인 중…</div>;
   if (profile?.role === 'cleaner') return null;
 

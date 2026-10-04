@@ -109,7 +109,8 @@ export function withAuth<P = Record<string, never>>(
       auth.operationalModule = await isSelfProfileRequest(req, auth.session.userId) ? null : requestOperationalModule(req, auth, name);
       auth.featureModules = requestFeatureModules(req, auth.operationalModule);
       assertOperationalAccess(auth, auth.operationalModule, auth.featureModules);
-      const params = routeCtx ? await routeCtx.params : ({} as P);
+      // Next supplies a context for static routes too, without dynamic params.
+      const params = ((await routeCtx?.params) ?? {}) as P;
       const query = new URL(req.url).searchParams;
       metadata.propertyId = query.get('propertyId') ?? undefined;
       metadata.targetId = query.get('id') ?? undefined;
@@ -204,7 +205,7 @@ export function withErrors<P = Record<string, never>>(
     extra === undefined ? console.log(`[${name}] ${msg}`) : console.log(`[${name}] ${msg}`, extra);
   const fn = async (req: Request, routeCtx?: RouteContext<P>): Promise<Response> => {
     try {
-      const params = routeCtx ? await routeCtx.params : ({} as P);
+      const params = ((await routeCtx?.params) ?? {}) as P;
       return await handler(req, { params, log });
     } catch (e) {
       if (e instanceof HttpError) return errorResponse(e.status, e.message, e.extra);

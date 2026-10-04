@@ -46,7 +46,7 @@ function PreviewSettings() {
   const [store] = useState(createPreviewStore);
   const previewApi = useMemo(() => createPreviewOperationsApi(store, role), [store, role]);
   return <PreviewContext.Provider value><OperationsApiContext.Provider value={previewApi}>
-    <div className={styles.page}><div className={`${styles.info} mb-6`}><strong>설정 화면 시안 · 예시 데이터</strong><p className={styles.muted}>저장과 초대는 이 화면의 임시 데이터에만 반영됩니다. 실제 사업자, 직원, 숙소 설정은 변경되지 않습니다.</p><div className={`${styles.actions} mt-3`} role="group" aria-label="시안 역할 선택">{['super_admin', 'admin', 'manager', 'cleaner'].map(value => <button type="button" key={value} aria-pressed={role === value} className={role === value ? styles.primary : undefined} onClick={() => { if (value !== role) transition(() => setRole(value)); }}>{roleLabels[value]}</button>)}</div></div></div>
+    <div className={styles.page}><div className={`${styles.info} mb-6`}><strong>설정 화면 시안 · 예시 데이터</strong><p className={styles.muted}>저장과 초대는 이 화면의 임시 데이터에만 반영됩니다. 실제 사업자, 직원, 숙소 설정은 변경되지 않습니다.</p><div className={`${styles.actions} mt-3`}><NavigationLink href="/admin/settings" className={styles.link}>내 숙소의 실제 설정 열기 <ChevronRight size={14} /></NavigationLink></div><div className={`${styles.actions} mt-3`} role="group" aria-label="시안 역할 선택">{['super_admin', 'admin', 'manager', 'cleaner'].map(value => <button type="button" key={value} aria-pressed={role === value} className={role === value ? styles.primary : undefined} onClick={() => { if (value !== role) transition(() => setRole(value)); }}>{roleLabels[value]}</button>)}</div></div></div>
     <SettingsWorkspace previewRole={role} />
   </OperationsApiContext.Provider></PreviewContext.Provider>;
 }
@@ -54,7 +54,7 @@ function PreviewSettings() {
 function SettingsWorkspace({ previewRole }: { previewRole?: string }) {
   const operationsApi = useContext(OperationsApiContext);
   const transition = useDraftTransition();
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, refreshProfile } = useAuth();
   const [snapshot, setSnapshot] = useState<OperationsSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -62,6 +62,7 @@ function SettingsWorkspace({ previewRole }: { previewRole?: string }) {
   const [tab, setTab] = useState<Tab>('organizations');
   const [organizationId, setOrganizationId] = useState('');
   const [scopeReady, setScopeReady] = useState(false);
+  const [scopeRetry, setScopeRetry] = useState(0);
   const [organizationChoices, setOrganizationChoices] = useState<Organization[]>([]);
   const [featureScope, setFeatureScope] = useState<'organization' | 'property'>('organization');
   const [featurePropertyId, setFeaturePropertyId] = useState('');
@@ -69,9 +70,12 @@ function SettingsWorkspace({ previewRole }: { previewRole?: string }) {
   const [query, setQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const latestRequest = useRef(0);
-  const role = previewRole || snapshot?.viewer.role || String(profile?.role || '');
+  const role = previewRole || String(profile?.role || snapshot?.viewer.role || '');
   const isSuper = role === 'super_admin';
   const canConfigure = role === 'admin' || isSuper;
+  const scopeIdentity = previewRole || user?.id || '';
+  const scopeAuthLoading = !previewRole && authLoading;
+  const scopeOrganizationId = previewRole ? null : profile?.organizationId;
   useEffect(() => {
     const search = new URLSearchParams(window.location.search);
     const initialTab = search.get('tab');
@@ -79,10 +83,10 @@ function SettingsWorkspace({ previewRole }: { previewRole?: string }) {
   }, []);
 
   useEffect(() => {
-    if (!(user || previewRole) || !canConfigure) { if (!authLoading) setLoading(false); return; }
-    let current = true; setScopeReady(false); setLoading(true);
+    if (!scopeIdentity || !canConfigure) { if (!scopeAuthLoading) setLoading(false); return; }
+    let current = true; setScopeReady(false); setLoading(true); setError('');
     if (!isSuper) {
-      setOrganizationId(previewRole ? 'preview-company-a' : profile?.organizationId || '');
+      setOrganizationId(previewRole ? 'preview-company-a' : scopeOrganizationId || '');
       setFeatureScope('property'); setScopeReady(true); return;
     }
     void operationsApi<{ organizations: Organization[] }>('/api/admin/organizations?picker=1').then(result => {
@@ -94,7 +98,7 @@ function SettingsWorkspace({ previewRole }: { previewRole?: string }) {
       setScopeReady(true);
     }).catch(cause => { if (current) { setError(errorMessage(cause)); setLoading(false); } });
     return () => { current = false; };
-  }, [user, canConfigure, authLoading, isSuper, operationsApi, previewRole, profile?.organizationId]);
+  }, [scopeIdentity, canConfigure, scopeAuthLoading, isSuper, operationsApi, previewRole, scopeOrganizationId, scopeRetry]);
   const load = useCallback(async (requestedScope = organizationId) => {
     const run = ++latestRequest.current; setLoading(true); setError('');
     const params = new URLSearchParams(); if (isSuper && requestedScope) params.set('organizationId', requestedScope);
@@ -106,7 +110,8 @@ function SettingsWorkspace({ previewRole }: { previewRole?: string }) {
     finally { if (run === latestRequest.current) setLoading(false); }
   }, [operationsApi, organizationId, isSuper]);
   useEffect(() => { if (scopeReady && canConfigure) void load(); return () => { latestRequest.current += 1; }; }, [scopeReady, canConfigure, load]);
-  const changed = async (message = '변경사항을 저장했습니다.') => { await load(); setNotice(message); };
+  const retryLoad = () => { if (!scopeReady) setScopeRetry(value => value + 1); else void load(); };
+  const changed = async (message = '변경사항을 저장했습니다.') => { await load(); if (!previewRole) await refreshProfile(); setNotice(message); };
   const organizations = snapshot?.organizations.filter(item => !organizationId || item.id === organizationId) || [];
   const inScope = (id: string | null) => !organizationId || (organizationId === '__unassigned__' ? !id : id === organizationId);
   const properties = snapshot?.properties.filter(item => inScope(item.organizationId)) || [];
@@ -117,12 +122,13 @@ function SettingsWorkspace({ previewRole }: { previewRole?: string }) {
   return <div className={styles.page}>
     <header className={styles.header}>
       <div><p className={styles.eyebrow}>운영 설정</p><h1>사업자·권한 설정</h1><p>{isSuper ? '사업자를 초대하고 지점, 사용자, 제공 기능을 관리합니다.' : '우리 사업자의 지점, 담당자와 운영 기능을 한곳에서 관리합니다.'}</p></div>
-      <div className={styles.toolbar}>{!previewRole && <NavigationLink href="/admin/settings/profile" className={styles.link}>내 프로필</NavigationLink>}{canConfigure && <>{previewRole ? <button type="button" disabled><History size={15} />활동 로그</button> : <NavigationLink href="/admin/activity" className={styles.link}><History size={15} />활동 로그</NavigationLink>}<button type="button" onClick={() => transition(() => void load())} disabled={loading}><RefreshCw size={14} />{loading ? '불러오는 중…' : '새로고침'}</button></>}</div>
+      <div className={styles.toolbar}>{!previewRole && <NavigationLink href="/admin/settings/profile" className={styles.link}>내 프로필</NavigationLink>}{canConfigure && <>{previewRole ? <button type="button" disabled><History size={15} />활동 로그</button> : <NavigationLink href="/admin/activity" className={styles.link}><History size={15} />활동 로그</NavigationLink>}<button type="button" onClick={() => transition(retryLoad)} disabled={loading}><RefreshCw size={14} />{loading ? '불러오는 중…' : '새로고침'}</button></>}</div>
     </header>
     {!canConfigure && !authLoading ? <div className={styles.info}>사업자·권한 설정은 사업자 관리자와 슈퍼매니저가 관리합니다. 담당 숙소와 메뉴 권한 변경은 사업자 관리자에게 요청해 주세요.</div> : <>
-      {error && <div role="alert" className={styles.error}>{error}<div className={styles.actions}><button type="button" onClick={() => void load()}>다시 불러오기</button></div></div>}
+      {error && <div role="alert" className={styles.error}>{error}<div className={styles.actions}><button type="button" onClick={retryLoad} disabled={loading}>다시 불러오기</button></div></div>}
       {notice && <div role="status" className={styles.notice}>{notice}</div>}
-      {loading && !snapshot || (previewRole && snapshot?.viewer.role !== previewRole) ? <div role="status" className={styles.loading}>사업자와 권한 설정을 불러오는 중…</div> : snapshot && <>
+      {loading && !snapshot || (previewRole && snapshot?.viewer.role !== previewRole) ? <div role="status" className={styles.loading}>사업자와 권한 설정을 불러오는 중…</div> : snapshot && <div inert={loading || !!error} aria-busy={loading}>
+        {isSuper && snapshot.organizations.length === 0 && <div className={`${styles.info} mb-5`}><strong>기존 숙소의 사업자 소속을 설정해 주세요.</strong><p>사업자 미배정 숙소 {properties.length}개가 있습니다. 사업자를 추가한 뒤, 해당 사업자의 ‘소속 지점’에서 기존 숙소를 선택해 연결할 수 있습니다. 담당 직원도 같은 사업자에 속해야 숙소와 권한이 정상적으로 표시됩니다.</p><div className={`${styles.actions} mt-3`}><button type="button" onClick={() => transition(() => { setTab('organizations'); setCreating(true); })}>사업자 설정 시작</button></div></div>}
         <div className={styles.scope}>
           <div><strong>{isSuper ? '슈퍼매니저' : organizations[0]?.name || '소속 사업자 확인 필요'}</strong><p>{isSuper ? '사업자별로 지점과 제공 기능을 구분합니다.' : '소속 사업자의 지점과 사용자만 표시됩니다. 지점 추가는 슈퍼매니저의 승인이 필요합니다.'}</p></div>
           {isSuper && <label>관리할 사업자<select value={organizationId} disabled={loading} onChange={event => { const next = event.target.value; transition(() => { setOrganizationId(next); setSelectedUser(null); setFeaturePropertyId(''); }); }} className={styles.field}>{organizationChoices.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}<option value="__unassigned__">사업자 미배정 지점·사용자</option></select></label>}
@@ -133,10 +139,10 @@ function SettingsWorkspace({ previewRole }: { previewRole?: string }) {
             <div className={styles.sectionTitle}><div><h2>사업자와 지점</h2><p>{organizations.length}개 사업자 · {properties.length}개 지점</p></div>{isSuper && <button type="button" className={styles.primary} onClick={() => { if (creating) transition(() => setCreating(false)); else setCreating(true); }}><Plus size={14} />사업자 추가</button>}</div>
             {creating && isSuper && <CreateOrganization onCreated={async id => { setCreating(false); setOrganizationId(id); await load(id); setNotice('사업자를 추가했습니다. 사업자 관리자를 초대해 주세요.'); }} onClose={() => transition(() => setCreating(false))} />}
             <div className={styles.grid}>{organizations.map(item => <OrganizationCard key={`${item.id}:${item.version}`} organization={item} organizations={organizationChoices} allProperties={snapshot.properties} isSuper={isSuper} onSaved={changed} />)}</div>
-            {!organizations.length && <div className={styles.empty}>{isSuper ? '등록된 사업자가 없습니다. 사업자를 추가하고 지점을 묶어 주세요.' : '계정의 소속 사업자를 먼저 설정해야 합니다. 슈퍼매니저에게 문의해 주세요.'}</div>}
+            {!organizations.length && <div className={styles.empty}>{isSuper ? organizationId === '__unassigned__' && snapshot.organizations.length > 0 ? '사업자에 연결되지 않은 숙소와 사용자입니다. 관리할 사업자를 선택하고 소속 지점에 연결해 주세요.' : '등록된 사업자가 없습니다. 사업자를 추가하고 기존 지점을 연결해 주세요.' : '계정의 소속 사업자를 먼저 설정해야 합니다. 슈퍼매니저에게 문의해 주세요.'}</div>}
             <div className={styles.sectionTitle}><div><h2>숙소 관리</h2><p>지점을 선택하면 주소, 체크인 안내와 운영 정보를 관리할 수 있습니다.</p></div><button type="button" onClick={() => transition(() => setTab('requests'))}><Plus size={14} />지점 추가 요청</button></div>
             <div className={styles.propertyList}>{properties.map(item => <article key={item.id} className={styles.property}><h3>{item.name}</h3><p>{snapshot.organizations.find(org => org.id === item.organizationId)?.name || '사업자 미배정'}</p><OperationalLink href={`/admin/properties/${item.id}/settings`}>숙소 설정 <ChevronRight size={11} className="inline" /></OperationalLink></article>)}</div>
-            {!properties.length && <div className={styles.empty}>등록된 지점이 없습니다. 지점 요청에서 추가를 요청할 수 있습니다.</div>}
+            {!properties.length && <div className={styles.empty}>{isSuper ? organizationId === '__unassigned__' ? '사업자 미배정 숙소가 없습니다. 관리할 사업자를 선택해 소속 숙소를 확인해 주세요.' : '이 사업자에 연결된 숙소가 없습니다. 위 사업자 설정의 ‘소속 지점’에서 기존 숙소를 연결하거나 새 지점을 요청해 주세요.' : '소속 사업자에 연결된 숙소가 없습니다. 슈퍼매니저에게 기존 숙소 연결을 요청해 주세요.'}</div>}
           </>}
           {tab === 'users' && <>
             <div className={styles.sectionTitle}><div><h2>사용자와 메뉴 권한</h2><p>매니저는 배정 지점에서 허용된 메뉴를 관리하며, 청소 담당자는 청소와 현장 보고 기능을 사용합니다.</p></div><OperationalLink href="/admin/staff" className={styles.link}><Users size={14} />직원 등록·초대</OperationalLink></div>
@@ -155,7 +161,7 @@ function SettingsWorkspace({ previewRole }: { previewRole?: string }) {
           </>}
           {tab === 'requests' && <PropertyRequests organizations={snapshot.organizations} organizationId={organizationId} isSuper={isSuper} onChanged={changed} />}
         </section>
-      </>}
+      </div>}
     </>}
   </div>;
 }
@@ -180,6 +186,7 @@ function OrganizationCard({ organization, organizations, allProperties, isSuper,
   const [sourceOrganization, setSourceOrganization] = useState('__unassigned__');
   const [sourceProperties, setSourceProperties] = useState<ManagedProperty[]>([]); const [sourceLoading, setSourceLoading] = useState(false);
   const knownProperties = useRef(new Map<string, ManagedProperty>());
+  const knownUsers = useRef(new Map<string, ManagedUser>());
   const [migrateAssignedUsers, setMigrateAssignedUsers] = useState(false); const sourceRun = useRef(0);
   const [email, setEmail] = useState(''); const [inviting, setInviting] = useState(false); const [invitationUrl, setInvitationUrl] = useState(''); const [copied, setCopied] = useState(false);
   const [expiresAt, setExpiresAt] = useState('');
@@ -195,17 +202,20 @@ function OrganizationCard({ organization, organizations, allProperties, isSuper,
   useEffect(() => {
     if (!open || !isSuper) return;
     const run = ++sourceRun.current; setSourceLoading(true);
-    void operationsApi<OperationsSnapshot>(`/api/admin/operations-settings?organizationId=${encodeURIComponent(sourceOrganization)}`).then(result => { if (run === sourceRun.current) { for (const property of result.properties) knownProperties.current.set(property.id, property); setSourceProperties(result.properties); } }).catch(cause => { if (run === sourceRun.current) { setSourceProperties([]); setError(errorMessage(cause)); } }).finally(() => { if (run === sourceRun.current) setSourceLoading(false); });
+    void operationsApi<OperationsSnapshot>(`/api/admin/operations-settings?organizationId=${encodeURIComponent(sourceOrganization)}`).then(result => { if (run === sourceRun.current) { for (const property of result.properties) knownProperties.current.set(property.id, property); for (const user of result.users) knownUsers.current.set(user.id, user); setSourceProperties(result.properties); } }).catch(cause => { if (run === sourceRun.current) { setSourceProperties([]); setError(errorMessage(cause)); } }).finally(() => { if (run === sourceRun.current) setSourceLoading(false); });
     return () => { sourceRun.current += 1; };
   }, [open, isSuper, sourceOrganization, operationsApi]);
   const candidateProperties = [...new Map([...allProperties.filter(p => p.organizationId === organization.id), ...sourceProperties, ...[...knownProperties.current.values()].filter(p => propertyIds.includes(p.id))].map(p => [p.id, p])).values()];
+  const incomingPropertyIds = new Set(candidateProperties.filter(property => property.organizationId !== organization.id && propertyIds.includes(property.id)).map(property => property.id));
+  const unassignedAdmins = [...knownUsers.current.values()].filter(user => user.role === 'admin' && !user.organizationId && user.propertyIds.some(id => incomingPropertyIds.has(id)));
   return <article className={styles.card}><div className={styles.cardTop}><div><h2><Building2 size={16} className="inline mr-2" />{organization.name}</h2><p>{organization.propertyIds.length}개 지점 · {allProperties.filter(p => p.organizationId === organization.id).map(p => p.name).join(' · ') || '지점 미등록'}</p></div><span className={styles.badge} data-status={organization.status}>{statusLabels[organization.status] || organization.status}</span></div>
     {isSuper && <><div className={`${styles.actions} mt-4`}><button type="button" aria-expanded={open} onClick={() => setOpen(value => !value)}>사업자 관리</button></div>{open && <>
       <form className={styles.editor} onSubmit={event => { event.preventDefault(); void save().catch(() => {}); }}>
         <div className={styles.fields}><label className={styles.field}>사업자 이름<input required maxLength={120} disabled={saving} value={name} onChange={event => setName(event.target.value)} /></label><label className={styles.field}>사용 상태<select value={status} disabled={saving} onChange={event => setStatus(event.target.value)}><option value="active">사용 중</option><option value="inactive">사용 중지</option></select></label></div>
         <label className={styles.field}>추가할 지점의 현재 소속<select aria-label="추가할 지점의 현재 소속" value={sourceOrganization} disabled={saving || sourceLoading} onChange={event => setSourceOrganization(event.target.value)}><option value="__unassigned__">사업자 미배정 지점</option>{organizations.filter(item => item.id !== organization.id).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         <fieldset disabled={saving || sourceLoading}><legend className={styles.muted}>소속 지점</legend>{sourceLoading && <p role="status">추가할 지점을 불러오는 중…</p>}<div className={styles.checkGrid}>{candidateProperties.map(p => <label key={p.id} className={styles.check}><input type="checkbox" checked={propertyIds.includes(p.id)} onChange={event => setPropertyIds(ids => event.target.checked ? [...ids, p.id] : ids.filter(id => id !== p.id))} /><span>{p.name}{p.organizationId !== organization.id && <small>{organizations.find(item => item.id === p.organizationId)?.name || '사업자 미배정'} → {organization.name}</small>}</span></label>)}</div></fieldset>
-        <label className={styles.check}><input type="checkbox" disabled={saving} checked={migrateAssignedUsers} onChange={event => setMigrateAssignedUsers(event.target.checked)} /><span>지점에 배정된 기존 직원도 이 사업자로 함께 이동<small>직원이 다른 사업자의 지점에도 배정되어 있으면 이동할 수 없습니다. 직원 소속과 지점 배정을 함께 확인한 뒤 저장해 주세요.</small></span></label>
+        <label className={styles.check}><input type="checkbox" disabled={saving || sourceLoading} checked={migrateAssignedUsers} onChange={event => setMigrateAssignedUsers(event.target.checked)} /><span>기존 직원과 미배정 관리자도 이 사업자로 함께 연결<small>선택한 숙소에 배정된 사용자들의 소속을 함께 변경합니다. 각 사용자의 담당 지점을 모두 선택해야 합니다. 이미 다른 사업자에 소속된 관리자는 자동으로 이동하지 않습니다.</small></span></label>
+        {unassignedAdmins.length > 0 && <div className={styles.info} aria-live="polite"><strong>함께 연결할 사업자 미배정 관리자</strong><ul className="my-2 list-disc pl-5">{unassignedAdmins.map(user => <li key={user.id}>{user.displayName || user.email}</li>)}</ul><p>위 ‘함께 연결’을 선택하고 저장하면 관리자 역할을 유지한 채 {organization.name}의 전체 숙소와 직원을 관리할 수 있게 됩니다.</p></div>}
         <p className={styles.muted}>지점을 소속에서 제외하면 해당 사업자 직원이 그 지점을 조회할 수 없게 됩니다.</p>
         {error && <div role="alert" className={styles.error}>{error}</div>}<SaveBar dirty={dirty} saving={saving} onReset={reset} />
       </form>

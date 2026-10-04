@@ -133,10 +133,12 @@ export async function updateOrganization(auth: SessionAuth, id: string, body: un
       for (const user of users) {
         const role = normalizeRole(user.role);
         if (role === 'super_admin' || user.organizationId === id) continue;
-        if (role === 'admin') throw fail(409, '사업자 관리자는 직원과 함께 이동할 수 없습니다. 사용자·권한에서 소속을 먼저 정리해 주세요.');
+        // Initial business setup may include legacy administrators with no business.
+        // An administrator already belonging to another business needs a separate transfer.
+        if (role === 'admin' && user.organizationId !== null) throw fail(409, '다른 사업자에 소속된 관리자는 직원과 함께 이동할 수 없습니다. 사용자·권한에서 소속을 먼저 정리해 주세요.');
         if (user.properties.some(assignment => !input.propertyIds!.includes(assignment.propertyId))) throw fail(409, `${user.displayName || '직원'}에게 다른 지점 배정이 남아 있습니다. 담당 지점을 모두 옮기거나 배정을 먼저 정리해 주세요.`);
         await tx.user.update({ where: { id: user.id }, data: { organizationId: id, accessVersion: { increment: 1 }, publicToken: randomBytes(24).toString('base64url') } });
-        await explicitAudit(tx, auth, { action: 'user.organization.move', module: 'staff', targetType: 'user', targetId: user.id, organizationId: id, summary: '지점 이동과 함께 직원 소속 변경·이전 일정 링크 회수', details: { changedFields: ['organizationId', 'propertyIds'] } });
+        await explicitAudit(tx, auth, { action: 'user.organization.move', module: 'staff', targetType: 'user', targetId: user.id, organizationId: id, summary: role === 'admin' ? '사업자 미배정 관리자 소속 연결·이전 일정 링크 회수' : '지점 이동과 함께 직원 소속 변경·이전 일정 링크 회수', details: { changedFields: ['organizationId'] } });
       }
     }
     await validateGrouping(tx, removed, null);

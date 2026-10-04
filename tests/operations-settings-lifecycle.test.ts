@@ -80,10 +80,72 @@ test('직원의 담당 지점을 일부만 이동하면 앞서 처리한 다른 
   assert.deepEqual(state(), before);
 });
 
-test('명시적 일괄 이관 없이 배정 지점을 이동하거나 사업자 관리자를 함께 이동하면 409로 거부한다', async () => {
+test('명시적 일괄 이관 없이 배정 지점을 이동하거나 타 사업자 관리자를 함께 이동하면 409로 거부한다', async () => {
   const before = state(); await assert.rejects(updateOrganization(authState.auth, 'o2', { version: 1, propertyIds: ['p1', 'p2', 'p3'] }), rejectedWith(409)); assert.deepEqual(state(), before);
   db.userProperty.push({ userId: 'business-admin-1', propertyId: 'p1' }); const withAdmin = state();
   await assert.rejects(updateOrganization(authState.auth, 'o2', { version: 1, propertyIds: ['p1', 'p2', 'p3'], migrateAssignedUsers: true }), rejectedWith(409)); assert.deepEqual(state(), withAdmin);
+});
+
+function addUnassignedAdministrator() {
+  db.user.push({ id: 'legacy-admin', displayName: '기존 관리자', email: 'legacy@example.invalid', role: 'admin', status: 'active', organizationId: null, enabledModules: null, password: 'original-hash', publicToken: 'legacy-before', accessVersion: 3 });
+  db.userProperty.push({ userId: 'legacy-admin', propertyId: 'p4' });
+}
+
+test('슈퍼매니저는 미배정 관리자와 숙소를 함께 연결하고 기존 역할·배정·계정 정보를 보존한다', async () => {
+  addUnassignedAdministrator();
+  db.user.push({ id: 'unrelated-admin', role: 'admin', status: 'active', organizationId: null, accessVersion: 1 });
+  db.userProperty.push({ userId: 'admin-1', propertyId: 'p4' });
+  const assignments = rows('userProperty'); const historical = rows('cleaning');
+  await updateOrganization(authState.auth, 'o2', { version: 1, propertyIds: ['p3', 'p4'], migrateAssignedUsers: true });
+  const moved = user('legacy-admin');
+  assert.equal(moved.organizationId, 'o2'); assert.equal(moved.role, 'admin'); assert.equal(moved.status, 'active');
+  assert.equal(moved.password, 'original-hash'); assert.equal(moved.enabledModules, null); assert.equal(moved.accessVersion, 4);
+  assert.notEqual(moved.publicToken, 'legacy-before'); assert.deepEqual(db.userProperty, assignments); assert.deepEqual(db.cleaning, historical);
+  assert.equal(user('unrelated-admin').organizationId, null); assert.equal(user('admin-1').organizationId, null);
+  const audit = db.auditLog.find(row => row.targetId === 'legacy-admin');
+  assert.equal(audit.action, 'user.organization.move'); assert.equal(audit.organizationId, 'o2'); assert.match(audit.summary, /미배정 관리자/);
+  assert.equal(JSON.stringify(db.auditLog).includes('original-hash'), false); assert.equal(JSON.stringify(db.auditLog).includes(moved.publicToken), false);
+  actAsBusinessAdmin('o2');
+  const after = await getOperationsSettings(authState.auth);
+  assert.deepEqual(after.properties.map(property => property.id).sort(), ['p3', 'p4']);
+});
+
+test('미배정 관리자에게 남은 지점 배정이 있으면 첫 사업자 연결도 모두 롤백한다', async () => {
+  addUnassignedAdministrator();
+  db.property.push({ id: 'p5', name: '다른 미배정 지점', organizationId: null, featureOverrides: {}, featureVersion: 1 });
+  db.userProperty.push({ userId: 'legacy-admin', propertyId: 'p5' });
+  const before = state();
+  await assert.rejects(updateOrganization(authState.auth, 'o2', { version: 1, propertyIds: ['p1', 'p2', 'p3', 'p4'], migrateAssignedUsers: true }), rejectedWith(409));
+  assert.deepEqual(state(), before);
+});
+
+test('함께 이동을 선택하지 않으면 미배정 관리자의 소속을 자동 변경하지 않는다', async () => {
+  addUnassignedAdministrator(); const before = structuredClone(user('legacy-admin'));
+  await updateOrganization(authState.auth, 'o2', { version: 1, propertyIds: ['p3', 'p4'], migrateAssignedUsers: false });
+  assert.deepEqual(user('legacy-admin'), before);
+  assert.equal(db.auditLog.some(row => row.action === 'user.organization.move'), false);
+});
+
+test('사업자 관리자는 미배정 관리자·숙소의 최초 연결도 직접 수행할 수 없다', async () => {
+  addUnassignedAdministrator(); const before = state(); actAsBusinessAdmin('o2');
+  await assert.rejects(updateOrganization(authState.auth, 'o2', { version: 1, propertyIds: ['p3', 'p4'], migrateAssignedUsers: true }), rejectedWith(403));
+  assert.deepEqual(state(), before);
+});
+
+test('미배정 관리자 이동 이력 저장이 실패하면 관리자 소속·토큰과 숙소 변경도 복구한다', async () => {
+  addUnassignedAdministrator(); const before = state();
+  prismaOverrides.auditLog = { create: async () => { throw new Error('audit offline'); } };
+  await assert.rejects(updateOrganization(authState.auth, 'o2', { version: 1, propertyIds: ['p3', 'p4'], migrateAssignedUsers: true }), /audit offline/);
+  assert.deepEqual(state(), before);
+});
+
+test('미배정 관리자를 먼저 처리한 뒤 타 사업자 관리자를 만나도 앞선 이동을 모두 복구한다', async () => {
+  addUnassignedAdministrator();
+  db.user = [user('legacy-admin'), ...db.user.filter(row => row.id !== 'legacy-admin')];
+  db.userProperty.push({ userId: 'business-admin-1', propertyId: 'p1' });
+  const before = state();
+  await assert.rejects(updateOrganization(authState.auth, 'o2', { version: 1, propertyIds: ['p1', 'p2', 'p3', 'p4'], migrateAssignedUsers: true }), /다른 사업자에 소속된 관리자/);
+  assert.deepEqual(state(), before);
 });
 
 test('여러 원사업자의 지점을 이동해도 원사업자 버전은 각각 한 번 증가하고 오래된 원사업자 저장을 막는다', async () => {

@@ -73,7 +73,24 @@ test('preview excludes supervisors from staff transfers and refuses moving busin
   await api('/api/admin/organizations/preview-company-a', command('PATCH', { version: 1, propertyIds: ['preview-anon', 'preview-unwadang', 'preview-legacy-property'], migrateAssignedUsers: true }));
   assert.equal(store.snapshot.users.find(item => item.id === 'preview-super-other')!.organizationId, null);
   store.snapshot.users.find(item => item.id === 'preview-admin-a')!.propertyIds = ['preview-legacy-property']; const original = structuredClone(store);
-  await assert.rejects(api('/api/admin/organizations/preview-company-b', command('PATCH', { version: 1, propertyIds: ['preview-property-b', 'preview-legacy-property'], migrateAssignedUsers: true })), /사업자 관리자 소속/);
+  await assert.rejects(api('/api/admin/organizations/preview-company-b', command('PATCH', { version: 1, propertyIds: ['preview-property-b', 'preview-legacy-property'], migrateAssignedUsers: true })), /다른 사업자의 관리자/);
+  assert.deepEqual(store, original);
+});
+test('preview moves a business-unassigned administrator only with explicit consent and preserves the role', async () => {
+  const store = createPreviewStore(); const api = createPreviewOperationsApi(store, 'super_admin'); const original = structuredClone(store);
+  const body = { version: 1, propertyIds: ['preview-anon', 'preview-unwadang', 'preview-legacy-property'] };
+  await assert.rejects(api('/api/admin/organizations/preview-company-a', command('PATCH', body)), /소속도 함께 이동/);
+  assert.deepEqual(store, original);
+  await api('/api/admin/organizations/preview-company-a', command('PATCH', { ...body, migrateAssignedUsers: true }));
+  const admin = store.snapshot.users.find(item => item.id === 'preview-legacy-admin')!;
+  assert.equal(admin.organizationId, 'preview-company-a'); assert.equal(admin.role, 'admin'); assert.equal(admin.version, 2);
+});
+test('preview refuses a partial unassigned administrator transfer without changing any record', async () => {
+  const store = createPreviewStore();
+  store.snapshot.properties.push({ id: 'legacy-extra', name: '추가 미배정 숙소', organizationId: null, featureOverrides: {}, version: 1 });
+  store.snapshot.users.find(item => item.id === 'preview-legacy-admin')!.propertyIds.push('legacy-extra');
+  const api = createPreviewOperationsApi(store, 'super_admin'); const original = structuredClone(store);
+  await assert.rejects(api('/api/admin/organizations/preview-company-a', command('PATCH', { version: 1, propertyIds: ['preview-anon', 'preview-unwadang', 'preview-legacy-property'], migrateAssignedUsers: true })), /모든 담당 지점/);
   assert.deepEqual(store, original);
 });
 test('preview admin invitations allow pending unassigned managers and active same-business staff only', async () => {

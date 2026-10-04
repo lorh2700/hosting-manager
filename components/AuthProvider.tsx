@@ -1,31 +1,13 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import type { UserRole, UserStatus } from '@/lib/types';
-import type { OperationalModule } from '@/lib/operational-permissions';
-
-interface AuthUser {
-  id: string;
-  email: string;
-}
-
-interface UserProfile {
-  cleanerId?: string;
-  role: UserRole;
-  propertyIds: string[];
-  displayName: string;
-  phone?: string;
-  status: UserStatus;
-  organizationId?: string | null;
-  organizationName?: string | null;
-  enabledModules?: OperationalModule[];
-  organizationFeatures?: unknown;
-}
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import { readClientSession, type ClientAuthUser as AuthUser, type ClientUserProfile as UserProfile } from '@/lib/auth-session-client';
 
 interface AuthContextType {
   user: AuthUser | null;
   profile: UserProfile | null;
   loading: boolean;
+  error: string | null;
   refreshProfile: () => Promise<void>;
 }
 
@@ -33,6 +15,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   profile: null,
   loading: true,
+  error: null,
   refreshProfile: async () => {},
 });
 
@@ -42,29 +25,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const latestRequest = useRef(0);
 
   const fetchSession = useCallback(async () => {
-    try {
-      const res = await fetch('/api/auth/me');
-      if (!res.ok) {
-        setUser(null);
-        setProfile(null);
-        return;
-      }
-      const data = await res.json();
-      const u = data.user;
-      if (u) {
-        setUser({ id: u.id, email: u.email });
-      } else {
-        setUser(null);
-      }
-      setProfile(data.profile);
-    } catch {
-      setUser(null);
-      setProfile(null);
-    } finally {
-      setLoading(false);
+    const run = ++latestRequest.current;
+    const result = await readClientSession();
+    if (run !== latestRequest.current) return;
+    if (result.kind === 'authenticated') {
+      setUser(current => current?.id === result.user.id && current.email === result.user.email ? current : result.user);
+      setProfile(result.profile); setError(null);
+    } else if (result.kind === 'signed-out') {
+      setUser(null); setProfile(null); setError(null);
+    } else {
+      setError(result.error);
     }
+    setLoading(false);
   }, []);
 
   const refreshProfile = useCallback(async () => {
@@ -72,11 +48,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [fetchSession]);
 
   useEffect(() => {
-    fetchSession();
+    let mounted = true;
+    void Promise.resolve().then(() => { if (mounted) void fetchSession(); });
+    return () => { mounted = false; latestRequest.current += 1; };
   }, [fetchSession]);
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, error, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

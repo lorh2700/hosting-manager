@@ -26,6 +26,7 @@ export function createPreviewStore(): PreviewStore {
         { id: 'preview-admin-b', displayName: '다른 사업자 담당자 · 예시', email: 'other@example.invalid', role: 'admin', status: 'active', organizationId: 'preview-company-b', propertyIds: [], enabledModules: null, version: 1 },
         { id: 'preview-super-other', displayName: '추가 슈퍼매니저 · 예시', email: 'super-other@example.invalid', role: 'super_admin', status: 'active', organizationId: null, propertyIds: [], enabledModules: null, version: 1 },
         { id: 'preview-legacy-cleaner', displayName: '미배정 사업자 직원 · 예시', email: 'legacy@example.invalid', role: 'cleaner', status: 'active', organizationId: null, propertyIds: ['preview-legacy-property'], enabledModules: null, version: 1 },
+        { id: 'preview-legacy-admin', displayName: '미배정 기존 관리자 · 예시', email: 'legacy-admin@example.invalid', role: 'admin', status: 'active', organizationId: null, propertyIds: ['preview-legacy-property'], enabledModules: null, version: 1 },
       ],
     },
     requests: [{ id: 'preview-request', name: '신규 한옥 지점 · 예시', note: '서울 신규 지점의 운영을 준비하고 있습니다.', status: 'requested', organizationId: 'preview-company-a', version: 1, createdAt: '2026-10-04T00:00:00+09:00' }],
@@ -81,7 +82,7 @@ export function createPreviewOperationsApi(store: PreviewStore, role: string): t
       const removing = organization.propertyIds.filter(id => !selected.includes(id));
       if (snapshot.users.some(user => user.organizationId === organization.id && user.propertyIds.some(id => removing.includes(id)))) throw new Error('제외할 지점에 배정된 직원이 있습니다. 새 사업자에서 지점을 추가하며 직원 소속도 함께 이동해 주세요.');
       const incoming = selected.filter(id => !organization.propertyIds.includes(id)); const movers = snapshot.users.filter(user => user.role !== 'super_admin' && user.propertyIds.some(id => incoming.includes(id)) && user.organizationId !== organization.id);
-      if (movers.some(user => user.role === 'admin')) throw new Error('사업자 관리자 소속은 사용자 권한에서 먼저 확인해 주세요.');
+      if (movers.some(user => user.role === 'admin' && user.organizationId !== null)) throw new Error('다른 사업자의 관리자 소속은 사용자 권한에서 먼저 확인해 주세요.');
       if (movers.length && body.migrateAssignedUsers !== true) throw new Error('기존 직원의 소속도 함께 이동하도록 선택해 주세요.');
       if (movers.some(user => !user.propertyIds.every(id => selected.includes(id)))) throw new Error('직원이 다른 사업자의 지점에도 배정되어 있습니다. 모든 담당 지점을 함께 선택해 주세요.');
       if (body.name !== undefined && (typeof body.name !== 'string' || !body.name.trim() || body.name.length > 120)) throw new Error('사업자 이름을 확인해 주세요.');

@@ -1,8 +1,9 @@
 'use client';
 
 import { usePublicLanguage } from '@/components/PublicLanguage';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { type StaySearch, type StaySearchResult, staySearchQuery } from '@/lib/stay-search';
+import { parsePublicStayCards, parsePublicStayResults, visiblePublicStays, type PublicStayCard } from '@/lib/public-home-stays';
 
 import { NavigationLink as Link } from '@/components/NavigationFeedback';
 import Image from 'next/image';
@@ -10,10 +11,6 @@ import { ArrowUpRight, MapPin, Users, Dog } from 'lucide-react';
 import { ScrollUnfoldHero } from '@/components/ScrollUnfoldHero';
 import { StayBookingSearch } from '@/components/StayBookingSearch';
 import { Logo } from '@/components/Logo';
-import { PROPERTY_DISPLAY, PROPERTY_DISPLAY_ORDER } from '@/lib/property-display';
-
-type StayCard = { slug: string; name: string; status: string; region: string; maxGuests: number; maxPets?: number | null; openingLabel?: string | null; images: string[]; basePrice?: number | null };
-const initialCards: StayCard[] = PROPERTY_DISPLAY_ORDER.map(slug => ({ ...PROPERTY_DISPLAY[slug], images: PROPERTY_DISPLAY[slug].imageFiles.map(file => `/images/${PROPERTY_DISPLAY[slug].imageFolder}/${file}.webp`) }));
 
 export default function PublicPortal() {
   const { t, language } = usePublicLanguage();
@@ -22,20 +19,34 @@ export default function PublicPortal() {
   const [results, setResults] = useState<StaySearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState(false);
-  const [cards, setCards] = useState<StayCard[]>(initialCards);
+  const [cards, setCards] = useState<PublicStayCard[]>([]);
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState(false);
+  const listController = useRef<AbortController | null>(null);
   const controller = useRef<AbortController | null>(null);
-  useEffect(() => {
+  const loadCards = useCallback(async () => {
+    listController.current?.abort();
     const request = new AbortController();
-    fetch('/api/public/properties', { signal: request.signal, cache: 'no-store' }).then(async response => {
-      if (!response.ok) return;
-      const listings: StayCard[] = await response.json();
-      if (!request.signal.aborted) setCards(listings.filter(item => item.slug && (item.status === 'active' || item.images.length > 0)).sort((a, b) => {
-        const ai = PROPERTY_DISPLAY_ORDER.indexOf(a.slug), bi = PROPERTY_DISPLAY_ORDER.indexOf(b.slug);
-        return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
-      }));
-    }).catch(() => {});
-    return () => request.abort();
+    listController.current = request;
+    setListLoading(true); setListError(false);
+    const timeout = setTimeout(() => request.abort(), 15_000);
+    try {
+      const response = await fetch('/api/public/properties', { signal: request.signal, cache: 'no-store' });
+      if (!response.ok) throw new Error('Property list unavailable');
+      const listings = parsePublicStayCards(await response.json());
+      if (!listings) throw new Error('Invalid property list');
+      if (listController.current === request) setCards(listings);
+    } catch {
+      if (listController.current === request) setListError(true);
+    } finally {
+      clearTimeout(timeout);
+      if (listController.current === request) setListLoading(false);
+    }
   }, []);
+  useEffect(() => {
+    void loadCards();
+    return () => { listController.current?.abort(); listController.current = null; };
+  }, [loadCards]);
   useEffect(() => {
     return () => { controller.current?.abort(); controller.current = null; };
   }, []);
@@ -47,8 +58,9 @@ export default function PublicPortal() {
     try {
       const response = await fetch('/api/public/stay-search', { method: 'POST', signal: request.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(criteria) });
       if (!response.ok) throw new Error('Search unavailable');
-      const data = await response.json();
-      if (controller.current === request) setResults(data.results);
+      const searchResults = parsePublicStayResults(await response.json());
+      if (!searchResults) throw new Error('Invalid availability response');
+      if (controller.current === request) setResults(searchResults);
     } catch { if (controller.current === request) setSearchError(true); }
     finally {
       clearTimeout(timeout);
@@ -59,13 +71,10 @@ export default function PublicPortal() {
     }
   }
 
-  const visibleCards = cards.filter(property => {
-    if (!property || property.status === 'closed') return false;
-    if (!search) return true;
-    return !searching && !searchError && property.status === 'active'
-      && results.some(result => result.slug === property.slug && result.status === 'available');
-  });
-  const hasSearchErrors = searchError || results.some(result => result.status === 'error');
+  const visibleCards = visiblePublicStays(cards, { active: !!search, loading: searching, failed: searchError, results });
+  const availableCount = visibleCards.filter(card => results.some(result => result.slug === card.slug && result.status === 'available')).length;
+  const hasSearchErrors = searchError || (!!search && !searching && cards.some(card => card.status === 'active'
+    && !results.some(result => result.slug === card.slug && result.status !== 'error')));
 
   return (
     <div className="min-h-screen bg-[#171b18] text-stone-50 selection:bg-stone-400/20 font-sans">
@@ -84,15 +93,19 @@ export default function PublicPortal() {
           </div>
         </div>
         <div aria-live="polite" className="mb-8 text-sm text-stone-300 space-y-3">
-          {search ? <p>{search.checkIn} — {search.checkOut} · {search.guests}{en ? ' guests' : '명'} <button type="button" onClick={() => { controller.current?.abort(); controller.current = null; setSearching(false); setSearch(null); setResults([]); setSearchError(false); }} className="ml-4 min-h-11 underline">{en ? 'Clear search' : '전체 숙소 보기'}</button></p> : <p>{en ? 'From rates · 2 guests, per night. Final rates vary by date and options.' : '기준요금 · 2인 / 1박부터. 날짜와 옵션에 따라 최종 요금이 달라집니다.'}</p>}
+          {search ? <p>{search.checkIn} — {search.checkOut} · {search.guests}{en ? ' guests' : '명'} <button type="button" onClick={() => { controller.current?.abort(); controller.current = null; setSearching(false); setSearch(null); setResults([]); setSearchError(false); }} className="ml-4 min-h-11 underline">{en ? 'Clear search' : '전체 숙소 보기'}</button></p> : <p>{en ? 'Select dates to see live rates. Listed starting rates are for 2 guests per night.' : '날짜를 선택하면 실시간 요금을 확인할 수 있습니다. 표시된 기준요금은 2인 / 1박 기준입니다.'}</p>}
+          {listLoading && <p role="status">{en ? 'Loading stays…' : '숙소 목록을 불러오고 있습니다…'}</p>}
+          {listError && <p role="alert">{en ? 'The stay list could not be loaded. Please try again.' : '숙소 목록을 불러오지 못했습니다. 다시 시도해주세요.'} <button type="button" onClick={() => void loadCards()} className="ml-3 min-h-11 underline">{en ? 'Reload stays' : '숙소 다시 불러오기'}</button></p>}
+          {!listLoading && !listError && cards.length === 0 && <p>{en ? 'No stays are currently published.' : '현재 공개된 숙소가 없습니다.'}</p>}
           {searching && <p role="status">{en ? 'Checking live rates and availability…' : '실시간 요금과 예약 가능 여부를 확인하고 있습니다…'}</p>}
           {search && results.some(r => r.status === 'available' && !r.includesAllFees) && <p>{en ? 'Any additional mandatory fees will be confirmed at checkout.' : '별도 필수 요금이 있는 경우 결제 단계에서 확인할 수 있습니다.'}</p>}
-          {search && !searching && hasSearchErrors && <p role="alert">{en ? 'Availability could not be confirmed for some stays. Only confirmed available stays are shown.' : '일부 지점의 예약 가능 여부를 확인하지 못했습니다. 예약 가능한 것으로 확인된 지점만 표시합니다.'} <button type="button" onClick={() => findStays(search)} className="ml-3 min-h-11 underline">{en ? 'Retry search' : '다시 검색'}</button></p>}
-          {search && !searching && !hasSearchErrors && visibleCards.length === 0 && <p>{en ? 'No stays match these dates and guests. Please try another date or guest count.' : '선택한 날짜와 인원에 체크인 가능한 지점이 없습니다. 날짜나 인원을 변경해 검색해주세요.'}</p>}
-          {search && !searching && visibleCards.length > 0 && <p>{en ? `${visibleCards.length} stays available for your dates and guests.` : `선택한 날짜와 인원에 예약 가능한 지점 ${visibleCards.length}곳입니다.`}</p>}
+          {search && !searching && hasSearchErrors && <p role="alert">{en ? 'Some rates and availability could not be confirmed. You can still view the stays and check again.' : '일부 숙소의 요금과 예약 가능 여부를 확인하지 못했습니다. 숙소 소개를 보거나 다시 검색해주세요.'} <button type="button" onClick={() => findStays(search)} className="ml-3 min-h-11 underline">{en ? 'Retry search' : '다시 검색'}</button></p>}
+          {search && !listLoading && !listError && cards.length > 0 && !searching && !hasSearchErrors && visibleCards.length === 0 && <p>{en ? 'No stays match these dates and guests. Please try another date or guest count.' : '선택한 날짜와 인원에 체크인 가능한 지점이 없습니다. 날짜나 인원을 변경해 검색해주세요.'}</p>}
+          {search && !searching && availableCount > 0 && <p>{en ? `${availableCount} stays confirmed available for your dates and guests.` : `선택한 날짜와 인원에 예약 가능한 것으로 확인된 지점 ${availableCount}곳입니다.`}</p>}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-10 md:gap-y-14">
+        <div aria-busy={listLoading || searching} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-10 md:gap-y-14">
+          {listLoading && cards.length === 0 && Array.from({ length: 6 }, (_, index) => <div key={index} aria-hidden="true" className="motion-safe:animate-pulse"><div className="aspect-[3/2] bg-white/5" /><div className="mt-5 h-6 w-1/3 bg-white/5" /><div className="mt-4 h-4 w-1/2 bg-white/5" /></div>)}
           {visibleCards.map((p) => {
             if (!p) return null;
             const isComingSoon = p.status === 'coming_soon';
@@ -101,7 +114,7 @@ export default function PublicPortal() {
             return (
               <article key={p.slug} className="stay-reveal">
                 <Link
-                  href={`/book/${p.slug}${search && result?.status === 'available' ? `?${staySearchQuery(search)}` : ''}`}
+                  href={`/book/${p.slug}${search && p.status === 'active' ? `?${staySearchQuery(search)}` : ''}`}
                   className="group block focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#d8c3a4]"
                 >
                   <div className="relative overflow-hidden bg-stone-900 aspect-[3/2]">
@@ -150,8 +163,8 @@ export default function PublicPortal() {
                     </div>
                     <div className="flex justify-between items-end gap-4 mt-6 pt-5 border-t border-white/10">
                       <p className="text-xl text-stone-100">
-                        {isComingSoon ? t('오픈 예정') : search ? searching ? (en ? 'Checking rates…' : '요금 확인 중…') : result?.status === 'available' ? `₩${result.priceKrw!.toLocaleString()}` : result?.status === 'unavailable' ? (en ? 'Unavailable for this search' : '선택 조건 예약 불가') : (en ? 'Rate unavailable · retry' : '요금 조회 실패 · 재검색') : (en ? 'From ₩300,000' : '30만원~')}
-                        {!isComingSoon && (!search || result?.status === 'available') && <span className="block text-xs text-stone-400 mt-2">{search ? (en ? `${result?.nights} nights · ${result?.includesAllFees ? 'stay total' : 'stay rate'}, selected options included` : `${result?.nights}박 ${result?.includesAllFees ? '총요금' : '숙박요금'} · 선택 옵션 포함`) : (en ? '2 guests · per night' : '기준 2인 · 1박')}</span>}
+                        {isComingSoon ? t('오픈 예정') : search ? searching ? (en ? 'Checking rates…' : '요금 확인 중…') : result?.status === 'available' ? `₩${result.priceKrw!.toLocaleString()}` : (en ? 'Rates and availability unconfirmed' : '요금·예약 가능 여부 확인 필요') : p.basePrice ? (en ? `From ₩${p.basePrice.toLocaleString()}` : `₩${p.basePrice.toLocaleString()}부터`) : (en ? 'Select dates for rates' : '날짜 선택 후 요금 확인')}
+                        {!isComingSoon && ((!search && !!p.basePrice) || result?.status === 'available') && <span className="block text-xs text-stone-400 mt-2">{search ? (en ? `${result?.nights} nights · ${result?.includesAllFees ? 'stay total' : 'stay rate'}, selected options included` : `${result?.nights}박 ${result?.includesAllFees ? '총요금' : '숙박요금'} · 선택 옵션 포함`) : (en ? '2 guests · per night' : '기준 2인 · 1박')}</span>}
                       </p>
                       <span className="text-sm text-[#d8c3a4] whitespace-nowrap">{en ? 'View stay' : '숙소 보기'}</span>
                     </div>

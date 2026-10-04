@@ -6,7 +6,7 @@ import { POST as CREATE } from '../app/api/properties/route';
 import { GET as PUBLIC } from '../app/api/public/properties/route';
 import { GET as DETAIL } from '../app/api/public/properties/[id]/route';
 import { POST as SEARCH } from '../app/api/public/stay-search/route';
-import { db, resetDb } from './stubs/prisma';
+import { db, resetDb, prismaOverrides } from './stubs/prisma';
 import { actAsAdmin, actAsBusinessAdmin } from './stubs/auth';
 import { makeRequest, setFetchHandler, resetFetch, fetchLog, json } from './helpers/beds24-mock';
 
@@ -48,6 +48,26 @@ test('공개 중인 주소 변경과 잘못된 인원·사진 설정은 거부�
 test('직접 추가한 지점도 준비 중으로 시작한다', async () => {
   const response: any = await CREATE(makeRequest({ name: '새 지점', organizationId: 'o1' }, 'http://localhost/api/properties'), { params: Promise.resolve({}) });
   assert.equal(response.status, 201); assert.equal(response.body.status, 'coming_soon'); assert.equal(response.body.maxGuests, 2);
+});
+
+test('숙소 추가 후 관리자 연결에 실패하면 새 지점도 저장되지 않는다', async () => {
+  const before = structuredClone(db.property);
+  prismaOverrides.userProperty = { create: async () => { throw new Error('assignment insert failed'); } };
+  const response: any = await CREATE(makeRequest({ name: '다시 추가할 지점', organizationId: 'o1' }, 'http://localhost/api/properties'), { params: Promise.resolve({}) });
+  assert.equal(response.status, 500);
+  assert.deepEqual(db.property, before);
+  delete prismaOverrides.userProperty;
+  const retry: any = await CREATE(makeRequest({ name: '다시 추가할 지점', organizationId: 'o1' }, 'http://localhost/api/properties'), { params: Promise.resolve({}) });
+  assert.equal(retry.status, 201);
+  assert.equal(db.property.filter(row => row.name === '다시 추가할 지점').length, 1);
+  assert.equal(db.userProperty.filter(row => row.propertyId === retry.body.id).length, 1);
+});
+
+test('사업자 관리자는 직접 지점을 추가할 수 없다', async () => {
+  actAsBusinessAdmin('o1', ['new-id']);
+  const response: any = await CREATE(makeRequest({ name: '권한 밖 지점', organizationId: 'o1' }, 'http://localhost/api/properties'), { params: Promise.resolve({}) });
+  assert.equal(response.status, 403);
+  assert.equal(db.property.some(row => row.name === '권한 밖 지점'), false);
 });
 
 test('코드 등록 없이 새 지점의 공개 목록과 상세 페이지가 연결되며 내부 정보는 반환하지 않는다', async () => {
