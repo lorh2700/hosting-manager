@@ -37,7 +37,6 @@ const HOST_GROUPS: AdminNavGroup[] = [
     { href: '/admin/guest-stays', label: '게스트 웹앱·신청함', mobileLabel: '게스트 웹앱', icon: 'guests', roles: MANAGERS },
   ] },
   { id: 'maintenance', label: '객실 정비', items: [
-    { href: '/admin/cleaning-requests', label: '청소 배정·신청', icon: 'cleaning', roles: MANAGERS },
     { href: '/admin/inventory', label: '재고·세탁 기록', icon: 'supplies', roles: MANAGERS },
     { href: '/admin/laundry', label: '세탁 관리', icon: 'laundry', roles: MANAGERS },
     { href: '/admin/issues', label: '이슈 관리', icon: 'issues', roles: MANAGERS },

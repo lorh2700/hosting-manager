@@ -10,6 +10,7 @@ test('host managers can reach daily and maintenance work without administrator-o
   assert.ok(!paths.includes('/admin/guests'));
   assert.ok(!paths.includes('/admin/api-clients'));
   assert.ok(!paths.includes('/admin/jongno-events'));
+  assert.ok(!paths.includes('/admin/cleaning-requests'));
   assert.equal(navigation.secondary[0].href, '/cleaner');
 });
 
@@ -54,7 +55,7 @@ test('active menu follows nested routes and the Today alias without partial path
 test('a manager sees granted modules while business administrators do not acquire platform tools', () => {
   const limited = getAdminNavigation('host', 'manager', { enabledModules: ['cleaning', 'laundry', 'staff'], organizationFeatures: { laundry: false } });
   const paths = limited.groups.flatMap(group => group.items.map(item => item.href));
-  assert.ok(paths.includes('/admin/cleaning-requests'));
+  assert.ok(!paths.includes('/admin/cleaning-requests'));
   assert.ok(paths.includes('/admin/staff'));
   for (const hidden of ['/admin/calendar', '/admin/messages', '/admin/laundry', '/admin/settings', '/admin/activity']) assert.ok(!paths.includes(hidden));
   const business = getAdminNavigation('host', 'admin').groups.flatMap(group => group.items.map(item => item.href));

@@ -8,19 +8,32 @@ import { withAuth, ok, created, fail, readJson } from '@/lib/core/http';
 import { phoneSchema } from '@/lib/inquiry-notification-settings';
 import { phoneToSyntheticEmail, isSyntheticEmail } from '@/lib/phone';
 import { staffTenantWhere, canAdministerUser } from '@/lib/user-management';
+import { STAFF_PLATFORM_SCOPE, STAFF_UNASSIGNED_SCOPE, staffOrganizationName } from '@/lib/staff-organizations';
 
-export const GET = withAuth('staff/list', async (_req, { auth }) => {
+export const GET = withAuth('staff/list', async (req, { auth }) => {
   if (auth.role === 'cleaner') throw fail(403, '직원 관리 권한이 없습니다.');
+  const params = new URL(req.url).searchParams;
+  const scope = params.get('organizationId') || '';
+  const isSuper = auth.role === 'super_admin';
+  const scopedOrganization = scope === STAFF_UNASSIGNED_SCOPE ? null : scope;
+  if (!isSuper && scope && scopedOrganization !== (auth.user.organizationId || null)) throw fail(403, '자기 사업자의 직원만 조회할 수 있습니다.');
+  const organizations = await prisma.organization.findMany({ where: isSuper ? {} : auth.user.organizationId ? { id: auth.user.organizationId } : { id: { in: [] } }, select: { id: true, name: true, status: true }, orderBy: { name: 'asc' }, take: 501 });
+  if (organizations.length > 500) throw fail(400, '사업자 목록이 너무 큽니다. 조회 범위를 확인해 주세요.');
+  if (isSuper && scope && ![STAFF_UNASSIGNED_SCOPE, STAFF_PLATFORM_SCOPE].includes(scope) && !organizations.some(item => item.id === scope)) throw fail(400, '존재하지 않는 사업자입니다.');
   const visible = await getVisiblePropertyIds(auth);
-  const users = await staffDirectory.findMany({ where: auth.role === 'super_admin' ? {} : auth.role === 'admin' ? (auth.user.organizationId ? staffTenantWhere(auth) : { id: auth.session.userId }) : { ...staffTenantWhere(auth), OR: [{ id: auth.session.userId }, { ownerId: auth.session.userId, role: 'cleaner' }, { role: 'cleaner', properties: { some: { propertyId: { in: visible || [] } } } }] }, take: 2001 });
-  const properties = await prisma.property.findMany({ where: visible === null ? {} : { id: { in: visible } }, select: { id: true, name: true, ownerId: true, organizationId: true }, orderBy: { name: 'asc' }, take: 2001 });
+  const tenant = isSuper ? {} : auth.role === 'admin' ? (auth.user.organizationId ? staffTenantWhere(auth) : { id: auth.session.userId }) : { ...staffTenantWhere(auth), OR: [{ id: auth.session.userId }, { ownerId: auth.session.userId, role: 'cleaner' }, { role: 'cleaner', properties: { some: { propertyId: { in: visible || [] } } } }] };
+  const organizationWhere = isSuper && scope ? scope === STAFF_PLATFORM_SCOPE ? { role: 'super_admin' } : { organizationId: scopedOrganization, role: { not: 'super_admin' } } : {};
+  const [users, properties] = await Promise.all([
+    params.get('picker') === '1' ? Promise.resolve([]) : staffDirectory.findMany({ where: { AND: [tenant, organizationWhere] }, take: 2001 }),
+    prisma.property.findMany({ where: { ...(visible === null ? {} : { id: { in: visible } }), ...(isSuper && scope ? scope === STAFF_PLATFORM_SCOPE ? { id: { in: [] } } : { organizationId: scopedOrganization } : {}) }, select: { id: true, name: true, ownerId: true, organizationId: true }, orderBy: { name: 'asc' }, take: 2001 }),
+  ]);
   if (users.length > 2000 || properties.length > 2000) throw fail(400, '직원·숙소 목록이 너무 큽니다. 사업자 범위를 줄여 주세요.');
   return ok({ staff: users.map(u => ({ key: `user:${u.id}`, userId: u.id, cleanerId: u.id,
     name: u.name, phone: u.phone || '', email: isSyntheticEmail(u.user.email) || u.status === 'no_account' ? '' : u.user.email,
     role: u.role, roles: [u.role], status: u.status, propertyIds: u.assignments.map(p => p.propertyId), managementPropertyIds: u.assignments.map(p => p.propertyId),
-    scope: ['super_admin', 'admin'].includes(u.role) ? 'all' : u.assignments.length ? 'selected' : 'none', ownerId: u.ownerId, organizationId: u.organizationId,
+    scope: ['super_admin', 'admin'].includes(u.role) ? 'all' : u.assignments.length ? 'selected' : 'none', ownerId: u.ownerId, organizationId: u.organizationId, organizationName: staffOrganizationName(u, organizations),
     notifyNewOpen: u.notifyNewOpen, publicToken: u.id === auth.session.userId || auth.role === 'super_admin' || canAdministerUser(auth, u) || (u.role === 'cleaner' && canManageCleaner(auth, u)) ? u.publicToken : null, loginIdentifier: u.status === 'no_account' ? '' : isSyntheticEmail(u.user.email) ? u.phone : u.user.email,
-  })), properties });
+  })), properties, organizations });
 });
 
 const cleanerSchema = z.object({

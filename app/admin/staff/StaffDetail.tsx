@@ -3,6 +3,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { api, field, button, roles, statuses, type Staff, type Property, type Role } from './types';
 import { useAuth } from '@/components/AuthProvider';
+import { staffOrganizationName } from '@/lib/staff-organizations';
 
 export default function StaffDetail({ staff, isAdmin, properties, selfId, onSaved, onClose }: { staff: Staff; allStaff: Staff[]; isAdmin: boolean; properties: Property[]; selfId?: string; onSaved: () => void; onClose: () => void }) {
   const [name, setName] = useState(staff.name), [phone, setPhone] = useState(staff.phone);
@@ -25,7 +26,7 @@ export default function StaffDetail({ staff, isAdmin, properties, selfId, onSave
   }
   const update = (data: object) => api('/api/users', 'PUT', { id: staff.userId, ...data });
   return <section className="space-y-6 border bg-white p-6" aria-label={`${staff.name} 직원 상세`}>
-    <header className="flex justify-between gap-4"><div><h2 className="text-xl font-medium">{staff.name}</h2><p className="mt-2 text-sm text-stone-500">{roles[staff.role]} · {statuses[staff.status]}</p></div><button type="button" disabled={busy} className={button} onClick={onClose}>닫기</button></header>
+    <header className="flex justify-between gap-4"><div><h2 className="text-xl font-medium">{staff.name}</h2><p className="mt-2 text-sm text-stone-500">{roles[staff.role]} · {statuses[staff.status]}</p><p className="mt-2 text-sm">소속 사업자: <strong className="font-medium">{staffOrganizationName(staff)}</strong></p></div><button type="button" disabled={busy} className={button} onClick={onClose}>닫기</button></header>
     <form className="space-y-4" onSubmit={event => { event.preventDefault(); void action(() => update({ displayName: name, phone, ...(editableRole ? { role, ...(email.trim() && staff.status !== 'no_account' ? { email: email.trim() } : {}) } : {}) })); }}>
       <fieldset disabled={busy || !canEdit} className="grid gap-4 sm:grid-cols-2">
         <label className="text-sm">이름<input className={field} required value={name} onChange={event => setName(event.target.value)} /></label>
@@ -38,7 +39,7 @@ export default function StaffDetail({ staff, isAdmin, properties, selfId, onSave
     </form>
     <form className="space-y-4 border-t pt-5" onSubmit={event => { event.preventDefault(); void action(() => update({ propertyIds: ids })); }}>
       <h3 className="font-medium">담당 숙소</h3>
-      {staff.role === 'super_admin' ? <p className="text-sm">슈퍼매니저는 전체 사업자를 관리합니다.</p> : staff.role === 'admin' ? <p className="text-sm">사업자 관리자는 자기 사업자의 지점만 관리합니다.</p> : <><fieldset disabled={busy || isSelf || !canEdit} className="space-y-3">{assignableProperties.map(p => <label key={p.id} className="flex gap-2 text-sm"><input type="checkbox" checked={ids.includes(p.id)} onChange={() => setIds(current => current.includes(p.id) ? current.filter(id => id !== p.id) : [...current, p.id])} />{p.name}</label>)}</fieldset><p className="text-xs text-stone-500">역할에 따른 관리·청소 업무에 같은 숙소 배정이 적용됩니다. 모두 해제하면 새 업무 접근을 중지하고 이력은 보존합니다.</p><button disabled={busy || isSelf || !canEdit} className={button}>담당 숙소 저장</button></>}
+      {staff.role === 'super_admin' ? <p className="text-sm">슈퍼매니저는 전체 사업자를 관리합니다.</p> : staff.role === 'admin' ? <p className="text-sm">{staff.organizationId ? '사업자 관리자는 자기 사업자의 지점만 관리합니다.' : '소속 사업자가 미배정되어 있습니다. 사업자·권한 설정에서 소속을 먼저 연결해 주세요.'}</p> : <><fieldset disabled={busy || isSelf || !canEdit} className="space-y-3">{assignableProperties.map(p => <label key={p.id} className="flex gap-2 text-sm"><input type="checkbox" checked={ids.includes(p.id)} onChange={() => setIds(current => current.includes(p.id) ? current.filter(id => id !== p.id) : [...current, p.id])} />{p.name}</label>)}</fieldset><p className="text-xs text-stone-500">역할에 따른 관리·청소 업무에 같은 숙소 배정이 적용됩니다. 모두 해제하면 새 업무 접근을 중지하고 이력은 보존합니다.</p><button disabled={busy || isSelf || !canEdit} className={button}>담당 숙소 저장</button></>}
     </form>
     <div className="space-y-3 border-t pt-5"><h3 className="font-medium">로그인·개인 일정</h3><p className="text-sm">{staff.loginIdentifier || '로그인 없이 일정 링크 사용'}</p>
       {!isSelf && canEdit && <><button type="button" disabled={busy} className={button} onClick={() => void action(async () => { const result = await api(`/api/cleaners/${staff.userId}/reset-password`, 'POST'); setPassword(result.initialPassword); })}>{staff.status === 'no_account' ? '로그인 비밀번호 발급' : '초기 비밀번호 재발급'}</button>{staff.status !== 'no_account' && <button type="button" disabled={busy} className={button} onClick={() => void action(() => update({ status: staff.status === 'active' ? 'suspended' : 'active' }))}>{staff.status === 'active' ? '로그인 중지' : '로그인 허용'}</button>}</>}

@@ -1,7 +1,8 @@
 export type Scope = 'all' | 'selected' | 'none';
 export type Role = 'super_admin' | 'admin' | 'manager' | 'cleaner';
-export interface Staff { key: string; userId: string; cleanerId: string | null; name: string; email: string; phone: string; role: Role; roles: Role[]; managementPropertyIds: string[]; status: string; propertyIds: string[]; scope: Scope; ownerId: string | null; organizationId?: string | null; notifyNewOpen: boolean; publicToken: string | null; loginIdentifier: string }
+export interface Staff { key: string; userId: string; cleanerId: string | null; name: string; email: string; phone: string; role: Role; roles: Role[]; managementPropertyIds: string[]; status: string; propertyIds: string[]; scope: Scope; ownerId: string | null; organizationId?: string | null; organizationName?: string | null; notifyNewOpen: boolean; publicToken: string | null; loginIdentifier: string }
 export interface Property { id: string; name: string; ownerId: string; organizationId?: string | null }
+export interface Organization { id: string; name: string; status: string }
 export const field = 'mt-2 w-full border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/30';
 export const button = 'min-h-11 border border-stone-300 px-4 py-2 text-sm disabled:opacity-40';
 export const roles = { super_admin: '슈퍼매니저', admin: '사업자 관리자', manager: '매니저', cleaner: '청소 담당자' };
