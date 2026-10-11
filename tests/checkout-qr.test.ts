@@ -34,6 +34,32 @@ test('고정 QR은 같은 숙소에 안정적으로 발급되며 변조된 서�
   assert.equal(verifyCheckoutQr('a'.repeat(1000)), null);
 });
 
+test('키 교체 후 등록되지 않은 구형 QR은 거부하고 현재 키의 QR은 허용한다', () => {
+  const previousSecret = process.env.JWT_SECRET;
+  try {
+    process.env.JWT_SECRET = 'old-checkout-test-key';
+    const oldToken = checkoutQrToken(propertyId);
+    process.env.JWT_SECRET = 'new-checkout-test-key';
+    assert.equal(verifyCheckoutQr(oldToken), null);
+    assert.equal(verifyCheckoutQr(checkoutQrToken(propertyId)), propertyId);
+
+    const byulhaId = 'c830c242-d1d5-4af1-9f68-43e2f5ae486a';
+    const encoded = Buffer.from(byulhaId).toString('base64url');
+    assert.equal(verifyCheckoutQr(`${encoded}.${oldToken.split('.')[1]}`), null);
+    assert.equal(verifyCheckoutQr(`${encoded}.${'a'.repeat(43)}`), null);
+  } finally {
+    if (previousSecret === undefined) delete process.env.JWT_SECRET;
+    else process.env.JWT_SECRET = previousSecret;
+  }
+});
+
+test('구형 QR 복구가 추가되어도 잘못된 형식과 서명 누락은 거부한다', () => {
+  const token = checkoutQrToken(propertyId);
+  for (const invalid of [null, {}, '', token.split('.')[0], `${token}.extra`, ` ${token}`, `${token}\n`, `${token}=`, '.signature']) {
+    assert.equal(verifyCheckoutQr(invalid), null);
+  }
+});
+
 test('QR 스캔 상태 조회는 예약자 정보·신호 상세를 노출하거나 알림을 보내지 않는다', async () => {
   const response = await callRoute(POST, request('status'));
   assert.equal(response.status, 200);
