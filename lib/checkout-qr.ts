@@ -2,7 +2,11 @@ import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
 // Exact token digests from verified printed cards; never retain an old signing key.
 const printedQrRecoveries: Readonly<Record<string, string>> = {
+  'cddfc9c92ba57c7e793ba663edc60970bc5a202bbcca951ac0a79fe72873eaff': '70X0HKDJasPU3RQj67aU',
+  '99516806ab90e570b2fbe30c6aa50c13d262adfc189b1f7ccf1f21f73f9bb742': 'oKWKVQqLy7uENyHUwljr',
+  '70f4987938c580bff108acf2508563a9c7b1a4c6a892309a68617c6a5d4f6cda': 'Z4jFeng2zG9WpAhWtow3',
   '8bc3e80d7dc7b35138bd381d59467cc150497fff9605f47638405af21027bd8d': 'c830c242-d1d5-4af1-9f68-43e2f5ae486a',
+  'e6eac7ecdc6c5481df6aaf5684efe25acef047819580b16efedd9d7385ee0053': '5plQsEOe9sTHzSsMS0pc',
 };
 
 function signature(encoded: string): string {
