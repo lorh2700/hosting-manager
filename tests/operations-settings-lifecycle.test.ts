@@ -103,6 +103,7 @@ test('슈퍼매니저는 미배정 관리자와 숙소를 함께 연결하고 �
   assert.notEqual(moved.publicToken, 'legacy-before'); assert.deepEqual(db.userProperty, assignments); assert.deepEqual(db.cleaning, historical);
   assert.equal(user('unrelated-admin').organizationId, null); assert.equal(user('admin-1').organizationId, null);
   const audit = db.auditLog.find(row => row.targetId === 'legacy-admin');
+  assert.ok(audit);
   assert.equal(audit.action, 'user.organization.move'); assert.equal(audit.organizationId, 'o2'); assert.match(audit.summary, /미배정 관리자/);
   assert.equal(JSON.stringify(db.auditLog).includes('original-hash'), false); assert.equal(JSON.stringify(db.auditLog).includes(moved.publicToken), false);
   actAsBusinessAdmin('o2');

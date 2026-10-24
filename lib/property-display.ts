@@ -140,6 +140,7 @@ export const PROPERTY_DISPLAY_ORDER: string[] = [
 // 어느 쪽 DB 상태여도 페이지가 살아있도록 양쪽 슬러그를 모두 받아준다.
 // 마이그레이션이 프로덕션에 적용된 것을 확인한 뒤 이 항목을 지울 것.
 export const LEGACY_SLUGS: Record<string, string> = {
+  unwa: 'unwadang',
   byeolha: 'byulha',   // 2026-07 로마자 표기 통일
 };
 

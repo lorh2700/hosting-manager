@@ -65,6 +65,31 @@ test('같은 날 두 번 누르면 중복으로 처리하고 알림을 다시 �
   assert.equal(notifyCalls.checkout.length, 2, '첫 호출의 2건뿐');
 });
 
+test('호스트·정담당·부담당의 전화번호 표기가 달라도 같은 번호에는 한 번만 알린다', async () => {
+  db.user.find(user => user.id === 'host-1')!.phone = '+82 10-1111-2222';
+  db.user.find(user => user.id === 'cl-1')!.phone = '010-1111-2222';
+  db.user.find(user => user.id === 'cl-2')!.phone = '01011112222';
+  db.cleaning = [{ id: 'c1', propertyId: 'p1', date: todayKst(), cleanerId: 'cl-1', assistantCleanerId: 'cl-2', status: 'pending' }];
+
+  const res = await callRoute(POST, request('POST', { body: { propertyKey: 'anon' } }));
+
+  assert.equal(res.status, 201, JSON.stringify(res.body));
+  assert.equal(res.body.notified, 1);
+  assert.deepEqual(notifyCalls.checkout.map(call => call.phone), ['01011112222']);
+});
+
+test('국제 전화번호도 제외하지 않고 표기를 정리해 한 번만 알린다', async () => {
+  db.user.find(user => user.id === 'host-1')!.phone = '+44 7700 900123';
+  db.user.find(user => user.id === 'cl-1')!.phone = '447700900123';
+  db.cleaning = [{ id: 'c1', propertyId: 'p1', date: todayKst(), cleanerId: 'cl-1', status: 'pending' }];
+
+  const res = await callRoute(POST, request('POST', { body: { propertyKey: 'anon' } }));
+
+  assert.equal(res.status, 201, JSON.stringify(res.body));
+  assert.equal(res.body.notified, 1);
+  assert.deepEqual(notifyCalls.checkout.map(call => call.phone), ['447700900123']);
+});
+
 test('미배정이면 그 숙소를 보는 알림 켠 담당자 전원 + 호스트', async () => {
   db.cleaning = [{ id: 'c1', propertyId: 'p1', date: todayKst(), cleanerId: null, status: 'pending' }];
   const res = await callRoute(POST, request('POST', { body: { propertyKey: 'anon' } }));

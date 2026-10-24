@@ -1,5 +1,7 @@
 # 안정화 & 단계적 서비스 분리 설계서
 
+> 후속 설계: [2026-10-05 공통 백엔드 설계](backend-architecture.md). 이 문서는 2026-06-07 당시의 계획을 보존한 자료이며 아래 코드 현황·비용·진단을 현재 상태로 간주하지 않는다. 웹·Android 공통 API, worker 및 단계별 이전의 최신 설계는 후속 문서를 따른다.
+
 > 대상: hosting-manager (void-anchae) — Next.js 15 모놀리스, Netlify 배포, Prisma + Supabase Postgres
 > 작성일: 2026-06-07
 > 목표: **풀 MSA 전환이 아니라**, 불안정 요인을 제거하면서 필요한 부분만 단계적으로 분리(Strangler 패턴)

@@ -25,3 +25,6 @@ coverage/
 
 # Local Next.js preview builds
 /.next-*/
+
+# Standalone backend bundles
+/dist/backend/

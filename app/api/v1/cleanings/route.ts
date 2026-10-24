@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireApiClient, propertyScopeFilter, isApiClient } from '@/lib/api-auth';
 import { deriveExternalSource, legacyExternalSource, ownsExternalCleaning } from '@/lib/external-cleaning-ownership';
 import { externalCleaningTransaction, requireExternalCleaningProperty, recordExternalCleaningAudit } from '@/lib/external-cleaning-commands';
+import { lockCleaningProperty, lockCleaningSlot, requireSingleCleaning } from '@/lib/cleaning-slots';
 import { withErrors, fail } from '@/lib/core/http';
 import {
   cleaningsQuerySchema,
@@ -102,6 +103,8 @@ export const POST = withErrors('v1/cleanings/create', async (req) => {
   }
 
   return externalCleaningTransaction(async tx => {
+    await lockCleaningProperty(tx, data.propertyId);
+    await lockCleaningSlot(tx, data.propertyId, data.date);
     const property = await requireExternalCleaningProperty(tx, auth, data.propertyId);
     const externalSource = deriveExternalSource(auth);
     let existing = await tx.cleaning.findFirst({ where: { externalSource, externalId: data.externalId } });
@@ -113,7 +116,11 @@ export const POST = withErrors('v1/cleanings/create', async (req) => {
     if (existing && existing.propertyId !== data.propertyId) {
       throw fail(409, '외부 청소 ID를 다른 숙소로 이동할 수 없습니다.', { code: 'external_id_property_mismatch' });
     }
-    const slot = await tx.cleaning.findFirst({ where: { propertyId: data.propertyId, date: data.date, ...(existing ? { id: { not: existing.id } } : {}) } });
+    if (existing) {
+      await requireSingleCleaning(tx, existing);
+      if (data.cleanerId && data.cleanerId === existing.assistantCleanerId) throw fail(409, '정담당과 부담당은 서로 다른 직원이어야 합니다.');
+    }
+    const slot = await tx.cleaning.findFirst({ where: { propertyId: data.propertyId, date: data.date, status: { not: 'cancelled' }, origin: { not: 'interim' }, ...(existing ? { id: { not: existing.id } } : {}) } });
     if (slot) throw fail(409, '해당 날짜에 청소 일정이 이미 있습니다.', { code: 'slot_already_claimed' });
     const values = { date: data.date, cleanerId: data.cleanerId ?? null,
       externalCleanerName: data.externalCleanerName ?? null, externalCleanerPhone: data.externalCleanerPhone ?? null,

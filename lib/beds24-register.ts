@@ -27,6 +27,8 @@ import {
   type Beds24BookingKind,
   type BookingVerification,
 } from '@/lib/beds24-booking';
+import { rateReservationBarriers, directReservationMarker, reservationRequestHash, type ReservationBarrier } from '@/lib/rate-reservation-barrier';
+import { beds24Get } from '@/lib/beds24';
 
 // Netlify 함수 타임아웃(26s) 안에서 사전조회 → 생성 → 최종확인 → 저장까지 끝내기 위한 예산.
 export const ROUTE_BUDGET_MS = 22_000;
@@ -59,12 +61,82 @@ export type RegisterOutcome =
   | { ok: true; bookingId: number; origin: RegisterOrigin; booking: Beds24Booking }
   | { ok: false; status: number; body: Record<string, unknown> };
 
+async function registerManagedReservation(input: RegisterInput, barrier: ReservationBarrier, marker: string, requestHash: string): Promise<RegisterOutcome> {
+  const expected = { roomId: input.roomId, arrival: input.arrival, departure: input.departure, kind: input.kind };
+  const identity = { ...expected, firstName: input.firstName, lastName: input.lastName };
+  let bookingId: number | null = null;
+  let origin: RegisterOrigin = 'created';
+  let markerRequired = barrier.state !== 'prepared' && !barrier.observedBookingId;
+  const pending = () => ({ ok: false as const, status: 502, body: { error: '예약 전송 결과를 확인 중입니다. 새 예약을 다시 전송하지 않습니다. Beds24에서 확인 후 이어서 등록해 주세요.', stage: 'verify', ...(bookingId ? { pendingBeds24BookingId: String(bookingId) } : {}) } });
+  if (barrier.state === 'released') return { ok: false, status: 409, body: { error: '이 예약 처리 키는 종료되었습니다. 예약 상태를 확인해 주세요.', stage: 'verify' } };
+  const provided = input.providedBookingId;
+  if (provided !== undefined && provided !== null && String(provided).trim()) {
+    const id = Number(provided);
+    if (!Number.isSafeInteger(id) || id < 1) return { ok: false, status: 400, body: { error: 'beds24BookingId 형식이 올바르지 않습니다.', clearPending: true } };
+    if (barrier.observedBookingId && String(id) !== barrier.observedBookingId) return { ok: false, status: 409, body: { error: '이 처리 키에서 확인한 예약과 다릅니다.' } };
+    bookingId = id; origin = 'provided';
+  } else if (barrier.observedBookingId) {
+    bookingId = Number(barrier.observedBookingId); origin = 'reused';
+  } else if (barrier.state !== 'prepared') {
+    for (let page = 1; page <= 5; page++) {
+      const result = await beds24Get('/bookings', { roomId: String(input.roomId), arrivalFrom: input.arrival, arrivalTo: input.arrival, page: String(page) }, { timeoutMs: 6000 });
+      const match = (result.data as Beds24Booking[] | undefined)?.find(item => item.custom1 === marker);
+      if (match) { bookingId = match.id; origin = 'recovered'; break; }
+      if (!result.pages?.nextPageExists) break;
+    }
+    if (!bookingId) return pending();
+  } else {
+    const existing = await findMatchingBeds24Booking(identity, { timeoutMs: 6000 });
+    if (existing) { bookingId = existing.id; origin = 'reused'; }
+    if (!bookingId) {
+      await rateReservationBarriers.claimSend({ roomId: input.roomId, checkIn: input.arrival, checkOut: input.departure, id: marker, requestHash });
+      markerRequired = true;
+      try {
+        const created = await createBeds24Booking({ roomId: input.roomId, arrival: input.arrival, departure: input.departure,
+          firstName: input.firstName, lastName: input.lastName, email: input.email, phone: input.phone,
+          numAdult: input.numAdult ?? 1, numChild: input.numChild ?? 0, notes: input.notes, status: 'confirmed',
+          custom1: marker, checkAvailability: true }, { timeoutMs: 12000, noRetry: true });
+        bookingId = created.id;
+      } catch (error) {
+        if (error instanceof Beds24BookingRejectedError) {
+          await rateReservationBarriers.finish(marker, 'released');
+          return { ok: false, status: 422, body: { error: `Beds24가 예약을 거부했습니다: ${error.message}`, stage: 'create' } };
+        }
+        await rateReservationBarriers.finish(marker, 'needs_review');
+        return pending();
+      }
+    }
+  }
+  let verification: BookingVerification;
+  try { verification = await verifyBeds24Booking(bookingId!, expected, { deadlineAt: input.deadlineAt, attempts: 2, notFoundRetries: origin === 'created' ? 1 : 0 }); }
+  catch { await rateReservationBarriers.finish(marker, 'needs_review'); return pending(); }
+  if (!verification.ok || (markerRequired && verification.booking.custom1 !== marker)) {
+    await rateReservationBarriers.finish(marker, 'needs_review');
+    return { ok: false, status: 409, body: { error: '예약의 객실·일정·처리 키를 확인하지 못했습니다. Beds24에서 확인해 주세요.', stage: 'verify', ...(bookingId ? { pendingBeds24BookingId: String(bookingId) } : {}) } };
+  }
+  await rateReservationBarriers.finish(marker, verification.booking.status === 'confirmed' ? 'confirmed' : 'held', String(bookingId));
+  return { ok: true, bookingId: bookingId!, origin, booking: verification.booking };
+}
+
 /**
  * Beds24 에 항목을 만들고(또는 기존 항목을 찾아) 최종 확인까지 마친다.
  * 실패 시 { status, body } 는 그대로 NextResponse.json(body, { status }) 로 돌려주면 된다.
  * body.pendingBeds24BookingId 가 있으면 Beds24 에는 있고 플랫폼에는 없는 상태다.
  */
 export async function registerBeds24BookingVerified(input: RegisterInput): Promise<RegisterOutcome> {
+  if (input.providedBookingId !== undefined && input.providedBookingId !== null && String(input.providedBookingId).trim() &&
+    (!Number.isSafeInteger(Number(input.providedBookingId)) || Number(input.providedBookingId) < 1)) {
+    return { ok: false, status: 400, body: { error: 'beds24BookingId 형식이 올바르지 않습니다.', clearPending: true } };
+  }
+  if (input.kind === 'reservation') {
+    const marker = directReservationMarker({ roomId: input.roomId, arrival: input.arrival, departure: input.departure,
+      firstName: input.firstName.trim().toLowerCase(), lastName: input.lastName.trim().toLowerCase() });
+    const requestHash = reservationRequestHash({ roomId: input.roomId, arrival: input.arrival, departure: input.departure,
+      firstName: input.firstName, lastName: input.lastName, email: input.email ?? '', phone: input.phone ?? '',
+      numAdult: input.numAdult ?? 1, numChild: input.numChild ?? 0, notes: input.notes ?? '' });
+    const barrier = await rateReservationBarriers.begin({ roomId: input.roomId, checkIn: input.arrival, checkOut: input.departure, id: marker, requestHash });
+    if (barrier) return registerManagedReservation(input, barrier, marker, requestHash);
+  }
   const { kind, roomId, arrival, departure, firstName, lastName, deadlineAt, logPrefix } = input;
   const noun = kind === 'block' ? '정비 차단' : '예약';
   const log = (msg: string, extra?: unknown) =>
@@ -211,8 +283,10 @@ export async function cancelBeds24Booking(bookingId: string | number, expectedRo
   const current = await fetchBeds24BookingById(id, { timeoutMs: 6000 });
   if (!current) throw new Error('Beds24 booking not found; cancellation not verified');
   if (expectedRoomId && String(current.roomId) !== String(expectedRoomId)) throw new Error('Beds24 객실이 일치하지 않습니다.');
-  if (isCancelledStatus(current.status)) return;
+  const marker = typeof current.custom1 === 'string' && /^(legacy-reservation:|void-checkout:)/.test(current.custom1) ? current.custom1 : null;
+  if (isCancelledStatus(current.status)) { if (marker) await rateReservationBarriers.finish(marker, 'released', String(id)); return; }
   if (current.channel || current.apiReference) throw new Error('채널 예약은 해당 예약 채널에서 취소해야 합니다.');
+  if (marker) await rateReservationBarriers.finish(marker, 'needs_review');
   let writeError: unknown;
   try {
     const raw = await beds24Post('/bookings', [{ id, status: 'cancelled' }], { timeoutMs: 7000 });
@@ -222,4 +296,5 @@ export async function cancelBeds24Booking(bookingId: string | number, expectedRo
   // A timeout may mean the update succeeded. Only a read-back proves cancellation.
   const verified = await beds24WithRetry('verify cancellation', () => fetchBeds24BookingById(id, { timeoutMs: 6000 }), { attempts: 2, deadlineAt });
   if (!verified || !isCancelledStatus(verified.status)) throw writeError ?? new Error('Beds24 취소 상태를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+  if (marker) await rateReservationBarriers.finish(marker, 'released', String(id));
 }

@@ -9,6 +9,7 @@ import { eligibleStaff } from '@/lib/staff-directory';
 import { prisma } from '@/lib/prisma';
 import { createHash } from 'node:crypto';
 import { notifyCheckoutConfirmed } from '@/lib/notify';
+import { normalizePhone } from '@/lib/phone';
 
 export type CheckoutSignalKind = 'host' | 'guest_pad' | 'guest_message' | 'camera' | 'sensor';
 
@@ -82,22 +83,25 @@ export interface RecordSignalResult {
 }
 
 export async function recordCheckoutSignal(input: RecordSignalInput): Promise<RecordSignalResult> {
-  const existing = await prisma.checkoutSignal.findMany({
-    where: { propertyId: input.propertyId, date: input.date },
-    select: { id: true, kind: true, at: true },
-  });
-  const same = existing.find(s => s.kind === input.kind);
-  if (same) return { signal: same, duplicate: true, newlyConfirmed: false };
-
-  const wasConfirmed = existing.some(s => isConfirming(s.kind));
-  // Deterministic primary key makes simultaneous QR/pad retries idempotent without a schema change.
   const digest = createHash('sha256').update(JSON.stringify([input.propertyId, input.date, input.kind])).digest('hex');
   const signalId = `${digest.slice(0, 8)}-${digest.slice(8, 12)}-${digest.slice(12, 16)}-${digest.slice(16, 20)}-${digest.slice(20, 32)}`;
-  let signal;
   try {
-    signal = await prisma.checkoutSignal.create({
-      data: { id: signalId, propertyId: input.propertyId, date: input.date, kind: input.kind, eventId: input.eventId ?? null, note: input.note ?? null, at: new Date() },
-      select: { id: true, kind: true, at: true },
+    return await prisma.$transaction(async tx => {
+      const lockKey = JSON.stringify(['checkout', input.propertyId, input.date]);
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey},0))::text`;
+      const existing = await tx.checkoutSignal.findMany({
+        where: { propertyId: input.propertyId, date: input.date },
+        select: { id: true, kind: true, at: true },
+      });
+      const same = existing.find(s => s.kind === input.kind);
+      if (same) return { signal: same, duplicate: true, newlyConfirmed: false };
+
+      const wasConfirmed = existing.some(s => isConfirming(s.kind));
+      const signal = await tx.checkoutSignal.create({
+        data: { id: signalId, propertyId: input.propertyId, date: input.date, kind: input.kind, eventId: input.eventId ?? null, note: input.note ?? null, at: new Date() },
+        select: { id: true, kind: true, at: true },
+      });
+      return { signal, duplicate: false, newlyConfirmed: !wasConfirmed && isConfirming(input.kind) };
     });
   } catch (error) {
     if ((error as { code?: string }).code !== 'P2002') throw error;
@@ -105,7 +109,6 @@ export async function recordCheckoutSignal(input: RecordSignalInput): Promise<Re
     if (!saved) throw error;
     return { signal: saved, duplicate: true, newlyConfirmed: false };
   }
-  return { signal, duplicate: false, newlyConfirmed: !wasConfirmed && isConfirming(input.kind) };
 }
 
 export function kstTimeText(d: Date): string {
@@ -129,23 +132,28 @@ export async function notifyCheckoutRecipients(opts: {
   if (!property) return { notified: 0, recipients: [] };
 
   const recipients = new Map<string, string>(); // phone → name
+  function addRecipient(phone: string | null | undefined, name: string) {
+    const normalized = normalizePhone(phone) || phone?.replace(/\D/g, '');
+    if (normalized && !recipients.has(normalized)) recipients.set(normalized, name);
+  }
 
   const cleanings = await prisma.cleaning.findMany({
-    where: { propertyId: opts.propertyId, date: opts.date, cleanerId: { not: null } },
-    select: { cleaner: { select: { displayName: true, phone: true } } },
+    where: { propertyId: opts.propertyId, date: opts.date, status: { not: 'cancelled' }, OR: [{ cleanerId: { not: null } }, { assistantCleanerId: { not: null } }], origin: { not: 'interim' } },
+    select: { cleaner: { select: { displayName: true, phone: true } }, assistantCleaner: { select: { displayName: true, phone: true } } },
   });
-  for (const c of cleanings) if (c.cleaner?.phone) recipients.set(c.cleaner.phone, c.cleaner.displayName || '직원');
+  for (const c of cleanings) if (c.cleaner?.phone) addRecipient(c.cleaner.phone, c.cleaner.displayName || '직원');
+  for (const c of cleanings) if (c.assistantCleaner?.phone) addRecipient(c.assistantCleaner.phone, c.assistantCleaner.displayName || '직원');
 
   if (recipients.size === 0) {
     const eligible = (await eligibleStaff(opts.propertyId)).filter(c => c.notifyNewOpen && c.phone);
     for (const c of eligible) {
-      if (c.phone) recipients.set(c.phone, c.name);
+      if (c.phone) addRecipient(c.phone, c.name);
     }
   }
 
   // 호스트 본인. 게스트가 직접 눌렀을 때 호스트도 알아야 한다. (호스트가 눌렀으면 본인에겐 안 보냄)
-  if (opts.kind !== 'host' && property.owner.phone && !recipients.has(property.owner.phone)) {
-    recipients.set(property.owner.phone, property.owner.displayName || property.owner.email || '호스트');
+  if (opts.kind !== 'host' && property.owner.phone) {
+    addRecipient(property.owner.phone, property.owner.displayName || property.owner.email || '호스트');
   }
 
   const by = opts.kind === 'host' ? 'host' : 'guest';

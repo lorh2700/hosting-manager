@@ -150,7 +150,8 @@ model User {
   staff           User[] @relation("StaffOwner")
   publicToken     String? @unique @map("public_token")
   notifyNewOpen   Boolean @default(false) @map("notify_new_open")
-  cleanings       Cleaning[]
+  cleanings       Cleaning[] @relation("CleaningPrimary")
+  assistantCleanings Cleaning[] @relation("CleaningAssistant")
   staffInvitations Invitation[] @relation("StaffInvitations")
   invitationsSent Invitation[]   @relation("InvitedBy")
   tourOperators   TourOperator[] @relation("OwnedTourOperators")
@@ -285,6 +286,7 @@ model AuditLog {
   requestId String? @map("request_id")
   details Json @default("{}")
   createdAt DateTime @default(now()) @map("created_at")
+  cleaningAssignmentNotifications CleaningAssignmentNotification[]
   @@index([createdAt, id])
   @@index([organizationId, createdAt, id])
   @@index([propertyId, createdAt])
@@ -309,6 +311,25 @@ model PropertyRequest {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   @@index([organizationId, status, createdAt])
   @@map("property_requests")
+}
+
+model CleaningAssignmentNotification {
+  id String @id @default(uuid())
+  auditId String @map("audit_id")
+  audit AuditLog @relation(fields: [auditId], references: [id], onDelete: Restrict)
+  role String
+  kind String
+  recipientId String @map("recipient_id")
+  state String @default("pending")
+  attempts Int @default(0)
+  attemptToken String? @map("attempt_token")
+  lastErrorCode String? @map("last_error_code")
+  sentAt DateTime? @map("sent_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@unique([auditId, role, kind, recipientId], map: "cleaning_assignment_notifications_recipient_key")
+  @@index([state, updatedAt], map: "cleaning_assignment_notifications_state_idx")
+  @@map("cleaning_assignment_notifications")
 }
 
 // 숙소별 고객 문의 알림 수신 설정. 전화번호는 관리 권한이 있는 전용 API에서만 노출한다.
@@ -421,6 +442,7 @@ model InventorySnapshot {
 // Append-only physical count and its original response, retained for safe retries.
 model InventoryCountRecord {
   id String @id
+  cleaningId String? @map("cleaning_id")
   propertyId String @map("property_id")
   requestHash String @map("request_hash")
   baseVersion Int @map("base_version")
@@ -434,6 +456,7 @@ model InventoryCountRecord {
 
   @@unique([propertyId, version])
   @@index([propertyId, checkedAt])
+  @@index([cleaningId, checkedAt])
   @@map("inventory_count_records")
 }
 
@@ -727,6 +750,8 @@ model Cleaning {
   propertyId     String    @map("property_id")
   date           String // YYYY-MM-DD
   cleanerId      String?   @map("cleaner_id")
+  assistantCleanerId String? @map("assistant_cleaner_id")
+  assistantAssignmentType String? @map("assistant_assignment_type")
   status         String    @default("pending") // pending, done
   supplies       String?
   notes          String?
@@ -746,21 +771,39 @@ model Cleaning {
   externalCleanerName  String? @map("external_cleaner_name")
   externalCleanerPhone String? @map("external_cleaner_phone")
   // 생성 출처. 예약 체크아웃에서 자동 생성된 청소('auto')만 예약이 사라지면
-  // 같이 정리된다. 관리자/웰컴패드가 만든 'manual', 파트너 API 의 'external' 은
-  // 동기화가 건드리지 않는다.
+  // 같이 정리된다. 'manual', 중간청소 'interim', 파트너 'external' 은 보존한다.
+  // 'interim'은 같은 날의 퇴실청소 생성이나 입실 준비 완료를 대신하지 않는다.
   origin         String    @default("auto")
   createdAt      DateTime  @default(now()) @map("created_at")
 
   property     Property              @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  cleaner      User?              @relation(fields: [cleanerId], references: [id], onDelete: SetNull)
+  cleaner      User?              @relation("CleaningPrimary", fields: [cleanerId], references: [id], onDelete: SetNull)
+  assistantCleaner User?          @relation("CleaningAssistant", fields: [assistantCleanerId], references: [id], onDelete: SetNull)
   applications CleaningApplication[]
   issues       CleaningIssue[]
+  visitPhotos  CleaningVisitPhoto[]
 
   @@unique([externalSource, externalId])
   @@index([propertyId, date])
   @@index([cleanerId])
+  @@index([assistantCleanerId])
   @@index([propertyId, origin, date])
   @@map("cleanings")
+}
+
+model CleaningVisitPhoto {
+  id String @id
+  cleaningId String @map("cleaning_id")
+  phase String
+  storagePath String @unique @map("storage_path")
+  requestHash String @map("request_hash")
+  uploadedById String @map("uploaded_by_id")
+  uploadedBy String @map("uploaded_by")
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+  cleaning Cleaning @relation(fields: [cleaningId], references: [id], onDelete: Cascade)
+
+  @@index([cleaningId, phase, uploadedAt])
+  @@map("cleaning_visit_photos")
 }
 
 // ── 청소 지원 ──
@@ -770,6 +813,7 @@ model CleaningApplication {
   propertyId     String    @map("property_id")
   applicantId    String    @map("applicant_id")
   applicantName  String?   @map("applicant_name")
+  role           String    @default("primary")
   status         String    @default("pending") // pending, approved, rejected
   rejectedReason String?   @map("rejected_reason")
   processedBy    String?   @map("processed_by")
@@ -1086,4 +1130,23 @@ model GuestServiceRequest {
   property Property @relation(fields:[propertyId], references:[id], onDelete:Restrict)
   @@index([propertyId, status, createdAt])
   @@map("guest_service_requests")
+}
+
+model BackendCommand {
+  id               String   @id
+  actorId          String   @map("actor_id")
+  operation        String
+  keyHash          String   @map("key_hash")
+  requestHash      String   @map("request_hash")
+  accessRevision   String   @map("access_revision")
+  organizationId   String?  @map("organization_id")
+  targetId         String?  @map("target_id")
+  status           String   @default("running")
+  resultCiphertext String?  @map("result_ciphertext")
+  createdAt        DateTime @default(now()) @map("created_at")
+  completedAt      DateTime? @map("completed_at")
+
+  @@unique([actorId, operation, keyHash], map: "backend_commands_actor_operation_key")
+  @@index([organizationId, createdAt], map: "backend_commands_organization_created_idx")
+  @@map("backend_commands")
 }

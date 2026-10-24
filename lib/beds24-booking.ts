@@ -13,6 +13,7 @@ export interface Beds24Booking {
   propertyId?: number;
   roomId?: number;
   status?: string;
+  custom1?: string;
   arrival?: string;
   departure?: string;
   firstName?: string;
@@ -40,6 +41,8 @@ export interface CreateBeds24BookingInput {
   numChild: number;
   notes?: string;
   status?: string;
+  custom1?: string;
+  checkAvailability?: boolean;
 }
 
 /** Beds24 가 요청을 받았지만 명시적으로 거부한 경우 (검증 오류 등). 재시도해도 같은 결과. */
@@ -140,6 +143,8 @@ export async function createBeds24Booking(
     numChild: input.numChild,
     status: input.status ?? 'confirmed',
     notes: input.notes ?? '',
+    ...(input.custom1 ? { custom1: input.custom1 } : {}),
+    ...(input.checkAvailability ? { actions: { checkAvailability: true } } : {}),
   };
   if (input.roomId) payload.roomId = input.roomId;
   else if (input.propertyId) payload.propertyId = input.propertyId;

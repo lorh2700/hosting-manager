@@ -25,6 +25,11 @@ export const PUT = withAuth<Params>('properties/id', async (req, { auth, params 
   if (Object.keys(data).length === 0) throw fail(400, MESSAGES.noFields);
   const current = await prisma.property.findUnique({ where: { id: params.id } });
   if (!current) throw fail(404, MESSAGES.notFound);
+  if (data.publicInfo) data.publicInfo = { ...propertyPublicInfo(current), ...data.publicInfo };
+  const nextInfo = data.publicInfo ?? propertyPublicInfo(current);
+  if ((nextInfo.baseGuests ?? 2) > (data.maxGuests === undefined ? current.maxGuests ?? 2 : data.maxGuests ?? 2)) {
+    throw fail(400, '표시 기준 인원은 최대 투숙인원 이하여야 합니다.');
+  }
   if (data.slug && data.slug !== current.slug && current.status === 'active') throw fail(409, '공개 중인 숙소의 주소를 변경하려면 먼저 공개를 중지해 주세요.');
   if ((data.status ?? current.status) === 'active' && (current.status !== 'active' || publishRequirements(current).length === 0)) {
     const missing = publishRequirements({ ...current, ...data });

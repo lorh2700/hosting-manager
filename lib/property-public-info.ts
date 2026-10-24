@@ -11,15 +11,18 @@ export const publicInfoSchema = z.object({
   region: z.string().trim().max(80).default(''), addressKo: z.string().trim().max(300).default(''), catchphrase: z.string().trim().max(160).default(''),
   checkInTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).default('15:00'), checkOutTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).default('11:00'),
   images: z.array(imageUrl).max(24).default([]),
+  baseGuests: z.number().int().min(1).max(10).optional(),
+  amenities: z.array(z.string().trim().min(1).max(60)).max(30)
+    .refine(values => new Set(values).size === values.length, '중복된 어메니티를 제거해 주세요.').optional(),
 }).strict();
-export type PropertyPublicInfo = z.infer<typeof publicInfoSchema>;
+export type PropertyPublicInfo = z.infer<typeof publicInfoSchema> & { baseGuests: number; amenities: string[] };
 
 export function propertyPublicInfo(property: { slug?: string | null; publicInfo?: unknown }): PropertyPublicInfo {
   const display = property.slug ? getPropertyDisplay(property.slug) : null;
-  const original = { region: display?.region || '', addressKo: display?.addressKo || '', catchphrase: display?.catchphrase || '', checkInTime: display?.checkInTime || '15:00', checkOutTime: display?.checkOutTime || '11:00', images: display ? propertyImagePaths(display).map(item => item.src) : [] };
+  const original = { region: display?.region || '', addressKo: display?.addressKo || '', catchphrase: display?.catchphrase || '', checkInTime: display?.checkInTime || '15:00', checkOutTime: display?.checkOutTime || '11:00', images: display ? propertyImagePaths(display).map(item => item.src) : [], baseGuests: 2, amenities: [] as string[] };
   const stored = property.publicInfo && typeof property.publicInfo === 'object' && !Array.isArray(property.publicInfo) ? property.publicInfo : {};
   const parsed = publicInfoSchema.safeParse({ ...original, ...stored });
-  return parsed.success ? parsed.data : original;
+  return parsed.success ? { ...original, ...parsed.data } : original;
 }
 
 export function publishRequirements(property: { name: string; slug?: string | null; description?: string | null; maxGuests?: number | null; beds24PropId?: string | null; beds24RoomId?: string | null; publicInfo?: unknown }): string[] {

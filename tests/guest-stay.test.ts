@@ -1,24 +1,30 @@
-import { test, beforeEach } from 'node:test';
+import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { guestStayPhase, guestStayRequestSchema, guestStayDateSchema, requestDateWithinStay } from '../lib/guest-stay';
+import { guestStayPhase, guestStayRequestSchema, guestStayDateSchema, guestStayLoginSchema, requestDateWithinStay } from '../lib/guest-stay';
 import { guestStayHash, guestStayCsrf, requireStayCsrf, requireStayOrigin, requireGuestStay, loginGuestStay, liveStay,
-  createGuestStayRequest, guestStayRequests, issueGuestStayAccess, requireStayDevice, currentDeviceStay, newStayToken,
+  createGuestStayRequest, guestStayRequests, requireStayDevice, currentDeviceStay, newStayToken,
   normalizeStayCode, throttleStayAttempt, readStayJson, deviceStayProof, requireDeviceStayProof } from '../lib/guest-stay-store';
 import { sealInvitation } from '../lib/guest-invitation-token';
+import { createGuestLinkStore } from '../lib/guest-link-store';
+import { guestLinkStatement, installGuestLinkRegistry } from './helpers/guest-link-registry';
 import { todayKst, addDaysToDateStr } from '../lib/dates';
 import { db, resetDb, prisma, prismaOverrides, matches } from './stubs/prisma';
 import { actAsAdmin, actAsManager } from './stubs/auth';
 import { GET as adminGet } from '../app/api/guest-stays/route';
+import { GET as publicConfig } from '../app/api/public/guest-stay/config/route';
 import { POST as pairDevice } from '../app/api/public/guest-stay/device/pair/route';
 import { PATCH as updateRequest } from '../app/api/guest-stays/requests/[id]/route';
 import { POST as issueAccess } from '../app/api/guest-stays/access/route';
-import type { StubResponse } from './stubs/next-server';
+import { DELETE as disconnectAccess } from '../app/api/guest-stays/access/[id]/route';
+import { POST as publicLogin } from '../app/api/public/guest-stay/login/route';
+import { NextResponse, type StubResponse } from './stubs/next-server';
 
 const propertyId = 'legacy_property_id', otherProperty = 'other_property', id = '8b17a1d0-900a-400a-800a-23d02b2a4ee0';
 const today = todayKst(), yesterday = addDaysToDateStr(today, -1), tomorrow = addDaysToDateStr(today, 1);
 const ref = { kind: 'booking' as const, id, propertyId };
 const buckets = new Map<string, number>();
+let registry: ReturnType<typeof installGuestLinkRegistry>;
 function req(path = '/api/public/guest-stay/login', body?: unknown, token?: string) {
   return new Request(`http://localhost${path}`, { method: body === undefined ? 'GET' : 'POST',
     headers: { Origin: 'http://localhost', 'Content-Type': 'application/json', ...(token ? { Cookie: `va_guest_stay=${token}` } : {}) },
@@ -58,11 +64,18 @@ beforeEach(() => {
     const key = String(values[0]), count = (buckets.get(key) || 0) + 1; buckets.set(key, count); return [{ count }];
   };
   prismaOverrides.$executeRaw = async () => 0;
+  registry = installGuestLinkRegistry();
 });
-async function credential() { return issueGuestStayAccess((await liveStay(ref))!, 'staff'); }
+afterEach(async () => { await registry.close(); });
+async function credential() {
+  const stay = (await liveStay(ref))!, token = newStayToken();
+  const access = await prisma.guestStayAccess.create({ data: { id: randomUUID(), propertyId,
+    reservationKind: ref.kind, reservationId: ref.id, fingerprint: stay.fingerprint, source: 'manual',
+    tokenHash: guestStayHash(token), tokenExpiresAt: stay.expiresAt, expiresAt: stay.expiresAt } });
+  return { accessId: access.id, privatePath: `/stay/anon?accessToken=${token}` };
+}
 async function loggedIn() {
-  const grant = await credential();
-  return loginGuestStay(req(), { slug: 'anon', name: 'Test Guest', code: grant.code });
+  return loginGuestStay(req(), { slug: 'anon', name: 'Test Guest' });
 }
 
 test('disabling guest services revokes live fixed QR access and blocks a form opened before the option changed', async () => {
@@ -106,19 +119,71 @@ test('Origin and session-bound CSRF reject cross-site writes and another guest t
   assert.throws(() => requireStayCsrf(req(), token, { csrfToken: guestStayCsrf(newStayToken()) }), /새로고침/);
   assert.doesNotThrow(() => requireStayCsrf(req(), token, { csrfToken: guestStayCsrf(token) }));
 });
-test('successful fixed QR login requires exact normalized full name and only stores token/code hashes', async () => {
-  const grant = await credential();
-  await assert.rejects(loginGuestStay(req(), { slug: 'anon', name: 'Guest', code: grant.code }), /이용 정보를/);
-  const result = await loginGuestStay(req(), { slug: 'anon', name: 'Ｔｅｓｔ　Ｇｕｅｓｔ', code: grant.code });
+test('fixed QR login needs only the full reservation name and stores only a session token hash', async () => {
+  await assert.rejects(loginGuestStay(req(), { slug: 'anon', name: 'Guest' }), /이용 정보를/);
+  const result = await loginGuestStay(req(), { slug: 'anon', name: 'Ｔｅｓｔ　Ｇｕｅｓｔ' });
   assert.equal(result.stay.id, id); assert.equal(result.stay.phase, 'staying');
   assert.equal(db.guestStaySession[0].tokenHash, guestStayHash(result.token));
-  assert.equal(JSON.stringify(db.guestStayAccess).includes(normalizeStayCode(grant.code)), false);
+  assert.equal(db.guestStayAccess[0].source, 'name');
+  assert.equal(db.guestStayAccess[0].codeHash ?? null, null);
   assert.equal(JSON.stringify(db.guestStaySession).includes(result.token), false);
 });
-test('future fixed QR code is denied while a private reservation link supports planning', async () => {
+
+test('reservation name login accepts upper, lower, and mixed case without an access code', async context => {
+  const json = NextResponse.json;
+  const cookies: { name: string; value: string; options: { httpOnly: boolean; sameSite: string; expires: Date } }[] = [];
+  context.mock.method(NextResponse, 'json', (body: unknown, init?: { status?: number; headers?: Record<string, string> }) => ({
+    ...json(body, init), cookies: { set(name: string, value: string, options: typeof cookies[number]['options']) { cookies.push({ name, value, options }); } },
+  }));
+  db.booking[0].name = 'Viktoria Naneva';
+  for (const name of ['viktoria naneva', 'VIKTORIA NANEVA', 'vIkToRiA NaNeVa', '  Viktoria Naneva  ']) {
+    const response = await publicLogin(req('/api/public/guest-stay/login', { slug: 'anon', name }), { params: Promise.resolve({}) }) as unknown as StubResponse;
+    assert.equal(response.status, 200);
+    assert.equal(response.body.stay.guestName, 'Viktoria Naneva');
+  }
+  assert.equal(cookies.length, 4);
+  assert.ok(cookies.every(cookie => cookie.name === 'va_guest_stay' && cookie.options.httpOnly && cookie.options.sameSite === 'lax'));
+  await assert.rejects(loginGuestStay(req(), { slug: 'anon', name: 'Viktoria' }), /이용 정보를/);
+});
+
+test('login schema removes access codes but retains one optional private reservation proof', async () => {
+  assert.equal(guestStayLoginSchema.safeParse({ slug: 'anon', name: 'Test Guest' }).success, true);
+  assert.equal(guestStayLoginSchema.safeParse({ slug: 'anon', name: 'Test Guest', code: 'OLD-CODE' }).success, false);
+  assert.equal(guestStayLoginSchema.safeParse({ slug: 'anon', name: 'Test Guest', invitation: 'private', accessToken: newStayToken() }).success, false);
+  assert.equal(guestStayLoginSchema.safeParse({ slug: 'anon', name: 'Test Guest', accessToken: '' }).success, false);
+  assert.equal((await publicLogin(req('/api/public/guest-stay/login', { slug: 'anon', name: 'Test Guest', code: 'OLD-CODE' }), { params: Promise.resolve({}) })).status, 400);
+});
+test('old Unwa QR config resolves the canonical property and still respects disabled guest services', async () => {
+  const response = await publicConfig(req('/api/public/guest-stay/config?slug=unwa'), { params: Promise.resolve({}) }) as unknown as StubResponse;
+  assert.equal(response.status, 200);
+  assert.equal(response.body.property.slug, 'unwadang');
+  assert.equal(response.body.property.id, otherProperty);
+  db.property[1].featureOverrides = { guestServices: false };
+  assert.equal((await publicConfig(req('/api/public/guest-stay/config?slug=unwa'), { params: Promise.resolve({}) })).status, 404);
+});
+test('old Unwa QR name login and sessions retain current reservation and property boundaries', async () => {
+  db.booking[0].propertyId = otherProperty;
+  await assert.rejects(loginGuestStay(req(), { slug: 'unwa', name: 'Wrong Guest' }), /이용 정보를/);
+  await assert.rejects(loginGuestStay(req(), { slug: 'anon', name: 'Test Guest' }), /이용 정보를/);
+  const login = await loginGuestStay(req(), { slug: 'unwa', name: 'test guest' });
+  assert.equal(login.stay.property.slug, 'unwadang');
+  for (const slug of ['unwa', 'unwadang']) {
+    assert.equal((await requireGuestStay(req(`/api/public/guest-stay/session?slug=${slug}`, undefined, login.token))).stay.propertyId, otherProperty);
+  }
+  await assert.rejects(requireGuestStay(req('/api/public/guest-stay/session?slug=anon', undefined, login.token)), /다른 숙소/);
+  db.property[1].featureOverrides = { guestServices: false };
+  await assert.rejects(requireGuestStay(req('/api/public/guest-stay/session?slug=unwa', undefined, login.token)), /변경/);
+});
+test('legacy and canonical Unwa login names share the same credential attempt limit', async () => {
+  for (let attempt = 0; attempt < 12; attempt++) {
+    await assert.rejects(loginGuestStay(req(), { slug: attempt % 2 ? 'unwa' : 'unwadang', name: attempt % 2 ? 'TEST GUEST' : 'test guest' }), /이용 정보를/);
+  }
+  await assert.rejects(loginGuestStay(req(), { slug: 'unwa', name: 'Test Guest' }), /잠시 후/);
+});
+test('future fixed QR name login is denied while an existing private reservation link supports planning', async () => {
   db.booking[0].checkIn = addDaysToDateStr(today, 2); db.booking[0].checkOut = addDaysToDateStr(today, 4);
   const grant = await credential();
-  await assert.rejects(loginGuestStay(req(), { slug: 'anon', name: 'Test Guest', code: grant.code }), /이용 정보를/);
+  await assert.rejects(loginGuestStay(req(), { slug: 'anon', name: 'Test Guest' }), /이용 정보를/);
   const token = new URL(grant.privatePath, 'http://localhost').searchParams.get('accessToken')!;
   const result = await loginGuestStay(req(), { slug: 'anon', name: 'Test Guest', accessToken: token });
   assert.equal(result.stay.phase, 'before_arrival');
@@ -132,6 +197,42 @@ test('existing encrypted invitation validates live reservation, property and nam
   db.booking[0].status = 'cancelled';
   await assert.rejects(requireGuestStay(req('/api/public/guest-stay/session', undefined, result.token)), /예약 정보가 변경/);
 });
+test('DB invitation survives a session key rotation and retains live name and property checks', async () => {
+  const invitation = await createGuestLinkStore(prisma).issueInvitation({ ...ref, expires: Date.now() + 3600000 });
+  const previous = process.env.JWT_SECRET;
+  try {
+    process.env.JWT_SECRET = 'rotated-session-key';
+    await assert.rejects(loginGuestStay(req(), { slug: 'unwadang', name: 'Test Guest', invitation }), /이용 정보를/);
+    await assert.rejects(loginGuestStay(req(), { slug: 'anon', name: 'Wrong Guest', invitation }), /이용 정보를/);
+    const result = await loginGuestStay(req(), { slug: 'anon', name: 'Test Guest', invitation });
+    assert.equal(result.stay.id, id);
+  } finally {
+    if (previous === undefined) delete process.env.JWT_SECRET;
+    else process.env.JWT_SECRET = previous;
+  }
+});
+test('an encrypted invitation first resolved before rotation remains usable afterwards', async () => {
+  const previous = process.env.JWT_SECRET;
+  const invitation = sealInvitation({ ...ref, expires: Date.now() + 3600000 }, previous!);
+  await loginGuestStay(req(), { slug: 'anon', name: 'Test Guest', invitation });
+  try {
+    process.env.JWT_SECRET = 'rotated-session-key';
+    assert.equal((await loginGuestStay(req(), { slug: 'anon', name: 'Test Guest', invitation })).stay.id, id);
+  } finally {
+    if (previous === undefined) delete process.env.JWT_SECRET;
+    else process.env.JWT_SECRET = previous;
+  }
+});
+test('registry failure does not fall back to encrypted invitation login', async () => {
+  const invitation = sealInvitation({ ...ref, expires: Date.now() + 3600000 }, process.env.JWT_SECRET!);
+  const originalQuery = prismaOverrides.$queryRaw;
+  prismaOverrides.$queryRaw = async (parts: TemplateStringsArray, ...values: unknown[]) => {
+    if (guestLinkStatement(parts, values).text.includes('guest_link_tokens')) throw new Error('registry unavailable');
+    return originalQuery(parts, ...values);
+  };
+  await assert.rejects(loginGuestStay(req(), { slug: 'anon', name: 'Test Guest', invitation }), /registry unavailable/);
+  assert.equal((db.guestStaySession || []).length, 0);
+});
 test('live name/date changes, deleted reservation, revoked or expired session each invalidate guest access', async () => {
   const login = await loggedIn();
   db.booking[0].name = 'New Guest';
@@ -143,9 +244,28 @@ test('live name/date changes, deleted reservation, revoked or expired session ea
   db.guestStaySession[0].expiresAt = login.expiresAt; db.booking = [];
   await assert.rejects(requireGuestStay(req('/api/public/guest-stay/session', undefined, login.token)), /예약 정보가 변경/);
 });
-test('issuing a replacement code revokes previously authenticated phone sessions', async () => {
-  const login = await loggedIn(); await credential();
+test('staff can disconnect phone sessions and the guest may verify the name again', async () => {
+  const login = await loggedIn();
+  const response = await disconnectAccess(req('/api/guest-stays/access/'+db.guestStayAccess[0].id), { params: Promise.resolve({ id: db.guestStayAccess[0].id }) });
+  assert.equal(response.status, 200);
   await assert.rejects(requireGuestStay(req('/api/public/guest-stay/session', undefined, login.token)), /이용 기간/);
+  assert.equal((await loggedIn()).stay.id, id);
+});
+
+test('name-only login rejects expired, cancelled, and ambiguous current reservations', async () => {
+  db.booking[0].checkOut = yesterday;
+  await assert.rejects(loggedIn(), /이용 정보를/);
+  db.booking[0].checkOut = tomorrow; db.booking[0].status = 'cancelled';
+  await assert.rejects(loggedIn(), /이용 정보를/);
+  db.booking[0].status = 'confirmed'; db.booking.push({ ...db.booking[0], id: randomUUID() });
+  await assert.rejects(loggedIn(), /현재 투숙 예약/);
+  assert.equal((db.guestStaySession || []).length, 0);
+});
+
+test('invalid or expired private proof never silently falls back to name-only login', async () => {
+  await assert.rejects(loginGuestStay(req(), { slug: 'anon', name: 'Test Guest', accessToken: 'invalid' }), /이용 정보를/);
+  await assert.rejects(loginGuestStay(req(), { slug: 'anon', name: 'Test Guest', accessToken: newStayToken() }), /이용 정보를/);
+  assert.equal((db.guestStaySession || []).length, 0);
 });
 test('guest cannot read another slug or another reservation request, and internal notes never appear', async () => {
   const login = await loggedIn();
@@ -224,11 +344,41 @@ test('pairing code is short-lived, property-bound and single-use', async () => {
   assert.equal(success.status, 200); assert.ok((success as unknown as StubResponse).body.deviceToken.startsWith('gst_device_'));
   assert.equal((await pairDevice(req('/api', { slug: 'anon', pairingCode: code }), { params: Promise.resolve({}) })).status, 401);
 });
+test('old Unwa pad key pairs only its own property and remains single-use under the canonical name', async () => {
+  const code = 'ABCD-EFGH-JKLM';
+  db.guestStayDevice = [{ id: randomUUID(), propertyId: otherProperty, label: 'Unwa pad', pairingHash: guestStayHash(normalizeStayCode(code)),
+    pairingExpiresAt: new Date(Date.now() + 60000), expiresAt: new Date(Date.now() + 3600000), pairedAt: null, revokedAt: null }];
+  const context = { params: Promise.resolve({}) };
+  assert.equal((await pairDevice(req('/api', { slug: 'anon', pairingCode: code }), context)).status, 401);
+  assert.equal((await pairDevice(req('/api', { slug: 'unwa', pairingCode: code }), context)).status, 200);
+  assert.equal((await pairDevice(req('/api', { slug: 'unwadang', pairingCode: code }), context)).status, 401);
+});
 test('staff query rejects invalid dates and property scope, and issuance requires authorized property', async () => {
   assert.equal((await adminGet(req('/api/guest-stays?from=2026-02-30&to=2026-03-10'), { params: Promise.resolve({}) })).status, 400);
   actAsManager([otherProperty]);
   assert.equal((await adminGet(req(`/api/guest-stays?propertyId=${propertyId}`), { params: Promise.resolve({}) })).status, 403);
   assert.equal((await issueAccess(req('/api/guest-stays/access', { kind: 'booking', id }), { params: Promise.resolve({}) })).status, 403);
+});
+
+test('retired code issuance creates no credential and staff can see name-authenticated sessions', async () => {
+  const retired = await issueAccess(req('/api/guest-stays/access', { kind: 'booking', id }), { params: Promise.resolve({}) });
+  assert.equal(retired.status, 410);
+  assert.equal((db.guestStayAccess || []).length, 0);
+  await loggedIn();
+  const response = await adminGet(req('/api/guest-stays'), { params: Promise.resolve({}) }) as unknown as StubResponse;
+  assert.equal(response.status, 200);
+  assert.equal(response.body.stays[0].access.id, db.guestStayAccess[0].id);
+});
+
+test('staff can disconnect a reservation entered only through its private invitation', async () => {
+  const invitation = sealInvitation({ ...ref, expires: Date.now() + 3600000 }, process.env.JWT_SECRET!);
+  const login = await loginGuestStay(req(), { slug: 'anon', name: 'TEST GUEST', invitation });
+  const response = await adminGet(req('/api/guest-stays'), { params: Promise.resolve({}) }) as unknown as StubResponse;
+  const access = response.body.stays[0].access;
+  assert.equal(access.id, db.guestStayAccess[0].id);
+  assert.equal((await disconnectAccess(req('/api/guest-stays/access/'+access.id), { params: Promise.resolve({ id: access.id }) })).status, 200);
+  await assert.rejects(requireGuestStay(req('/api/public/guest-stay/session', undefined, login.token)), /이용 기간/);
+  assert.equal((await loggedIn()).stay.id, id);
 });
 test('staff updates use optimistic versions and keep public reply separate from internal note', async () => {
   const stay = (await liveStay(ref))!, input = { id: randomUUID(), kind: 'help', details: { category: 'issue', message: 'Need help' } };

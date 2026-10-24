@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "plugins": [],
+    "target": "ES2022",
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["./**/*.ts", "../../packages/**/*.ts"],
+  "exclude": ["../../node_modules"]
+}

@@ -24,6 +24,7 @@ export function useEventModal({
 }: UseEventModalParams) {
   const [selectedEvent, setSelectedEvent] = useState<SelectedEvent | null>(null);
   const [selectedCleaner, setSelectedCleaner] = useState('');
+  const [selectedAssistantCleaner, setSelectedAssistantCleaner] = useState('');
   const [cleanerSaving, setCleanerSaving] = useState(false);
   const [completingCleaning, setCompletingCleaning] = useState(false);
   const [savingTags, setSavingTags] = useState(false);
@@ -48,40 +49,45 @@ export function useEventModal({
       channelId: e.channelId, channelLabel: getChannelLabel(e.channelId, e.source, channelMap),
       description: e.description,
       cleaningId: e.cleaningId, cleanerId: e.cleanerId, cleanerName: e.cleanerName,
+      assistantCleanerId: e.assistantCleanerId, assistantCleanerName: e.assistantCleanerName, cleaningConflict: e.cleaningConflict,
       supplies: e.supplies, status: e.status,
       type: e.type, tags: e.tags ?? [], originalUid: e.originalUid ?? null,
       source: e.source,
     });
     setSelectedCleaner(e.cleanerId ?? '');
+    setSelectedAssistantCleaner(e.assistantCleanerId ?? '');
   }, [channelMap]);
 
   const closeModal = useCallback(() => setSelectedEvent(null), []);
 
   const handleSaveCleaner = async () => {
     if (!selectedEvent) return;
+    if (selectedEvent.cleaningConflict) { toast.error('이 날짜에 청소 기록이 여러 건 있습니다. 기록을 먼저 확인해 주세요.'); return; }
+    if (selectedCleaner && selectedCleaner === selectedAssistantCleaner) { toast.error('정담당과 부담당은 다른 사람을 선택해 주세요.'); return; }
     setCleanerSaving(true);
     const checkoutDate = selectedEvent.end.substring(0, 10);
     const cleanerIdToSave = selectedCleaner || null;
+    const assistantCleanerIdToSave = selectedAssistantCleaner || null;
     try {
       if (selectedEvent.cleaningId) {
         const res = await fetch('/api/cleanings', {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: selectedEvent.cleaningId, cleanerId: cleanerIdToSave }),
+          body: JSON.stringify({ id: selectedEvent.cleaningId, cleanerId: cleanerIdToSave, assistantCleanerId: assistantCleanerIdToSave }),
         });
         if (!res.ok) { const result = await res.json(); throw new Error(result.error || '업데이트 실패'); }
         setCleanings(prev => prev.map(c =>
-          c.id === selectedEvent.cleaningId ? { ...c, cleanerId: cleanerIdToSave } : c
+          c.id === selectedEvent.cleaningId ? { ...c, cleanerId: cleanerIdToSave, assistantCleanerId: assistantCleanerIdToSave } : c
         ));
       } else {
         const res = await fetch('/api/cleanings', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ propertyId: selectedEvent.propertyId, date: checkoutDate, cleanerId: cleanerIdToSave, status: 'pending' }),
+          body: JSON.stringify({ propertyId: selectedEvent.propertyId, date: checkoutDate, cleanerId: cleanerIdToSave, assistantCleanerId: assistantCleanerIdToSave, status: 'pending' }),
         });
         if (!res.ok) { const result = await res.json(); throw new Error(result.error || '생성 실패'); }
         const newCleaning = await res.json();
         setCleanings(prev => [...prev, {
           id: newCleaning.id, propertyId: selectedEvent.propertyId,
-          date: checkoutDate, cleanerId: cleanerIdToSave, status: 'pending' as const,
+          date: checkoutDate, cleanerId: cleanerIdToSave, assistantCleanerId: assistantCleanerIdToSave, status: 'pending' as const,
         }]);
       }
       setSelectedEvent(null);
@@ -91,14 +97,16 @@ export function useEventModal({
 
   const handleDeleteCleaner = async () => {
     if (!selectedEvent?.cleaningId) return;
-    if (!(await confirmDialog('청소 담당자 배정을 삭제하시겠습니까?'))) return;
+    if (!(await confirmDialog('정·부 담당자 배정을 모두 해제하시겠습니까? 청소 일정과 기록은 유지됩니다.'))) return;
     setCleanerSaving(true);
     try {
-      await fetch(`/api/cleanings?id=${selectedEvent.cleaningId}`, { method: 'DELETE' });
-      setCleanings(prev => prev.filter(c => c.id !== selectedEvent.cleaningId));
-      setSelectedEvent(prev => prev ? { ...prev, cleaningId: null, cleanerId: null, cleanerName: null, supplies: null, status: null } : null);
+      const res = await fetch('/api/cleanings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: selectedEvent.cleaningId, cleanerId: null, assistantCleanerId: null }) });
+      if (!res.ok) { const result = await res.json(); throw new Error(result.error || '배정을 해제하지 못했습니다.'); }
+      setCleanings(prev => prev.map(c => c.id === selectedEvent.cleaningId ? { ...c, cleanerId: null, assistantCleanerId: null } : c));
+      setSelectedEvent(prev => prev ? { ...prev, cleanerId: null, cleanerName: null, assistantCleanerId: null, assistantCleanerName: null } : null);
       setSelectedCleaner('');
-    } catch (err) { console.error(err); toast.error('삭제에 실패했습니다.'); }
+      setSelectedAssistantCleaner('');
+    } catch (err) { console.error(err); toast.error(err instanceof Error ? err.message : '해제에 실패했습니다.'); }
     finally { setCleanerSaving(false); }
   };
 
@@ -299,7 +307,7 @@ export function useEventModal({
   };
 
   return {
-    selectedEvent, selectedCleaner, setSelectedCleaner,
+    selectedEvent, selectedCleaner, setSelectedCleaner, selectedAssistantCleaner, setSelectedAssistantCleaner,
     cleanerSaving, completingCleaning,
     savingTags, releasingMaintenance, handleReleaseMaintenance,
     handleReservationCancelled: () => { setEvents(prev => prev.filter(e => e.id !== selectedEvent?.eventId)); setSelectedEvent(null); window.location.reload(); },

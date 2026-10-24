@@ -3,11 +3,13 @@ import { syncBeds24Invitations } from '@/lib/beds24-invitations';
 import { saveGuestReservation, reservationKey, indexGuestSafely } from '@/lib/guest-history';
 import { createHash } from 'crypto';
 import { prisma } from '@/lib/prisma';
+import { lockCleaningProperty, lockCleaningSlot } from '@/lib/cleaning-slots';
 import { beds24Get, beds24WithRetry, describeBeds24Error, BEDS24_REFRESH_TOKEN } from '@/lib/beds24';
-import { notifyNewOpenCleanings, notifyCleaningCancelled } from '@/lib/notify';
+import { notifyNewOpenCleanings } from '@/lib/notify';
 import { todayKst, addMonthsToDateStr } from '@/lib/dates';
 import { isMaintenanceNotes, maintenanceReasonFromNotes, MAINTENANCE_TITLE } from '@/lib/beds24-booking';
 import { propertyModuleEnabled } from '@/lib/operational-feature-store';
+import { collectBeds24RevenueSources, type RevenueSourceContext } from '@/lib/reservation-revenue-source';
 
 // ─── 동기화 정책 상수 ────────────────────────────────────────────────────────
 
@@ -348,124 +350,51 @@ export async function cleanupSupersededInquiries(propertyId: string): Promise<nu
  *  - 생성: 새 청소는 origin='auto', isOpen=true(미배정) 로 만들어 청소매니저
  *    신청 화면에 노출된다.
  *  - 정리 1: origin='auto' 인데 그 날짜에 확정 예약(type='reservation')이 더 이상
- *    없는 청소(예약 취소·날짜 변경)는 배정 여부와 관계없이 삭제한다. 오늘 이후의
- *    미완료 건만 대상이며, 배정돼 있던 청소매니저에게는 취소 문자를 보낸다.
- *    관리자/웰컴패드가 만든 'manual', 파트너 API 의 'external' 은 건드리지 않는다.
+ *    없는 청소(예약 취소·날짜 변경)는 미배정·미완료이며 작업 기록이 없을 때 정리한다.
+ *    수동 'manual', 중간청소 'interim', 파트너 API 'external' 은 건드리지 않는다.
  *  - 정리 2: 같은 날짜에 배정된 행이 있는데 남아 있는 미배정 자동 생성 행(유령)은
- *    신청이 붙어 있지 않으면 제거한다.
+ *    신청·사진·이슈·재고 기록과 정·부담당자가 없으면 제거한다.
  *
  * 실제로 새로 만든 청소 날짜 목록을 돌려준다 (신규 오픈 알림용).
  */
 export async function ensureCleaningsForProperty(propertyId: string): Promise<string[]> {
-  // Only confirmed reservations should drive cleanings. Inquiry-type events
-  // (Beds24 status='request'/'inquiry') are stored as type='block' and do
-  // NOT mean a guest will actually check out — so we exclude them here.
-  const [reservations, directBookings] = await Promise.all([
-    prisma.event.findMany({
-      where: { propertyId, type: 'reservation' },
-      select: { endDate: true },
-    }),
-    prisma.booking.findMany({
-      where: { propertyId, status: 'confirmed' },
-      select: { checkOut: true },
-    }),
-  ]);
-
-  const checkoutDates = new Set<string>();
-  for (const e of reservations) {
-    if (e.endDate) checkoutDates.add(e.endDate);
-  }
-  for (const booking of directBookings) {
-    if (booking.checkOut) checkoutDates.add(booking.checkOut);
-  }
-  const checkoutList = Array.from(checkoutDates);
-  const today = todayKst();
-
-  // ── 정리 1: 예약이 사라진 자동 생성 청소 ──
-  const orphans = await prisma.cleaning.findMany({
-    where: {
-      propertyId,
-      origin: 'auto',
-      status: { not: 'done' },
-      completedAt: null,
-      date: { gte: today, notIn: checkoutList },
-    },
-    select: {
-      id: true,
-      date: true,
-      cleanerId: true,
-      cleaner: { select: { displayName: true, phone: true } },
-      property: { select: { name: true } },
-    },
-  });
-  if (orphans.length > 0) {
-    await prisma.$transaction(async tx => {
-      const ids = orphans.map(o => o.id);
-      // Preserve issue reports; a linked report must not prevent cancellation.
-      await tx.cleaningIssue.updateMany({ where: { cleaningId: { in: ids } }, data: { cleaningId: null } });
-      await tx.cleaningApplication.deleteMany({ where: { cleaningId: { in: ids } } });
-      await tx.cleaning.deleteMany({ where: { id: { in: ids } } });
-    });
-    console.log(`[sync] removed ${orphans.length} orphan cleaning(s) for ${propertyId}: ${orphans.map(o => o.date).join(', ')}`);
-    for (const o of orphans) {
-      if (!o.cleanerId || !o.cleaner?.phone) continue;
-      await notifyCleaningCancelled({
-        cleanerPhone: o.cleaner.phone,
-        cleanerName: o.cleaner.displayName || '직원',
-        propertyName: o.property?.name ?? '숙소',
-        date: o.date,
-        reason: 'deleted',
-      }).catch(err => console.error('[sync] cleaning cancel notify failed:', err));
+  return prisma.$transaction(async tx => {
+    await lockCleaningProperty(tx, propertyId);
+    const [reservations, directBookings, existing] = await Promise.all([
+      tx.event.findMany({ where: { propertyId, type: 'reservation' }, select: { endDate: true } }),
+      tx.booking.findMany({ where: { propertyId, status: 'confirmed' }, select: { checkOut: true } }),
+      tx.cleaning.findMany({ where: { propertyId, origin: { not: 'interim' }, status: { not: 'cancelled' } },
+        select: { id: true, date: true, origin: true, status: true, completedAt: true, cleanerId: true, assistantCleanerId: true,
+          _count: { select: { applications: true, issues: true, visitPhotos: true } } } }),
+    ]);
+    const checkoutDates = new Set([...reservations.map(row => row.endDate), ...directBookings.map(row => row.checkOut)].filter(Boolean));
+    const counts = new Map<string, number>();
+    for (const row of existing) counts.set(row.date, (counts.get(row.date) || 0) + 1);
+    const assignedDates = new Set(existing.filter(row => row.cleanerId || row.assistantCleanerId).map(row => row.date));
+    const today = todayKst(), removed = new Set<string>();
+    for (const row of existing) {
+      if (row.origin !== 'auto' || row.status === 'done' || row.completedAt || row.date < today
+        || row.cleanerId || row.assistantCleanerId || row._count.applications || row._count.issues || row._count.visitPhotos) continue;
+      const orphan = !checkoutDates.has(row.date) && counts.get(row.date) === 1;
+      const emptyDuplicate = assignedDates.has(row.date);
+      if (!orphan && !emptyDuplicate) continue;
+      if (await tx.inventoryCountRecord.findFirst({ where: { cleaningId: row.id }, select: { id: true } })) continue;
+      await tx.cleaning.delete({ where: { id: row.id } }); removed.add(row.id);
     }
-  }
-
-  // ── 정리 2: 배정 건과 같은 날짜에 남은 미배정 자동 생성 행(유령) ──
-  const ghostCandidates = await prisma.cleaning.findMany({
-    where: { propertyId, origin: 'auto', cleanerId: null, date: { gte: today } },
-    select: { id: true, date: true, _count: { select: { applications: true } } },
+    const existingDates = new Set(existing.filter(row => !removed.has(row.id)).map(row => row.date));
+    const toCreate = [...checkoutDates].filter(date => date >= today && !existingDates.has(date)).sort();
+    for (const date of toCreate) await lockCleaningSlot(tx, propertyId, date);
+    if (toCreate.length) await tx.cleaning.createMany({ data: toCreate.map(date => ({ propertyId, date, status: 'pending', isOpen: true, origin: 'auto' })) });
+    return toCreate;
   });
-  if (ghostCandidates.length > 0) {
-    const assigned = await prisma.cleaning.findMany({
-      where: { propertyId, date: { in: ghostCandidates.map(g => g.date) }, cleanerId: { not: null } },
-      select: { date: true },
-    });
-    const assignedDates = new Set(assigned.map(a => a.date));
-    const ghosts = ghostCandidates.filter(g => assignedDates.has(g.date) && g._count.applications === 0);
-    if (ghosts.length > 0) {
-      await prisma.cleaning.deleteMany({ where: { id: { in: ghosts.map(g => g.id) } } });
-    }
-  }
-
-  if (checkoutDates.size === 0) return [];
-
-  const existing = await prisma.cleaning.findMany({
-    where: { propertyId, date: { in: checkoutList } },
-    select: { date: true },
-  });
-  const existingDates = new Set(existing.map(c => c.date));
-
-  // 오늘 이후 체크아웃만 청소를 만든다. 과거 예약이 다시 들어와도(예: 보관 기간 확대,
-  // 이력 재동기화) 지난 날짜에 청소를 만들거나 "신규 오픈" 알림을 보내면 안 된다.
-  const toCreate = checkoutList.filter(d => d >= today && !existingDates.has(d));
-  if (toCreate.length === 0) return [];
-
-  await prisma.cleaning.createMany({
-    data: toCreate.map(date => ({
-      propertyId,
-      date,
-      status: 'pending',
-      isOpen: true,
-      origin: 'auto',
-    })),
-  });
-
-  return toCreate;
 }
 
 // ─── Beds24 API Sync ───────────────────────────────────────────────────────
 
 interface Beds24SyncResult {
   invitationsPublished?: number;
+  revenueSourcesUpdated?: number;
+  revenueSourceWarning?: string;
   total: number;
   eventsCreated: number;
   eventsUpdated: number;
@@ -484,6 +413,15 @@ export async function syncBeds24Property(
     return { total: 0, eventsCreated: 0, eventsUpdated: 0, eventsRemoved: 0, error: 'BEDS24_REFRESH_TOKEN is not configured' };
   }
   if (!await propertyModuleEnabled(propertyId, 'integrations')) return { total: 0, eventsCreated: 0, eventsUpdated: 0, eventsRemoved: 0, error: '사업자 또는 숙소의 채널 연동 옵션이 꺼져 있습니다.' };
+
+  const observedAt = new Date();
+  let revenueContext: RevenueSourceContext | null = null;
+  let revenueSourceWarning: string | undefined;
+  try {
+    const property = await prisma.property.findUnique({ where: { id: propertyId }, select: { organizationId: true, beds24PropId: true } });
+    if (property?.organizationId && property.beds24PropId === beds24PropId) revenueContext = { propertyId, organizationId: property.organizationId, beds24PropertyId: beds24PropId, observedAt };
+    else revenueSourceWarning = '예약 금액 수집을 위한 사업자·채널 연결을 확인해 주세요.';
+  } catch { revenueSourceWarning = '예약 금액 수집을 위한 사업자 정보를 확인하지 못했습니다.'; }
 
   // 조회 창 (체크아웃 기준). 창 밖의 로컬 이벤트는 아래 삭제 단계에서 제외된다.
   const today = todayKst();
@@ -531,6 +469,15 @@ export async function syncBeds24Property(
       hasMore = false;
     }
   }
+
+  let revenueSourcesUpdated = 0;
+  if (revenueContext) {
+    const collected = await collectBeds24RevenueSources({ db: prisma, context: revenueContext, bookings: allBookings,
+      readProperty: () => beds24Get('/properties', { id: beds24PropId }, { timeoutMs: 8_000 }) });
+    revenueSourcesUpdated = collected.saved;
+    revenueSourceWarning = collected.warning;
+  }
+  if (revenueSourceWarning) console.warn('[sync] reservation-revenue-source', { propertyId, reason: revenueSourceWarning });
 
   // Beds24 booking statuses to treat as "not a confirmed reservation":
   //   - request: 예약 요청 (호스트 승인 대기)
@@ -744,6 +691,7 @@ export async function syncBeds24Property(
     return { published: 0, failed: 1 };
   });
   return { total: newEvents.length, eventsCreated, eventsUpdated, eventsRemoved,
+    revenueSourcesUpdated, ...(revenueSourceWarning ? { revenueSourceWarning } : {}),
     ...(invitations.failed ? { error: `초대장 링크 저장 실패 ${invitations.failed}건 (다음 동기화에서 재시도)` } : {}),
     invitationsPublished: invitations.published };
 }

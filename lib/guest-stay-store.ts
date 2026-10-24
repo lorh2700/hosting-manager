@@ -4,8 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { fail } from '@/lib/core/errors';
 import { getPropertyDisplay, slugCandidates } from '@/lib/property-display';
 import { guestGuide } from '@/lib/guest-guide';
-import { openInvitation } from '@/lib/guest-invitation-token';
-import { recoverInvitation } from '@/lib/guest-invitation-recovery';
+import { resolveInvitation } from '@/lib/guest-invitation-access';
 import { todayKst } from '@/lib/dates';
 import { propertyAllowsModule } from '@/lib/operational-access';
 import { requirePropertyModule } from '@/lib/operational-feature-store';
@@ -161,23 +160,24 @@ export async function requireGuestStay(req: Request) {
     propertyId: session.access.propertyId }, now);
   if (!stay || !safeEqual(stay.fingerprint, session.access.fingerprint)) throw fail(401, '예약 정보가 변경되었습니다. 다시 확인해 주세요.', { code: 'guest_session_expired' });
   const slug = new URL(req.url).searchParams.get('slug');
-  if (slug && slug !== stay.property.slug) throw fail(403, '다른 숙소의 예약입니다.');
+  if (slug && getPropertyDisplay(slug)?.slug !== stay.property.slug) throw fail(403, '다른 숙소의 예약입니다.');
   return { token, session, stay };
 }
 
-export async function loginGuestStay(req: Request, input: { slug: string; name: string; code?: string; invitation?: string; accessToken?: string }) {
+export async function loginGuestStay(req: Request, input: { slug: string; name: string; invitation?: string; accessToken?: string }) {
   const invalid = () => fail(401, '예약자 이름과 이용 정보를 다시 확인해 주세요.', { code: 'invalid_credentials' });
   await throttleStayAttempt(req, 'login', 30);
   // Credential-level bucket also holds if a caller changes its claimed IP address.
-  const proof = input.code ? normalizeStayCode(input.code) : input.invitation || input.accessToken || '';
-  const keyHash = guestStayHash(`credential:${input.slug}:${guestStayHash(proof)}:${Math.floor(Date.now() / 600000)}`);
+  const proof = input.invitation || input.accessToken || normalizeGuestStayName(input.name);
+  const canonicalSlug = getPropertyDisplay(input.slug)?.slug || input.slug;
+  const keyHash = guestStayHash(`credential:${canonicalSlug}:${guestStayHash(proof)}:${Math.floor(Date.now() / 600000)}`);
   const attempts = await prisma.guestStayAttempt.upsert({ where: { keyHash }, create: { keyHash, count: 1, expiresAt: new Date(Date.now() + 600000) }, update: { count: { increment: 1 } } });
   if (attempts.count > 12) throw fail(429, '잠시 후 다시 시도해 주세요.', { code: 'rate_limited' });
   const property = await stayProperty(input.slug);
   if (!property || !normalizeGuestStayName(input.name)) throw invalid();
   let access;
   if (input.invitation) {
-    const reference = openInvitation(input.invitation, secret()) || recoverInvitation(input.invitation);
+    const reference = await resolveInvitation(input.invitation);
     if (!reference || reference.propertyId !== property.id) throw invalid();
     const stay = await liveStay({ kind: reference.kind, id: reference.id, propertyId: property.id });
     if (!stay || !safeEqual(normalizeGuestStayName(input.name), normalizeGuestStayName(stay.guestName))) throw invalid();
@@ -190,17 +190,21 @@ export async function loginGuestStay(req: Request, input: { slug: string; name: 
         propertyId: property.id, reservationKind: reference.kind, reservationId: reference.id, fingerprint: stay.fingerprint,
         source: 'invitation', tokenHash: hash, tokenExpiresAt: new Date(reference.expires), expiresAt: stay.expiresAt } });
     }
-  } else if (input.code) {
-    access = await prisma.guestStayAccess.findUnique({ where: { codeHash: guestStayHash(normalizeStayCode(input.code)) } });
-  } else if (input.accessToken && TOKEN_RE.test(input.accessToken)) {
+  } else if (input.accessToken) {
+    if (!TOKEN_RE.test(input.accessToken)) throw invalid();
     access = await prisma.guestStayAccess.findUnique({ where: { tokenHash: guestStayHash(input.accessToken) } });
     if (access?.tokenExpiresAt && access.tokenExpiresAt.getTime() <= Date.now()) throw invalid();
+  } else {
+    const stay = await currentDeviceStay(property.id);
+    if (!stay || !safeEqual(normalizeGuestStayName(input.name), normalizeGuestStayName(stay.guestName))) throw invalid();
+    access = await prisma.guestStayAccess.create({ data: { id: randomUUID(), ...requestScope(stay),
+      fingerprint: stay.fingerprint, source: 'name', expiresAt: stay.expiresAt } });
   }
   if (!access || access.propertyId !== property.id || access.revokedAt || access.expiresAt.getTime() <= Date.now()) throw invalid();
   const stay = await liveStay({ kind: access.reservationKind as StayReference['kind'], id: access.reservationId, propertyId: property.id });
   if (!stay || !safeEqual(stay.fingerprint, access.fingerprint) || !safeEqual(normalizeGuestStayName(input.name), normalizeGuestStayName(stay.guestName))) throw invalid();
   // A QR glued to a room never grants access to an arriving/future reservation.
-  if (input.code && stay.phase !== 'staying') throw invalid();
+  if (!input.invitation && !input.accessToken && stay.phase !== 'staying') throw invalid();
   if (access.deviceId) {
     const device = await prisma.guestStayDevice.findUnique({ where: { id: access.deviceId } });
     if (!device || device.revokedAt || device.expiresAt.getTime() <= Date.now()) throw invalid();
@@ -287,20 +291,6 @@ export async function createGuestStayRequest(stay: LiveGuestStay, raw: unknown, 
       details: tourSnapshot ? { ...input.details, tourSnapshot } : input.details, source, payloadHash } });
     return { request: guestRequestDTO(row), replayed: false };
   });
-}
-
-export async function issueGuestStayAccess(stay: LiveGuestStay, userId: string) {
-  const code = newStayCode(), token = newStayToken();
-  const access = await prisma.$transaction(async tx => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`guest-access:${stay.propertyId}:${stay.kind}:${stay.id}`}))`;
-    // A fresh issuance rotates every old credential for this reservation, including invitation/device sessions.
-    await tx.guestStayAccess.updateMany({ where: { ...requestScope(stay), revokedAt: null }, data: { revokedAt: new Date() } });
-    return tx.guestStayAccess.create({ data: { id: randomUUID(), ...requestScope(stay), fingerprint: stay.fingerprint,
-      source: 'manual', codeHash: guestStayHash(normalizeStayCode(code)), tokenHash: guestStayHash(token), tokenExpiresAt: stay.expiresAt,
-      expiresAt: stay.expiresAt, createdBy: userId } });
-  });
-  return { accessId: access.id, code, expiresAt: stay.expiresAt.toISOString(), path: `/stay/${stay.property.slug}`,
-    privatePath: `/stay/${stay.property.slug}?accessToken=${token}` };
 }
 
 export async function requireStayDevice(req: Request) {

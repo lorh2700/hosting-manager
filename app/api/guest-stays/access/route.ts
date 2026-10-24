@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { withAuth, fail, requireManage } from '@/lib/core/http';
 import { prisma } from '@/lib/prisma';
-import { issueGuestStayAccess, liveStay, privateStayResponse, readStayJson, requireStayOrigin } from '@/lib/guest-stay-store';
+import { readStayJson, requireStayOrigin } from '@/lib/guest-stay-store';
 const schema = z.object({ kind: z.enum(['event', 'booking']), id: z.string().uuid() }).strict();
 export const POST = withAuth('guest-stays/access', async (req, { auth }) => {
   requireStayOrigin(req);
@@ -11,7 +11,5 @@ export const POST = withAuth('guest-stays/access', async (req, { auth }) => {
     await prisma.booking.findUnique({ where: { id: input.data.id }, select: { propertyId: true } });
   if (!row) throw fail(404, '예약을 찾을 수 없습니다.');
   requireManage(auth, row.propertyId);
-  const stay = await liveStay({ kind: input.data.kind, id: input.data.id, propertyId: row.propertyId });
-  if (!stay) throw fail(400, '확정 예약과 투숙 기간을 확인해 주세요.');
-  return privateStayResponse(await issueGuestStayAccess(stay, auth.session.userId), 201);
+  throw fail(410, '이용 코드 발급이 종료되었습니다. 투숙객은 예약자 이름으로 확인할 수 있습니다.', { code: 'access_codes_removed' });
 });

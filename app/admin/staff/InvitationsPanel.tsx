@@ -9,6 +9,7 @@ import { ROLE_LABELS } from '@/lib/constants';
 import { toast, confirmDialog, SkeletonList } from '@/components/ui';
 import CreateUserForm, { type CreateUserSeed, type CreatedUser } from '../users/CreateUserForm';
 import { staffOrganizationName } from '@/lib/staff-organizations';
+import { operationsJsonRequest } from '@/lib/operations-command-client';
 
 interface UserRecord { id: string; email: string; displayName: string; role: UserRole; status: UserStatus; propertyIds: string[]; organizationId: string | null; version: number; createdAt?: string }
 interface InvitationRecord { id: string; email: string; role: UserRole; status: 'pending' | 'accepted' | 'expired' | 'revoked'; expiresAt: string; token: string; propertyIds: string[]; organizationId: string | null }
@@ -58,8 +59,8 @@ export default function InvitationsPanel({ initialOrganizationId, onChanged }: {
     if (!isSuper && record.role !== 'manager') { toast.error('사업자 관리자 권한은 슈퍼매니저가 관리합니다.'); return; }
     setBusy(record.id);
     try {
-      const response = await fetch(`/api/admin/user-access/${record.id}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ version: record.version, role: record.role, status: 'active', propertyIds: record.role === 'manager' ? record.propertyIds : [], ...(isSuper ? { organizationId: record.organizationId } : {}) }) });
-      const data = await response.json(); if (!response.ok) throw new Error(data.error || '가입을 승인하지 못했습니다.');
+      const { response, data } = await operationsJsonRequest<{ user: { version: number } }>(`/api/admin/user-access/${record.id}`, { method: 'PATCH', body: JSON.stringify({ version: record.version, role: record.role, status: 'active', propertyIds: record.role === 'manager' ? record.propertyIds : [], ...(isSuper ? { organizationId: record.organizationId } : {}) }) });
+      if (!response.ok) throw new Error(data.error || '가입을 승인하지 못했습니다.');
       updateLocal(record.id, { status: 'active', version: data.user.version }); onChanged?.(); toast.success('가입을 승인했습니다.');
     } catch (cause) { toast.error(cause instanceof Error ? cause.message : '가입을 승인하지 못했습니다.'); }
     finally { setBusy(null); }

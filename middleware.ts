@@ -35,9 +35,8 @@ export async function middleware(req: NextRequest) {
   const loginUrl = new URL('/login', req.url);
   loginUrl.searchParams.set('next', pathname + req.nextUrl.search);
 
-  // Background workers have no session cookie. This exact route validates
-  // x-cron-secret itself before queueing or processing any inquiry.
-  if (pathname === '/api/inquiry-automation/process') {
+  // These worker endpoints authenticate their shared secrets without session cookies.
+  if (pathname === '/api/inquiry-automation/process' || pathname === '/api/internal/cleaning-assignment-notifications') {
     return NextResponse.next();
   }
 

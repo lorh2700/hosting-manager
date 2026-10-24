@@ -12,5 +12,7 @@ export const GET = withErrors('public/properties', async () => {
     take: 200,
     select: { id: true, name: true, timezone: true, description: true, slug: true, status: true, maxGuests: true, basePrice: true, openingDate: true, publicInfo: true, featureOverrides: true, organization: { select: { status: true, features: true } } },
   });
-  return ok(properties.filter(p => propertyAllowsModule(p, 'reservations')).map(p => ({ ...publicListing(p), maxPets: stayOptionPolicy(p.slug)?.maxPets ?? null })));
+  const response = ok(properties.filter(p => propertyAllowsModule(p, 'reservations')).map(p => ({ ...publicListing(p), maxPets: stayOptionPolicy(p.slug)?.maxPets ?? null })));
+  response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=60, stale-while-revalidate=300');
+  return response;
 });

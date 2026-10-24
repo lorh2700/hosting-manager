@@ -33,18 +33,23 @@ function getDayAvailability(dayStr: string, activeProperties: Property[], events
 }
 
 function CleanBadge({ evt }: { evt: ProcessedEvent }) {
-  if (evt.cleanerName) {
+  if (evt.cleaningConflict) return <span className="mx-1 text-[11px] text-amber-800 bg-white px-1.5 py-1">담당자 확인</span>;
+  if (evt.cleanerName || evt.assistantCleanerName) {
     const isDone = evt.status === 'done';
+    const names = evt.assistantCleanerName
+      ? [evt.cleanerName ? `정 ${evt.cleanerName}` : '', `부 ${evt.assistantCleanerName}`].filter(Boolean).join(' · ')
+      : evt.cleanerName || '';
     return (
       <span
-        className={`mx-1 text-[11px] leading-none px-1.5 py-1 font-semibold shrink-0 whitespace-nowrap inline-flex items-center gap-1 ${
+        title={names}
+        className={`mx-1 text-[11px] leading-none px-1.5 py-1 font-semibold min-w-0 max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap inline-flex items-center gap-1 ${
           isDone
             ? 'bg-emerald-500 text-white ring-1 ring-emerald-600/30'
             : 'bg-white text-stone-800 ring-1 ring-stone-300'
         }`}
       >
         {isDone ? <Check size={9} strokeWidth={3} /> : <Sparkles size={9} strokeWidth={2.5} />}
-        {evt.cleanerName}
+        <span className="truncate">{names}</span>
       </span>
     );
   }

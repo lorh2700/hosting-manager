@@ -5,7 +5,7 @@ import { ArrowDown, ArrowUp, ImagePlus, X } from 'lucide-react';
 import { toast } from '@/components/ui';
 import type { PropertyPublicInfo } from '@/lib/property-public-info';
 
-export const EMPTY_PUBLIC_INFO: PropertyPublicInfo = { region: '', addressKo: '', catchphrase: '', checkInTime: '15:00', checkOutTime: '11:00', images: [] };
+export const EMPTY_PUBLIC_INFO: PropertyPublicInfo = { region: '', addressKo: '', catchphrase: '', checkInTime: '15:00', checkOutTime: '11:00', images: [], baseGuests: 2, amenities: [] };
 const fieldClass = 'w-full min-w-0 rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-sm';
 
 export default function PublicInfoEditor({ propertyId, value, onChange, status, onStatusChange, slug, onSlugChange, openingDate, onOpeningDateChange, missing, onUploadingChange }: {

@@ -25,6 +25,8 @@ export async function runBeds24Sync() {
       eventsCreated: r.eventsCreated, eventsUpdated: r.eventsUpdated, eventsRemoved: r.eventsRemoved,
       durationMs: Date.now() - started, error: r.error,
       invitationsPublished: r.invitationsPublished ?? 0,
+      revenueSourcesUpdated: r.revenueSourcesUpdated ?? 0,
+      ...(r.revenueSourceWarning ? { revenueSourceWarning: r.revenueSourceWarning } : {}),
     });
   }
 

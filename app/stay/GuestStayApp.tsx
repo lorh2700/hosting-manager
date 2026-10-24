@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { ArrowLeft, ArrowUpRight, CalendarDays, CarFront, Check, ChevronRight, CircleHelp, ClipboardList, Copy, Home, Leaf, LoaderCircle, LogOut, MapPin, Minus, Plus, RefreshCw, ShieldCheck, Sparkles, Wifi } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { guestLanguageNames, guestLanguages, type GuestLanguage } from '@/lib/guest-languages';
@@ -25,11 +26,20 @@ class ApiError extends Error {
   constructor(public status: number, public code?: string) { super('Guest service request failed'); }
 }
 async function api<T>(url: string, options?: RequestInit, signal?: AbortSignal): Promise<T> {
-  const timeout = AbortSignal.timeout(15000);
-  const response = await fetch(url, { credentials: 'same-origin', cache: 'no-store', ...options, signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new ApiError(response.status, data.code);
-  return data as T;
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  const timeout = setTimeout(abort, 15000);
+  signal?.addEventListener('abort', abort, { once: true });
+  if (signal?.aborted) abort();
+  try {
+    const response = await fetch(url, { credentials: 'same-origin', cache: 'no-store', ...options, signal: controller.signal });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new ApiError(response.status, data.code);
+    return data as T;
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener('abort', abort);
+  }
 }
 const json = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 const money = (price: number, lang: GuestLanguage) => new Intl.NumberFormat(lang, { style: 'currency', currency: 'KRW', maximumFractionDigits: 0 }).format(price);
@@ -60,7 +70,6 @@ export default function GuestStayApp({ slug, initialLanguage, preview = false }:
   const [loadError, setLoadError] = useState(false);
   const [credentials, setCredentials] = useState<Credentials>({});
   const [name, setName] = useState('');
-  const [code, setCode] = useState('');
   const [loginBusy, setLoginBusy] = useState(false);
   const [authMessage, setAuthMessage] = useState('');
   const [tab, setTab] = useState<Tab>('home');
@@ -258,9 +267,9 @@ export default function GuestStayApp({ slug, initialLanguage, preview = false }:
     if (loginLock.current) return;
     loginLock.current = true; setLoginBusy(true); setAuthMessage('');
     try {
-      const result = await api<SessionResponse>('/api/public/guest-stay/login', json({ slug, name, ...(credentials.invitation || credentials.accessToken ? credentials : { code }) }));
+      const result = await api<SessionResponse>('/api/public/guest-stay/login', json({ slug, name, ...credentials }));
       if (result.stay.property.slug !== slug) throw new ApiError(401);
-      setStay(result.stay); setProperty(result.stay.property); setCsrfToken(result.csrfToken); setCredentials({}); setCode('');
+      setStay(result.stay); setProperty(result.stay.property); setCsrfToken(result.csrfToken); setCredentials({});
       explicitGrant.current = false;
       if (!date && !time && !message && !note && !destination) setPeople(result.stay.guests || 2);
       go('home');
@@ -280,13 +289,13 @@ export default function GuestStayApp({ slug, initialLanguage, preview = false }:
     event.preventDefault();
     if (!stay || !service || sendLock.current) return;
     sendLock.current = true; setSending(true); setSendError('');
-    const details = service === 'tour'
-      ? { tourId, date, time, guests: tourDetail?.ticketTiers.length ? Object.values(ticketCounts).reduce((sum, value) => sum + value, 0) : people, ...(durationOptionId ? { durationOptionId } : {}), ...(tourDetail?.ticketTiers.length ? { ticketCounts: Object.fromEntries(Object.entries(ticketCounts).sort(([left], [right]) => left.localeCompare(right))) } : {}), note }
-      : service === 'taxi' ? { date, time, destination, passengers: people, luggage: bags, note } : { category, message };
-    const fingerprint = JSON.stringify({ kind: service, details });
-    if (pendingRequest.current?.fingerprint !== fingerprint) pendingRequest.current = { fingerprint, id: crypto.randomUUID() };
-    const input = { id: pendingRequest.current!.id, kind: service, details } as GuestStayRequestInput;
     try {
+      const details = service === 'tour'
+        ? { tourId, date, time, guests: tourDetail?.ticketTiers.length ? Object.values(ticketCounts).reduce((sum, value) => sum + value, 0) : people, ...(durationOptionId ? { durationOptionId } : {}), ...(tourDetail?.ticketTiers.length ? { ticketCounts: Object.fromEntries(Object.entries(ticketCounts).sort(([left], [right]) => left.localeCompare(right))) } : {}), note }
+        : service === 'taxi' ? { date, time, destination, passengers: people, luggage: bags, note } : { category, message };
+      const fingerprint = JSON.stringify({ kind: service, details });
+      if (pendingRequest.current?.fingerprint !== fingerprint) pendingRequest.current = { fingerprint, id: uuidv4() };
+      const input = { id: pendingRequest.current!.id, kind: service, details } as GuestStayRequestInput;
       let request: GuestStayRequestDTO;
       if (preview) {
         request = { ...input, ...(service === 'tour' && tourDetail ? { tourTitle: tourDetail.title, durationTitle: tourDetail.durationOptions.find(option => option.id === durationOptionId)?.label || undefined } : {}), status: 'requested', publicReply: '', source: 'mobile', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), version: 1 };
@@ -331,13 +340,12 @@ export default function GuestStayApp({ slug, initialLanguage, preview = false }:
       {!stay && !loading && <section className={styles.loginCard} aria-labelledby="stay-login-title">
         <ShieldCheck size={25} /><h2 id="stay-login-title">{t.login}</h2><p>{credentials.invitation || credentials.accessToken ? t.qrIntro : t.loginIntro}</p>
         <form onSubmit={login}>
-          <label>{t.name}<input name="guest-name" autoComplete="name" required maxLength={100} value={name} onChange={event => setName(event.target.value)} /></label>
-          {!credentials.invitation && !credentials.accessToken && <label>{t.code}<input name="guest-stay-code" type="text" autoComplete="one-time-code" spellCheck={false} autoCapitalize="characters" required maxLength={40} value={code} onChange={event => setCode(event.target.value)} /><span className={styles.helper}>{t.codeHint}</span></label>}
+          <label>{t.name}<input name="guest-name" autoComplete="name" autoCapitalize="none" spellCheck={false} aria-describedby="guest-name-hint" required maxLength={100} value={name} onChange={event => setName(event.target.value)} /><span id="guest-name-hint" className={styles.helper}>{t.nameHint}</span></label>
           {authMessage && <ErrorBox text={authMessage} />}
           <button type="submit" className={styles.primary} disabled={loginBusy || preview}>{loginBusy ? <LoaderCircle size={17} className={styles.spin} /> : <ShieldCheck size={17} />}{loginBusy ? t.loading : t.enter}</button>
-          {(credentials.invitation || credentials.accessToken) && <button type="button" className={styles.textButton} onClick={() => { setCredentials({}); setAuthMessage(''); }}>{t.useCode}</button>}
+          {(credentials.invitation || credentials.accessToken) && <button type="button" className={styles.textButton} onClick={() => { setCredentials({}); setAuthMessage(''); }}>{t.useName}</button>}
         </form>
-        <p className={styles.helper}>{preview ? t.previewNote : t.noCode}</p>
+        <p className={styles.helper}>{preview ? t.previewNote : t.loginHelp}</p>
       </section>}
       {loading && <div className={styles.sessionLoading} role="status"><LoaderCircle size={19} className={styles.spin} />{t.loading}</div>}
       {tab === 'home' && <>

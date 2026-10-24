@@ -21,6 +21,8 @@ interface CleaningTask {
   propertyName: string;
   date: string;
   guestName: string;
+  origin: string;
+  kind: 'interim' | 'checkout';
   supplies: string;
   status: 'pending' | 'done';
   completionNote?: string;
@@ -52,6 +54,7 @@ interface CleaningEntry {
   date: string;
   cleanerId: string | null;
   cleanerName: string | null;
+  assistantCleanerName?: string | null;
   status: 'pending' | 'done';
   isMine: boolean;
 }
@@ -178,6 +181,7 @@ export default function CleanerPage() {
   };
 
   const canCompleteNow = (task: CleaningTask) => {
+    if (task.kind === 'interim' || task.origin === 'interim') return false;
     const d = parseISO(task.date);
     if (!isToday(d)) return false;
     const hour = new Date().getHours();
@@ -185,6 +189,7 @@ export default function CleanerPage() {
   };
 
   const completeDisabledReason = (task: CleaningTask) => {
+    if (task.kind === 'interim' || task.origin === 'interim') return '중간청소는 통합 캘린더에서 처리해 주세요.';
     const d = parseISO(task.date);
     if (!isToday(d)) {
       return isPast(d)
@@ -375,6 +380,7 @@ export default function CleanerPage() {
   const TaskCard = ({ task, embedded = false }: { task: CleaningTask; embedded?: boolean }) => {
     const isExpanded = expandedTask === task.cleaningId;
     const isIssueOpen = showIssueForm === task.cleaningId;
+    const isInterim = task.kind === 'interim' || task.origin === 'interim';
 
 
     return (
@@ -382,7 +388,7 @@ export default function CleanerPage() {
         task.status === 'done' ? 'border-stone-100 bg-stone-50' : 'border-stone-200 bg-white'
       }`}>
         <button
-          type="button" aria-expanded={isExpanded}
+          type="button" disabled={isInterim} aria-expanded={isInterim ? undefined : isExpanded}
           className="w-full text-left p-5 min-h-16"
           onClick={() => setExpandedTask(isExpanded ? null : task.cleaningId)}
         >
@@ -396,7 +402,7 @@ export default function CleanerPage() {
                 <span className={`text-[12px] uppercase tracking-widest font-semibold ${
                   task.status === 'done' ? 'text-emerald-700' : 'text-stone-500'
                 }`}>
-                  {task.status === 'done' ? '청소 완료' : embedded ? '청소 완료 보고 · 문제 신고' : '청소 예정'}
+                  {isInterim ? task.status === 'done' ? '중간청소 완료' : '중간청소 예정' : task.status === 'done' ? '청소 완료' : embedded ? '청소 완료 보고 · 문제 신고' : '청소 예정'}
                 </span>
                 {task.hasIssue && (
                   <span className="text-[12px] bg-red-500/20 text-red-400 px-1.5 py-0.5 tracking-wider">이슈</span>
@@ -414,7 +420,7 @@ export default function CleanerPage() {
               )}
             </div>
             <div className="text-right shrink-0 flex flex-col items-end gap-2">
-              {task.status === 'pending' && (
+              {task.status === 'pending' && !isInterim && (
                 isExpanded
                   ? <ChevronUp size={14} className="text-stone-300" />
                   : <ChevronDown size={14} className="text-stone-300" />
@@ -422,9 +428,10 @@ export default function CleanerPage() {
             </div>
           </div>
         </button>
+        {isInterim && <p className="px-5 pb-5 text-sm text-stone-600">중간청소는 통합 캘린더에서 처리해 주세요.</p>}
 
         {/* 완료 보고 패널 */}
-        {isExpanded && task.status === 'pending' && (() => {
+        {isExpanded && task.status === 'pending' && !isInterim && (() => {
           const canComplete = canCompleteNow(task);
           const disabledReason = canComplete ? null : completeDisabledReason(task);
           return (
@@ -589,7 +596,7 @@ export default function CleanerPage() {
               {checkoutToday[op.propertyId]?.confirmed?<p className="text-sm text-emerald-700">퇴실 확인 완료{checkoutToday[op.propertyId].confirmedAt&&` · ${format(parseISO(checkoutToday[op.propertyId].confirmedAt!), 'HH:mm')}`}</p>:<p className="text-sm text-amber-800">{op.departures.length?'퇴실 확인 대기 · 확인 전에는 들어가지 마세요.':'오늘 퇴실 예약 정보 없음 · 출입 전 확인해주세요.'}</p>}
             </section>
             <section className="border-t border-stone-100 pt-4 space-y-2"><h3 className="text-xs font-semibold text-stone-500">청소</h3>
-              {op.cleanings.length?op.cleanings.map(c=><p key={c.id} className="text-sm">{c.cleanerName || '담당자 미배정'}{c.isMine?' (나)':''} · {c.status==='done'?'완료':'대기'}</p>):<p className="text-sm text-amber-800">등록된 청소 일정이 없습니다.</p>}
+              {op.cleanings.length?op.cleanings.map(c=><p key={c.id} className="text-sm">정 {c.cleanerName || '미배정'}{c.assistantCleanerName&&` · 부 ${c.assistantCleanerName}`}{c.isMine?' (나)':''} · {c.status==='done'?'완료':'대기'}</p>):<p className="text-sm text-amber-800">등록된 청소 일정이 없습니다.</p>}
               {op.ownTasks.map(t=><TaskCard key={t.cleaningId} task={t} embedded/>)}
             </section>
             <section className="border-t border-stone-100 pt-4"><h3 className="text-xs font-semibold text-stone-500 mb-2">입실</h3>

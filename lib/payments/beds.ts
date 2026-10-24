@@ -1,11 +1,18 @@
-import { stayOptionsNote } from './stay-options';
+import { readStayOptions, stayOptionsNote } from './stay-options';
 import { beds24Get, beds24Post } from '@/lib/beds24';
 import { fetchBeds24BookingById, type Beds24Booking } from '@/lib/beds24-booking';
 import type { CheckoutOrder } from '@/generated/prisma/client';
 import { toMinor } from './money';
 import { fail } from '@/lib/core/errors';
+import { rateReservationBarriers, reservationRequestHash, type ReservationBarrierInput } from '@/lib/rate-reservation-barrier';
 
 export const checkoutMarker = (id: string) => `void-checkout:${id}`;
+export function checkoutReservationBarrierInput(order: CheckoutOrder): ReservationBarrierInput {
+  return { id: checkoutMarker(order.id), propertyId: order.propertyId, roomId: order.roomId, offerId: order.offerId,
+    checkIn: order.checkIn, checkOut: order.checkOut, requestHash: reservationRequestHash({ propertyId: order.propertyId, roomId: order.roomId,
+      offerId: order.offerId, checkIn: order.checkIn, checkOut: order.checkOut, guests: order.guests, priceKrw: order.priceKrw, stayOptions: order.stayOptions,
+      name: order.name, email: order.email, phone: order.phone, gateway: order.gateway, currency: order.currency, amountMinor: order.amountMinor }) };
+}
 
 export function selectOffer(raw: unknown, roomId: number, offerId: number) {
   const data = raw as { data?: { roomId: number; offers?: { offerId: number; price: number; unitsAvailable: number }[] }[] };
@@ -14,7 +21,8 @@ export function selectOffer(raw: unknown, roomId: number, offerId: number) {
   return toMinor(offer.price, 'KRW');
 }
 
-export async function getPrice(roomId: number, offerId: number, checkIn: string, checkOut: string, guests: number) {
+export async function getPrice(roomId: number, offerId: number, checkIn: string, checkOut: string, guests: number, context?: { propertyId?: string; barrierId?: string }) {
+  await rateReservationBarriers.check({ roomId, offerId, checkIn, checkOut, propertyId: context?.propertyId, id: context?.barrierId });
   return selectOffer(await beds24Get('/inventory/rooms/offers', {
     roomId: String(roomId), offerId: String(offerId), arrival: checkIn, departure: checkOut, numAdults: String(guests), numChildren: '0',
   }), roomId, offerId);
@@ -39,21 +47,52 @@ export async function findHold(order: CheckoutOrder) {
   return null;
 }
 
-export async function createHold(order: CheckoutOrder) {
-  const raw = await beds24Post('/bookings', [{
-    roomId: order.roomId, arrival: order.checkIn, departure: order.checkOut, roomQty: 1,
-    firstName: '결제 대기', lastName: '', status: 'black', numAdult: order.guests, numChild: 0,
-    custom1: checkoutMarker(order.id), notes: `온라인 결제 대기 / expires ${order.expiresAt.toISOString()}; ${stayOptionsNote(order.stayOptions)}`,
-    actions: { checkAvailability: true, notifyGuest: false, notifyHost: false },
-  }]);
-  const item = Array.isArray(raw) ? raw[0] : null;
-  if (!item?.success || !Number.isSafeInteger(Number(item?.new?.id))) throw new Error('Room hold response unverified; recovery required');
-  return String(item.new.id);
+export async function createHold(order: CheckoutOrder, barrier?: ReservationBarrierInput | null) {
+  if (!barrier) {
+    const input = checkoutReservationBarrierInput(order);
+    const saved = await rateReservationBarriers.begin(input);
+    if (saved) {
+      if (saved.state !== 'prepared') throw fail(409, '예약 확보 결과를 확인 중입니다. 다시 전송하지 않습니다.');
+      barrier = input;
+      try {
+        const context = { propertyId: order.propertyId, barrierId: saved.id };
+        let latest = await getPrice(order.roomId, order.offerId, order.checkIn, order.checkOut, order.guests, context);
+        const options = readStayOptions(order.stayOptions);
+        if (options) {
+          if (order.guests > options.baseGuests) latest = await getPrice(order.roomId, order.offerId, order.checkIn, order.checkOut, options.baseGuests, context);
+          latest += options.extraGuestFeeKrw + options.petFeeKrw;
+        }
+        if (latest !== order.priceKrw) throw fail(409, '판매 요금이 변경되었습니다. 요금을 다시 확인해주세요.');
+      } catch (error) { await rateReservationBarriers.finish(saved.id, 'released'); throw error; }
+    }
+  }
+  if (barrier) await rateReservationBarriers.claimSend(barrier);
+  try {
+    const raw = await beds24Post('/bookings', [{
+      roomId: order.roomId, arrival: order.checkIn, departure: order.checkOut, roomQty: 1,
+      firstName: '결제 대기', lastName: '', status: 'black', numAdult: order.guests, numChild: 0,
+      custom1: checkoutMarker(order.id), notes: `온라인 결제 대기 / expires ${order.expiresAt.toISOString()}; ${stayOptionsNote(order.stayOptions)}`,
+      actions: { checkAvailability: true, notifyGuest: false, notifyHost: false },
+    }], barrier ? { noRetry: true } : undefined);
+    const item = Array.isArray(raw) ? raw[0] : null;
+    if (!item?.success || !Number.isSafeInteger(Number(item?.new?.id))) {
+      if (barrier && item?.success === false) {
+        await rateReservationBarriers.finish(barrier.id!, 'released');
+        throw fail(409, '선택한 일정의 예약 확보가 거절되었습니다. 요금을 다시 확인해 주세요.');
+      }
+      throw new Error('Room hold response unverified; recovery required');
+    }
+    return String(item.new.id);
+  } catch (error) {
+    if (barrier) await rateReservationBarriers.finish(barrier.id!, 'needs_review');
+    throw error;
+  }
 }
 
 export async function finalizeHold(order: CheckoutOrder) {
   const booking = assertHold(order, await findHold(order));
   if (booking.status !== 'confirmed') {
+    await rateReservationBarriers.finish(checkoutMarker(order.id), 'needs_review');
     await beds24Post('/bookings', [{ id: booking.id, status: 'confirmed', firstName: order.name, lastName: '',
       email: order.email, phone: order.phone, price: order.priceKrw, numAdult: order.guests,
       notes: `void anchae paid order ${order.id}; ${order.currency} ${order.amountMinor}; payment recorded in void anchae; ${stayOptionsNote(order.stayOptions)}`,
@@ -62,18 +101,21 @@ export async function finalizeHold(order: CheckoutOrder) {
   }
   const verified = assertHold(order, await fetchBeds24BookingById(booking.id));
   if (verified.status !== 'confirmed') throw new Error('Booking confirmation is pending');
+  await rateReservationBarriers.finish(checkoutMarker(order.id), 'confirmed', String(verified.id));
   return String(verified.id);
 }
 
 export async function releaseHold(order: CheckoutOrder) {
   const booking = await findHold(order);
   if (!booking) {
-    if (order.beds24Id) return; // Known deleted booking.
+    if (order.beds24Id) { await rateReservationBarriers.finish(checkoutMarker(order.id), 'released', order.beds24Id); return; }
     throw new Error('Unknown hold outcome; manual review required');
   }
   if (booking.custom1 !== checkoutMarker(order.id) || Number(booking.roomId) !== order.roomId) throw new Error('Hold identity mismatch');
-  if (booking.status === 'cancelled') return;
+  if (booking.status === 'cancelled') { await rateReservationBarriers.finish(checkoutMarker(order.id), 'released', String(booking.id)); return; }
+  await rateReservationBarriers.finish(checkoutMarker(order.id), 'needs_review');
   await beds24Post('/bookings', [{ id: booking.id, status: 'cancelled', actions: { notifyGuest: false } }]);
   const verified = await fetchBeds24BookingById(booking.id);
   if (verified && verified.status !== 'cancelled') throw new Error('Room release is pending');
+  await rateReservationBarriers.finish(checkoutMarker(order.id), 'released', String(booking.id));
 }

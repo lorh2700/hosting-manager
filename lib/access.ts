@@ -12,21 +12,9 @@ import { staffDirectory } from '@/lib/staff-directory';
  */
 import { prisma } from '@/lib/prisma';
 import type { SessionAuth } from '@/lib/auth';
-import type { UserRole } from '@/lib/types';
+import { normalizeRole } from '../packages/domain/identity/roles';
 
-export function normalizeRole(raw: string | null | undefined): UserRole {
-  switch (raw) {
-    case 'admin':
-      return 'admin';
-    case 'super_admin':
-      return 'super_admin';
-    case 'cleaner':
-      return 'cleaner';
-    default:
-      // 'manager' 와 옛 값 'host' | 'viewer', 알 수 없는 값은 모두 매니저로 본다 (최소 권한).
-      return 'manager';
-  }
-}
+export { normalizeRole } from '../packages/domain/identity/roles';
 
 export const isAdminRole = (raw: string | null | undefined): boolean => ['admin', 'super_admin'].includes(normalizeRole(raw));
 export const isSuperAdminRole = (raw: string | null | undefined): boolean => normalizeRole(raw) === 'super_admin';

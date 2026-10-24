@@ -3,6 +3,7 @@ import { staffDirectory } from '@/lib/staff-directory';
 import { prisma } from '@/lib/prisma';
 import { getCleaningPropertyIds } from '@/lib/access';
 import { notifyHostOfCleaningApplication } from '@/lib/notify';
+import { cleaningRole, cleaningRoleFields, lockCleaningProperty, lockCleaningSlot, requireSingleCleaning } from '@/lib/cleaning-slots';
 import {
   withAuth, ok, created, fail, MESSAGES,
   requireManage, visibleScope, readJson, str, idList, query,
@@ -32,7 +33,7 @@ export const GET = withAuth('cleaning-applications', async (req, { auth }) => {
   const apps = await prisma.cleaningApplication.findMany({
     where,
     orderBy: { createdAt: 'desc' },
-    include: { cleaning: { select: { date: true, cleanerId: true, status: true, assignmentType: true, completedAt: true, property: { select: { name: true } } } } },
+    include: { cleaning: { select: { date: true, cleanerId: true, assistantCleanerId: true, assistantAssignmentType: true, status: true, assignmentType: true, completedAt: true, property: { select: { name: true } } } } },
   });
   // 관리자 화면이 일정 날짜를 바로 쓰도록 cleaning.date 를 cleaningDate 로 펼친다.
   return ok(apps.map(a => ({ ...a, canCancel: !cleaningCancellationReason(a,a.cleaning,auth.session.userId), cancelBlockedReason: cleaningCancellationReason(a,a.cleaning,auth.session.userId), cleaningDate: a.cleaning?.date ?? null, propertyName: a.cleaning?.property?.name ?? null })));
@@ -44,11 +45,12 @@ export const GET = withAuth('cleaning-applications', async (req, { auth }) => {
 export const POST = withAuth('cleaning-applications', async (req, { auth }) => {
   const body = await readJson(req);
   const cleaningId = str(body, 'cleaningId', { required: true })!;
+  const role = cleaningRole(body.role), fields = cleaningRoleFields(role);
 
   const cleaning = await prisma.cleaning.findUnique({
     where: { id: cleaningId },
     select: {
-      id: true, propertyId: true, cleanerId: true, date: true,
+      id: true, propertyId: true, cleanerId: true, assistantCleanerId: true, date: true, origin: true,
       property: { select: { name: true, owner: { select: { displayName: true, email: true, phone: true } } } },
     },
   });
@@ -56,16 +58,7 @@ export const POST = withAuth('cleaning-applications', async (req, { auth }) => {
 
   // 보이는 지점에만 신청할 수 있다 (청소담당자: 배정 지점, 매니저: 배정 숙소, 관리자: 전체).
   if (!(await getCleaningPropertyIds(auth)).includes(cleaning.propertyId)) throw fail(403, '청소 담당 숙소에만 신청할 수 있습니다.');
-
-  {
-    if (cleaning.cleanerId) throw fail(400, '이미 다른 담당자에게 배정된 청소입니다.');
-    // 동일 (propertyId, date) 슬롯에 배정된 sibling 행이 있으면 이 미배정 행은 유령 잔재 — 신청 차단해 이중 배정 방지.
-    const siblingClaimed = await prisma.cleaning.findFirst({
-      where: { propertyId: cleaning.propertyId, date: cleaning.date, cleanerId: { not: null }, id: { not: cleaning.id } },
-      select: { id: true },
-    });
-    if (siblingClaimed) throw fail(400, '이 날짜의 청소는 이미 다른 담당자에게 배정되었습니다.');
-  }
+  if (cleaning.origin === 'interim') throw fail(409, '중간청소 담당자는 관리자에게 배정을 요청해 주세요.');
 
   // The assignee ID is the existing User.id.
   const cleaner = await staffDirectory.findUnique({
@@ -75,21 +68,24 @@ export const POST = withAuth('cleaning-applications', async (req, { auth }) => {
   if (!cleaner) throw fail(422, '직원 계정을 찾을 수 없습니다.');
 
   // Prevent duplicate active applications from the same cleaner.
-  const existing = await prisma.cleaningApplication.findFirst({
-    where: { cleaningId: cleaning.id, applicantId: auth.session.userId, status: { in: ['pending', 'approved'] } },
-    select: { id: true },
-  });
-  if (existing) throw fail(409, '이미 신청한 청소입니다.');
-
   const applicantName = str(body, 'applicantName', { max: 100 })?.trim() || cleaner.name || null;
   const now = new Date();
 
   // Atomic: claim the cleaning if still unassigned + record the application as approved.
   // updateMany returns count=0 when another cleaner won the race.
   const createdApp = await prisma.$transaction(async (tx) => {
+    await lockCleaningProperty(tx, cleaning.propertyId);
+    const current = await tx.cleaning.findUnique({ where: { id: cleaning.id } });
+    if (!current || current.propertyId !== cleaning.propertyId || current.origin === 'interim') throw fail(409, '청소 일정이 변경되었습니다.');
+    await lockCleaningSlot(tx, current.propertyId, current.date, current.origin);
+    await requireSingleCleaning(tx, current);
+    if (current.status !== 'pending' || current.completedAt) throw fail(409, '신청할 수 없는 청소 일정입니다.');
+    if (current[fields.other] === cleaner.id) throw fail(409, '정담당과 부담당을 동시에 맡을 수 없습니다.');
+    if (current[fields.assignee] || (role === 'primary' && current.externalCleanerName?.trim())) throw fail(409, '해당 역할은 이미 배정되었습니다.');
+    if (await tx.cleaningApplication.findFirst({ where: { cleaningId: current.id, applicantId: auth.session.userId, role, status: { in: ['pending', 'approved'] } }, select: { id: true } })) throw fail(409, '이미 신청한 청소입니다.');
     const claim = await tx.cleaning.updateMany({
-      where: { id: cleaning.id, cleanerId: null },
-      data: { cleanerId: cleaner.id, isOpen: false, assignmentType: 'applied' },
+      where: { id: current.id, [fields.assignee]: null, status: 'pending', completedAt: null },
+      data: { [fields.assignee]: cleaner.id, [fields.assignment]: 'applied', ...(role === 'primary' ? { isOpen: false } : {}) },
     });
     if (claim.count === 0) return null;
     return tx.cleaningApplication.create({
@@ -98,6 +94,7 @@ export const POST = withAuth('cleaning-applications', async (req, { auth }) => {
         propertyId: cleaning.propertyId,
         applicantId: auth.session.userId,
         applicantName,
+        role,
         status: 'approved',
         processedAt: now,
         processedBy: auth.session.userId,
@@ -115,6 +112,7 @@ export const POST = withAuth('cleaning-applications', async (req, { auth }) => {
     propertyName: cleaning.property?.name ?? '숙소',
     date: cleaning.date,
     applicationId: createdApp.id,
+    role,
   }).catch(err => console.error('[cleaning-applications] notify failed:', err));
 
   return created({ ok: true, applicationId: createdApp.id });

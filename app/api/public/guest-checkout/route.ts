@@ -11,7 +11,7 @@ export const POST = withErrors('public/guest-checkout', async req => {
   if (!rateLimit(`guest-checkout:${clientIp(req)}`, 30, 60_000).ok) throw fail(429, '잠시 후 다시 시도해주세요. / Please try again shortly.');
   const body = await readJson(req);
   if (!['status', 'confirm'].includes(String(body.action))) throw fail(400, '잘못된 요청입니다.');
-  const propertyId = verifyCheckoutQr(body.token);
+  const propertyId = await verifyCheckoutQr(body.token);
   if (!propertyId) throw fail(403, '유효하지 않은 QR입니다. 호스트에게 문의해주세요. / Please contact your host.');
   const property = await prisma.property.findUnique({ where: { id: propertyId }, select: { id: true, name: true, status: true } });
   if (!property || property.status !== 'active') throw fail(404, '이 숙소의 체크아웃을 확인할 수 없습니다. / Checkout is unavailable.');

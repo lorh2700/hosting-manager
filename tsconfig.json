@@ -37,7 +37,8 @@
     ".next-manager/types/**/*.ts",
     ".next-menu-preview/types/**/*.ts",
     ".next/types/**/*.ts",
-    "next-env.d.ts"
+    "next-env.d.ts",
+    ".next-guest-link-build-verified/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

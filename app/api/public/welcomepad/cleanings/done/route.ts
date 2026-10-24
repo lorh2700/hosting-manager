@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { beds24Post } from '@/lib/beds24';
+import { lockCleaningProperty, lockCleaningSlot } from '@/lib/cleaning-slots';
 
 // API-key-gated pad actions. Completion updates an existing schedule only.
 // Sending arrival instructions never writes a cleaning record.
@@ -57,21 +58,24 @@ export async function POST(req: Request) {
 
   if (body.date && body.date !== today) return NextResponse.json({ error: '날짜가 변경되었습니다. 화면을 새로고침해 주세요.' }, { status: 409 });
   if (action === 'complete') {
-    const schedules = await prisma.cleaning.findMany({
-      where: { propertyId: property.id, date: today }, orderBy: { createdAt: 'desc' },
+    return prisma.$transaction(async tx => {
+      await lockCleaningProperty(tx, property.id);
+      await lockCleaningSlot(tx, property.id, today);
+      const candidates = await tx.cleaning.findMany({
+        where: { propertyId: property.id, date: today, status: { not: 'cancelled' }, origin: { not: 'interim' } }, take: 2,
+      });
+      if (!candidates.length) return NextResponse.json({ error: '오늘 등록된 청소 일정이 없습니다. 입실 안내만 보내려면 입실 안내 보내기를 눌러주세요.' }, { status: 409 });
+      if (candidates.length !== 1) return NextResponse.json({ error: '청소 일정이 여러 건입니다. 관리자 캘린더에서 기록을 먼저 확인해 주세요.' }, { status: 409 });
+      const existing = candidates[0];
+      if (existing.status === 'done') return NextResponse.json({ ok: true, cleaningId: existing.id, status: 'done', alreadyCompleted: true });
+      const result = await tx.cleaning.updateMany({
+        where: { id: existing.id, propertyId: property.id, date: today, status: 'pending', cleanerId: existing.cleanerId,
+          assistantCleanerId: existing.assistantCleanerId, origin: { not: 'interim' } },
+        data: { status: 'done', completedAt: now, completionNote: completionNote ?? existing.completionNote },
+      });
+      if (result.count !== 1) return NextResponse.json({ error: '청소 일정이 변경되었습니다. 새로 확인해 주세요.' }, { status: 409 });
+      return NextResponse.json({ ok: true, cleaningId: existing.id, status: 'done', completedAt: now });
     });
-    const assigned = schedules.filter(row => row.cleanerId);
-    const candidates = assigned.length ? assigned : schedules;
-    if (!candidates.length) return NextResponse.json({ error: '오늘 등록된 청소 일정이 없습니다. 입실 안내만 보내려면 입실 안내 보내기를 눌러주세요.' }, { status: 409 });
-    if (candidates.length !== 1) return NextResponse.json({ error: '청소 일정이 여러 건입니다. 관리자 캘린더에서 완료 처리해 주세요.' }, { status: 409 });
-    const existing = candidates[0];
-    if (existing.status === 'done') return NextResponse.json({ ok: true, cleaningId: existing.id, status: 'done', alreadyCompleted: true });
-    const result = await prisma.cleaning.updateMany({
-      where: { id: existing.id, propertyId: property.id, date: today, status: 'pending', cleanerId: existing.cleanerId },
-      data: { status: 'done', completedAt: now, completionNote: completionNote ?? existing.completionNote },
-    });
-    if (result.count !== 1) return NextResponse.json({ error: '청소 일정이 변경되었습니다. 새로 확인해 주세요.' }, { status: 409 });
-    return NextResponse.json({ ok: true, cleaningId: existing.id, status: 'done', completedAt: now });
   }
 
   // ── 2. Reservation lookup ─────────────────────────────────────────

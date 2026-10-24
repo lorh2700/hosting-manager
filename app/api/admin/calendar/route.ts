@@ -70,8 +70,8 @@ export const GET = withAuth('admin/calendar', async (req, { auth }) => {
       if (stay.date < rangeFrom || stay.date > rangeTo) linkedCheckouts.set(`${stay.propertyId}:${stay.date}`, stay);
     }
     const cleanings = await timed('cleanings', () => prisma.cleaning.findMany({
-      where: { ...pidFilter, OR: [{ date: { gte: rangeFrom, lte: rangeTo } }, ...linkedCheckouts.values()] },
-      select: { id: true, propertyId: true, date: true, cleanerId: true, status: true, supplies: true },
+      where: { ...pidFilter, origin: { not: 'interim' }, status: { not: 'cancelled' }, OR: [{ date: { gte: rangeFrom, lte: rangeTo } }, ...linkedCheckouts.values()] },
+      select: { id: true, propertyId: true, date: true, cleanerId: true, assistantCleanerId: true, status: true, supplies: true },
       orderBy: [{ date: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
     }));
     return { events, bookings, cleanings };

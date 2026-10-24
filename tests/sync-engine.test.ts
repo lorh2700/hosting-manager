@@ -34,7 +34,7 @@ beforeEach(() => {
   db.user = [{ ...cleanerRow, displayName: cleanerRow.name }];
 });
 
-test('예약이 사라진 자동 생성 청소는 배정돼 있어도 삭제하고 취소 문자를 보낸다; 완료·수동·외부·과거 건은 보존', async () => {
+test('예약이 사라진 자동 청소는 미배정·무기록 건만 정리하고 배정·완료·수동·외부·과거 건은 보존', async () => {
   db.event = [reservation('r1', d(1), d(3))];
   db.cleaning = [
     { id: 'assigned-orphan', ...cleaning({ date: d(5), cleanerId: 'cl1' }) },
@@ -48,14 +48,12 @@ test('예약이 사라진 자동 생성 청소는 배정돼 있어도 삭제하�
   const created = await ensureCleaningsForProperty(P);
 
   const ids = db.cleaning.map(c => c.id);
-  assert.ok(!ids.includes('assigned-orphan'));
+  assert.ok(ids.includes('assigned-orphan'));
   assert.ok(!ids.includes('unassigned-orphan'));
   for (const keep of ['done-orphan', 'manual', 'external', 'past-orphan']) assert.ok(ids.includes(keep), keep);
   assert.deepEqual(created, [d(3)]);
   assert.ok(db.cleaning.some(c => c.date === d(3) && c.origin === 'auto' && c.isOpen === true));
-  assert.equal(notifyCalls.cancelled.length, 1);
-  assert.equal(notifyCalls.cancelled[0].date, d(5));
-  assert.equal(notifyCalls.cancelled[0].reason, 'deleted');
+  assert.equal(notifyCalls.cancelled.length, 0);
 });
 
 test('지난 체크아웃 날짜에는 청소를 만들지도, 신규 오픈 알림을 보내지도 않는다', async () => {
@@ -79,7 +77,7 @@ test('사업자 연동 옵션을 끄면 예약 동기화가 원격 호출이나 
   assert.equal(result.eventsRemoved, 0);
 });
 
-test('직접 예약의 청소도 유지하며 마지막 예약 취소 시 신청과 함께 정리한다', async () => {
+test('직접 예약 취소 시 배정·신청·이슈 기록을 자동 삭제하지 않는다', async () => {
   db.booking = [{ id: 'direct', propertyId: P, status: 'confirmed', checkOut: d(3) }];
   db.cleaning = [{ id: 'applied', ...cleaning({ date: d(3), cleanerId: 'cl1', assignmentType: 'applied' }) }];
   db.cleaningApplication = [{ id: 'application', cleaningId: 'applied', status: 'approved' }];
@@ -89,13 +87,13 @@ test('직접 예약의 청소도 유지하며 마지막 예약 취소 시 신청
   assert.equal(db.cleaningApplication.length, 1);
   db.booking[0].status = 'cancelled';
   await ensureCleaningsForProperty(P);
-  assert.equal(db.cleaning.length, 0);
-  assert.equal(db.cleaningApplication.length, 0);
+  assert.equal(db.cleaning.length, 1);
+  assert.equal(db.cleaningApplication.length, 1);
   assert.equal(db.cleaningIssue.length, 1);
-  assert.equal(db.cleaningIssue[0].cleaningId, null);
-  assert.equal(notifyCalls.cancelled.length, 1);
+  assert.equal(db.cleaningIssue[0].cleaningId, 'applied');
+  assert.equal(notifyCalls.cancelled.length, 0);
   await ensureCleaningsForProperty(P);
-  assert.equal(notifyCalls.cancelled.length, 1);
+  assert.equal(notifyCalls.cancelled.length, 0);
 });
 
 test('같은 날 다른 예약의 체크아웃이 남아 있으면 신청한 청소를 유지한다', async () => {
@@ -109,7 +107,7 @@ test('같은 날 다른 예약의 체크아웃이 남아 있으면 신청한 청
   assert.equal(notifyCalls.cancelled.length, 0);
 });
 
-test('대량 누락 안전장치가 동작해도 명시적으로 취소된 예약과 청소 신청은 정리한다', async () => {
+test('명시적 취소 예약은 정리하되 청소 배정·신청 기록은 보존한다', async () => {
   db.event = Array.from({ length: 20 }, (_, i) => reservation(String(i), d(i), d(i + 2)));
   db.booking = [{ id: 'linked', propertyId: P, channelBookingRef: '0', status: 'confirmed', checkOut: d(2) }];
   db.cleaning = [{ id: 'applied', ...cleaning({ date: d(2), cleanerId: 'cl1', assignmentType: 'applied' }) }];
@@ -119,9 +117,9 @@ test('대량 누락 안전장치가 동작해도 명시적으로 취소된 예�
   assert.equal(result.eventsRemoved, 1);
   assert.equal(db.event.length, 19);
   assert.equal(db.booking[0].status, 'cancelled');
-  assert.equal(db.cleaning.some(c => c.id === 'applied'), false);
-  assert.equal(db.cleaningApplication.length, 0);
-  assert.equal(notifyCalls.cancelled.length, 1);
+  assert.equal(db.cleaning.some(c => c.id === 'applied'), true);
+  assert.equal(db.cleaningApplication.length, 1);
+  assert.equal(notifyCalls.cancelled.length, 0);
 });
 
 test('배정 건과 같은 날짜의 미배정 유령 행은 신청이 없을 때만 삭제', async () => {
@@ -176,7 +174,7 @@ test('조회 창 밖의 오래된 이벤트는 삭제 대상이 아니며 창은
   assert.ok(from < d(-380));
 });
 
-test('취소된 예약은 삭제되고 그 날짜의 배정 청소도 정리된다', async () => {
+test('취소된 예약은 삭제되지만 담당자 있는 청소는 확인을 위해 보존한다', async () => {
   db.event = [reservation('1', d(1), d(3)), reservation('2', d(5), d(7))];
   db.cleaning = [
     { id: 'c-3', ...cleaning({ date: d(3), cleanerId: 'cl1' }) },
@@ -190,9 +188,8 @@ test('취소된 예약은 삭제되고 그 날짜의 배정 청소도 정리된�
   assert.ok(!db.event.some(e => e.id === '2'));
   const ids = db.cleaning.map(c => c.id);
   assert.ok(ids.includes('c-3'));
-  assert.ok(!ids.includes('c-7'));
-  assert.equal(notifyCalls.cancelled.length, 1);
-  assert.equal(notifyCalls.cancelled[0].date, d(7));
+  assert.ok(ids.includes('c-7'));
+  assert.equal(notifyCalls.cancelled.length, 0);
 });
 
 test('메모가 "객실정비"로 시작하는 블랙아웃은 정비로 분류된다', async () => {

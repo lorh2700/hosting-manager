@@ -22,7 +22,7 @@ export const GET = withAuth('guest-stays', async (req, { auth }) => {
       select: { id: true, propertyId: true, title: true, startDate: true, endDate: true, numAdults: true, numChildren: true, originalUid: true }, orderBy: { startDate: 'asc' }, take: 101 }),
     prisma.booking.findMany({ where: { propertyId: { in: propertyIds }, status: 'confirmed', checkIn: { lte: to }, checkOut: { gte: from } },
       select: { id: true, propertyId: true, name: true, checkIn: true, checkOut: true, guests: true, channelBookingRef: true, checkout: { select: { beds24Id: true } } }, orderBy: { checkIn: 'asc' }, take: 101 }),
-    prisma.guestStayAccess.findMany({ where: { propertyId: { in: propertyIds }, revokedAt: null, source: 'manual', expiresAt: { gt: new Date() } },
+    prisma.guestStayAccess.findMany({ where: { propertyId: { in: propertyIds }, revokedAt: null, expiresAt: { gt: new Date() } },
       select: { id: true, propertyId: true, reservationKind: true, reservationId: true, createdAt: true, expiresAt: true }, orderBy: { createdAt: 'desc' }, take: 300 }),
     prisma.guestStayRequest.findMany({ where: { propertyId: { in: propertyIds }, createdAt: { gte: new Date(`${from}T00:00:00+09:00`), lt: new Date(`${addDaysToDateStr(to, 1)}T00:00:00+09:00`) } }, orderBy: { createdAt: 'desc' }, take: 101 }),
     prisma.guestStayDevice.findMany({ where: { propertyId: { in: propertyIds } }, select: { id: true, propertyId: true, label: true, pairedAt: true,

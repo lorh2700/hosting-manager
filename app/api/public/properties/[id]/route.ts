@@ -47,5 +47,6 @@ export const GET = withErrors<{ id: string }>('public/properties/id', async (_re
     region: display?.region ?? null,
     addressKo: display?.addressKo ?? null,
     catchphrase: display?.catchphrase ?? null,
+    amenities: display.amenities,
   });
 });

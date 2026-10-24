@@ -44,11 +44,11 @@ export type GuestStayDTO = {
   requests: GuestStayRequestDTO[];
 };
 export const guestStayLoginSchema = z.object({ slug: z.string().regex(/^[a-z0-9_-]{1,60}$/),
-  name: z.string().trim().min(1).max(100), code: z.string().max(40).optional(),
-  invitation: z.string().max(1024).optional(), accessToken: z.string().max(128).optional(),
-}).strict().refine(value => [value.code, value.invitation, value.accessToken].filter(Boolean).length === 1);
+  name: z.string().trim().min(1).max(100),
+  invitation: z.string().min(1).max(1024).optional(), accessToken: z.string().min(1).max(128).optional(),
+}).strict().refine(value => [value.invitation, value.accessToken].filter(Boolean).length <= 1);
 
-/** Names supplement an unguessable reservation credential; they never select a reservation. */
+/** Match the full reservation name consistently across casing and Unicode input forms. */
 export function normalizeGuestStayName(value: string): string {
   return value.normalize('NFKC').toLocaleLowerCase('en-US').replace(/[^\p{L}\p{N}]/gu, '');
 }

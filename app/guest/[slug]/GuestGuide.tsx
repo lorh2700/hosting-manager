@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import GuestInvitation from '@/components/GuestInvitation';
 import JongnoEventRecommendations from '@/components/JongnoEventRecommendations';
 import Image from 'next/image';
@@ -40,11 +41,13 @@ export default function GuestGuide({guide,initialLanguage,invitationPreview=fals
   },[attempt]);
   async function submit(event:React.FormEvent<HTMLFormElement>){
     event.preventDefault();if(submitted.current)return;
-    const data=new FormData(event.currentTarget);
-    const payload={slug:guide.slug,guestName:String(data.get('guestName')),email:String(data.get('email')),phone:String(data.get('phone')),arrivalDate:String(data.get('arrivalDate')),arrivalTime:String(data.get('arrivalTime')),flightNumber:String(data.get('flightNumber')),passengers:Number(data.get('passengers')),luggage:Number(data.get('luggage')),message:String(data.get('message')),language:lang,consent:data.get('consent')==='on',website:String(data.get('website')||'')};
-    const key=JSON.stringify(payload);if(payloadKey.current!==key){payloadKey.current=key;requestId.current=crypto.randomUUID();}
     submitted.current=true;setBusy(true);setError(null);
-    try{const res=await fetch('/api/public/guest-services',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:requestId.current,...payload})});const result=await res.json();if(!res.ok){setError(res.status);return;}setReceipt(result.id);}
+    try{
+      const data=new FormData(event.currentTarget);
+      const payload={slug:guide.slug,guestName:String(data.get('guestName')),email:String(data.get('email')),phone:String(data.get('phone')),arrivalDate:String(data.get('arrivalDate')),arrivalTime:String(data.get('arrivalTime')),flightNumber:String(data.get('flightNumber')),passengers:Number(data.get('passengers')),luggage:Number(data.get('luggage')),message:String(data.get('message')),language:lang,consent:data.get('consent')==='on',website:String(data.get('website')||'')};
+      const key=JSON.stringify(payload);if(payloadKey.current!==key){requestId.current=uuidv4();payloadKey.current=key;}
+      const res=await fetch('/api/public/guest-services',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:requestId.current,...payload})});const result=await res.json();if(!res.ok){setError(res.status);return;}setReceipt(result.id);
+    }
     catch{setError(0);}finally{setBusy(false);submitted.current=false;}
   }
   const mapUrl=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(guide.address)}`;

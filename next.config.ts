@@ -18,6 +18,7 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: '/book/byeolha', destination: '/book/byulha', permanent: true },
+      { source: '/stay/unwa/:path*', destination: '/stay/unwadang/:path*', permanent: true },
     ];
   },
   output: 'standalone',

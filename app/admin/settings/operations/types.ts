@@ -1,4 +1,5 @@
 import type { OperationalModule } from '@/lib/operational-permissions';
+import { operationsJsonRequest } from '@/lib/operations-command-client';
 
 export type FeatureValues = Partial<Record<OperationalModule, boolean>>;
 export interface Organization {
@@ -32,8 +33,7 @@ export const statusLabels: Record<string, string> = {
 
 /** Never silently turn a failed authorization or missing migration into an empty list. */
 export async function operationsApi<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, { ...init, headers: { 'Content-Type': 'application/json', ...init?.headers } });
-  const data = await response.json().catch(() => ({}));
+  const { response, data } = await operationsJsonRequest<T>(url, init);
   if (!response.ok) {
     if (response.status === 409 && (!data.error || /다른 사용자가|새로고침/.test(data.error))) throw new Error('다른 사용자가 먼저 수정했습니다. 다시 불러온 뒤 변경 내용을 확인해 주세요.');
     if (data.migrationRequired) throw new Error('사업자·권한 설정을 사용하려면 서버의 데이터베이스 업데이트가 필요합니다.');

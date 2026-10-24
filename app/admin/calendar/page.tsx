@@ -125,6 +125,8 @@ export default function UnifiedCalendarPage() {
           today={data.today}
           cleaners={data.cleaners}
           selectedCleaner={modal.selectedCleaner}
+          selectedAssistantCleaner={modal.selectedAssistantCleaner}
+          setSelectedAssistantCleaner={modal.setSelectedAssistantCleaner}
           setSelectedCleaner={modal.setSelectedCleaner}
           cleanerSaving={modal.cleanerSaving}
           completingCleaning={modal.completingCleaning}

@@ -127,6 +127,7 @@ function BookingContent() {
             openingDate: data.openingDate ?? null,
             addressKo: data.addressKo ?? null,
             catchphrase: data.catchphrase ?? null,
+            amenities: data.amenities ?? [],
           });
         }
       } catch (err) {
@@ -277,6 +278,10 @@ function BookingContent() {
         )}
       </div>
 
+      {!!property.amenities?.length && <section aria-label={language === 'en' ? 'Amenities' : '어메니티'} className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+        <h2 className="mb-4 text-lg">{language === 'en' ? 'Amenities' : '어메니티'}</h2>
+        <ul className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm text-stone-300 sm:grid-cols-3">{property.amenities.map(item => <li key={item} className="break-words">{t(item)}</li>)}</ul>
+      </section>}
       <nav aria-label={language === 'en' ? 'Stay sections' : '숙소 상세 메뉴'} className="mx-auto flex max-w-7xl gap-6 overflow-x-auto border-b border-stone-800 px-4 text-sm sm:px-6">
         <a href="#stay-gallery" className="flex min-h-14 shrink-0 items-center">{language === 'en' ? 'Gallery' : '갤러리'}</a>
         <a href="#stay-description" className="flex min-h-14 shrink-0 items-center">{language === 'en' ? 'About the stay' : '숙소 소개'}</a>

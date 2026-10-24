@@ -26,12 +26,15 @@ export const nextId = (prefix = 'id') => `${prefix}-${++seq}`;
 const RELATIONS: Record<string, { model: string; localKey?: string; foreignKey?: string; many?: boolean }> = {
   cleaning: { model: 'cleaning', localKey: 'cleaningId' },
   cleaner: { model: 'user', localKey: 'cleanerId' },
+  assistantCleaner: { model: 'user', localKey: 'assistantCleanerId' },
   property: { model: 'property', localKey: 'propertyId' },
   user: { model: 'user', localKey: 'userId' },
   owner: { model: 'user', localKey: 'ownerId' },
   organization: { model: 'organization', localKey: 'organizationId' },
   event: { model: 'event', localKey: 'eventId' },
   applications: { model: 'cleaningApplication', foreignKey: 'cleaningId', many: true },
+  visitPhotos: { model: 'cleaningVisitPhoto', foreignKey: 'cleaningId', many: true },
+  issues: { model: 'cleaningIssue', foreignKey: 'cleaningId', many: true },
   properties: { model: 'userProperty', foreignKey: 'userId', many: true },
   invitations: { model: 'invitation', foreignKey: 'cleanerId', many: true },
   channels: { model: 'propertyChannel', foreignKey: 'propertyId', many: true },
@@ -161,6 +164,9 @@ function applyData(row: Row, data: Row) {
 
 function settingsDefaults(model: string): Row {
   const now = new Date();
+  if (model === 'cleaning') return { cleanerId: null, assistantCleanerId: null, assistantAssignmentType: null, status: 'pending', origin: 'auto', completedAt: null, assignmentType: 'direct' };
+  if (model === 'cleaningApplication') return { role: 'primary' };
+  if (model === 'cleaningAssignmentNotification') return { state: 'pending', attempts: 0, attemptToken: null, lastErrorCode: null, sentAt: null, createdAt: now, updatedAt: now };
   if (model === 'user') return { organizationId: null, enabledModules: null, accessVersion: 1 };
   if (model === 'property') return { organizationId: null, featureOverrides: {}, featureVersion: 1 };
   if (model === 'organization') return { status: 'active', features: {}, version: 1, createdAt: now, updatedAt: now };

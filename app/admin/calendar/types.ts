@@ -43,6 +43,8 @@ export interface Cleaning {
   propertyId: string;
   date: string;
   cleanerId: string | null;
+  assistantCleanerId?: string | null;
+  origin?: string;
   status: 'pending' | 'done';
   supplies?: string;
 }
@@ -67,6 +69,9 @@ export interface SelectedEvent {
   cleaningId: string | null;
   cleanerId: string | null;
   cleanerName: string | null;
+  assistantCleanerId?: string | null;
+  assistantCleanerName?: string | null;
+  cleaningConflict?: boolean;
   supplies: string | null;
   status: 'pending' | 'done' | null;
   type: 'reservation' | 'block';
@@ -89,6 +94,9 @@ export interface ProcessedEvent {
   cleaningId: string | null;
   cleanerId: string | null;
   cleanerName: string | null;
+  assistantCleanerId?: string | null;
+  assistantCleanerName?: string | null;
+  cleaningConflict?: boolean;
   supplies: string | null;
   status: 'pending' | 'done' | null;
   type: 'reservation' | 'block';

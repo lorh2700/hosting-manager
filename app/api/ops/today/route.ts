@@ -186,7 +186,7 @@ export const GET = withAuth('ops/today', async (req, { auth }) => {
     })),
   ]));
   const cleaningRead = !cleaningIds.length ? Promise.resolve([]) : optional('cleaning', () => read(() => prisma.cleaning.findMany({
-    where: { propertyId: { in: cleaningIds }, date: today },
+    where: { propertyId: { in: cleaningIds }, date: today, origin: { not: 'interim' } },
     select: { id: true, propertyId: true, status: true, cleanerId: true, supplies: true, notes: true, cleaner: { select: { displayName: true } } },
     orderBy: { createdAt: 'desc' },
   })), []);

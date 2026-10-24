@@ -11,6 +11,8 @@ interface EventDetailPanelProps {
   today: string;
   cleaners: Cleaner[];
   selectedCleaner: string;
+  selectedAssistantCleaner: string;
+  setSelectedAssistantCleaner: (id: string) => void;
   setSelectedCleaner: (id: string) => void;
   cleanerSaving: boolean;
   completingCleaning: boolean;
@@ -49,7 +51,7 @@ const labelCls = 'text-xs text-stone-500 font-medium';
 const inputCls = 'w-full bg-white border border-stone-200 px-3 py-2 text-[13px] text-stone-900 focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/15 transition-colors placeholder:text-stone-400';
 
 export function EventDetailPanel({
-  selectedEvent, today, cleaners, selectedCleaner, setSelectedCleaner,
+  selectedEvent, today, cleaners, selectedCleaner, setSelectedCleaner, selectedAssistantCleaner, setSelectedAssistantCleaner,
   cleanerSaving, completingCleaning,
   supplyTodos, newSupply, setNewSupply,
   modalMessages, newMessage, setNewMessage,
@@ -286,15 +288,15 @@ export function EventDetailPanel({
           <>
             <div className="border-t border-stone-200 pt-5 space-y-3">
               <div className="flex items-center justify-between">
-                <p className={labelCls}>청소 담당자</p>
+                <p className={labelCls}>정담당자</p>
                 {selectedEvent.cleaningId && (
                   <button
                     onClick={onDeleteCleaner}
                     disabled={cleanerSaving}
                     className="text-xs text-stone-500 hover:text-rose-600 transition-colors disabled:opacity-40 flex items-center gap-1"
-                    title="배정 삭제"
+                    title="정·부 배정 해제"
                   >
-                    <Trash2 size={11} /> 해제
+                    <Trash2 size={11} /> 배정 해제
                   </button>
                 )}
               </div>
@@ -361,10 +363,18 @@ export function EventDetailPanel({
                 </p>
               )}
 
-              {selectedCleaner !== (selectedEvent.cleanerId ?? '') && (
+              <label className="block text-sm">부담당자 (선택)
+                <select className={inputCls + ' mt-2'} value={selectedAssistantCleaner} onChange={event => setSelectedAssistantCleaner(event.target.value)} disabled={cleanerSaving || selectedEvent.cleaningConflict}>
+                  <option value="">미배정</option>
+                  {cleaners.map(cleaner => <option key={cleaner.id} value={cleaner.id} disabled={cleaner.id === selectedCleaner}>{cleaner.name}</option>)}
+                </select>
+              </label>
+              {selectedEvent.cleaningConflict && <p role="alert" className="text-sm text-amber-800">청소 기록이 여러 건입니다. 기존 기록을 확인한 뒤 담당자를 정리해 주세요.</p>}
+              {!!selectedCleaner && selectedCleaner === selectedAssistantCleaner && <p role="alert" className="text-sm text-amber-800">정담당과 부담당은 다른 사람을 선택해 주세요.</p>}
+              {(selectedCleaner !== (selectedEvent.cleanerId ?? '') || selectedAssistantCleaner !== (selectedEvent.assistantCleanerId ?? '')) && (
                 <button
                   onClick={onSaveCleaner}
-                  disabled={cleanerSaving}
+                  disabled={cleanerSaving || selectedEvent.cleaningConflict || (!!selectedCleaner && selectedCleaner === selectedAssistantCleaner)}
                   className="w-full flex items-center justify-center gap-2 bg-[var(--brand)] hover:bg-[var(--brand-dark)] text-white py-2.5 text-xs font-semibold uppercase tracking-widest transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   <Save size={14} /> {cleanerSaving ? '저장 중...' : '저장'}

@@ -10,9 +10,11 @@ const action=(body:Record<string,unknown>={})=>POST(new Request('http://test',{m
 test('no schedule and legacy pad requests never create a completed cleaning',async()=>{
  assert.equal((await action()).status,409);assert.ok(!calls.includes('cleaning.create'));assert.equal(postsTo('/bookings/messages').length,0);
 });
-test('completion only updates assigned schedule and never sends messages',async()=>{
+test('completion refuses duplicates, then updates the sole schedule without sending messages',async()=>{
  db.cleaning=[{id:'c',propertyId:'p',date:todayKst(),status:'pending',cleanerId:'u',completedAt:null},{id:'ghost',propertyId:'p',date:todayKst(),status:'pending',cleanerId:null}];
- assert.equal((await action({action:'complete'})).status,200);assert.equal(db.cleaning[0].status,'done');assert.equal(db.cleaning[1].status,'pending');
+ assert.equal((await action({action:'complete'})).status,409);assert.ok(db.cleaning.every(c=>c.status==='pending'));
+ db.cleaning.splice(1);
+ assert.equal((await action({action:'complete'})).status,200);assert.equal(db.cleaning[0].status,'done');
  const at=db.cleaning[0].completedAt;await action({action:'complete'});assert.equal(db.cleaning[0].completedAt,at);assert.equal(postsTo('/bookings/messages').length,0);
 });
 test('message-only action sends to today arrival without any cleaning writes',async()=>{

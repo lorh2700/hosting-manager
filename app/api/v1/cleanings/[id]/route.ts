@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireApiClient, propertyScopeFilter, isApiClient } from '@/lib/api-auth';
 import { ownsExternalCleaning } from '@/lib/external-cleaning-ownership';
 import { externalCleaningTransaction, requireExternalCleaningProperty, recordExternalCleaningAudit } from '@/lib/external-cleaning-commands';
+import { lockCleaningProperty, lockCleaningSlot, requireSingleCleaning } from '@/lib/cleaning-slots';
 import { withErrors, fail } from '@/lib/core/http';
 import type { Prisma } from '@/generated/prisma/client';
 import {
@@ -80,9 +81,13 @@ export const PATCH = withErrors<{ id: string }>('v1/cleanings/update', async (re
   }
 
   const { updated, previous } = await externalCleaningTransaction(async tx => {
+    await lockCleaningProperty(tx, existing.propertyId);
     const current = await tx.cleaning.findUnique({ where: { id } });
     if (!current || !await ownsExternalCleaning(auth, current, tx)) throw fail(403, 'Forbidden', { code: 'not_your_cleaning' });
     const property = await requireExternalCleaningProperty(tx, auth, current.propertyId);
+    await lockCleaningSlot(tx, current.propertyId, current.date, current.origin);
+    await requireSingleCleaning(tx, current);
+    if (data.cleanerId && data.cleanerId === current.assistantCleanerId) throw fail(409, '정담당과 부담당은 서로 다른 직원이어야 합니다.');
     const completedAtUpdate = data.status === 'done' && current.status !== 'done' ? { completedAt: new Date() }
       : data.status === 'pending' && current.status === 'done' ? { completedAt: null } : {};
     const previous = 'cleanerId' in data ? await loadCleanerNotifyInfo(id, tx) : null;
@@ -101,8 +106,10 @@ export const PATCH = withErrors<{ id: string }>('v1/cleanings/update', async (re
 
 type CleanerNotifyInfo = {
   cleanerId: string | null;
+  assistantCleanerId: string | null;
   date: string;
   cleaner: { displayName: string | null; phone: string | null } | null;
+  assistantCleaner: { displayName: string | null; phone: string | null } | null;
   property: { name: string } | null;
 };
 
@@ -111,22 +118,27 @@ async function loadCleanerNotifyInfo(cleaningId: string, reader: Pick<Prisma.Tra
     where: { id: cleaningId },
     select: {
       cleanerId: true,
+      assistantCleanerId: true,
       date: true,
       cleaner: { select: { displayName: true, phone: true } },
+      assistantCleaner: { select: { displayName: true, phone: true } },
       property: { select: { name: true } },
     },
   });
 }
 
-async function sendCancelNotice(info: CleanerNotifyInfo, reason: CleaningCancelReason) {
-  if (!info.cleanerId || !info.cleaner?.phone) return;
+async function sendCancelNotice(info: CleanerNotifyInfo, reason: CleaningCancelReason, role: 'primary' | 'assistant' = 'primary') {
+  const cleaner = role === 'assistant' ? info.assistantCleaner : info.cleaner;
+  const cleanerId = role === 'assistant' ? info.assistantCleanerId : info.cleanerId;
+  if (!cleanerId || !cleaner?.phone) return;
   try {
     const result = await notifyCleaningCancelled({
-      cleanerPhone: info.cleaner.phone,
-      cleanerName: info.cleaner.displayName || '직원',
+      cleanerPhone: cleaner.phone,
+      cleanerName: cleaner.displayName || '직원',
       propertyName: info.property?.name ?? '숙소',
       date: info.date,
       reason,
+      role,
     });
     if (result && !result.ok) console.error('[v1/cleanings] cancel notify failed:', result.error);
   } catch (e) {
@@ -153,14 +165,19 @@ export const DELETE = withErrors<{ id: string }>('v1/cleanings/delete', async (r
 
   // 삭제 전에 담당자 정보를 확보해 두고, 삭제 후 취소 알림.
   const info = await externalCleaningTransaction(async tx => {
+    await lockCleaningProperty(tx, existing.propertyId);
     const current = await tx.cleaning.findUnique({ where: { id } });
     if (!current || !await ownsExternalCleaning(auth, current, tx)) throw fail(403, 'Forbidden', { code: 'not_your_cleaning' });
     const property = await requireExternalCleaningProperty(tx, auth, current.propertyId);
+    await requireSingleCleaning(tx, current);
     const previous = await loadCleanerNotifyInfo(id, tx);
     await tx.cleaning.delete({ where: { id } });
     await recordExternalCleaningAudit(tx, auth, property, id, 'external.cleaning.delete', req.headers.get('x-request-id'), []);
     return previous;
   });
-  if (info) await sendCancelNotice(info, 'deleted');
+  if (info) {
+    await sendCancelNotice(info, 'deleted');
+    await sendCancelNotice(info, 'deleted', 'assistant');
+  }
   return NextResponse.json({ ok: true });
 });

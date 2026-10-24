@@ -82,7 +82,7 @@ export function useCalendarData() {
 
           const cleaningsData = data.cleanings ?? [];
           setCleanings(cleaningsData.map((c: Cleaning) => ({
-            id: c.id, propertyId: c.propertyId, date: c.date, cleanerId: c.cleanerId || '',
+            id: c.id, propertyId: c.propertyId, date: c.date, cleanerId: c.cleanerId || '', assistantCleanerId: c.assistantCleanerId ?? null, origin: c.origin,
             status: c.status || 'pending', supplies: c.supplies,
           })));
           setCleaners(data.cleaners ?? []);
@@ -158,20 +158,11 @@ export function useCalendarData() {
   );
 
   const cleaningsIndex = useMemo(() => {
-    // Multiple cleaning rows can exist for the same (propertyId, date) —
-    // typically one auto-created by iCal sync (cleanerId=null) and one
-    // assigned (cleanerId=set). We must prefer the assigned row;
-    // otherwise the calendar mistakenly shows the slot as unassigned.
-    const map = new Map<string, Cleaning>();
+    const map = new Map<string, Cleaning | null>();
     for (const c of cleanings) {
+      if (c.origin === 'interim') continue;
       const key = `${c.propertyId}_${c.date}`;
-      const existing = map.get(key);
-      if (!existing) {
-        map.set(key, c);
-      } else if (c.cleanerId && !existing.cleanerId) {
-        map.set(key, c);
-      }
-      // otherwise keep the existing (assigned-or-equal) row
+      map.set(key, map.has(key) ? null : c);
     }
     return map;
   }, [cleanings]);
@@ -201,12 +192,16 @@ export function useCalendarData() {
       const end = e.end.substring(0, 10);
       // Blocks don't get cleaning slots
       const cleaning = e.type === 'block' ? undefined : cleaningsIndex.get(`${e.propertyId}_${end}`);
+      const cleaningConflict = cleaning === null;
       const cleanerName = cleaning?.cleanerId ? (cleanersMap.get(cleaning.cleanerId)?.name ?? null) : null;
       return {
         id: e.id, propertyId: e.propertyId, color, propName: prop?.name ?? '',
         start: e.start.substring(0, 10), end,
         title: e.title, channelId: e.channelId, source: e.source, description: e.description,
         cleaningId: cleaning?.id ?? null, cleanerId: cleaning?.cleanerId ?? null,
+        assistantCleanerId: cleaning?.assistantCleanerId ?? null,
+        assistantCleanerName: cleaning?.assistantCleanerId ? cleanersMap.get(cleaning.assistantCleanerId)?.name ?? null : null,
+        cleaningConflict,
         cleanerName, supplies: cleaning?.supplies ?? null, status: cleaning?.status ?? null,
         type: e.type, tags: e.tags ?? [], originalUid: e.originalUid ?? null,
       };

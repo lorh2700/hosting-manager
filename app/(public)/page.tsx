@@ -3,7 +3,7 @@
 import { usePublicLanguage } from '@/components/PublicLanguage';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { type StaySearch, type StaySearchResult, staySearchQuery } from '@/lib/stay-search';
-import { parsePublicStayCards, parsePublicStayResults, visiblePublicStays, type PublicStayCard } from '@/lib/public-home-stays';
+import { initialPublicStayCards, parsePublicStayCards, parsePublicStayResults, publicStayStartingPrice, visiblePublicStays, type PublicStayCard } from '@/lib/public-home-stays';
 
 import { NavigationLink as Link } from '@/components/NavigationFeedback';
 import Image from 'next/image';
@@ -19,19 +19,19 @@ export default function PublicPortal() {
   const [results, setResults] = useState<StaySearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState(false);
-  const [cards, setCards] = useState<PublicStayCard[]>([]);
+  const [cards, setCards] = useState<PublicStayCard[]>(initialPublicStayCards);
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState(false);
   const listController = useRef<AbortController | null>(null);
   const controller = useRef<AbortController | null>(null);
-  const loadCards = useCallback(async () => {
+  const loadCards = useCallback(async (reload = false) => {
     listController.current?.abort();
     const request = new AbortController();
     listController.current = request;
     setListLoading(true); setListError(false);
-    const timeout = setTimeout(() => request.abort(), 15_000);
+    const timeout = setTimeout(() => request.abort(), 8_000);
     try {
-      const response = await fetch('/api/public/properties', { signal: request.signal, cache: 'no-store' });
+      const response = await fetch('/api/public/properties', { signal: request.signal, cache: reload ? 'reload' : 'default' });
       if (!response.ok) throw new Error('Property list unavailable');
       const listings = parsePublicStayCards(await response.json());
       if (!listings) throw new Error('Invalid property list');
@@ -93,9 +93,9 @@ export default function PublicPortal() {
           </div>
         </div>
         <div aria-live="polite" className="mb-8 text-sm text-stone-300 space-y-3">
-          {search ? <p>{search.checkIn} — {search.checkOut} · {search.guests}{en ? ' guests' : '명'} <button type="button" onClick={() => { controller.current?.abort(); controller.current = null; setSearching(false); setSearch(null); setResults([]); setSearchError(false); }} className="ml-4 min-h-11 underline">{en ? 'Clear search' : '전체 숙소 보기'}</button></p> : <p>{en ? 'Select dates to see live rates. Listed starting rates are for 2 guests per night.' : '날짜를 선택하면 실시간 요금을 확인할 수 있습니다. 표시된 기준요금은 2인 / 1박 기준입니다.'}</p>}
-          {listLoading && <p role="status">{en ? 'Loading stays…' : '숙소 목록을 불러오고 있습니다…'}</p>}
-          {listError && <p role="alert">{en ? 'The stay list could not be loaded. Please try again.' : '숙소 목록을 불러오지 못했습니다. 다시 시도해주세요.'} <button type="button" onClick={() => void loadCards()} className="ml-3 min-h-11 underline">{en ? 'Reload stays' : '숙소 다시 불러오기'}</button></p>}
+          {search ? <p>{search.checkIn} — {search.checkOut} · {search.guests}{en ? ' guests' : '명'} <button type="button" onClick={() => { controller.current?.abort(); controller.current = null; setSearching(false); setSearch(null); setResults([]); setSearchError(false); }} className="ml-4 min-h-11 underline">{en ? 'Clear search' : '전체 숙소 보기'}</button></p> : <p>{en ? 'Starting rates are per night for each stay’s listed base occupancy and vary by date. Select dates to check your stay rate and availability.' : '표시 요금은 숙소별 기준 인원 · 1박 시작가이며 날짜에 따라 달라집니다. 날짜를 선택하면 실제 요금과 예약 가능 여부를 확인할 수 있습니다.'}</p>}
+          {listLoading && cards.length === 0 && <p role="status">{en ? 'Loading stays…' : '숙소 목록을 불러오고 있습니다…'}</p>}
+          {listError && <p role="status">{en ? 'You can still browse the stays. Please refresh to check the latest information.' : '숙소 소개는 계속 볼 수 있습니다. 최신 정보는 다시 확인해 주세요.'} <button type="button" onClick={() => void loadCards(true)} className="ml-3 min-h-11 underline">{en ? 'Refresh stay information' : '숙소 정보 새로고침'}</button></p>}
           {!listLoading && !listError && cards.length === 0 && <p>{en ? 'No stays are currently published.' : '현재 공개된 숙소가 없습니다.'}</p>}
           {searching && <p role="status">{en ? 'Checking live rates and availability…' : '실시간 요금과 예약 가능 여부를 확인하고 있습니다…'}</p>}
           {search && results.some(r => r.status === 'available' && !r.includesAllFees) && <p>{en ? 'Any additional mandatory fees will be confirmed at checkout.' : '별도 필수 요금이 있는 경우 결제 단계에서 확인할 수 있습니다.'}</p>}
@@ -104,7 +104,7 @@ export default function PublicPortal() {
           {search && !searching && availableCount > 0 && <p>{en ? `${availableCount} stays confirmed available for your dates and guests.` : `선택한 날짜와 인원에 예약 가능한 것으로 확인된 지점 ${availableCount}곳입니다.`}</p>}
         </div>
 
-        <div aria-busy={listLoading || searching} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-10 md:gap-y-14">
+        <div aria-busy={(listLoading && cards.length === 0) || searching} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-10 md:gap-y-14">
           {listLoading && cards.length === 0 && Array.from({ length: 6 }, (_, index) => <div key={index} aria-hidden="true" className="motion-safe:animate-pulse"><div className="aspect-[3/2] bg-white/5" /><div className="mt-5 h-6 w-1/3 bg-white/5" /><div className="mt-4 h-4 w-1/2 bg-white/5" /></div>)}
           {visibleCards.map((p) => {
             if (!p) return null;
@@ -157,14 +157,16 @@ export default function PublicPortal() {
                         className="text-stone-100 shrink-0 mb-1 opacity-70 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all duration-300"
                       />
                     </div>
+                    {(p.catchphrase || p.description) && <p className="mt-3 text-sm leading-relaxed text-stone-300 line-clamp-2 break-words">{t(p.catchphrase || p.description || '')}</p>}
+                    {!!p.amenities?.length && <p className="mt-3 text-sm text-stone-300 break-words">{p.amenities.slice(0, 3).map(item => t(item)).join(' · ')}{p.amenities.length > 3 ? (en ? ` +${p.amenities.length - 3} more` : ` 외 ${p.amenities.length - 3}개`) : ''}</p>}
                     <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-stone-300 mt-4">
                       <span className="inline-flex items-center gap-2"><Users size={15} aria-hidden="true" />{en ? `Up to ${p.maxGuests} guests` : `최대 ${p.maxGuests}인`}</span>
                       {p.maxPets != null && <span className="inline-flex items-center gap-2"><Dog size={15} aria-hidden="true" />{p.maxPets > 0 ? (en ? `Up to ${p.maxPets} dogs` : `반려견 ${p.maxPets}마리 동반 가능`) : (en ? 'No dogs' : '반려견 동반 불가')}</span>}
                     </div>
                     <div className="flex justify-between items-end gap-4 mt-6 pt-5 border-t border-white/10">
                       <p className="text-xl text-stone-100">
-                        {isComingSoon ? t('오픈 예정') : search ? searching ? (en ? 'Checking rates…' : '요금 확인 중…') : result?.status === 'available' ? `₩${result.priceKrw!.toLocaleString()}` : (en ? 'Rates and availability unconfirmed' : '요금·예약 가능 여부 확인 필요') : p.basePrice ? (en ? `From ₩${p.basePrice.toLocaleString()}` : `₩${p.basePrice.toLocaleString()}부터`) : (en ? 'Select dates for rates' : '날짜 선택 후 요금 확인')}
-                        {!isComingSoon && ((!search && !!p.basePrice) || result?.status === 'available') && <span className="block text-xs text-stone-400 mt-2">{search ? (en ? `${result?.nights} nights · ${result?.includesAllFees ? 'stay total' : 'stay rate'}, selected options included` : `${result?.nights}박 ${result?.includesAllFees ? '총요금' : '숙박요금'} · 선택 옵션 포함`) : (en ? '2 guests · per night' : '기준 2인 · 1박')}</span>}
+                        {isComingSoon ? t('오픈 예정') : search ? searching ? (en ? 'Checking rates…' : '요금 확인 중…') : result?.status === 'available' ? `₩${result.priceKrw!.toLocaleString()}` : (en ? 'Rates and availability unconfirmed' : '요금·예약 가능 여부 확인 필요') : publicStayStartingPrice(p, en ? 'en' : 'ko')}
+                        {!isComingSoon && (!search || result?.status === 'available') && <span className="block text-xs text-stone-400 mt-2">{search ? (en ? `${result?.nights} nights · ${result?.includesAllFees ? 'stay total' : 'stay rate'}, selected options included` : `${result?.nights}박 ${result?.includesAllFees ? '총요금' : '숙박요금'} · 선택 옵션 포함`) : (en ? `${p.baseGuests ?? 2} guests · per night` : `기준 ${p.baseGuests ?? 2}인 · 1박`)}</span>}
                       </p>
                       <span className="text-sm text-[#d8c3a4] whitespace-nowrap">{en ? 'View stay' : '숙소 보기'}</span>
                     </div>

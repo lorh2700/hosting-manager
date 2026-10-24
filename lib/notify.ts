@@ -23,6 +23,7 @@ export interface NotifyResult {
   provider: string;
   messageId?: string;
   error?: string;
+  deliveryUnknown?: boolean;
 }
 
 export interface SmsMessage {
@@ -142,11 +143,12 @@ class SolapiProvider implements NotifyProvider {
           ok: false,
           provider: this.name,
           error: data?.errorMessage || data?.message || `HTTP ${res.status}`,
+          deliveryUnknown: res.status >= 500,
         };
       }
       return { ok: true, provider: this.name, messageId: data?.messageId };
     } catch (e) {
-      return { ok: false, provider: this.name, error: (e as Error).message };
+      return { ok: false, provider: this.name, error: (e as Error).message, deliveryUnknown: true };
     }
   }
 
@@ -174,11 +176,12 @@ class SolapiProvider implements NotifyProvider {
           ok: false,
           provider: this.name,
           error: data?.errorMessage || data?.message || `HTTP ${res.status}`,
+          deliveryUnknown: res.status >= 500,
         };
       }
       return { ok: true, provider: this.name, messageId: data?.messageId };
     } catch (e) {
-      return { ok: false, provider: this.name, error: (e as Error).message };
+      return { ok: false, provider: this.name, error: (e as Error).message, deliveryUnknown: true };
     }
   }
 }
@@ -215,19 +218,21 @@ export interface CleaningAssignmentItem {
 }
 
 export async function notifyCleaningAssigned(opts: {
+  role?: 'primary' | 'assistant';
   cleanerPhone: string | null;
   cleanerName: string;
   cleanerToken: string | null;
   items: CleaningAssignmentItem[];
 }): Promise<NotifyResult | null> {
   if (!opts.cleanerPhone || opts.items.length === 0) return null;
+  const notifier = getNotifier();
+  const sorted = [...opts.items].sort((a, b) => a.date.localeCompare(b.date));
+  if (opts.role === 'assistant') return notifier.sendSms({ to: opts.cleanerPhone,
+    text: `[void anchae] 청소 부담당 배정\n${opts.cleanerName}님, ${sorted.map(item => `${item.propertyName} ${formatDateKo(item.date)}`).join(', ')} 청소 부담당으로 배정되었습니다.\n캘린더에서 확인해 주세요.` });
   if (!opts.cleanerToken) {
     console.warn('[notify] cleaner has no publicToken; skipping alimtalk');
     return null;
   }
-
-  const notifier = getNotifier();
-  const sorted = [...opts.items].sort((a, b) => a.date.localeCompare(b.date));
 
   if (sorted.length === 1) {
     const item = sorted[0];
@@ -282,6 +287,7 @@ const CANCEL_REASON_TEXT: Record<CleaningCancelReason, string> = {
  * (템플릿 변수 불일치 등) 일반 문자로 한 번 더 보내 알림이 누락되지 않게 한다.
  */
 export async function notifyCleaningCancelled(opts: {
+  role?: 'primary' | 'assistant';
   cleanerPhone: string | null;
   cleanerName: string;
   propertyName: string;
@@ -298,6 +304,8 @@ export async function notifyCleaningCancelled(opts: {
     `${CANCEL_REASON_TEXT[reason]}`;
 
   const notifier = getNotifier();
+  if (opts.role === 'assistant') return notifier.sendSms({ to: opts.cleanerPhone,
+    text: `[void anchae] 청소 부담당 배정 해제\n${opts.cleanerName}님, ${opts.propertyName} ${dateKo} 부담당 배정이 해제되었습니다.\n${CANCEL_REASON_TEXT[reason]}` });
 
   if (!TEMPLATES.CLEANING_CANCELLED) {
     console.warn('[notify] SOLAPI_TPL_CLEANING_CANCELLED not set; sending plain SMS instead');
@@ -321,7 +329,7 @@ export async function notifyCleaningCancelled(opts: {
     return { ok: false, provider: 'unknown', error: String(err) } as NotifyResult;
   });
 
-  if (result.ok) return result;
+  if (result.ok || result.deliveryUnknown) return result;
 
   console.warn('[notify] cleaning cancel alimtalk rejected; falling back to SMS', {
     to: opts.cleanerPhone, date: opts.date, reason, error: result.error,
@@ -373,9 +381,9 @@ export async function notifyCheckoutConfirmed(opts: {
     smsText,
   }).catch(err => {
     console.error('[notify] checkout alimtalk threw', err);
-    return { ok: false, provider: 'unknown', error: String(err) } as NotifyResult;
+    return { ok: false, provider: 'unknown', error: String(err), deliveryUnknown: true } as NotifyResult;
   });
-  if (result.ok) return result;
+  if (result.ok || result.deliveryUnknown) return result;
 
   console.warn('[notify] checkout alimtalk rejected; falling back to SMS', { to: opts.phone, error: result.error });
   return notifier.sendSms({ to: opts.phone, text: smsText }).catch(err => {
@@ -501,6 +509,7 @@ export async function notifyTourOperatorOfBooking(opts: {
  * falls back to SMS so the host always hears about it.
  */
 export async function notifyHostOfCleaningApplication(opts: {
+  role?: 'primary' | 'assistant';
   hostPhone: string | null;
   hostName: string;
   cleanerName: string;
@@ -527,6 +536,8 @@ export async function notifyHostOfCleaningApplication(opts: {
     `캘린더에서 확인하실 수 있습니다.`;
 
   const notifier = getNotifier();
+  if (opts.role === 'assistant') return notifier.sendSms({ to: opts.hostPhone,
+    text: `[void anchae] 청소 부담당 신청\n${opts.cleanerName}님이 ${opts.propertyName} ${variables.청소일} 청소 부담당을 맡았습니다.\n캘린더에서 확인하실 수 있습니다.` });
   const templateId = TEMPLATES.CLEANING_APPLICATION_NEW;
 
   if (!templateId) {

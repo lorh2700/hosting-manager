@@ -171,6 +171,8 @@ export interface Cleaning {
   propertyId: string;
   date: string;
   cleanerId?: string;
+  assistantCleanerId?: string | null;
+  assistantAssignmentType?: 'direct' | 'applied' | 'external' | null;
   status: 'pending' | 'done';
   supplies?: string;
   notes?: string;
@@ -180,8 +182,8 @@ export interface Cleaning {
   hasIssue?: boolean;
   isOpen?: boolean;
   assignmentType?: 'direct' | 'applied' | 'external';
-  /** 'auto' = 예약 체크아웃에서 자동 생성(예약 취소 시 정리됨), 'manual' = 관리자/패드, 'external' = 파트너 API */
-  origin?: 'auto' | 'manual' | 'external';
+  /** interim은 투숙 중 청소이며 퇴실청소나 입실 준비 완료를 대신하지 않는다. */
+  origin?: 'auto' | 'manual' | 'external' | 'interim';
   createdAt: string;
   updatedAt?: string;
 }
@@ -245,6 +247,7 @@ export interface CleaningApplication {
   propertyId: string;
   applicantId: string;
   applicantName: string;
+  role?: 'primary' | 'assistant';
   note?: string;
   status: ApplicationStatus;
   rejectedReason?: string;
@@ -267,4 +270,5 @@ export interface PropertyData extends Property {
   openingDate?: string | null;
   addressKo?: string | null;
   catchphrase?: string | null;
+  amenities?: string[];
 }

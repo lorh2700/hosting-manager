@@ -17,6 +17,7 @@ import { assertOperationalAccess, requestOperationalModule, requestFeatureModule
 import { writeAuditLog } from '@/lib/audit-log';
 import { prisma } from '@/lib/prisma';
 import { resolveAuditTarget } from '@/lib/audit-target';
+import { maybeProxyManagementRequest } from '@/lib/backend-bridge';
 export { HttpError, fail } from './errors';
 
 export const MESSAGES = {
@@ -81,6 +82,8 @@ export function withAuth<P = Record<string, never>>(
     extra === undefined ? console.log(`[${name}] ${msg}`) : console.log(`[${name}] ${msg}`, extra);
 
   const fn = async (req: Request, routeCtx?: RouteContext<P>): Promise<Response> => {
+    const delegated = await maybeProxyManagementRequest(req);
+    if (delegated) return delegated;
     let auditAuth: SessionAuth | null = null;
     let metadata: { targetId?: string; propertyId?: string; organizationId?: string | null } = {};
     let auditScopes: Array<{ propertyId?: string; organizationId: string | null }> = [];

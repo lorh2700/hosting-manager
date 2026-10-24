@@ -7,5 +7,7 @@ export const GET = withErrors('public/jongno-events', async req => {
   // Public editorial records only; no session-dependent data or reservation IDs.
   // Browser caching is brief so unpublishing/cancellation reaches guests quickly.
   response.headers.set('Cache-Control', 'public, max-age=30, s-maxage=60');
+  // The Next.js Netlify adapter otherwise varies only on framework query keys.
+  response.headers.set('Netlify-Vary', 'query');
   return response;
 });

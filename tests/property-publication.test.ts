@@ -16,10 +16,23 @@ const ctx = { params: Promise.resolve({ id: 'new-id' }) };
 beforeEach(() => { resetDb(); resetFetch(); actAsAdmin(); db.organization = [{ id: 'o1', status: 'active', features: {} }, { id: 'o2', status: 'active', features: {} }]; db.property = [structuredClone(property)]; db.user = [{ id: 'admin-1', role: 'super_admin', status: 'active' }]; });
 
 test('새 지점 공개 정보는 DB의 사진·주소를 사용하고 기존 지점은 로컬 사진으로 시작한다', () => {
-  assert.deepEqual(propertyPublicInfo(property), publicInfo);
+  assert.deepEqual(propertyPublicInfo(property), { ...publicInfo, baseGuests: 2, amenities: [] });
   assert.ok(propertyPublicInfo({ slug: 'anon', publicInfo: {} }).images[0].startsWith('/images/anon/'));
   for (const images of [['javascript:alert(1)'], ['http://example.com/a.jpg'], ['https://user:password@example.com/a.jpg'], ['/images/../private'], ['/images/%2e%2e/private'], ['/images/a%']]) assert.equal(publicInfoSchema.safeParse({ ...publicInfo, images }).success, false);
   assert.equal(publicInfoSchema.safeParse({ ...publicInfo, checkInTime: '25:00' }).success, false);
+});
+
+test('공개 소개 목록만 짧게 캐시하고 DB 조회 오류는 캐시하지 않는다', async () => {
+  const response: any = await PUBLIC(makeRequest({}, 'http://localhost/api/public/properties'), { params: Promise.resolve({}) });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('Cache-Control'), 'public, max-age=60, s-maxage=60, stale-while-revalidate=300');
+  assert.equal(fetchLog.length, 0);
+  prismaOverrides.property = { findMany: async () => { throw new Error('simulated listing failure'); } };
+  try {
+    const failed: any = await PUBLIC(makeRequest({}, 'http://localhost/api/public/properties'), { params: Promise.resolve({}) });
+    assert.equal(failed.status, 500);
+    assert.ok(!failed.headers.get('Cache-Control')?.includes('public'));
+  } finally { delete prismaOverrides.property; }
 });
 
 test('준비 정보가 누락된 지점은 공개되지 않고 준비 완료 후 공개된다', async () => {
@@ -76,6 +89,27 @@ test('코드 등록 없이 새 지점의 공개 목록과 상세 페이지가 �
   assert.equal(list.body[0].slug, 'new-stay'); assert.deepEqual(list.body[0].images, publicInfo.images); assert.equal(list.body[0].doorPassword, undefined);
   const detail: any = await DETAIL(makeRequest({}, 'http://localhost/api/public/properties/new-stay'), { params: Promise.resolve({ id: 'new-stay' }) });
   assert.equal(detail.status, 200); assert.equal(detail.body.addressKo, publicInfo.addressKo); assert.equal(detail.body.beds24RoomId, undefined);
+});
+
+test('저장한 예약 카드 정보는 공개 목록과 상세에 반영되고 이전 폼 저장에도 유지된다', async () => {
+  const save: any = await PUT(makeRequest({ name: '새 카드 이름', description: '새 카드 소개', basePrice: 235000,
+    status: 'active', publicInfo: { ...publicInfo, baseGuests: 4, amenities: ['Wi-Fi', '주방'], images: ['https://storage.example.com/cover.webp'] } }), ctx);
+  assert.equal(save.status, 200);
+  const list: any = await PUBLIC(makeRequest({}), { params: Promise.resolve({}) });
+  assert.equal(list.body[0].name, '새 카드 이름');
+  assert.equal(list.body[0].description, '새 카드 소개');
+  assert.equal(list.body[0].basePrice, 235000);
+  assert.equal(list.body[0].baseGuests, 4);
+  assert.deepEqual(list.body[0].amenities, ['Wi-Fi', '주방']);
+  assert.deepEqual(list.body[0].images, ['https://storage.example.com/cover.webp']);
+  const detail: any = await DETAIL(makeRequest({}), { params: Promise.resolve({ id: 'new-stay' }) });
+  assert.deepEqual(detail.body.amenities, ['Wi-Fi', '주방']);
+  assert.equal(fetchLog.length, 0);
+  const oldClient: any = await PUT(makeRequest({ publicInfo }), ctx);
+  assert.equal(oldClient.body.publicInfo.baseGuests, 4);
+  assert.deepEqual(oldClient.body.publicInfo.amenities, ['Wi-Fi', '주방']);
+  assert.equal((await PUT(makeRequest({ maxGuests: 2 }), ctx) as any).status, 400);
+  assert.equal((await PUT(makeRequest({ publicInfo: { ...publicInfo, baseGuests: 7 } }), ctx) as any).status, 400);
 });
 
 test('중지된 사업자와 비활성 예약 지점은 공개 조회에서 제외된다', async () => {

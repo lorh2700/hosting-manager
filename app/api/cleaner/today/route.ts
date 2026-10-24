@@ -10,7 +10,7 @@ import { checkoutStatusByProperty } from '@/lib/checkout';
  * (이전에는 properties → cleanings/cleaners/bookings/events 6번 호출, 기간 제한 없음)
  *
  *  - checkins / checkouts: 오늘 체크인·체크아웃 예약 (이벤트 + 직접 예약, 중복 제거)
- *  - todayCleanings: 오늘 청소 전부 (담당자 이름 포함) — "오늘의 운영" 표
+ *  - todayCleanings: 오늘 퇴실·정비 청소 (중간청소 제외) — "오늘의 운영" 표
  *  - tasks: 내 청소 목록 (관리자는 전체). 지난 14일 ~ 앞으로 90일
  */
 const PAST_DAYS = 14;
@@ -23,9 +23,12 @@ export interface TodayReservation {
 export interface TodayCleaningEntry {
   id: string; propertyId: string; propertyName: string; date: string;
   cleanerId: string | null; cleanerName: string | null; status: 'pending' | 'done'; isMine: boolean;
+  assistantCleanerId: string | null; assistantCleanerName: string | null;
 }
 export interface TodayTask {
   cleaningId: string; propertyId: string; propertyName: string; date: string; guestName: string;
+  origin: string; kind: 'interim' | 'checkout';
+  role: 'primary' | 'assistant' | null;
   supplies: string; status: 'pending' | 'done'; completionNote?: string; completedAt?: string; hasIssue?: boolean;
 }
 
@@ -51,8 +54,8 @@ export const GET = withAuth('cleaner/today', async (_req, { auth }) => {
 
   const [cleanings, events, bookings, checkoutToday] = await Promise.all([
     prisma.cleaning.findMany({
-      where: { propertyId: { in: propIds }, date: { gte: from, lte: to } },
-      include: { cleaner: { select: { id: true, displayName: true } } },
+      where: { propertyId: { in: propIds }, date: { gte: from, lte: to }, status: { not: 'cancelled' } },
+      include: { cleaner: { select: { id: true, displayName: true } }, assistantCleaner: { select: { id: true, displayName: true } } },
       orderBy: { date: 'asc' },
     }),
     prisma.event.findMany({
@@ -105,19 +108,22 @@ export const GET = withAuth('cleaner/today', async (_req, { auth }) => {
   for (const r of unique) if (r.title) guestByKey[`${r.propertyId}_${r.end}`] = r.title;
 
   const todayCleanings: TodayCleaningEntry[] = cleanings
-    .filter(c => c.date === today)
+    .filter(c => c.date === today && c.origin !== 'interim')
     .map((c): TodayCleaningEntry => ({
       id: c.id, propertyId: c.propertyId, propertyName: propName[c.propertyId] ?? '',
       date: c.date, cleanerId: c.cleanerId, cleanerName: c.cleaner?.displayName ?? null,
+      assistantCleanerId: c.assistantCleanerId ?? null, assistantCleanerName: c.assistantCleaner?.displayName ?? null,
       status: c.status === 'done' ? 'done' : 'pending',
-      isMine: !!me && c.cleanerId === me.id,
+      isMine: !!me && (c.cleanerId === me.id || c.assistantCleanerId === me.id),
     }))
     .sort((a, b) => a.propertyName.localeCompare(b.propertyName));
 
-  const mine = me ? cleanings.filter(c => c.cleanerId === me.id) : auth.role !== 'cleaner' ? cleanings : [];
+  const mine = me ? cleanings.filter(c => c.cleanerId === me.id || c.assistantCleanerId === me.id) : auth.role !== 'cleaner' ? cleanings : [];
   const tasks: TodayTask[] = mine.map(c => ({
     cleaningId: c.id, propertyId: c.propertyId, propertyName: propName[c.propertyId] ?? '',
-    date: c.date, guestName: guestByKey[`${c.propertyId}_${c.date}`] ?? '',
+    origin: c.origin, kind: c.origin === 'interim' ? 'interim' : 'checkout',
+    role: me && c.cleanerId === me.id ? 'primary' : me && c.assistantCleanerId === me.id ? 'assistant' : null,
+    date: c.date, guestName: c.origin === 'interim' ? '' : guestByKey[`${c.propertyId}_${c.date}`] ?? '',
     supplies: c.supplies ?? '', status: c.status === 'done' ? 'done' : 'pending',
     completionNote: c.completionNote ?? undefined,
     completedAt: c.completedAt ? c.completedAt.toISOString() : undefined,

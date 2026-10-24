@@ -12,7 +12,8 @@ import { fetchStayCalendar } from '@/lib/beds24-stay-calendar';
 import { stayIssue } from '@/lib/stay-calendar';
 import { checkoutConfig, paymentKeys } from './config';
 import { assertPayment, chargeAmount, majorAmount } from './money';
-import { assertHold, createHold, finalizeHold, findHold, getPrice, releaseHold } from './beds';
+import { assertHold, createHold, finalizeHold, findHold, getPrice, releaseHold, checkoutMarker, checkoutReservationBarrierInput } from './beds';
+import { rateReservationBarriers } from '@/lib/rate-reservation-barrier';
 import { TossError } from './toss';
 import { confirmPayment, getPayment, refundPayment } from './provider';
 import { PayPalError, startPayPal } from './paypal';
@@ -30,7 +31,7 @@ const inputSchema = z.object({ propertyId: z.string().trim().min(1).max(128).reg
   email: z.email().max(100), phone: z.string().trim().min(6).max(40), gateway: z.enum(['card', 'paypal']),
 });
 
-export async function priceStay(raw: unknown) {
+export async function priceStay(raw: unknown, barrierId?: string) {
   const parsed = inputSchema.pick({ propertyId: true, checkIn: true, checkOut: true, guests: true, pets: true }).safeParse(raw);
   if (!parsed.success) throw fail(400, '숙소·날짜·인원을 확인해주세요.');
   const data = parsed.data;
@@ -50,9 +51,9 @@ export async function priceStay(raw: unknown) {
   // Validate pet restrictions before any external pricing calls.
   calculateStayOptions(property.slug, data.guests, data.pets, 0);
   let priceKrw: number;
-  try { priceKrw = await getPrice(roomId, offerId, data.checkIn, data.checkOut, data.guests); }
+  try { priceKrw = await getPrice(roomId, offerId, data.checkIn, data.checkOut, data.guests, { propertyId: property.id, barrierId }); }
   catch (error) {
-    if (!(error instanceof HttpError) || error.status !== 409) throw error;
+    if (!(error instanceof HttpError) || error.status !== 409 || error.extra?.code) throw error;
     const calendar = await fetchStayCalendar(roomId, Number(property.beds24PropId), data.checkIn, data.checkOut);
     throw fail(409, stayIssue(calendar, data.checkIn, data.checkOut)
       ?? '선택한 날짜·인원에 판매 가능한 요금이 없습니다. 다른 일정이나 인원을 선택해주세요.');
@@ -60,7 +61,7 @@ export async function priceStay(raw: unknown) {
   // Query actual occupancy for availability, then use the included occupancy's
   // Beds24 price so its per-person surcharges are not charged a second time.
   if (policy && data.guests > policy.baseGuests) {
-    priceKrw = await getPrice(roomId, offerId, data.checkIn, data.checkOut, policy.baseGuests);
+    priceKrw = await getPrice(roomId, offerId, data.checkIn, data.checkOut, policy.baseGuests, { propertyId: property.id, barrierId });
   }
   const stayOptions = calculateStayOptions(property.slug, data.guests, data.pets, priceKrw);
   if (stayOptions) priceKrw += stayOptions.extraGuestFeeKrw + stayOptions.petFeeKrw;
@@ -132,23 +133,30 @@ export async function startCheckout(order: CheckoutOrder) {
   let paypalStart: { approvalUrl?: string; resumeConfirmation?: boolean } = {};
   const updated = await withLease(order.id, async o => {
     if (o.status === 'awaiting_payment' && o.expiresAt > new Date()) {
-      assertHold(o, await findHold(o));
+      const held = assertHold(o, await findHold(o));
+      await rateReservationBarriers.finish(checkoutMarker(o.id), 'held', String(held.id));
       if (o.gateway === 'paypal') paypalStart = await startPayPal(o, config.origin);
       return;
     }
     if (o.status !== 'quoted' || o.expiresAt <= new Date()) throw fail(409, '견적이 만료되었습니다. 요금을 다시 확인해주세요.');
+    const barrierInput = checkoutReservationBarrierInput(o);
+    const barrier = await rateReservationBarriers.begin(barrierInput);
+    if (barrier && barrier.state !== 'prepared') throw fail(409, '예약 확보 결과를 확인 중입니다. 다시 전송하지 않습니다.');
     const options = readStayOptions(o.stayOptions);
-    const latest = options
-      ? (await priceStay({ propertyId: o.propertyId, checkIn: o.checkIn, checkOut: o.checkOut, guests: o.guests, pets: options.pets })).priceKrw
-      : await getPrice(o.roomId, o.offerId, o.checkIn, o.checkOut, o.guests);
-    if (latest !== o.priceKrw) throw fail(409, '판매 요금이 변경되었습니다. 요금을 다시 확인해주세요.');
+    try {
+      const latest = options
+        ? (await priceStay({ propertyId: o.propertyId, checkIn: o.checkIn, checkOut: o.checkOut, guests: o.guests, pets: options.pets }, barrier?.id)).priceKrw
+        : await getPrice(o.roomId, o.offerId, o.checkIn, o.checkOut, o.guests, { propertyId: o.propertyId, barrierId: barrier?.id });
+      if (latest !== o.priceKrw) throw fail(409, '판매 요금이 변경되었습니다. 요금을 다시 확인해주세요.');
+    } catch (error) { if (barrier) await rateReservationBarriers.finish(barrier.id, 'released'); throw error; }
     const expiresAt = new Date(Date.now() + 15 * 60_000);
     await prisma.checkoutOrder.update({ where: { id: o.id }, data: { status: 'holding', expiresAt, termsAcceptedAt: new Date() } });
     // One create attempt only: an ambiguous result is recovered by marker, never reposted.
-    const beds24Id = await createHold({ ...o, expiresAt });
+    const beds24Id = await createHold({ ...o, expiresAt }, barrier ? barrierInput : null);
     await prisma.checkoutOrder.update({ where: { id: o.id }, data: { beds24Id } });
     const held = { ...o, beds24Id };
-    assertHold(held, await findHold(held));
+    const verified = assertHold(held, await findHold(held));
+    await rateReservationBarriers.finish(checkoutMarker(o.id), 'held', String(verified.id));
     const ready = await prisma.checkoutOrder.update({ where: { id: o.id }, data: { status: 'awaiting_payment' } });
     if (o.gateway === 'paypal') paypalStart = await startPayPal(ready, config.origin);
   });
@@ -214,6 +222,7 @@ export async function reconcileCheckout(id: string, approve = false) {
         return;
       }
       assertHold(o, found);
+      await rateReservationBarriers.finish(checkoutMarker(o.id), 'held', String(found.id));
       o = await prisma.checkoutOrder.update({ where: { id }, data: { beds24Id: String(found.id), status: 'awaiting_payment' } });
     }
     // No PayPal approval URL can be returned until paymentKey is saved. A lost create
