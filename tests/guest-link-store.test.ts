@@ -102,7 +102,7 @@ test('verified legacy recovery is scoped to the original stay and does not reviv
     assert.equal(rows.length, 1); assert.equal(new Date(rows[0].expires_at).getTime(), 1795359600000);
     await sql.query('UPDATE guest_link_tokens SET revoked_at=CURRENT_TIMESTAMP WHERE token_hash=$1', [hash]);
     await sql.exec(migration);
-    assert.ok((await sql.query('SELECT revoked_at FROM guest_link_tokens WHERE token_hash=$1', [hash])).rows[0].revoked_at);
+    assert.ok((await sql.query<{ revoked_at: Date | null }>('SELECT revoked_at FROM guest_link_tokens WHERE token_hash=$1', [hash])).rows[0].revoked_at);
   } finally { await sql.close(); }
 });
 

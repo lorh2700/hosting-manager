@@ -41,3 +41,10 @@ test('cron exemption does not expose other admin or inquiry API routes', async (
     assert.equal((await middleware(request(path, 'inquiry-cron-test'))).status, 401);
   }
 });
+
+test('only the exact diagnostic path bypasses login middleware and still needs bridge authentication', async () => {
+  assert.equal((await middleware(request('/api/internal/inquiry-diagnostic'))).status, 200);
+  for (const path of ['/api/internal/inquiry-diagnostic-extra', '/api/internal/inquiry-diagnostic/settings']) {
+    assert.equal((await middleware(request(path))).status, 401);
+  }
+});

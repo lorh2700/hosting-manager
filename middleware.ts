@@ -36,7 +36,7 @@ export async function middleware(req: NextRequest) {
   loginUrl.searchParams.set('next', pathname + req.nextUrl.search);
 
   // These worker endpoints authenticate their shared secrets without session cookies.
-  if (pathname === '/api/inquiry-automation/process' || pathname === '/api/internal/cleaning-assignment-notifications') {
+  if (pathname === '/api/inquiry-automation/process' || pathname === '/api/internal/cleaning-assignment-notifications' || pathname === '/api/internal/inquiry-diagnostic') {
     return NextResponse.next();
   }
 
