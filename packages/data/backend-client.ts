@@ -1,8 +1,18 @@
 import pg from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../../generated/prisma/client';
+import { postgresPoolOptions } from '../../lib/postgres-config';
 
 export function backendPoolOptions(env: NodeJS.ProcessEnv = process.env): pg.PoolConfig {
+  if (env.BACKEND_DB_TRANSPORT === 'cloudsql-unix') {
+    return { ...postgresPoolOptions(env), idleTimeoutMillis: 30_000 };
+  }
+  if (env.BACKEND_DB_TRANSPORT && env.BACKEND_DB_TRANSPORT !== 'tcp') {
+    throw new Error('BACKEND_DB_TRANSPORT must be tcp or cloudsql-unix.');
+  }
+  if (env.CLOUD_SQL_CONNECTION_NAME || env.DB_HOST?.startsWith('/')) {
+    throw new Error('Cloud SQL sockets require the explicit cloudsql-unix database transport.');
+  }
   if (!env.DATABASE_URL && !(env.DB_HOST && env.DB_USER && env.DB_PASSWORD)) throw new Error('Explicit backend database credentials are required.');
   const max = Number(env.BACKEND_DB_POOL_SIZE || 3);
   if (!Number.isInteger(max) || max < 1 || max > 20) throw new Error('BACKEND_DB_POOL_SIZE must be between 1 and 20.');

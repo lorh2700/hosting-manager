@@ -38,9 +38,11 @@ export function guestStayCsrf(token: string) {
 }
 export function requireStayOrigin(req: Request) {
   const origin = req.headers.get('origin');
-  // Every browser write, including login, must come from this app. Missing Origin is
-  // allowed only for a paired pad's bearer-authenticated server-to-server bridge.
-  if (!origin || origin !== new URL(req.url).origin || req.headers.get('sec-fetch-site') === 'cross-site') {
+  const configuredValue = process.env.NEXT_PUBLIC_APP_URL || '';
+  const configured = URL.canParse(configuredValue) ? new URL(configuredValue) : null;
+  const canonicalOrigin = configured?.protocol === 'https:' && !configured.username && !configured.password &&
+    configured.pathname === '/' && !configured.search && !configured.hash ? configured.origin : null;
+  if (!origin || (origin !== new URL(req.url).origin && origin !== canonicalOrigin) || req.headers.get('sec-fetch-site') === 'cross-site') {
     throw fail(403, '이 화면에서 다시 시도해 주세요.', { code: 'invalid_origin' });
   }
 }
