@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { prisma } from '@/lib/prisma';
 import { BEDS24_REFRESH_TOKEN } from '@/lib/beds24';
 import { fail } from '@/lib/core/errors';
+import { reservationRateCredential, reservationCredentialError, type ReservationCredentialEnvironment } from './rate-reservation-credential';
 
 export interface ReservationBarrierSql {
   $queryRawUnsafe<T = unknown>(sql: string, ...values: unknown[]): Promise<T>;
@@ -37,7 +38,7 @@ const schemaQuery = `SELECT to_regclass('public.property_rooms') IS NOT NULL AS 
 export function createReservationBarrierStore(options: {
   transaction: Transaction;
   schema?: () => Promise<Array<{ present: boolean; ready: boolean }>>;
-  environment?: () => { RATES_CONNECTION_SECRETS_JSON?: string };
+  environment?: () => ReservationCredentialEnvironment;
   refreshToken?: () => string;
 }) {
   async function available() {
@@ -62,10 +63,15 @@ export function createReservationBarrierStore(options: {
     if (!value.active || value.current_organization !== value.organization_id || (input.propertyId && input.propertyId !== value.property_id) ||
       value.beds24_room_id !== String(input.roomId) || value.property_room_id !== value.beds24_room_id || value.property_beds24_id !== value.beds24_property_id ||
       value.connection_organization !== value.organization_id || value.provider !== 'beds24' || (input.offerId !== undefined && value.offer_id !== input.offerId)) throw fail(409, '예약과 요금 관리의 객실 연결이 다릅니다.', { code: 'rate_mapping_mismatch' });
-    const environment = options.environment?.() || process.env;
-    let secret: { generation?: number; refreshToken?: string } | undefined;
-    try { secret = JSON.parse(environment.RATES_CONNECTION_SECRETS_JSON || '{}')[value.secret_ref]; } catch { /* Invalid server configuration stays closed. */ }
-    if (value.connection_state !== 'ready' || !secret?.refreshToken || secret.generation !== value.credential_generation || secret.refreshToken !== (options.refreshToken?.() ?? BEDS24_REFRESH_TOKEN)) throw fail(503, '이 숙소의 예약 연결 검증이 필요합니다.', { code: 'rate_connection_mismatch' });
+    const environment = options.environment?.() || {
+      RATES_CONNECTION_SECRETS_JSON: process.env.RATES_CONNECTION_SECRETS_JSON,
+      BACKEND_COMMAND_SECRET: process.env.BACKEND_COMMAND_SECRET,
+    };
+    const secret = await reservationRateCredential(db, {
+      id: value.beds24_connection_id, organization_id: value.connection_organization, provider: value.provider,
+      secret_ref: value.secret_ref, credential_generation: value.credential_generation, state: value.connection_state,
+    }, environment);
+    if (secret.refreshToken !== (options.refreshToken?.() ?? BEDS24_REFRESH_TOKEN)) throw reservationCredentialError('reservation_account_mismatch', '예약 서버와 숙소에 연결된 Beds24 인증 정보가 다릅니다. 연결 계정을 확인해 주세요.');
     return value;
   }
   function mapping(value: Room, requestHash?: string) {

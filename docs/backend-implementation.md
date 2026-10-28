@@ -36,7 +36,7 @@ npm run backend:start
 | --- | --- |
 | `JWT_SECRET` | 기존 직원 웹 세션과 같은 검증 키 |
 | `BACKEND_BRIDGE_SECRET` | Next 서버와 API 사이의 별도 연결 키. 32자 이상, 브라우저·앱에 전달 금지 |
-| `BACKEND_COMMAND_SECRET` | 저장된 변경 결과 암호화 키. 32자 이상, API에만 설정 |
+| `BACKEND_COMMAND_SECRET` | 저장된 변경 결과·서비스 계정 암호화 키. 32자 이상. DB에 저장된 Beds24 계정을 사용하는 기존 Next 예약 서버에도 API와 동일한 키 설정 |
 | `BACKEND_WEB_ORIGIN` | 관리자 웹의 정확한 출처. 예: 로컬 `http://localhost:3117`, 운영 `https://voidanchae.com` |
 | `BACKEND_API_URL` | Next 서버가 호출할 독립 API 주소. 로컬 HTTP는 loopback만 허용, 외부 주소는 HTTPS |
 | `BACKEND_HOST` / `BACKEND_PORT` | 기본 `127.0.0.1:4100`. 컨테이너 접근이 필요하면 허용된 네트워크에 맞춰 host 설정 |
@@ -48,6 +48,23 @@ npm run backend:start
 운영 데이터베이스 URL의 SSL query 옵션을 사용한다면 `sslmode=verify-full`을 지정한다. 공급자 인증서와 연결 정책에 맞춰 staging에서 먼저 확인한다.
 
 암호화 키를 임의로 교체하면 과거 요청 결과를 재조회할 수 없다. 기존 키를 안전하게 보관하고, 키 버전과 재암호화 절차를 마련한 뒤 교체한다. 성공한 명령 기록을 삭제해 동일 키가 새 요청으로 실행되도록 만들지 않는다.
+
+### 기존 예약 서버와 DB 서비스 계정 (2026-10-28)
+
+새 관리자에서 등록한 서비스 계정은 `rate_connection_credentials`에 암호화되어 저장되고 상태는 `setup`이다. 기존 예약 서버는 `setup`과 `ready`를 허용하되, 저장된 인증의 사업자·계정·버전과 실제 예약에 사용하는 `BEDS24_REFRESH_TOKEN` 일치를 검증한다. `paused` 계정은 계속 차단한다. DB 저장 계정은 환경변수의 과거 인증값으로 우회하지 않는다.
+
+배포 시 기존 예약을 처리하는 Netlify/Next 서버에 API의 **현재** `BACKEND_COMMAND_SECRET`을 동일하게 설정한다. 새 키를 만들거나 기존 API 키를 바꾸지 않는다. 브라우저 공개 환경변수로 지정하지 않는다. 기존 요금 서비스 계정 migration이 적용된 환경에는 이번 수정용 DB 쿼리가 필요 없다.
+
+`rate_connection_mismatch`의 `reason`은 다음 문제를 구분한다. 원문 토큰·암호문은 오류 응답에 포함하지 않는다.
+
+- `credential_key_missing`: 예약 서버의 암호화 키가 없거나 32바이트 미만이다.
+- `stored_credential_unreadable`: 서버 키 또는 저장된 인증의 사업자·계정·버전이 맞지 않거나 암호문이 손상되었다.
+- `stored_credential_missing` / `credential_generation_mismatch`: 저장된 인증이 없거나 버전이 다르다.
+- `reservation_account_mismatch`: 저장한 Beds24 토큰과 기존 예약 서버의 토큰이 다르다. 문자열이 다르면 같은 계정이라고 추정하지 않는다.
+- `connection_inactive`: 연결이 사용 중지되어 있다.
+- `environment_credential_missing`: 과거 환경변수 방식 계정의 인증 설정이 없거나 버전이 다르다.
+
+재시도 전에 해당 설정을 확인한다. 성공 여부가 불확실한 예약의 처리 키·판매 제한을 삭제하거나 연결 상태를 강제로 `ready`로 변경하지 않는다. 이번 검증은 로컬 테스트이며 실제 게스트 예약을 만들지 않았다.
 
 ## DB 업데이트와 연결 순서
 
