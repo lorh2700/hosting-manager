@@ -8,7 +8,7 @@ const cloudSql = {
   NODE_ENV: 'production', BACKEND_DB_TRANSPORT: 'cloudsql-unix',
   CLOUD_SQL_CONNECTION_NAME: 'voidanchae:asia-northeast3:va-postgres',
   DB_USER: 'application', DB_PASSWORD: 'private-fixture-password', DB_NAME: 'hosting_manager',
-};
+} as const;
 
 test('explicit Cloud SQL transport resolves the mounted Unix socket in pg without a network connection', () => {
   const host = '/cloudsql/voidanchae:asia-northeast3:va-postgres';

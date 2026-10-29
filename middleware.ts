@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
+import { isPublicTransactionPath, legacyHttpMaintenanceResponse } from './lib/http-maintenance';
 
 if (!process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET 환경변수가 설정되지 않았습니다.');
@@ -32,6 +33,9 @@ const PUBLIC_PATHS = [
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const maintenance = legacyHttpMaintenanceResponse(pathname);
+  if (maintenance) return maintenance;
+  if (isPublicTransactionPath(pathname)) return NextResponse.next();
   const loginUrl = new URL('/login', req.url);
   loginUrl.searchParams.set('next', pathname + req.nextUrl.search);
 
@@ -75,5 +79,6 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/cleaner/:path*', '/api/:path*'],
+  matcher: ['/admin/:path*', '/cleaner/:path*', '/api/:path*', '/guest/:path*', '/i/:path*',
+    '/guest-checkout/:path*', '/stay/:path*', '/invite/:path*', '/book/checkout/:path*'],
 };

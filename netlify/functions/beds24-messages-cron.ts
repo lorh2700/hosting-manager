@@ -1,10 +1,12 @@
 import type { Config } from '@netlify/functions';
+import { legacyBackgroundJobsEnabled } from '../../lib/jobs/background-controls';
 
 /**
  * Scheduled function — kicks off the background sibling and returns
  * immediately so we don't get killed by the 26-second sync timeout.
  */
 const handler = async () => {
+  if (!legacyBackgroundJobsEnabled()) return new Response('Disabled', { status: 200 });
   const baseUrl = process.env.URL || process.env.DEPLOY_URL;
   if (!baseUrl) {
     console.error('[beds24-messages-cron] Missing URL env');

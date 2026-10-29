@@ -1,5 +1,7 @@
 import type { Config } from '@netlify/functions';
+import { legacyBackgroundJobsEnabled } from '../../lib/jobs/background-controls';
 const handler = async () => {
+  if (!legacyBackgroundJobsEnabled()) return new Response('Disabled', { status: 200 });
   // Disabling new sales must not strand previously created orders.
   if (!process.env.TOSS_SECRET_KEY && !process.env.PAYPAL_CLIENT_SECRET) return new Response('Not configured');
   const origin = process.env.URL;

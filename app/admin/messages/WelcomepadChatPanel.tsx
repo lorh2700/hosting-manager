@@ -56,13 +56,14 @@ export default function WelcomepadChatPanel() {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [realtimeAllowed, setRealtimeAllowed] = useState(false);
 
   const selectedIdRef = useRef<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const autoSelectedRef = useRef(false);
   selectedIdRef.current = selectedId;
 
-  const realtime = isWelcomepadRealtimeConfigured;
+  const realtime = realtimeAllowed && isWelcomepadRealtimeConfigured;
 
   const fetchThreads = useCallback(async () => {
     try {
@@ -73,6 +74,7 @@ export default function WelcomepadChatPanel() {
         return;
       }
       setConfigError(null);
+      setRealtimeAllowed(data.transport !== 'polling');
       const list: WpThread[] = data.threads || [];
       setThreads(list);
       setPropertyKeys(

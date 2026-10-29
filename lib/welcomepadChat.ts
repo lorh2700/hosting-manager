@@ -11,7 +11,8 @@
  * key as a "doorbell"; all reads/writes flow through the server here.
  */
 
-import { prisma } from './prisma';
+import { prisma } from '@/lib/prisma';
+import { usesCloudSqlPadData, sqlPadThreads, sqlPadThread, sqlPadMessages, sqlPadUnread, sqlPadSend, sqlPadRead } from './welcomepad-data';
 
 export interface AllowedProp {
   propertyId: string;
@@ -133,6 +134,7 @@ async function readJson<T>(res: Response, ctx: string): Promise<T> {
 /** Threads for the given property keys, newest-active first (mirrors admin.html). */
 export async function listThreads(propertyKeys: string[]): Promise<WpThread[]> {
   if (propertyKeys.length === 0) return [];
+  if (usesCloudSqlPadData()) return await sqlPadThreads(propertyKeys) as unknown as WpThread[];
   const res = await wpFetch(
     `/welcomepad_message_threads?property_key=in.${inList(propertyKeys)}` +
       `&select=*&order=is_active.desc,last_message_at.desc&limit=100`,
@@ -141,6 +143,7 @@ export async function listThreads(propertyKeys: string[]): Promise<WpThread[]> {
 }
 
 export async function getThread(threadId: number): Promise<WpThread | null> {
+  if (usesCloudSqlPadData()) return await sqlPadThread(threadId) as unknown as WpThread | null;
   const res = await wpFetch(
     `/welcomepad_message_threads?id=eq.${threadId}&select=*&limit=1`,
   );
@@ -149,6 +152,7 @@ export async function getThread(threadId: number): Promise<WpThread | null> {
 }
 
 export async function listMessages(threadId: number): Promise<WpMessage[]> {
+  if (usesCloudSqlPadData()) return await sqlPadMessages(threadId) as unknown as WpMessage[];
   const res = await wpFetch(
     `/welcomepad_messages?thread_id=eq.${threadId}&select=*&order=created_at.asc`,
   );
@@ -160,6 +164,7 @@ export async function unreadCountsByThread(
   propertyKeys: string[],
 ): Promise<Record<number, number>> {
   if (propertyKeys.length === 0) return {};
+  if (usesCloudSqlPadData()) return sqlPadUnread(propertyKeys);
   const res = await wpFetch(
     `/welcomepad_messages?property_key=in.${inList(propertyKeys)}` +
       `&sender=eq.guest&read_by_host_at=is.null&select=thread_id`,
@@ -175,6 +180,7 @@ export async function insertHostMessage(
   propertyKey: string,
   body: string,
 ): Promise<WpMessage> {
+  if (usesCloudSqlPadData()) return await sqlPadSend(threadId, propertyKey, 'host', body) as unknown as WpMessage;
   const res = await wpFetch(`/welcomepad_messages`, {
     method: 'POST',
     headers: { Prefer: 'return=representation' },
@@ -208,6 +214,7 @@ export async function getAccessibleThread(
 
 /** Mark all unread guest messages in a thread as read by the host. */
 export async function markGuestMessagesRead(threadId: number): Promise<number> {
+  if (usesCloudSqlPadData()) return sqlPadRead(threadId, 'host');
   const res = await wpFetch(
     `/welcomepad_messages?thread_id=eq.${threadId}&sender=eq.guest&read_by_host_at=is.null`,
     {

@@ -1,8 +1,11 @@
+import { legacyBackgroundJobsEnabled } from '../../lib/jobs/background-controls';
+
 /**
  * Background sibling for the messages cron — same rationale as
  * beds24-sync-background.ts: 15-minute timeout for the heavier work.
  */
 const handler = async (req: Request) => {
+  if (!legacyBackgroundJobsEnabled()) return new Response('Disabled', { status: 200 });
   const baseUrl = process.env.URL || process.env.DEPLOY_URL;
   const cronSecret = process.env.CRON_SECRET;
 
@@ -44,6 +47,7 @@ const handler = async (req: Request) => {
     };
     await work('seed');
     for (let i = 0; i < 80 && Date.now() - started < 10 * 60_000; i++) {
+      if (!legacyBackgroundJobsEnabled()) return new Response('Disabled', { status: 200 });
       const job = await work('jobs');
       const notification = await work('notifications');
       if (!job.worked && !notification.worked) break;

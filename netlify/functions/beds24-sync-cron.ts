@@ -1,4 +1,5 @@
 import type { Config } from '@netlify/functions';
+import { legacyBackgroundJobsEnabled } from '../../lib/jobs/background-controls';
 
 /**
  * Scheduled function — Netlify gives scheduled functions the regular
@@ -7,6 +8,7 @@ import type { Config } from '@netlify/functions';
  * background variant (15-minute timeout) and returns immediately.
  */
 const handler = async () => {
+  if (!legacyBackgroundJobsEnabled()) return new Response('Disabled', { status: 200 });
   const baseUrl = process.env.URL || process.env.DEPLOY_URL;
   if (!baseUrl || !process.env.CRON_SECRET) {
     console.error('[beds24-sync-cron] Missing URL env');

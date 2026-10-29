@@ -1,6 +1,6 @@
 import type { PoolConfig } from 'pg';
 
-export function postgresPoolOptions(env: NodeJS.ProcessEnv = process.env): PoolConfig {
+export function postgresPoolOptions(env: Record<string, string | undefined> = process.env): PoolConfig {
   const limits = { max: 3, idleTimeoutMillis: 10_000, connectionTimeoutMillis: 5000 };
   const transport = env.BACKEND_DB_TRANSPORT || 'tcp';
   if (!['tcp', 'cloudsql-unix'].includes(transport)) {
