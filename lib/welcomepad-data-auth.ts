@@ -2,7 +2,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { getSessionWithUser } from '@/lib/auth';
 import { currentDeviceStay, requireStayDevice, throttleStayAttempt } from './guest-stay-store';
 import { fail } from './core/errors';
-import { findPadProperty, type PadActor, type WelcomepadOperation } from './welcomepad-data';
+import { findPadProperty, isLegacyPadOperation, type PadActor, type WelcomepadOperation } from './welcomepad-data';
 
 const internalOperations = new Set(['properties.list', 'weather.update', 'events.create', 'threads.list', 'threads.close', 'devices.list']);
 const deviceOperations = new Set(['config.get', 'cleaning.set', 'weather.get', 'events.create', 'threads.active', 'threads.current', 'messages.list', 'messages.send', 'messages.read']);
@@ -34,6 +34,12 @@ export async function authorizeWelcomepadOperation(req: Request, input: Welcomep
       return { kind: 'device', propertyId: device.propertyId, stay: { guestName: stay.guestName, checkIn: stay.checkIn, checkOut: stay.checkOut } };
     }
     return { kind: 'device', propertyId: device.propertyId };
+  }
+  if (!req.headers.has('authorization') && !req.headers.has('cookie') && !req.headers.has('x-welcomepad-internal') && isLegacyPadOperation(input) && 'propertyKey' in input) {
+    const property = await findPadProperty(input.propertyKey);
+    if (!property) throw fail(404, '숙소를 찾을 수 없습니다.');
+    await throttleStayAttempt(req, `legacy-pad-data:${property.id}`, 180, 1);
+    return { kind: 'legacy-pad', propertyId: property.id };
   }
   if (['weather.update', 'threads.close', 'devices.list', 'threads.active'].includes(input.operation)) throw fail(403, '허용되지 않은 작업입니다.');
   if ((input.operation === 'messages.send' && input.data.sender !== 'host') || (input.operation === 'messages.read' && input.data.reader !== 'host')) throw fail(403, '권한이 없습니다.');

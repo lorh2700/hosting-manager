@@ -36,7 +36,11 @@ export async function middleware(req: NextRequest) {
   const maintenance = legacyHttpMaintenanceResponse(pathname);
   if (maintenance) return maintenance;
   if (isPublicTransactionPath(pathname)) return NextResponse.next();
-  const loginUrl = new URL('/login', req.url);
+  const configuredOrigin = process.env.NODE_ENV === 'production' ? process.env.NEXT_PUBLIC_APP_URL || '' : '';
+  const canonical = URL.canParse(configuredOrigin) ? new URL(configuredOrigin) : null;
+  const publicOrigin = canonical?.protocol === 'https:' && !canonical.username && !canonical.password &&
+    canonical.pathname === '/' && !canonical.search && !canonical.hash ? canonical.origin : null;
+  const loginUrl = new URL('/login', publicOrigin || req.url);
   loginUrl.searchParams.set('next', pathname + req.nextUrl.search);
 
   // These worker endpoints authenticate their shared secrets without session cookies.

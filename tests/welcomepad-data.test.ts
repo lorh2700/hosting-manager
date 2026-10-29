@@ -71,12 +71,66 @@ after(async () => {
   }
 });
 
-test('bridge secret alone cannot read settings; rollout stays disabled unless Cloud SQL is explicit', async () => {
+test('bridge secret is mandatory and rollout stays disabled unless Cloud SQL is explicit', async () => {
   const input = { operation: 'config.get', propertyKey: 'anon' };
   assert.equal((await call(input, { 'x-api-key': 'wrong' })).status, 401);
-  assert.equal((await call(input)).status, 401);
+  const noBridge = await POST(new Request('https://legacy.example/api/public/welcomepad/data', { method: 'POST', body: JSON.stringify(input) }));
+  assert.equal(noBridge.status, 401);
   delete process.env.BACKEND_DB_TRANSPORT;
+  assert.equal((await call(input)).status, 503);
   assert.equal((await call(input, { authorization: `Bearer ${deviceToken}` })).status, 503);
+});
+
+test('unpaired legacy pads retain only display, weather, cleaning toggle and analytics through the server bridge', async () => {
+  const config = await call({ operation: 'config.get', propertyKey: 'anon' });
+  assert.equal(config.status, 200);
+  assert.deepEqual(Object.keys(config.body.data).sort(), ['hotel_name', 'logo_type', 'logo_image', 'theme', 'theme_gradient', 'wifi_ssid', 'wifi_password', 'wifi_encryption', 'cleaning_mode'].sort());
+  assert.equal(config.body.data.wifi_password, 'fixture-wifi-password');
+  assert.equal(config.body.data.property_id, undefined);
+  assert.equal((await call({ operation: 'weather.get', propertyKey: 'anon' })).status, 200);
+  const toggle = await call({ operation: 'cleaning.set', propertyKey: 'anon', data: { cleaning_mode: true } });
+  assert.equal(toggle.status, 200); assert.equal(toggle.body.data.cleaning_mode, true);
+  assert.deepEqual(Object.keys(toggle.body.data).sort(), Object.keys(config.body.data).sort());
+  assert.equal((await call({ operation: 'events.create', propertyKey: 'anon', data: { event_type: 'menu_click', event_data: { menu: 'guide' } } })).status, 200);
+  assert.equal((await sql.query<{ count: number }>('SELECT count(*)::int AS count FROM welcomepad_events')).rows[0].count, 1);
+  for (const operation of [
+    { operation: 'config.get' }, { operation: 'weather.get' },
+    { operation: 'cleaning.set', data: { cleaning_mode: true } },
+    { operation: 'events.create', data: { event_type: 'menu_click' } },
+  ]) assert.equal((await call({ ...operation, propertyKey: 'not_registered' })).status, 404);
+});
+
+test('legacy compatibility cannot access staff settings, private conversations, global discovery or devices', async () => {
+  const inputs = [
+    { operation: 'properties.list' },
+    { operation: 'config.update', propertyKey: 'anon', data: { wifi_password: 'changed' } },
+    { operation: 'events.list', propertyKey: 'anon', data: { since: yesterday, until: tomorrow } },
+    { operation: 'threads.list', propertyKey: 'anon' },
+    { operation: 'threads.current', propertyKey: 'anon' },
+    { operation: 'threads.active', propertyKey: 'anon' },
+    { operation: 'threads.close', propertyKey: 'anon', data: { threadId: 1 } },
+    { operation: 'messages.list', propertyKey: 'anon', data: { threadId: 1 } },
+    { operation: 'messages.send', propertyKey: 'anon', data: { threadId: 1, sender: 'guest', body: 'private' } },
+    { operation: 'messages.read', propertyKey: 'anon', data: { threadId: 1, reader: 'guest' } },
+    { operation: 'devices.list', propertyKey: 'anon' },
+    { operation: 'devices.upsert', data: { fcm_token: 'fixture-token', property_keys: ['anon'] } },
+    { operation: 'weather.update', propertyKey: 'anon', data: { temp: 18, feels_like: 18, description: '맑음', icon: '01d' } },
+  ];
+  for (const input of inputs) {
+    assert.ok([401, 403].includes((await call(input)).status), input.operation);
+    await assert.rejects(run(input, { kind: 'legacy-pad', propertyId: 'p1' }), /사용할 수 없는 기능/);
+  }
+  assert.equal((await call({ operation: 'cleaning.set', propertyKey: 'anon', data: { cleaning_mode: false, wifi_password: 'changed' } })).status, 400);
+  await assert.rejects(run({ operation: 'config.get', propertyKey: 'unwadang' }, { kind: 'legacy-pad', propertyId: 'p1' }), /이 패드/);
+});
+
+test('invalid explicit credentials never fall back to the legacy unauthenticated actor', async () => {
+  const input = { operation: 'config.get', propertyKey: 'anon' };
+  const invalidHeaders: Array<Record<string, string>> = [{ authorization: 'malformed' }, { authorization: `Bearer gst_device_${'b'.repeat(43)}` }, { cookie: 'va_session=invalid' }];
+  for (const headers of invalidHeaders) {
+    assert.equal((await call(input, headers)).status, 401);
+  }
+  assert.equal((await call(input, { authorization: `Bearer ${deviceToken}`, 'x-api-key': 'wrong' })).status, 401);
 });
 
 test('paired devices retain guest Wi-Fi fields but cannot cross properties, impersonate staff or use server operations', async () => {

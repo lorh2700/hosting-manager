@@ -36,7 +36,7 @@ export const welcomepadDataSchema = z.discriminatedUnion('operation', [
 ]);
 export type WelcomepadOperation = z.infer<typeof welcomepadDataSchema>;
 export type PadProperty = { id: string; name: string; welcomepad_key: string };
-export type PadActor = { kind: 'service' } | { kind: 'staff'; userId: string; propertyIds: string[] | null } | {
+export type PadActor = { kind: 'service' } | { kind: 'legacy-pad'; propertyId: string } | { kind: 'staff'; userId: string; propertyIds: string[] | null } | {
   kind: 'device'; propertyId: string; stay?: { guestName: string; checkIn: string; checkOut: string };
 };
 
@@ -53,6 +53,8 @@ export function parseWelcomepadOperation(value: unknown): WelcomepadOperation {
 }
 
 export const usesCloudSqlPadData = () => process.env.BACKEND_DB_TRANSPORT === 'cloudsql-unix';
+export const isLegacyPadOperation = (input: WelcomepadOperation) =>
+  ['config.get', 'weather.get', 'cleaning.set', 'events.create'].includes(input.operation);
 export type PadSql = Pick<typeof prisma, '$queryRawUnsafe' | '$executeRawUnsafe'>;
 
 export function padJson<T>(value: unknown): T {
@@ -72,6 +74,7 @@ export async function findPadProperty(propertyKey: string, db: PadSql = prisma):
 }
 
 const configColumns = 'property_id, hotel_name, logo_type, logo_image, theme, theme_gradient, wifi_ssid, wifi_password, wifi_encryption, cleaning_mode, updated_at';
+const displayConfigColumns = 'hotel_name, logo_type, logo_image, theme, theme_gradient, wifi_ssid, wifi_password, wifi_encryption, cleaning_mode';
 const threadColumns = 'id, property_key, guest_name, check_in::text, check_out::text, is_active, last_message_at, created_at';
 const messageColumns = 'id, thread_id, property_key, sender, body, lang, read_by_guest_at, read_by_host_at, created_at';
 type Thread = { id: number; property_key: string; guest_name: string | null; check_in: string | null; check_out: string | null; is_active: boolean; [key: string]: unknown };
@@ -104,8 +107,9 @@ export async function sqlPadRead(threadId: number, reader: 'guest' | 'host', db:
 }
 
 export async function executeWelcomepadOperation(input: WelcomepadOperation, actor: PadActor): Promise<unknown> {
+  if (actor.kind === 'legacy-pad' && !isLegacyPadOperation(input)) throw fail(403, '이 패드에서 사용할 수 없는 기능입니다.');
   if (input.operation === 'properties.list') {
-    if (actor.kind === 'device') throw fail(403, '권한이 없습니다.');
+    if (actor.kind === 'device' || actor.kind === 'legacy-pad') throw fail(403, '권한이 없습니다.');
     return rows<PadProperty>(prisma, actor.kind === 'staff' && actor.propertyIds !== null
       ? 'SELECT id, name, welcomepad_key FROM properties WHERE welcomepad_key IS NOT NULL AND id = ANY($1::text[]) ORDER BY name LIMIT 100'
       : 'SELECT id, name, welcomepad_key FROM properties WHERE welcomepad_key IS NOT NULL ORDER BY name LIMIT 100',
@@ -126,11 +130,11 @@ export async function executeWelcomepadOperation(input: WelcomepadOperation, act
   }
   const prop = await findPadProperty(input.propertyKey);
   if (!prop) throw fail(404, '숙소를 찾을 수 없습니다.');
-  if (actor.kind === 'device' && actor.propertyId !== prop.id) throw fail(403, '이 패드의 숙소가 아닙니다.');
+  if ((actor.kind === 'device' || actor.kind === 'legacy-pad') && actor.propertyId !== prop.id) throw fail(403, '이 패드의 숙소가 아닙니다.');
   if (actor.kind === 'staff' && actor.propertyIds !== null && !actor.propertyIds.includes(prop.id)) throw fail(403, '권한이 없습니다.');
   switch (input.operation) {
     case 'config.get':
-      return (await rows(prisma, `SELECT ${configColumns} FROM welcomepad_configs WHERE property_id = $1`, prop.id))[0] ?? null;
+      return (await rows(prisma, `SELECT ${actor.kind === 'legacy-pad' ? displayConfigColumns : configColumns} FROM welcomepad_configs WHERE property_id = $1`, prop.id))[0] ?? null;
     case 'config.update':
     case 'cleaning.set': {
       const updates = Object.entries(input.data);
@@ -138,7 +142,7 @@ export async function executeWelcomepadOperation(input: WelcomepadOperation, act
       const assignments = updates.map(([column], index) => `"${column}" = $${index + 2}`);
       return prisma.$transaction(async tx => {
         await tx.$executeRawUnsafe('INSERT INTO welcomepad_configs (property_id) VALUES ($1) ON CONFLICT (property_id) DO NOTHING', prop.id);
-        return (await rows(tx, `UPDATE welcomepad_configs SET ${assignments.join(', ')}, updated_at = now() WHERE property_id = $1 RETURNING ${configColumns}`, prop.id, ...values))[0];
+        return (await rows(tx, `UPDATE welcomepad_configs SET ${assignments.join(', ')}, updated_at = now() WHERE property_id = $1 RETURNING ${actor.kind === 'legacy-pad' ? displayConfigColumns : configColumns}`, prop.id, ...values))[0];
       });
     }
     case 'weather.get':
