@@ -1,6 +1,6 @@
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, rmdirSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, rmdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -47,6 +47,31 @@ test('check and dry-run import every worker without connecting, locking, fetchin
   for (const name of ['beds24-sync', 'beds24-messages', 'camera-inbox', 'payments']) {
     for (const option of ['--check', '--dry-run']) assert.deepEqual(run(name, option), { job: name, status: 'ready' });
   }
+});
+
+test('the container runtime check validates all four built workers without operational I/O', () => {
+  const result = spawnSync(process.execPath, [join(root, 'scripts/check-background-runtime.cjs'), bundle],
+    { cwd: root, env: fixtureEnvironment(), windowsHide: true, encoding: 'utf8', timeout: 60_000 });
+  assert.equal(result.status, 0, result.stderr || result.error?.message);
+  assert.deepEqual(result.stdout.trim().split(/\r?\n/).map(line => JSON.parse(line)),
+    ['beds24-sync', 'beds24-messages', 'camera-inbox', 'payments'].map(job => ({ job, status: 'ready' })));
+});
+
+test('the container runtime check fails for missing dependencies and unexpected network access', () => {
+  const fixture = join(directory, 'invalid-runtime.cjs');
+  try {
+    for (const source of [
+      "exports.main = async () => require('missing-background-runtime-test-dependency');",
+      "exports.main = async () => fetch('https://must-not-be-called.invalid');",
+    ]) {
+      writeFileSync(fixture, source);
+      const result = spawnSync(process.execPath, [join(root, 'scripts/check-background-runtime.cjs'), fixture],
+        { cwd: root, env: fixtureEnvironment(), windowsHide: true, encoding: 'utf8', timeout: 15_000 });
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /Cannot find module|Unexpected I\/O during background runtime validation/);
+      assert.equal(result.stdout, '');
+    }
+  } finally { rmSync(fixture, { force: true }); }
 });
 
 test('the built worker exits immediately on lost lock and never continues operational work', () => {
