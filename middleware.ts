@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 import { isPublicTransactionPath, legacyHttpMaintenanceResponse } from './lib/http-maintenance';
+import { adminAppDestination } from './lib/admin-app-redirect';
 
 if (!process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET 환경변수가 설정되지 않았습니다.');
@@ -35,6 +36,13 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const maintenance = legacyHttpMaintenanceResponse(pathname);
   if (maintenance) return maintenance;
+  const adminDestination = adminAppDestination(req.method, req.nextUrl, process.env.ADMIN_APP_ORIGIN);
+  if (adminDestination) {
+    const response = NextResponse.redirect(adminDestination);
+    response.headers.set('Cache-Control', 'private, no-store');
+    response.headers.set('Referrer-Policy', 'no-referrer');
+    return response;
+  }
   if (isPublicTransactionPath(pathname)) return NextResponse.next();
   const configuredOrigin = process.env.NODE_ENV === 'production' ? process.env.NEXT_PUBLIC_APP_URL || '' : '';
   const canonical = URL.canParse(configuredOrigin) ? new URL(configuredOrigin) : null;
