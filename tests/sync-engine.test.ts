@@ -34,7 +34,7 @@ beforeEach(() => {
   db.user = [{ ...cleanerRow, displayName: cleanerRow.name }];
 });
 
-test('예약이 사라진 자동 청소는 미배정·무기록 건만 정리하고 배정·완료·수동·외부·과거 건은 보존', async () => {
+test('예약이 사라진 미래 자동 대기 청소는 취소하고 당일·과거·진행·완료·수동·중간·외부 건은 보존', async () => {
   db.event = [reservation('r1', d(1), d(3))];
   db.cleaning = [
     { id: 'assigned-orphan', ...cleaning({ date: d(5), cleanerId: 'cl1' }) },
@@ -43,14 +43,22 @@ test('예약이 사라진 자동 청소는 미배정·무기록 건만 정리하
     { id: 'manual', ...cleaning({ date: d(7), origin: 'manual' }) },
     { id: 'external', ...cleaning({ date: d(8), origin: 'external' }) },
     { id: 'past-orphan', ...cleaning({ date: d(-2), cleanerId: 'cl1' }) },
+    { id: 'today-orphan', ...cleaning({ date: d(0) }) },
+    { id: 'interim', ...cleaning({ date: d(10), origin: 'interim' }) },
+    { id: 'in-progress', ...cleaning({ date: d(11), status: 'in_progress' }) },
+    { id: 'completed-at', ...cleaning({ date: d(12), completedAt: new Date() }) },
   ];
+  const protectedRows = db.cleaning.filter(c => !['assigned-orphan', 'unassigned-orphan'].includes(c.id)).map(c => ({ ...c }));
 
   const created = await ensureCleaningsForProperty(P);
 
-  const ids = db.cleaning.map(c => c.id);
-  assert.ok(ids.includes('assigned-orphan'));
-  assert.ok(!ids.includes('unassigned-orphan'));
-  for (const keep of ['done-orphan', 'manual', 'external', 'past-orphan']) assert.ok(ids.includes(keep), keep);
+  for (const id of ['assigned-orphan', 'unassigned-orphan']) {
+    const row = db.cleaning.find(c => c.id === id)!;
+    assert.equal(row.status, 'cancelled');
+    assert.equal(row.cleanerId, null);
+    assert.equal(row.isOpen, false);
+  }
+  for (const row of protectedRows) assert.deepEqual(db.cleaning.find(c => c.id === row.id), row, row.id);
   assert.deepEqual(created, [d(3)]);
   assert.ok(db.cleaning.some(c => c.date === d(3) && c.origin === 'auto' && c.isOpen === true));
   assert.equal(notifyCalls.cancelled.length, 0);
@@ -77,20 +85,39 @@ test('사업자 연동 옵션을 끄면 예약 동기화가 원격 호출이나 
   assert.equal(result.eventsRemoved, 0);
 });
 
-test('직접 예약 취소 시 배정·신청·이슈 기록을 자동 삭제하지 않는다', async () => {
+test('직접 예약 취소 시 정·부담당과 활성 신청은 취소하고 사진·이슈·재고·신청 이력은 보존한다', async () => {
   db.booking = [{ id: 'direct', propertyId: P, status: 'confirmed', checkOut: d(3) }];
-  db.cleaning = [{ id: 'applied', ...cleaning({ date: d(3), cleanerId: 'cl1', assignmentType: 'applied' }) }];
-  db.cleaningApplication = [{ id: 'application', cleaningId: 'applied', status: 'approved' }];
+  db.cleaning = [{ id: 'applied', ...cleaning({ date: d(3), cleanerId: 'cl1', assignmentType: 'applied', assistantCleanerId: 'cl2', assistantAssignmentType: 'applied', isOpen: false }) }];
+  db.cleaningApplication = [
+    { id: 'application', cleaningId: 'applied', status: 'approved', role: 'primary' },
+    { id: 'assistant', cleaningId: 'applied', status: 'approved', role: 'assistant' },
+    { id: 'pending', cleaningId: 'applied', status: 'pending' },
+    { id: 'rejected', cleaningId: 'applied', status: 'rejected', rejectedReason: '다른 담당자 배정' },
+  ];
   db.cleaningIssue = [{ id: 'issue', cleaningId: 'applied', propertyId: P }];
+  db.cleaningVisitPhoto = [{ id: 'photo', cleaningId: 'applied', phase: 'before', storagePath: 'preserved' }];
+  db.inventoryCountRecord = [{ id: 'inventory', cleaningId: 'applied', propertyId: P }];
+  const history = [db.cleaningApplication[3], db.cleaningIssue[0], db.cleaningVisitPhoto[0], db.inventoryCountRecord[0]].map(row => ({ ...row }));
   await ensureCleaningsForProperty(P);
   assert.equal(db.cleaning.length, 1);
-  assert.equal(db.cleaningApplication.length, 1);
+  assert.equal(db.cleaningApplication[0].status, 'approved');
+  assert.equal(db.cleaning[0].cleanerId, 'cl1');
   db.booking[0].status = 'cancelled';
-  await ensureCleaningsForProperty(P);
+  await Promise.all([ensureCleaningsForProperty(P), ensureCleaningsForProperty(P)]);
   assert.equal(db.cleaning.length, 1);
-  assert.equal(db.cleaningApplication.length, 1);
-  assert.equal(db.cleaningIssue.length, 1);
-  assert.equal(db.cleaningIssue[0].cleaningId, 'applied');
+  assert.equal(db.cleaning[0].status, 'cancelled');
+  assert.equal(db.cleaning[0].cleanerId, null);
+  assert.equal(db.cleaning[0].assistantCleanerId, null);
+  assert.equal(db.cleaning[0].assistantAssignmentType, null);
+  assert.equal(db.cleaning[0].isOpen, false);
+  assert.equal(db.cleaningApplication.length, 4);
+  for (const app of db.cleaningApplication.slice(0, 3)) {
+    assert.equal(app.status, 'cancelled');
+    assert.match(app.rejectedReason, /예약 취소/);
+    assert.ok(app.processedAt instanceof Date);
+  }
+  assert.deepEqual([db.cleaningApplication[3], db.cleaningIssue[0], db.cleaningVisitPhoto[0], db.inventoryCountRecord[0]], history);
+  assert.equal(calls.filter(call => call === 'cleaningApplication.updateMany').length, 1);
   assert.equal(notifyCalls.cancelled.length, 0);
   await ensureCleaningsForProperty(P);
   assert.equal(notifyCalls.cancelled.length, 0);
@@ -107,7 +134,41 @@ test('같은 날 다른 예약의 체크아웃이 남아 있으면 신청한 청
   assert.equal(notifyCalls.cancelled.length, 0);
 });
 
-test('명시적 취소 예약은 정리하되 청소 배정·신청 기록은 보존한다', async () => {
+test('같은 날 확정된 직접 예약이 남아 있으면 청소 배정을 유지한다', async () => {
+  db.booking = [
+    { id: 'cancelled', propertyId: P, status: 'cancelled', checkOut: d(3) },
+    { id: 'confirmed', propertyId: P, status: 'confirmed', checkOut: d(3) },
+  ];
+  db.cleaning = [{ id: 'applied', ...cleaning({ date: d(3), cleanerId: 'cl1' }) }];
+  db.cleaningApplication = [{ id: 'application', cleaningId: 'applied', status: 'approved' }];
+  await ensureCleaningsForProperty(P);
+  assert.equal(db.cleaning[0].status, 'pending');
+  assert.equal(db.cleaning[0].cleanerId, 'cl1');
+  assert.equal(db.cleaningApplication[0].status, 'approved');
+});
+
+test('중복된 고아 청소도 이력을 남겨 취소하고 새 예약은 새 청소로 생성한다', async () => {
+  db.cleaning = [
+    { id: 'primary', ...cleaning({ date: d(3), cleanerId: 'cl1' }) },
+    { id: 'assistant-only', ...cleaning({ date: d(3), assistantCleanerId: 'cl2', assistantAssignmentType: 'direct' }) },
+  ];
+  await ensureCleaningsForProperty(P);
+  assert.equal(db.cleaning.length, 2);
+  for (const row of db.cleaning) {
+    assert.equal(row.status, 'cancelled');
+    assert.equal(row.cleanerId, null);
+    assert.equal(row.assistantCleanerId, null);
+  }
+  db.event = [reservation('new-booking', d(1), d(3))];
+  assert.deepEqual(await ensureCleaningsForProperty(P), [d(3)]);
+  assert.equal(db.cleaning.filter(c => c.status === 'cancelled').length, 2);
+  const active = db.cleaning.filter(c => c.status === 'pending');
+  assert.equal(active.length, 1);
+  assert.equal(active[0].isOpen, true);
+  assert.ok(!active[0].cleanerId && !active[0].assistantCleanerId);
+});
+
+test('명시적 취소는 부분 응답 보호 중에도 예약과 청소 배정·신청을 취소한다', async () => {
   db.event = Array.from({ length: 20 }, (_, i) => reservation(String(i), d(i), d(i + 2)));
   db.booking = [{ id: 'linked', propertyId: P, channelBookingRef: '0', status: 'confirmed', checkOut: d(2) }];
   db.cleaning = [{ id: 'applied', ...cleaning({ date: d(2), cleanerId: 'cl1', assignmentType: 'applied' }) }];
@@ -118,7 +179,10 @@ test('명시적 취소 예약은 정리하되 청소 배정·신청 기록은 �
   assert.equal(db.event.length, 19);
   assert.equal(db.booking[0].status, 'cancelled');
   assert.equal(db.cleaning.some(c => c.id === 'applied'), true);
+  assert.equal(db.cleaning.find(c => c.id === 'applied')?.status, 'cancelled');
+  assert.equal(db.cleaning.find(c => c.id === 'applied')?.cleanerId, null);
   assert.equal(db.cleaningApplication.length, 1);
+  assert.equal(db.cleaningApplication[0].status, 'cancelled');
   assert.equal(notifyCalls.cancelled.length, 0);
 });
 
@@ -142,25 +206,32 @@ test('배정 건과 같은 날짜의 미배정 유령 행은 신청이 없을 �
 
 test('Beds24 가 0건을 돌려주면 삭제를 건너뛴다', async () => {
   db.event = Array.from({ length: 20 }, (_, i) => reservation(String(i), d(i), d(i + 2)));
+  db.cleaning = [{ id: 'assigned', ...cleaning({ date: d(2), cleanerId: 'cl1' }) }];
   seedBookingsPage([]);
   const r = await syncBeds24Property(P, '111');
   assert.equal(r.error, undefined);
   assert.equal(r.eventsRemoved, 0);
   assert.equal(db.event.length, 20);
+  assert.equal(db.cleaning.find(c => c.id === 'assigned')?.status, 'pending');
+  assert.equal(db.cleaning.find(c => c.id === 'assigned')?.cleanerId, 'cl1');
 });
 
 test('절반 넘게 사라지면 삭제를 건너뛰고, 소수만 사라지면 삭제한다', async () => {
   db.event = Array.from({ length: 20 }, (_, i) => reservation(String(i), d(i), d(i + 2)));
+  db.cleaning = [{ id: 'missing-checkout', ...cleaning({ date: d(21), cleanerId: 'cl1' }) }];
 
   seedBookingsPage([0, 1, 2, 3, 4].map(i => booking(i, d(i), d(i + 2))));
   const r1 = await syncBeds24Property(P, '111');
   assert.equal(r1.eventsRemoved, 0);
   assert.equal(db.event.length, 20);
+  assert.equal(db.cleaning.find(c => c.id === 'missing-checkout')?.status, 'pending');
 
   seedBookingsPage(Array.from({ length: 18 }, (_, i) => booking(i, d(i), d(i + 2))));
   const r2 = await syncBeds24Property(P, '111');
   assert.equal(r2.eventsRemoved, 2);
   assert.deepEqual(db.event.map(e => e.id).filter(id => ['18', '19'].includes(id)), []);
+  assert.equal(db.cleaning.find(c => c.id === 'missing-checkout')?.status, 'cancelled');
+  assert.equal(db.cleaning.find(c => c.id === 'missing-checkout')?.cleanerId, null);
 });
 
 test('조회 창 밖의 오래된 이벤트는 삭제 대상이 아니며 창은 1년 이상 되돌아본다', async () => {
@@ -174,7 +245,7 @@ test('조회 창 밖의 오래된 이벤트는 삭제 대상이 아니며 창은
   assert.ok(from < d(-380));
 });
 
-test('취소된 예약은 삭제되지만 담당자 있는 청소는 확인을 위해 보존한다', async () => {
+test('취소된 예약의 미래 자동 청소는 취소하고 다른 예약의 청소는 유지한다', async () => {
   db.event = [reservation('1', d(1), d(3)), reservation('2', d(5), d(7))];
   db.cleaning = [
     { id: 'c-3', ...cleaning({ date: d(3), cleanerId: 'cl1' }) },
@@ -189,6 +260,10 @@ test('취소된 예약은 삭제되지만 담당자 있는 청소는 확인을 �
   const ids = db.cleaning.map(c => c.id);
   assert.ok(ids.includes('c-3'));
   assert.ok(ids.includes('c-7'));
+  assert.equal(db.cleaning.find(c => c.id === 'c-3')?.status, 'pending');
+  assert.equal(db.cleaning.find(c => c.id === 'c-3')?.cleanerId, 'cl1');
+  assert.equal(db.cleaning.find(c => c.id === 'c-7')?.status, 'cancelled');
+  assert.equal(db.cleaning.find(c => c.id === 'c-7')?.cleanerId, null);
   assert.equal(notifyCalls.cancelled.length, 0);
 });
 

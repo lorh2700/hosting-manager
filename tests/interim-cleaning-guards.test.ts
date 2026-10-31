@@ -36,7 +36,8 @@ test('interim cleaning survives missing reservations and never stands in for gen
   assert.equal(db.cleaning.length, 2); assert.equal(notifyCalls.cancelled.length, 0);
   db.event = [];
   await ensureCleaningsForProperty('p');
-  assert.deepEqual(db.cleaning.map(row => row.id), ['interim']);
+  assert.deepEqual(db.cleaning.filter(row => row.status !== 'cancelled').map(row => row.id), ['interim']);
+  assert.equal(db.cleaning.find(row => row.origin === 'auto')?.status, 'cancelled');
 });
 
 test('assigned interim does not delete an unassigned checkout schedule as a ghost', async () => {

@@ -349,8 +349,8 @@ export async function cleanupSupersededInquiries(propertyId: string): Promise<nu
  *
  *  - 생성: 새 청소는 origin='auto', isOpen=true(미배정) 로 만들어 청소매니저
  *    신청 화면에 노출된다.
- *  - 정리 1: origin='auto' 인데 그 날짜에 확정 예약(type='reservation')이 더 이상
- *    없는 청소(예약 취소·날짜 변경)는 미배정·미완료이며 작업 기록이 없을 때 정리한다.
+ *  - 정리 1: 퇴실 예약이 없어진 미래의 자동 생성 대기 청소는 배정·신청을 취소하고
+ *    사진·이슈·재고 기록은 보존한다. 당일·과거·진행·완료 건은 자동 취소하지 않는다.
  *    수동 'manual', 중간청소 'interim', 파트너 API 'external' 은 건드리지 않는다.
  *  - 정리 2: 같은 날짜에 배정된 행이 있는데 남아 있는 미배정 자동 생성 행(유령)은
  *    신청·사진·이슈·재고 기록과 정·부담당자가 없으면 제거한다.
@@ -368,20 +368,32 @@ export async function ensureCleaningsForProperty(propertyId: string): Promise<st
           _count: { select: { applications: true, issues: true, visitPhotos: true } } } }),
     ]);
     const checkoutDates = new Set([...reservations.map(row => row.endDate), ...directBookings.map(row => row.checkOut)].filter(Boolean));
-    const counts = new Map<string, number>();
-    for (const row of existing) counts.set(row.date, (counts.get(row.date) || 0) + 1);
     const assignedDates = new Set(existing.filter(row => row.cleanerId || row.assistantCleanerId).map(row => row.date));
-    const today = todayKst(), removed = new Set<string>();
+    const today = todayKst(), inactive = new Set<string>();
     for (const row of existing) {
-      if (row.origin !== 'auto' || row.status === 'done' || row.completedAt || row.date < today
+      if (row.origin === 'auto' && row.status === 'pending' && !row.completedAt && row.date > today && !checkoutDates.has(row.date)) {
+        await lockCleaningSlot(tx, propertyId, row.date);
+        const cancelled = await tx.cleaning.updateMany({
+          where: { id: row.id, propertyId, origin: 'auto', status: 'pending', completedAt: null, date: { gt: today } },
+          data: { status: 'cancelled', cleanerId: null, assistantCleanerId: null, assignmentType: 'direct', assistantAssignmentType: null, isOpen: false },
+        });
+        if (cancelled.count) {
+          await tx.cleaningApplication.updateMany({
+            where: { cleaningId: row.id, status: { in: ['pending', 'approved'] } },
+            data: { status: 'cancelled', rejectedReason: '예약 취소 또는 일정 변경으로 청소가 취소되었습니다.', processedAt: new Date(), processedBy: null },
+          });
+          inactive.add(row.id);
+        }
+        continue;
+      }
+      if (row.origin !== 'auto' || row.status !== 'pending' || row.completedAt || row.date < today
         || row.cleanerId || row.assistantCleanerId || row._count.applications || row._count.issues || row._count.visitPhotos) continue;
-      const orphan = !checkoutDates.has(row.date) && counts.get(row.date) === 1;
       const emptyDuplicate = assignedDates.has(row.date);
-      if (!orphan && !emptyDuplicate) continue;
+      if (!emptyDuplicate) continue;
       if (await tx.inventoryCountRecord.findFirst({ where: { cleaningId: row.id }, select: { id: true } })) continue;
-      await tx.cleaning.delete({ where: { id: row.id } }); removed.add(row.id);
+      await tx.cleaning.delete({ where: { id: row.id } }); inactive.add(row.id);
     }
-    const existingDates = new Set(existing.filter(row => !removed.has(row.id)).map(row => row.date));
+    const existingDates = new Set(existing.filter(row => !inactive.has(row.id)).map(row => row.date));
     const toCreate = [...checkoutDates].filter(date => date >= today && !existingDates.has(date)).sort();
     for (const date of toCreate) await lockCleaningSlot(tx, propertyId, date);
     if (toCreate.length) await tx.cleaning.createMany({ data: toCreate.map(date => ({ propertyId, date, status: 'pending', isOpen: true, origin: 'auto' })) });
