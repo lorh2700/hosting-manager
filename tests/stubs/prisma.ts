@@ -32,6 +32,8 @@ const RELATIONS: Record<string, { model: string; localKey?: string; foreignKey?:
   owner: { model: 'user', localKey: 'ownerId' },
   organization: { model: 'organization', localKey: 'organizationId' },
   event: { model: 'event', localKey: 'eventId' },
+  events: { model: 'event', foreignKey: 'propertyId', many: true },
+  bookings: { model: 'booking', foreignKey: 'propertyId', many: true },
   applications: { model: 'cleaningApplication', foreignKey: 'cleaningId', many: true },
   visitPhotos: { model: 'cleaningVisitPhoto', foreignKey: 'cleaningId', many: true },
   issues: { model: 'cleaningIssue', foreignKey: 'cleaningId', many: true },
@@ -94,6 +96,15 @@ export function matches(row: Row, where: Row | undefined): boolean {
     if (k === 'AND') { if (!(Array.isArray(v) ? v : [v]).every((w: Row) => matches(row, w))) return false; continue; }
     if (k === 'OR') { if (!(v as Row[]).some(w => matches(row, w))) return false; continue; }
     if (k === 'NOT') { if ((Array.isArray(v) ? v : [v]).some((w: Row) => matches(row, w))) return false; continue; }
+    if (k === 'property' && v?.is) {
+      const property = resolveRelation(row, k);
+      if (!property || !matches(property, v.is)) return false;
+      continue;
+    }
+    if ((k === 'events' || k === 'bookings') && v?.none) {
+      if ((resolveRelation(row, k) ?? []).some((related: Row) => matches(related, v.none))) return false;
+      continue;
+    }
     if (!matchValue(row[k], v)) return false;
   }
   return true;

@@ -1,6 +1,6 @@
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { db, resetDb, calls } from './stubs/prisma';
+import { db, resetDb, calls, prisma, prismaOverrides } from './stubs/prisma';
 import { notifyCalls, resetNotify } from './stubs/notify';
 import { installBeds24Mock, json, resetFetch, sampleBooking, fetchLog } from './helpers/beds24-mock';
 import { invalidateBeds24Token } from '@/lib/beds24';
@@ -146,6 +146,37 @@ test('같은 날 확정된 직접 예약이 남아 있으면 청소 배정을 �
   assert.equal(db.cleaning[0].cleanerId, 'cl1');
   assert.equal(db.cleaningApplication[0].status, 'approved');
 });
+
+for (const source of ['event', 'booking'] as const) {
+  test(`청소 취소 SQL 직전에 ${source} 퇴실 예약이 변경되면 정·부배정과 신청을 유지한다`, async () => {
+    db.event = [reservation('moved', d(1), d(4))];
+    db.booking = [{ id: 'confirmed-later', propertyId: P, status: 'cancelled', checkOut: d(3) }];
+    db.cleaning = [{ id: 'applied', ...cleaning({ date: d(3), cleanerId: 'cl1', assignmentType: 'applied', assistantCleanerId: 'cl2', assistantAssignmentType: 'applied', isOpen: false }) }];
+    db.cleaningApplication = [
+      { id: 'primary', cleaningId: 'applied', status: 'approved', role: 'primary' },
+      { id: 'assistant', cleaningId: 'applied', status: 'approved', role: 'assistant' },
+      { id: 'pending', cleaningId: 'applied', status: 'pending' },
+    ];
+    const cleaningBefore = { ...db.cleaning[0] };
+    const applicationsBefore = db.cleaningApplication.map(row => ({ ...row }));
+    const cleaningModel = prisma.cleaning;
+    let cancellationCount: number | undefined;
+    prismaOverrides.cleaning = { ...cleaningModel, updateMany: async (args: Record<string, any>) => {
+      if (source === 'event') db.event[0].endDate = d(3);
+      else db.booking[0].status = 'confirmed';
+      const result = await cleaningModel.updateMany(args);
+      cancellationCount = result.count;
+      return result;
+    } };
+
+    await ensureCleaningsForProperty(P);
+
+    assert.equal(cancellationCount, 0);
+    assert.deepEqual(db.cleaning.find(row => row.id === 'applied'), cleaningBefore);
+    assert.deepEqual(db.cleaningApplication, applicationsBefore);
+    assert.equal(calls.includes('cleaningApplication.updateMany'), false);
+  });
+}
 
 test('중복된 고아 청소도 이력을 남겨 취소하고 새 예약은 새 청소로 생성한다', async () => {
   db.cleaning = [

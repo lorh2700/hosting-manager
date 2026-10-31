@@ -374,7 +374,13 @@ export async function ensureCleaningsForProperty(propertyId: string): Promise<st
       if (row.origin === 'auto' && row.status === 'pending' && !row.completedAt && row.date > today && !checkoutDates.has(row.date)) {
         await lockCleaningSlot(tx, propertyId, row.date);
         const cancelled = await tx.cleaning.updateMany({
-          where: { id: row.id, propertyId, origin: 'auto', status: 'pending', completedAt: null, date: { gt: today } },
+          where: {
+            id: row.id, propertyId, origin: 'auto', status: 'pending', completedAt: null, date: { equals: row.date, gt: today },
+            property: { is: {
+              events: { none: { type: 'reservation', endDate: row.date } },
+              bookings: { none: { status: 'confirmed', checkOut: row.date } },
+            } },
+          },
           data: { status: 'cancelled', cleanerId: null, assistantCleanerId: null, assignmentType: 'direct', assistantAssignmentType: null, isOpen: false },
         });
         if (cancelled.count) {
