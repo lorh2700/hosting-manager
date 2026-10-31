@@ -1,0 +1,2 @@
+/prisma/migrations/20261031160000_business_onboarding/migration.sql text eol=lf
+/scripts/db/apply-business-onboarding-20261031.sql text eol=lf
