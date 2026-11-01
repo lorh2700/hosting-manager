@@ -46,6 +46,39 @@ test('property calendar and settings use their corresponding new pages and enfor
   }
 });
 
+test('cleaner schedule and personal calendar use the shared calendar with their matching filters', () => {
+  for (const method of ['GET', 'HEAD']) {
+    const available = adminAppDestination(method, source('/cleaner/schedule?date=2026-11-08&view=week&propertyId=one&propertyId=two&token=private'), origin)!;
+    assert.equal(available.pathname, '/cleanings');
+    assert.equal(available.searchParams.get('view'), 'available');
+    assert.equal(available.searchParams.get('period'), 'week');
+    assert.equal(available.searchParams.get('date'), '2026-11-08');
+    assert.deepEqual(available.searchParams.getAll('propertyId'), ['one', 'two']);
+    assert.equal(available.searchParams.has('token'), false);
+    const mine = adminAppDestination(method, source('/cleaner/calendar/?month=2026-12&properties=none'), origin)!;
+    assert.equal(mine.searchParams.get('date'), '2026-12-01');
+    assert.equal(mine.searchParams.get('period'), 'month');
+    assert.equal(mine.searchParams.get('view'), 'mine');
+    assert.equal(mine.searchParams.get('properties'), 'none');
+  }
+});
+
+test('only the two known cleaner login destinations bypass legacy login without forwarding credentials', () => {
+  const next = '/cleaner/calendar?date=2026-11-08&period=week&propertyId=one&password=private#private';
+  const target = adminAppDestination('GET', source('/login?next=' + encodeURIComponent(next) + '&token=private'), origin)!;
+  assert.equal(target.href, origin + '/cleanings?date=2026-11-08&propertyId=one&view=mine&period=week');
+  for (const next of ['/cleaner', '/cleaner/supplies', '/c/private', '//untrusted.invalid/cleaner/calendar', '/\\[invalid', 'https://voidanchae.com/cleaner/calendar']) {
+    assert.equal(adminAppDestination('GET', source('/login?next=' + encodeURIComponent(next)), origin), null, next);
+  }
+  assert.equal(adminAppDestination('GET', source('/login?next=/cleaner/calendar&next=/cleaner/schedule'), origin), null);
+  for (const path of ['/cleaner', '/cleaner/inventory', '/c/private', '/api/cleaner/calendar']) {
+    assert.equal(adminAppDestination('GET', source(path), origin), null);
+  }
+  for (const path of ['/cleaner/schedule', '/cleaner/calendar', '/login?next=/cleaner/calendar']) {
+    for (const method of ['POST', 'PUT', 'DELETE']) assert.equal(adminAppDestination(method, source(path), origin), null);
+  }
+});
+
 test('the redirect is opt-in, rejects unsafe origins, and never changes unsupported paths or write methods', () => {
   for (const unset of [undefined, '']) assert.equal(adminAppDestination('GET', source('/admin'), unset), null);
   for (const invalid of ['http://example.com', '//example.com', 'https://user:pass@example.com',
@@ -80,6 +113,10 @@ test('middleware redirects before reading a session, while public and unsupporte
     assert.equal(response.headers.get('cache-control'), 'private, no-store');
     assert.equal(response.headers.get('referrer-policy'), 'no-referrer');
     assert.equal(response.headers.has('set-cookie'), false);
+    const cleanerResponse = await middleware(request('/cleaner/schedule?date=2026-11-08', method, true));
+    assert.equal(cleanerResponse.status, 307);
+    assert.equal(cleanerResponse.headers.get('location'), `${origin}/cleanings?date=2026-11-08&view=available&period=month`);
+    assert.equal(cleanerResponse.headers.has('set-cookie'), false);
   }
   assert.match((await middleware(request('/admin/messages'))).headers.get('location')!, /^https:\/\/voidanchae.com\/login\?/);
   assert.equal((await middleware(request('/api/admin/calendar'))).status, 401);
