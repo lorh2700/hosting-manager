@@ -1,2 +1,6 @@
 /prisma/migrations/20261031160000_business_onboarding/migration.sql text eol=lf
 /scripts/db/apply-business-onboarding-20261031.sql text eol=lf
+/prisma/migrations/20261101010000_reservation_stay_services/migration.sql text eol=lf
+/prisma/migrations/20261101020000_password_reset/migration.sql text eol=lf
+/scripts/db/apply-reservation-stay-services-20261101.sql text eol=lf
+/scripts/db/apply-password-reset-20261101.sql text eol=lf
