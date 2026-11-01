@@ -748,6 +748,7 @@ model CameraSnapshot {
 model Cleaning {
   id             String    @id @default(uuid())
   propertyId     String    @map("property_id")
+  reservationId  String?   @map("reservation_id")
   date           String // YYYY-MM-DD
   cleanerId      String?   @map("cleaner_id")
   assistantCleanerId String? @map("assistant_cleaner_id")
@@ -788,6 +789,7 @@ model Cleaning {
   @@index([cleanerId])
   @@index([assistantCleanerId])
   @@index([propertyId, origin, date])
+  @@index([propertyId, reservationId])
   @@map("cleanings")
 }
 
