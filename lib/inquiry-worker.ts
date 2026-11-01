@@ -59,15 +59,6 @@ async function contextFor(job: InquiryJob) {
     reservation: { property: event.property.name, checkIn: event.startDate, checkOut: event.endDate, adults: event.numAdults, children: event.numChildren },
     messages: conversationHistory.slice().reverse().map(item => ({ sender: item.sender, text: item.text.slice(0, 4000) })),
   };
-  const manualAfter = conversation.resumeAfter && conversation.resumeAfter > config.enabledAt ? conversation.resumeAfter : config.enabledAt;
-  const manualReply = !conversation.paused && await prisma.message.findFirst({ where: {
-    eventId: job.eventId, sender: 'host', automated: false, type: 'message', createdAt: { gt: manualAfter },
-    OR: [{ beds24MessageType: null }, { beds24MessageType: 'host' }],
-  }, select: { id: true } });
-  if (manualReply) {
-    await prisma.inquiryConversation.update({ where: { eventId: job.eventId }, data: { paused: true, reason: '담당자의 기존 답변이 확인되어 자동답변을 중지했습니다.' } });
-    conversation.paused = true;
-  }
   return { config, event, conversation, message, context };
 }
 

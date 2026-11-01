@@ -144,10 +144,12 @@ test('판단 도중 담당자 응대 시작 시 진행 중인 AI 초안은 전�
   await runAll(); assert.equal(sent.length, 0);
 });
 
-test('외부 플랫폼의 담당자 답변과 새 문의, 변경된 예약은 모두 자동 전송을 막는다', async () => {
+test('초안 작성 뒤 원격 대화가 변경되면 고객에게 보내지 않고 담당자에게 넘긴다', async () => {
   await enqueueInquiries();
   await runAll({ ...deps, remote: async () => 'changed' as never });
   assert.equal(sent.length, 0); assert.equal(db.inquiryJob[0].status, 'escalated');
+  assert.match(db.inquiryJob[0].reason, /대화가 변경/);
+  assert.equal(db.inquiryConversation[0].paused, true);
 });
 
 test('변경된 예약 확인 및 독립 검증 실패는 각각 담당자에게 넘긴다', async () => {
@@ -211,10 +213,72 @@ test('판단 실패는 고객에게 추측 답변 대신 담당자 알림으로 
   assert.equal(db.inquiryJob[0].status, 'escalated'); assert.equal(sent.length, 0);
 });
 
-test('플랫폼에서 가져온 이전 수동 답변 이후의 새 문의는 담당자 응대를 유지한다', async () => {
-  await prisma.message.create({ data: { id: 'human', eventId: 'e1', propertyId: 'p1', sender: 'host', source: 'beds24', beds24MessageType: 'host', text: '담당자가 확인하겠습니다.', createdAt: new Date(Date.now() - 60_000) } });
+test('출처가 확인되지 않은 과거 host 메시지만으로 새 문의의 자동답변을 중지하지 않는다', async () => {
+  await prisma.message.create({ data: { id: 'imported-host', eventId: 'e1', propertyId: 'p1', sender: 'host', source: 'beds24', beds24MessageType: 'host', beds24BookingId: '77', beds24MessageId: '100', automated: false, text: '담당자가 확인하겠습니다.', createdAt: new Date(Date.now() - 60_000) } });
   await enqueueInquiries(); await runAll();
-  assert.equal(sent.length, 0); assert.equal(db.inquiryConversation[0].paused, true);
+  assert.deepEqual(sent, [routine.draft]);
+  assert.equal(db.inquiryConversation[0].paused, false);
+  assert.equal(db.inquiryJob[0].status, 'sent');
+  const importedHost = db.message.find(message => message.id === 'imported-host');
+  assert.ok(importedHost);
+  assert.equal(importedHost.automated, false);
+});
+
+test('Beds24 자동 안내 뒤 새 주차 문의는 근거와 예약·대화를 검증하고 한 번 답변한다', async () => {
+  const knowledge = '숙소 인근 공영주차장을 이용할 수 있습니다. 실제 요금과 운영 시간은 주차장에 확인해 주세요.';
+  const decision: InquiryDecision = { action: 'reply', category: 'parking', draft: '숙소 인근 공영주차장을 이용할 수 있습니다. 요금과 운영 시간은 해당 주차장에 확인해 주세요.', summary: '주변 주차 방법 문의', reason: '저장된 주차 안내', evidence: [knowledge] };
+  db.inquiryAutomationSettings[0].knowledge = knowledge;
+  db.message[0].text = '안녕하세요. 잘 체크인했습니다. 가까운 곳에 주차하려면 어떻게 하나요?';
+  await prisma.message.create({ data: { id: 'arrival-guide', eventId: 'e1', propertyId: 'p1', sender: 'host', source: 'beds24', beds24MessageType: 'host', beds24BookingId: '77', beds24MessageId: '100', automated: false, text: '예약 안내입니다. PLAN YOUR STAY: https://example.invalid/guide', createdAt: new Date(Date.now() - 60_000) } });
+  const checks: string[] = [];
+  const custom = { ...deps,
+    judge: async () => { checks.push('judge'); return decision; },
+    verify: async () => { checks.push('verify'); return true; },
+    reservation: async () => { checks.push('reservation'); return true; },
+    remote: async () => { checks.push('remote'); return 'unchanged' as const; },
+  };
+  await enqueueInquiries(); await runAll(custom); await runAll(custom);
+  assert.deepEqual(checks, ['judge', 'verify', 'reservation', 'remote']);
+  assert.deepEqual(sent, [decision.draft]);
+  assert.equal(db.inquiryJob[0].status, 'sent');
+  assert.equal(db.inquiryConversation[0].paused, false);
+  assert.equal((db.inquiryNotification ?? []).length, 0);
+  const arrivalGuide = db.message.find(message => message.id === 'arrival-guide');
+  assert.ok(arrivalGuide);
+  assert.equal(arrivalGuide.automated, false);
+});
+
+for (const preparedSteps of [0, 1, 4]) {
+  test(`문의 이후 수집된 host 답변이 있으면 처리 ${preparedSteps}단계 뒤에도 추가 답변하지 않는다`, async () => {
+    await enqueueInquiries();
+    for (let step = 0; step < preparedSteps; step++) await processInquiryJob(deps);
+    await prisma.message.create({ data: { id: 'new-host', eventId: 'e1', propertyId: 'p1', sender: 'host', source: 'beds24', beds24MessageType: 'host', beds24BookingId: '77', beds24MessageId: '102', automated: false, text: '주차장 위치를 안내드렸습니다.', createdAt: new Date() } });
+    await runAll();
+    assert.equal(sent.length, 0);
+    assert.equal(db.inquiryJob[0].status, 'skipped');
+    assert.equal((db.inquiryNotification ?? []).length, 0);
+  });
+}
+
+for (const preparedSteps of [1, 2, 3, 4]) {
+  test(`AI 처리 ${preparedSteps}단계 뒤 관리자가 직접 응대하면 자동답변 중지를 유지한다`, async () => {
+    await enqueueInquiries();
+    for (let step = 0; step < preparedSteps; step++) await processInquiryJob(deps);
+    const token = await acquireInquirySend('e1', true);
+    assert.ok(token);
+    await releaseInquirySend('e1', token);
+    await runAll();
+    assert.equal(sent.length, 0);
+    assert.equal(db.inquiryConversation[0].paused, true);
+    assert.equal(db.inquiryJob[0].status, 'escalated');
+  });
+}
+
+test('기존 중지 상태는 과거 host 메시지 유무와 관계없이 자동 해제하지 않는다', async () => {
+  await setInquiryPaused('e1', true, '담당자의 기존 답변이 확인되어 자동답변을 중지했습니다.');
+  await enqueueInquiries(); await runAll();
+  assert.equal(sent.length, 0);
+  assert.equal(db.inquiryConversation[0].paused, true);
   assert.equal(db.inquiryJob[0].status, 'escalated');
 });
 
