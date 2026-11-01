@@ -347,7 +347,7 @@ export default function GuestStayApp({ slug, initialLanguage, preview = false }:
   function ErrorBox({ text, retry }: { text: string; retry?: () => void }) {
     return <div className={styles.error} role="alert"><p>{text}</p>{retry && <button type="button" className={styles.textButton} onClick={retry}><RefreshCw size={15} />{t.retry}</button>}</div>;
   }
-  const dateFields = <div className={styles.formGrid}><label>{t.date}<input type="date" required min={earliestDate} max={latestDate} value={date} onChange={event => setDate(event.target.value)} /></label><label>{service === 'interim_cleaning' ? t.preferredTime : t.time}<input type="time" required value={time} onChange={event => setTime(event.target.value)} /></label></div>;
+  const dateFields = <div className={`${styles.formGrid} ${styles.dateFields}`}><label>{t.date}<input type="date" required min={earliestDate} max={latestDate} value={date} onChange={event => setDate(event.target.value)} /></label><label>{service === 'interim_cleaning' ? t.preferredTime : t.time}<input type="time" required value={time} onChange={event => setTime(event.target.value)} /></label></div>;
   const peopleField = <label>{t.people}<select value={people} onChange={event => setPeople(Number(event.target.value))}>{Array.from({ length: Math.min(12, service === 'tour' ? tourDetail?.maxGroupSize || 12 : 12) }, (_, index) => <option key={index} value={index + 1}>{index + 1}</option>)}</select></label>;
 
   return <div className={styles.app} lang={lang} data-tab={tab}>

@@ -201,4 +201,5 @@
   .app[data-tab=home] .cardArrow { top: 18px; right: 11px; }
 }
 @media (max-width: 360px) { .header { padding-right: 16px; padding-left: 16px; gap: 8px; } .logoLink img { width: 130px !important; } .language select { width: 93px; } .main { padding-left: 16px; padding-right: 16px; } .hero { height: 230px; } .stayCard { margin: -1px 6px 0; padding: 16px; } .stayTop { flex-wrap: wrap; } .stayDates { gap: 9px; grid-template-columns: 1fr 19px 1fr; } .stayDates strong { font-size: 22px; } .requestForm { padding: 16px; } .formGrid { gap: 10px; } .serviceCard { padding: 17px 14px; } .wideCard { gap: 12px; } .loginCard { padding: 20px; } }
+@media (max-width: 480px) { .dateFields { grid-template-columns: minmax(0, 1fr); } }
 @media (prefers-reduced-motion: reduce) { .app *, .loadingDot { animation: none !important; transition: none !important; } }
