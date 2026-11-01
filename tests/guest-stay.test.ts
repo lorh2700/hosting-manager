@@ -438,7 +438,7 @@ test('interim mobile/pad submissions deduplicate dates and allow another date or
 
 test('interim requests reject the same stay date under an exact event alias', async () => {
   const stay = await longStay(); db.booking[0].channelBookingRef = 'bed-123';
-  db.event = [{ id: 'alias', propertyId, type: 'reservation', originalUid: 'bed-123', channelId: 'beds24' }];
+  db.event = [{ id: 'alias', propertyId, type: 'reservation', originalUid: 'bed-123', channelId: 'beds24', title: 'Test Guest 예약', startDate: stay.checkIn, endDate: stay.checkOut, numAdults: 2, numChildren: 0 }];
   db.guestStayRequest = [{ ...cleaningRequest(), propertyId, reservationKind: 'event', reservationId: 'alias', status: 'requested' }];
   await assert.rejects(createGuestStayRequest(stay, cleaningRequest(), 'mobile'), /이미 있습니다/);
 });
@@ -472,4 +472,65 @@ test('generic guest service review cannot confirm an interim request without sch
   await createGuestStayRequest(stay, input, 'mobile');
   const response = await updateRequest(req('/api/guest-stays/requests/' + input.id, { version: 1, status: 'confirmed', publicReply: '' }), { params: Promise.resolve({ id: input.id }) });
   assert.equal(response.status, 409); assert.equal(db.guestStayRequest[0].status, 'requested');
+});
+
+async function aliasedStay() {
+  const booking = await longStay();
+  db.booking[0].channelBookingRef = 'bed-alias';
+  db.booking[0].checkout = { mode: 'live', beds24Id: 'bed-alias' };
+  db.event = [{ id: 'event-alias', propertyId, type: 'reservation', channelId: 'beds24', originalUid: 'bed-alias', title: 'ＴＥＳＴ   Guest 예약', startDate: booking.checkIn, endDate: booking.checkOut, numAdults: 2, numChildren: 0 }];
+  return { booking, event: (await liveStay({ kind: 'event', id: 'event-alias', propertyId }))! };
+}
+
+test('booking invitation request remains visible, replayable and cancellable after name login uses the exact event alias', async () => {
+  const { booking, event } = await aliasedStay(), input = cleaningRequest();
+  await createGuestStayRequest(booking, input, 'mobile');
+  await createGuestStayRequest(booking, { id: randomUUID(), kind: 'help', details: { category: 'supplies', message: 'Private other service' } }, 'mobile');
+  await createGuestStayRequest(event, { id: randomUUID(), kind: 'help', details: { category: 'issue', message: 'Own scope still visible' } }, 'mobile');
+  const session = await loggedIn();
+  assert.equal(session.stay.kind, 'event');
+  const rows = await guestStayRequests(session.stay);
+  assert.equal(rows.length, 2); assert.ok(rows.some(row => row.id === input.id));
+  assert.ok(rows.some(row => row.kind === 'help' && 'message' in row.details && row.details.message === 'Own scope still visible'));
+  assert.equal((await createGuestStayRequest(session.stay, input, 'pad')).replayed, true);
+  await assert.rejects(createGuestStayRequest(event, { ...input, details: { ...input.details, note: 'changed payload' } }, 'pad'), /이미 사용/);
+  const cancelled = await cancelGuestInterimCleaningRequest(session.stay, input.id, 1);
+  assert.equal(cancelled.request.status, 'cancelled');
+  assert.equal((await guestStayRequests(booking)).find(row => row.id === input.id)?.status, 'cancelled');
+});
+
+test('event-origin interim request can be read, replayed and cancelled through its booking invitation alias', async () => {
+  const { booking, event } = await aliasedStay(), input = cleaningRequest();
+  await createGuestStayRequest(event, input, 'pad');
+  assert.deepEqual((await guestStayRequests(booking)).map(row => row.id), [input.id]);
+  assert.equal((await createGuestStayRequest(booking, input, 'mobile')).replayed, true);
+  assert.equal((await cancelGuestInterimCleaningRequest(booking, input.id, 1)).request.status, 'cancelled');
+});
+
+test('alias sharing does not cross a different Beds24 identity, property, name or dates', async () => {
+  const { booking, event } = await aliasedStay(), input = cleaningRequest();
+  await createGuestStayRequest(booking, input, 'mobile');
+  for (const mutation of [{ originalUid: 'another-bed' }, { propertyId: otherProperty }, { title: 'Another Person 예약' }, { endDate: addDaysToDateStr(booking.checkOut, 1) }]) {
+    const saved = { ...db.event[0] }; Object.assign(db.event[0], mutation);
+    const current = await liveStay({ kind: 'event', id: event.id, propertyId: db.event[0].propertyId });
+    assert.ok(current);
+    assert.equal((await guestStayRequests(current)).some(row => row.id === input.id), false);
+    await assert.rejects(cancelGuestInterimCleaningRequest(current, input.id, 1), /찾을 수 없습니다/);
+    await assert.rejects(createGuestStayRequest(current, input, 'pad'), /이미 사용/);
+    db.event[0] = saved;
+  }
+  assert.equal(db.guestStayRequest[0].status, 'requested');
+});
+
+test('revoked booking aliases are excluded while unrelated service rows remain scoped as before', async () => {
+  const { booking, event } = await aliasedStay(), input = cleaningRequest();
+  await createGuestStayRequest(booking, input, 'mobile');
+  await createGuestStayRequest(event, { id: randomUUID(), kind: 'help', details: { category: 'other', message: 'Event scoped' } }, 'mobile');
+  db.booking[0].status = 'cancelled';
+  const rows = await guestStayRequests(event);
+  assert.equal(rows.length, 1); assert.equal(rows[0].kind, 'help');
+  await assert.rejects(cancelGuestInterimCleaningRequest(event, input.id, 1), /찾을 수 없습니다/);
+  db.booking[0].status = 'confirmed'; db.booking[0].checkout.mode = 'test';
+  assert.equal((await guestStayRequests(event)).some(row => row.id === input.id), false);
+  await assert.rejects(cancelGuestInterimCleaningRequest(event, input.id, 1), /찾을 수 없습니다/);
 });
