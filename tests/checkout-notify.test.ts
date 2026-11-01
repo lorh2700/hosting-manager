@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { SmsMessage } from '../lib/notify';
+import type { AlimtalkMessage, SmsMessage } from '../lib/notify';
 
 process.env.SOLAPI_API_KEY = 'checkout-test-key';
 process.env.SOLAPI_API_SECRET = 'checkout-test-secret';
@@ -14,7 +14,12 @@ const opts = { phone: '01012345678', name: '담당자', propertyName: '안온재
 
 test('체크아웃 알림톡 발송 성공 시 별도 문자를 보내지 않는다', async context => {
   const notifier = getNotifier();
-  const alimtalk = context.mock.method(notifier, 'sendAlimtalk', async () => ({ ok: true, provider: 'test', messageId: 'accepted' }));
+  const alimtalk = context.mock.method(notifier, 'sendAlimtalk', async (message: AlimtalkMessage) => {
+    assert.equal(message.templateId, 'checkout-test-template');
+    assert.deepEqual(message.variables, { 숙소명: '안온재', 체크아웃시각: '10:30' });
+    assert.ok(message.smsText?.includes('게스트 직접 확인'));
+    return { ok: true, provider: 'test', messageId: 'accepted' };
+  });
   const sms = context.mock.method(notifier, 'sendSms', async () => ({ ok: true, provider: 'test' }));
 
   assert.equal((await notifyCheckoutConfirmed(opts))?.ok, true);

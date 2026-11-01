@@ -343,7 +343,7 @@ export async function notifyCleaningCancelled(opts: {
 /**
  * 체크아웃 완료 알림 — 청소담당자와 호스트에게.
  * 템플릿(SOLAPI_TPL_CHECKOUT_CONFIRMED)이 없으면 문자로, 알림톡이 거부되면 문자로 대체한다.
- * 템플릿 변수: #{수신자명} #{숙소명} #{체크아웃시각} #{확인주체}
+ * 템플릿 변수: #{숙소명} #{체크아웃시각}
  */
 export async function notifyCheckoutConfirmed(opts: {
   phone: string | null;
@@ -373,10 +373,8 @@ export async function notifyCheckoutConfirmed(opts: {
     to: opts.phone,
     templateId: TEMPLATES.CHECKOUT_CONFIRMED,
     variables: {
-      수신자명: opts.name,
       숙소명: opts.propertyName,
       체크아웃시각: opts.timeText,
-      확인주체: byText,
     },
     smsText,
   }).catch(err => {
