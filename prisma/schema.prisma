@@ -93,6 +93,7 @@ model GuestStayRequest {
   status String @default("requested")
   publicReply String @default("") @map("public_reply")
   internalNote String @default("") @map("internal_note")
+  cleaningId String? @unique(map: "guest_stay_requests_cleaning_id_key") @map("cleaning_id")
   version Int @default(1)
   updatedBy String? @map("updated_by")
   createdAt DateTime @default(now()) @map("created_at")

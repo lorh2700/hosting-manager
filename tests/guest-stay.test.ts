@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { guestStayPhase, guestStayRequestSchema, guestStayDateSchema, guestStayLoginSchema, requestDateWithinStay } from '../lib/guest-stay';
 import { guestStayHash, guestStayCsrf, requireStayCsrf, requireStayOrigin, requireGuestStay, loginGuestStay, liveStay,
-  createGuestStayRequest, guestStayRequests, requireStayDevice, currentDeviceStay, newStayToken,
+  createGuestStayRequest, cancelGuestInterimCleaningRequest, guestStayRequests, requireStayDevice, currentDeviceStay, newStayToken,
   normalizeStayCode, throttleStayAttempt, readStayJson, deviceStayProof, requireDeviceStayProof } from '../lib/guest-stay-store';
 import { sealInvitation } from '../lib/guest-invitation-token';
 import { createGuestLinkStore } from '../lib/guest-link-store';
@@ -18,6 +18,7 @@ import { PATCH as updateRequest } from '../app/api/guest-stays/requests/[id]/rou
 import { POST as issueAccess } from '../app/api/guest-stays/access/route';
 import { DELETE as disconnectAccess } from '../app/api/guest-stays/access/[id]/route';
 import { POST as publicLogin } from '../app/api/public/guest-stay/login/route';
+import { PATCH as cancelPublicRequest } from '../app/api/public/guest-stay/requests/[id]/route';
 import { NextResponse, type StubResponse } from './stubs/next-server';
 
 const propertyId = 'legacy_property_id', otherProperty = 'other_property', id = '8b17a1d0-900a-400a-800a-23d02b2a4ee0';
@@ -389,4 +390,86 @@ test('staff updates use optimistic versions and keep public reply separate from 
   const updated = await updateRequest(req(path, { status: 'reviewing', publicReply: 'On our way', internalNote: 'Internal', version: 1 }), { params: Promise.resolve({ id: input.id }) });
   assert.equal(updated.status, 200); assert.equal((await guestStayRequests(stay))[0].publicReply, 'On our way');
   assert.equal(JSON.stringify(await guestStayRequests(stay)).includes('Internal'), false);
+});
+
+const cleaningRequest = (date = tomorrow) => ({ id: randomUUID(), kind: 'interim_cleaning' as const, details: { date, time: '12:30', note: 'Please bring towels' } });
+async function longStay() { db.booking[0].checkOut = addDaysToDateStr(today, 4); return (await liveStay(ref))!; }
+
+test('interim requests allow only guest details, valid dates and bounded notes', () => {
+  const input = cleaningRequest();
+  assert.equal(guestStayRequestSchema.safeParse(input).success, true);
+  for (const details of [{ ...input.details, cleaningId: 'injected' }, { ...input.details, status: 'confirmed' }, { ...input.details, note: 'a'.repeat(1001) }, { ...input.details, date: '2026-02-30' }]) {
+    assert.equal(guestStayRequestSchema.safeParse({ ...input, details }).success, false);
+  }
+});
+
+test('interim request date is strictly inside the live stay and rejects expired or changed bookings', async () => {
+  const stay = await longStay();
+  for (const date of [stay.checkIn, stay.checkOut, yesterday]) await assert.rejects(createGuestStayRequest(stay, cleaningRequest(date), 'mobile'));
+  db.booking[0].checkOut = tomorrow;
+  await assert.rejects(createGuestStayRequest(stay, cleaningRequest(), 'mobile'), /예약 정보가 변경/);
+  assert.equal((db.guestStayRequest || []).length, 0);
+});
+
+test('interim writes reject disabled cleaning, test checkout and confirmed early departure', async () => {
+  const stay = await longStay();
+  db.property[0].featureOverrides = { cleaning: false };
+  await assert.rejects(createGuestStayRequest(stay, cleaningRequest(), 'mobile'), /해당 서비스를/);
+  db.property[0].featureOverrides = {};
+  db.booking[0].checkout = { mode: 'test' };
+  await assert.rejects(createGuestStayRequest(stay, cleaningRequest(), 'mobile'), /취소되었거나 체크아웃/);
+  db.booking[0].checkout = null;
+  db.checkoutSignal = [{ id: 'out', propertyId, date: stay.checkOut, eventId: null, kind: 'guest_pad' }];
+  await assert.rejects(createGuestStayRequest(stay, cleaningRequest(), 'mobile'), /취소되었거나 체크아웃/);
+  assert.equal((db.guestStayRequest || []).length, 0);
+});
+
+test('interim mobile/pad submissions deduplicate dates and allow another date or cancelled retry', async () => {
+  const stay = await longStay(), input = cleaningRequest();
+  const first = await createGuestStayRequest(stay, input, 'mobile');
+  assert.equal(first.request.status, 'requested');
+  assert.equal((await createGuestStayRequest(stay, input, 'pad')).replayed, true);
+  await assert.rejects(createGuestStayRequest(stay, cleaningRequest(), 'pad'), /이미 있습니다/);
+  assert.equal((await createGuestStayRequest(stay, cleaningRequest(addDaysToDateStr(today, 2)), 'mobile')).request.status, 'requested');
+  await cancelGuestInterimCleaningRequest(stay, input.id, 1);
+  assert.equal((await createGuestStayRequest(stay, cleaningRequest(), 'pad')).request.status, 'requested');
+  assert.equal(db.guestStayRequest.length, 3);
+});
+
+test('interim requests reject the same stay date under an exact event alias', async () => {
+  const stay = await longStay(); db.booking[0].channelBookingRef = 'bed-123';
+  db.event = [{ id: 'alias', propertyId, type: 'reservation', originalUid: 'bed-123', channelId: 'beds24' }];
+  db.guestStayRequest = [{ ...cleaningRequest(), propertyId, reservationKind: 'event', reservationId: 'alias', status: 'requested' }];
+  await assert.rejects(createGuestStayRequest(stay, cleaningRequest(), 'mobile'), /이미 있습니다/);
+});
+
+test('guest cancellation requires scope and version; confirmed cleanings remain manager controlled', async () => {
+  const stay = await longStay(), input = cleaningRequest();
+  await createGuestStayRequest(stay, input, 'mobile');
+  await assert.rejects(cancelGuestInterimCleaningRequest(stay, randomUUID(), 1), /찾을 수 없습니다/);
+  await assert.rejects(cancelGuestInterimCleaningRequest(stay, input.id, 9), /상태가 변경/);
+  db.guestStayRequest[0].cleaningId = 'scheduled';
+  await assert.rejects(cancelGuestInterimCleaningRequest(stay, input.id, 1), /확정된 청소/);
+  db.guestStayRequest[0].cleaningId = null;
+  const result = await cancelGuestInterimCleaningRequest(stay, input.id, 1);
+  assert.equal(result.request.status, 'cancelled'); assert.equal(result.request.version, 2);
+  assert.equal((await cancelGuestInterimCleaningRequest(stay, input.id, 1)).request.version, 2);
+  assert.equal('cleaningId' in result.request, false);
+});
+
+test('public cancellation endpoint requires session and CSRF and returns a scoped request', async () => {
+  await longStay(); const session = await loggedIn(), input = cleaningRequest();
+  await createGuestStayRequest(session.stay, input, 'mobile');
+  const context = { params: Promise.resolve({ id: input.id }) };
+  assert.equal((await cancelPublicRequest(req('/api/public/guest-stay/requests/' + input.id, { version: 1 }), context)).status, 401);
+  assert.equal((await cancelPublicRequest(req('/api/public/guest-stay/requests/' + input.id, { version: 1 }, session.token), context)).status, 403);
+  const response = await cancelPublicRequest(req('/api/public/guest-stay/requests/' + input.id, { version: 1, csrfToken: guestStayCsrf(session.token) }, session.token), context) as StubResponse;
+  assert.equal(response.status, 200); assert.equal(response.body.request.status, 'cancelled');
+});
+
+test('generic guest service review cannot confirm an interim request without scheduling cleaning', async () => {
+  const stay = await longStay(), input = cleaningRequest();
+  await createGuestStayRequest(stay, input, 'mobile');
+  const response = await updateRequest(req('/api/guest-stays/requests/' + input.id, { version: 1, status: 'confirmed', publicReply: '' }), { params: Promise.resolve({ id: input.id }) });
+  assert.equal(response.status, 409); assert.equal(db.guestStayRequest[0].status, 'requested');
 });

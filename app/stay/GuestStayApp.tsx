@@ -16,7 +16,7 @@ import { guestStayTranslation } from './GuestStayCopy';
 import styles from './GuestStay.module.css';
 
 type Tab = 'home' | 'guide' | 'services' | 'requests';
-type Service = 'tour' | 'taxi' | 'help';
+type Service = GuestStayRequestInput['kind'];
 type SessionResponse = { stay: GuestStayDTO; csrfToken: string };
 type GuideSection = { id: string; title: string; paragraphs: string[]; images?: { url: string; alt: string }[] };
 type Tour = { id: string; title: string; slug: string; description: string | null; images: string[]; basePrice: number | null; durationMin: number | null; maxGroupSize: number | null };
@@ -77,6 +77,10 @@ export default function GuestStayApp({ slug, initialLanguage, preview = false }:
   const [notice, setNotice] = useState('');
   const [requestsBusy, setRequestsBusy] = useState(false);
   const [requestsError, setRequestsError] = useState(false);
+  const [cancelId, setCancelId] = useState<string | null>(null);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [cancelError, setCancelError] = useState('');
+  const cancelLock = useRef(false);
   const [sections, setSections] = useState<GuideSection[]>([]);
   const [guideBusy, setGuideBusy] = useState(false);
   const [guideError, setGuideError] = useState(false);
@@ -122,6 +126,8 @@ export default function GuestStayApp({ slug, initialLanguage, preview = false }:
     if (error instanceof ApiError && [400, 403].includes(error.status) && login) return current.loginError;
     if (error instanceof ApiError && error.status === 400) return current.inputError;
     if (error instanceof ApiError && error.status === 403) return current.refreshNeeded;
+    if (error instanceof ApiError && error.code === 'duplicate_cleaning_request') return current.duplicateCleaningRequest;
+    if (error instanceof ApiError && error.status === 409) return current.requestChanged;
     return current.connectionError;
   }, [lang]);
 
@@ -292,7 +298,7 @@ export default function GuestStayApp({ slug, initialLanguage, preview = false }:
     try {
       const details = service === 'tour'
         ? { tourId, date, time, guests: tourDetail?.ticketTiers.length ? Object.values(ticketCounts).reduce((sum, value) => sum + value, 0) : people, ...(durationOptionId ? { durationOptionId } : {}), ...(tourDetail?.ticketTiers.length ? { ticketCounts: Object.fromEntries(Object.entries(ticketCounts).sort(([left], [right]) => left.localeCompare(right))) } : {}), note }
-        : service === 'taxi' ? { date, time, destination, passengers: people, luggage: bags, note } : { category, message };
+        : service === 'taxi' ? { date, time, destination, passengers: people, luggage: bags, note } : service === 'interim_cleaning' ? { date, time, note } : { category, message };
       const fingerprint = JSON.stringify({ kind: service, details });
       if (pendingRequest.current?.fingerprint !== fingerprint) pendingRequest.current = { fingerprint, id: uuidv4() };
       const input = { id: pendingRequest.current!.id, kind: service, details } as GuestStayRequestInput;
@@ -315,9 +321,23 @@ export default function GuestStayApp({ slug, initialLanguage, preview = false }:
     try { await navigator.clipboard.writeText(value); setCopySuccess(key); window.setTimeout(() => setCopySuccess(''), 2500); }
     catch { setCopySuccess(''); }
   }
-  const earliestDate = stay ? [todayKst(), stay.checkIn].sort().at(-1) : todayKst();
-  const title = tab === 'home' ? t.welcome : tab === 'guide' ? t.roomGuide : tab === 'requests' ? t.myRequests : service === 'tour' ? t.tours : service === 'taxi' ? t.taxi : service === 'help' ? t.help : t.services;
-  const labelService = (kind: Service) => kind === 'tour' ? t.tours : kind === 'taxi' ? t.taxi : t.help;
+  async function cancelRequest(request: GuestStayRequestDTO) {
+    if (cancelLock.current) return;
+    cancelLock.current = true; setCancelBusy(true); setCancelError('');
+    try {
+      const cancelled: GuestStayRequestDTO = preview ? { ...request, status: 'cancelled', version: request.version + 1 } : (await api<{ request: GuestStayRequestDTO }>('/api/public/guest-stay/requests/' + encodeURIComponent(request.id), { ...json({ csrfToken, version: request.version }), method: 'PATCH' })).request;
+      setStay(current => current ? { ...current, requests: current.requests.map(item => item.id === request.id ? cancelled : item) } : null);
+      setCancelId(null); setNotice(t.cancelledRequest);
+    } catch (error) {
+      setCancelError(showApiError(error));
+      if (error instanceof ApiError && error.status === 409) void refreshRequests();
+    } finally { cancelLock.current = false; setCancelBusy(false); }
+  }
+  const earliestDate = stay ? [todayKst(), service === 'interim_cleaning' ? addDaysToDateStr(stay.checkIn, 1) : stay.checkIn].sort().at(-1)! : todayKst();
+  const latestDate = stay ? service === 'interim_cleaning' ? addDaysToDateStr(stay.checkOut, -1) : stay.checkOut : undefined;
+  const cleaningUnavailable = service === 'interim_cleaning' && Boolean(latestDate && earliestDate > latestDate);
+  const title = tab === 'home' ? t.welcome : tab === 'guide' ? t.roomGuide : tab === 'requests' ? t.myRequests : service === 'tour' ? t.tours : service === 'taxi' ? t.taxi : service === 'help' ? t.help : service === 'interim_cleaning' ? t.interimCleaning : t.services;
+  const labelService = (kind: Service) => kind === 'tour' ? t.tours : kind === 'taxi' ? t.taxi : kind === 'interim_cleaning' ? t.interimCleaning : t.help;
   const chosenCourse = tourDetail?.durationOptions.find(option => option.id === durationOptionId);
   const ticketTotal = Object.values(ticketCounts).reduce((sum, value) => sum + value, 0);
 
@@ -327,7 +347,7 @@ export default function GuestStayApp({ slug, initialLanguage, preview = false }:
   function ErrorBox({ text, retry }: { text: string; retry?: () => void }) {
     return <div className={styles.error} role="alert"><p>{text}</p>{retry && <button type="button" className={styles.textButton} onClick={retry}><RefreshCw size={15} />{t.retry}</button>}</div>;
   }
-  const dateFields = <div className={styles.formGrid}><label>{t.date}<input type="date" required min={earliestDate} max={stay?.checkOut} value={date} onChange={event => setDate(event.target.value)} /></label><label>{t.time}<input type="time" required value={time} onChange={event => setTime(event.target.value)} /></label></div>;
+  const dateFields = <div className={styles.formGrid}><label>{t.date}<input type="date" required min={earliestDate} max={latestDate} value={date} onChange={event => setDate(event.target.value)} /></label><label>{service === 'interim_cleaning' ? t.preferredTime : t.time}<input type="time" required value={time} onChange={event => setTime(event.target.value)} /></label></div>;
   const peopleField = <label>{t.people}<select value={people} onChange={event => setPeople(Number(event.target.value))}>{Array.from({ length: Math.min(12, service === 'tour' ? tourDetail?.maxGroupSize || 12 : 12) }, (_, index) => <option key={index} value={index + 1}>{index + 1}</option>)}</select></label>;
 
   return <div className={styles.app} lang={lang} data-tab={tab}>
@@ -351,7 +371,7 @@ export default function GuestStayApp({ slug, initialLanguage, preview = false }:
       {tab === 'home' && <>
         <div className={styles.hero}><Image src={property.image} alt={propertyName} fill priority sizes="(max-width: 680px) 100vw, 740px" unoptimized /><div className={styles.heroCaption}><p>{stay ? stay.phase === 'staying' ? t.staying : t.beforeArrival : 'VOID ANCHAE'}</p><h2>{propertyName}</h2></div></div>
         {stay && <section className={styles.stayCard} aria-label={t.login}><div className={styles.stayTop}><span><ShieldCheck size={15} />{preview ? t.sampleGuest : stay.guestName}</span><small>{Math.max(1, Math.round((Date.parse(stay.checkOut) - Date.parse(stay.checkIn)) / 86400000))} {t.nights}{stay.guests ? ' · ' + stay.guests + ' ' + t.guests : ''}</small></div><div className={styles.stayDates}><div><p>{t.checkin}</p><strong>{calendarDate(stay.checkIn, lang)}</strong><span>{property.checkInTime}</span></div><div className={styles.dateArrow}><ArrowUpRight size={21} /></div><div><p>{t.checkout}</p><strong>{calendarDate(stay.checkOut, lang)}</strong><span>{property.checkOutTime}</span></div></div></section>}
-        <div className={styles.cardGrid}><Card icon={<Leaf size={23} strokeWidth={1.5} />} title={t.roomGuide} description={t.roomGuideSub} onClick={() => go('guide')} wide /><Card icon={<Sparkles size={22} strokeWidth={1.5} />} title={t.tours} description={t.tourSub} onClick={() => go('services', 'tour')} /><Card icon={<CarFront size={23} strokeWidth={1.5} />} title={t.taxi} description={t.taxiSub} onClick={() => go('services', 'taxi')} /><Card icon={<CircleHelp size={22} strokeWidth={1.5} />} title={t.help} description={t.helpSub} onClick={() => go('services', 'help')} wide /></div>
+        <div className={styles.cardGrid}><Card icon={<Leaf size={23} strokeWidth={1.5} />} title={t.roomGuide} description={t.roomGuideSub} onClick={() => go('guide')} wide /><Card icon={<Sparkles size={22} strokeWidth={1.5} />} title={t.tours} description={t.tourSub} onClick={() => go('services', 'tour')} /><Card icon={<CarFront size={23} strokeWidth={1.5} />} title={t.taxi} description={t.taxiSub} onClick={() => go('services', 'taxi')} /><Card icon={<Sparkles size={22} strokeWidth={1.5} />} title={t.interimCleaning} description={t.interimCleaningSub} onClick={() => go('services', 'interim_cleaning')} /><Card icon={<CircleHelp size={22} strokeWidth={1.5} />} title={t.help} description={t.helpSub} onClick={() => go('services', 'help')} /></div>
         {stay?.requests.length ? <button type="button" className={styles.requestShortcut} onClick={() => go('requests')}><ClipboardList size={19} /><span>{t.myRequests}<strong>{stay.requests.filter(request => !['completed', 'cancelled'].includes(request.status)).length}</strong></span><ChevronRight size={17} /></button> : null}
         <section className={styles.address}><MapPin size={21} /><div><h2>{t.address}</h2><p>{lang === 'ko' ? property.address : property.addressEn}</p><a href={'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(property.address)} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">{t.map}<ArrowUpRight size={15} /></a></div></section>
       </>}
@@ -366,7 +386,7 @@ export default function GuestStayApp({ slug, initialLanguage, preview = false }:
         </>}
         <div className={styles.guideLinks}>{guestGuide(slug) && <a href={'/guest/' + slug + '?lang=' + lang}>{t.generalGuide}<ArrowUpRight size={18} /></a>}<a href={property.slug === 'dowonjae' ? '/guide/yeongju?lang=' + lang : '/guide?lang=' + lang}>{t.localGuide}<ArrowUpRight size={18} /></a>{property.slug !== 'dowonjae' && <a href={'/guide/jongno-events?lang=' + lang}>{t.events}<ArrowUpRight size={18} /></a>}</div>
       </>}
-      {tab === 'services' && !service && <><div className={styles.cardGrid}><Card icon={<Sparkles size={23} />} title={t.tours} description={t.tourSub} onClick={() => go('services', 'tour')} wide /><Card icon={<CarFront size={23} />} title={t.taxi} description={t.taxiSub} onClick={() => go('services', 'taxi')} wide /><Card icon={<CircleHelp size={23} />} title={t.help} description={t.helpSub} onClick={() => go('services', 'help')} wide /></div><p className={styles.softNote}>{t.requestNote}</p></>}
+      {tab === 'services' && !service && <><div className={styles.cardGrid}><Card icon={<Sparkles size={23} />} title={t.tours} description={t.tourSub} onClick={() => go('services', 'tour')} wide /><Card icon={<CarFront size={23} />} title={t.taxi} description={t.taxiSub} onClick={() => go('services', 'taxi')} wide /><Card icon={<Sparkles size={23} />} title={t.interimCleaning} description={t.interimCleaningSub} onClick={() => go('services', 'interim_cleaning')} wide /><Card icon={<CircleHelp size={23} />} title={t.help} description={t.helpSub} onClick={() => go('services', 'help')} wide /></div><p className={styles.softNote}>{t.requestNote}</p></>}
       {tab === 'services' && service === 'tour' && stay && !tourId && <section aria-label={t.allTours}>
         {catalogBusy && <p className={styles.sessionLoading} role="status"><LoaderCircle size={17} className={styles.spin} />{t.loading}</p>}
         {catalogError && <ErrorBox text={t.error} retry={() => setTourRetry(value => value + 1)} />}
@@ -381,7 +401,7 @@ export default function GuestStayApp({ slug, initialLanguage, preview = false }:
         <p className={styles.softNote}>{t.requestNote}</p>
       </section>}
       {tab === 'services' && service && stay && (service !== 'tour' || tourId) && <form className={styles.requestForm} onSubmit={submit}>
-        <fieldset disabled={sending}><legend className={styles.srOnly}>{labelService(service)}</legend>
+        <fieldset disabled={sending || cleaningUnavailable}><legend className={styles.srOnly}>{labelService(service)}</legend>
         {service === 'tour' && <>
           {tourBusy && <p className={styles.sessionLoading} role="status"><LoaderCircle size={17} className={styles.spin} />{t.loading}</p>}
           {tourError && <ErrorBox text={t.error} retry={() => setTourRetry(value => value + 1)} />}
@@ -391,14 +411,15 @@ export default function GuestStayApp({ slug, initialLanguage, preview = false }:
             <p className={styles.price}>{chosenCourse ? money(chosenCourse.price, lang) : tourDetail.basePrice !== null ? money(tourDetail.basePrice, lang) : t.priceConfirm}<small>{t.priceConfirm}</small></p>
           </div>}
         </>}
-        {service !== 'help' && <>{dateFields}<div className={styles.formGrid}>{service === 'tour' && tourDetail?.ticketTiers.length ? <p className={styles.peopleTotal}>{t.people}: {ticketTotal}</p> : peopleField}{service === 'taxi' && <label>{t.bags}<select value={bags} onChange={event => setBags(Number(event.target.value))}>{Array.from({ length: 31 }, (_, index) => <option key={index} value={index}>{index}</option>)}</select></label>}</div></>}
+        {cleaningUnavailable && <p className={styles.softNote}>{t.interimCleaningUnavailable}</p>}
+        {service !== 'help' && <>{dateFields}{service !== 'interim_cleaning' && <div className={styles.formGrid}>{service === 'tour' && tourDetail?.ticketTiers.length ? <p className={styles.peopleTotal}>{t.people}: {ticketTotal}</p> : peopleField}{service === 'taxi' && <label>{t.bags}<select value={bags} onChange={event => setBags(Number(event.target.value))}>{Array.from({ length: 31 }, (_, index) => <option key={index} value={index}>{index}</option>)}</select></label>}</div>}</>}
         {service === 'taxi' && <><div className={styles.choiceRow}><button type="button" aria-pressed={taxiType === 'local'} onClick={() => setTaxiType('local')}>{t.localTaxi}</button><button type="button" aria-pressed={taxiType === 'airport'} onClick={() => setTaxiType('airport')}>{t.airport}</button></div><label>{t.destination}<input type="text" required maxLength={300} value={destination} placeholder={t.destinationHint} onChange={event => setDestination(event.target.value)} /></label><p className={styles.helper}>{taxiType === 'airport' ? t.airportHint : (lang === 'ko' ? property.address : property.addressEn)}</p></>}
         {service === 'help' ? <><label>{t.category}<select value={category} onChange={event => setCategory(event.target.value as typeof category)}><option value="supplies">{t.supplies}</option><option value="issue">{t.issue}</option><option value="other">{t.other}</option></select></label><label>{t.message}<textarea required maxLength={2000} rows={5} value={message} placeholder={t.messageHint} onChange={event => setMessage(event.target.value)} /></label></> : <label>{t.note}<textarea rows={3} maxLength={1000} value={note} onChange={event => setNote(event.target.value)} /></label>}
-        <p className={styles.softNote}>{service === 'help' ? t.bookChannel : t.requestNote}</p>
+        <p className={styles.softNote}>{service === 'help' ? t.bookChannel : service === 'interim_cleaning' ? t.interimCleaningNote : t.requestNote}</p>
         {service === 'help' && stay.phase !== 'staying' && <p className={styles.error}>{t.helpAfterCheckin}</p>}
         <label className={styles.consent}><input type="checkbox" required checked={consent} onChange={event => setConsent(event.target.checked)} /><span>{t.consent}</span></label>
         {sendError && <ErrorBox text={sendError} retry={signedIn ? () => void loadSession() : undefined} />}
-        <button type="submit" className={styles.primary} disabled={sending || (service === 'tour' && (!tourDetail || tourBusy || tourError || (tourDetail.ticketTiers.length > 0 && (ticketTotal < 1 || ticketTotal > 12)))) || (service === 'help' && stay.phase !== 'staying')}>{sending ? <LoaderCircle size={18} className={styles.spin} /> : <Check size={18} />}{sending ? t.submitting : t.submit}</button>
+        <button type="submit" className={styles.primary} disabled={sending || cleaningUnavailable || (service === 'tour' && (!tourDetail || tourBusy || tourError || (tourDetail.ticketTiers.length > 0 && (ticketTotal < 1 || ticketTotal > 12)))) || (service === 'help' && stay.phase !== 'staying')}>{sending ? <LoaderCircle size={18} className={styles.spin} /> : <Check size={18} />}{sending ? t.submitting : t.submit}</button>
         <p className={styles.helper}>{t.allTimes}</p>
         </fieldset>
       </form>}
@@ -408,13 +429,16 @@ export default function GuestStayApp({ slug, initialLanguage, preview = false }:
         {!stay.requests.length && <div className={styles.empty}><ClipboardList size={34} strokeWidth={1.2} /><h2>{t.noRequests}</h2><p>{t.noRequestsSub}</p><button type="button" className={styles.primary} onClick={() => go('services')}>{t.services}<ArrowUpRight size={17} /></button></div>}
         <div className={styles.requestList}>{stay.requests.map(request => {
           const d = request.details;
-          return <article key={request.id} className={styles.requestCard}><div className={styles.requestCardTop}><span className={styles.smallIcon}>{request.kind === 'taxi' ? <CarFront size={21} /> : request.kind === 'tour' ? <Sparkles size={21} /> : <CircleHelp size={21} />}</span><h2>{labelService(request.kind)}</h2><span className={styles.status} data-status={request.status}>{t[request.status]}</span></div>
-            {'date' in d && <p className={styles.requestWhen}><CalendarDays size={15} />{calendarDate(d.date, lang)} · {d.time}</p>}
+          return <article key={request.id} className={styles.requestCard}><div className={styles.requestCardTop}><span className={styles.smallIcon}>{request.kind === 'taxi' ? <CarFront size={21} /> : ['tour', 'interim_cleaning'].includes(request.kind) ? <Sparkles size={21} /> : <CircleHelp size={21} />}</span><h2>{labelService(request.kind)}</h2><span className={styles.status} data-status={request.status}>{t[request.status]}</span></div>
+            {'date' in d && <p className={styles.requestWhen}><CalendarDays size={15} />{calendarDate(d.date, lang)} · {request.kind === 'interim_cleaning' ? t.preferredTime + ' ' : ''}{d.time}</p>}
             {'destination' in d && <><p>{d.destination}</p><p className={styles.helper}>{d.passengers} {t.guests} · {t.bags} {d.luggage}</p></>}
             {'tourId' in d && <><p>{request.tourSnapshot?.title || request.tourTitle || tours.find(tour => tour.id === d.tourId)?.title || (preview ? t.sampleTour : t.tours)}</p><p className={styles.helper}>{request.tourSnapshot?.durationTitle || request.durationTitle}{(request.tourSnapshot?.durationTitle || request.durationTitle) ? ' · ' : ''}{d.guests} {t.guests}</p>{request.tourSnapshot?.ticketSelections.map(ticket => <p key={ticket.id} className={styles.helper}>{ticket.label} · {ticket.count} × {money(ticket.unitPrice, lang)}</p>)}{request.tourSnapshot?.price !== null && request.tourSnapshot?.price !== undefined && <p className={styles.helper}>{money(request.tourSnapshot.price, lang)} · {t.priceConfirm}</p>}</>}
             {'message' in d && <p>{d.message}</p>}
             {'note' in d && d.note && <p className={styles.helper}>{d.note}</p>}
             {request.publicReply && <div className={styles.hostReply}><p>{t.hostReply}</p><div>{request.publicReply}</div></div>}
+            {request.kind === 'interim_cleaning' && ['requested', 'reviewing'].includes(request.status) && <div className={styles.cancelRequest}>
+              {cancelId === request.id ? <><p>{t.cancelQuestion}</p><div className={styles.cancelActions}><button type="button" className={styles.textButton} disabled={cancelBusy} onClick={() => void cancelRequest(request)}>{cancelBusy ? t.cancelling : t.cancelRequest}</button><button type="button" className={styles.textButton} disabled={cancelBusy} onClick={() => { setCancelId(null); setCancelError(''); }}>{t.keepRequest}</button></div>{cancelError && <ErrorBox text={cancelError} />}</> : <button type="button" className={styles.textButton} disabled={cancelBusy} onClick={() => { setCancelId(request.id); setCancelError(''); }}>{t.cancelRequest}</button>}
+            </div>}
             <footer>{new Intl.DateTimeFormat(lang, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Seoul' }).format(new Date(request.createdAt))}{request.source === 'pad' ? ' · ' + t.platform : ''}</footer>
           </article>;
         })}</div>

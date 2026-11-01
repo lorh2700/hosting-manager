@@ -1,6 +1,7 @@
 import { createHash, createHmac, randomBytes, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@/generated/prisma/client';
 import { fail } from '@/lib/core/errors';
 import { getPropertyDisplay, slugCandidates } from '@/lib/property-display';
 import { guestGuide } from '@/lib/guest-guide';
@@ -250,6 +251,7 @@ export async function createGuestStayRequest(stay: LiveGuestStay, raw: unknown, 
   const input = parsed.data, payloadHash = canonicalPayload(input), scope = requestScope(stay);
   await requirePropertyModule(stay.propertyId, 'guestServices');
   if (input.kind === 'tour') await requirePropertyModule(stay.propertyId, 'tours');
+  if (input.kind === 'interim_cleaning') await requirePropertyModule(stay.propertyId, 'cleaning');
   const existing = await prisma.guestStayRequest.findUnique({ where: { id: input.id } });
   if (existing) {
     if (existing.propertyId !== scope.propertyId || existing.reservationKind !== scope.reservationKind || existing.reservationId !== scope.reservationId || existing.payloadHash !== payloadHash) {
@@ -260,6 +262,9 @@ export async function createGuestStayRequest(stay: LiveGuestStay, raw: unknown, 
   if (input.kind === 'help' && stay.phase !== 'staying') throw fail(403, '객실 요청은 체크인 후 이용할 수 있습니다.', { code: 'stay_not_started' });
   if (input.kind !== 'help' && !requestDateWithinStay(input.details, stay, Date.now(), stay.property.checkOutTime, input.kind === 'taxi')) {
     throw fail(400, '투숙 기간 안의 예정 시간을 선택해 주세요.', { code: 'invalid_request_date' });
+  }
+  if (input.kind === 'interim_cleaning' && !(stay.checkIn < input.details.date && input.details.date < stay.checkOut)) {
+    throw fail(400, '체크인 다음 날부터 체크아웃 전날까지 신청할 수 있습니다.', { code: 'invalid_request_date' });
   }
   let tourSnapshot: GuestStayRequestDTO['tourSnapshot'];
   if (input.kind === 'tour') {
@@ -282,16 +287,78 @@ export async function createGuestStayRequest(stay: LiveGuestStay, raw: unknown, 
   }
   // Serialize per reservation: retries/racing mobile and pad submissions cannot exceed the bound.
   return prisma.$transaction(async tx => {
+    let cleaningScopes = [scope];
+    if (input.kind === 'interim_cleaning') {
+      await tx.$queryRaw`SELECT id FROM properties WHERE id=${stay.propertyId} FOR UPDATE`;
+      const fresh = await liveStay(stay);
+      if (!fresh || !safeEqual(stay.fingerprint, fresh.fingerprint)) throw fail(409, '예약 정보가 변경되었습니다. 다시 확인해 주세요.', { code: 'stay_changed' });
+      if (!(fresh.checkIn < input.details.date && input.details.date < fresh.checkOut) ||
+        !requestDateWithinStay(input.details, fresh, Date.now(), fresh.property.checkOutTime)) {
+        throw fail(400, '투숙 기간 안의 예정 시간을 선택해 주세요.', { code: 'invalid_request_date' });
+      }
+      cleaningScopes = await interimStayScopes(tx, fresh);
+    }
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${stay.propertyId}:${stay.kind}:${stay.id}`}))`;
     const duplicate = await tx.guestStayRequest.findUnique({ where: { id: input.id } });
     if (duplicate) {
       if (duplicate.propertyId !== scope.propertyId || duplicate.reservationKind !== scope.reservationKind || duplicate.reservationId !== scope.reservationId || duplicate.payloadHash !== payloadHash) throw fail(409, '신청 번호가 이미 사용되었습니다.');
       return { request: guestRequestDTO(duplicate), replayed: true };
     }
+    if (input.kind === 'interim_cleaning') {
+      const sameDate = await tx.guestStayRequest.findFirst({ where: { OR: cleaningScopes, kind: 'interim_cleaning', status: { not: 'cancelled' }, details: { path: ['date'], equals: input.details.date } } });
+      if (sameDate) throw fail(409, '이 날짜의 중간청소 신청이 이미 있습니다. 내 신청에서 확인해 주세요.', { code: 'duplicate_cleaning_request' });
+    }
     if (await tx.guestStayRequest.count({ where: scope }) >= 50) throw fail(429, '신청이 많습니다. 직원에게 문의해 주세요.');
     const row = await tx.guestStayRequest.create({ data: { id: input.id, ...scope, guestName: stay.guestName, kind: input.kind,
       details: tourSnapshot ? { ...input.details, tourSnapshot } : input.details, source, payloadHash } });
     return { request: guestRequestDTO(row), replayed: false };
+  });
+}
+
+async function interimStayScopes(tx: Prisma.TransactionClient, stay: LiveGuestStay) {
+  const scopes = [requestScope(stay)];
+  const invalid = () => fail(409, '예약이 취소되었거나 체크아웃된 예약에는 중간청소를 신청할 수 없습니다.', { code: 'stay_changed' });
+  const eventIds: string[] = [];
+  if (stay.kind === 'booking') {
+    const booking = await tx.booking.findUnique({ where: { id: stay.id }, select: { status: true, channelBookingRef: true, checkout: { select: { mode: true, beds24Id: true } } } });
+    if (!booking || booking.status !== 'confirmed' || booking.checkout?.mode === 'test') throw invalid();
+    const uid = booking.checkout?.beds24Id || booking.channelBookingRef;
+    if (uid) {
+      const events = await tx.event.findMany({ where: { propertyId: stay.propertyId, channelId: 'beds24', originalUid: uid, type: 'reservation' }, select: { id: true } });
+      eventIds.push(...events.map(event => event.id));
+      scopes.push(...eventIds.map(id => ({ propertyId: stay.propertyId, reservationKind: 'event' as const, reservationId: id })));
+    }
+  } else {
+    eventIds.push(stay.id);
+    const event = await tx.event.findUnique({ where: { id: stay.id }, select: { originalUid: true, channelId: true } });
+    if (event?.channelId === 'beds24' && event.originalUid) {
+      const bookings = await tx.booking.findMany({ where: { propertyId: stay.propertyId, OR: [{ channelBookingRef: event.originalUid }, { checkout: { beds24Id: event.originalUid } }] }, select: { id: true, status: true, checkout: { select: { mode: true } } } });
+      if (bookings.some(booking => booking.status !== 'confirmed' || booking.checkout?.mode === 'test')) throw invalid();
+      scopes.push(...bookings.map(booking => ({ propertyId: stay.propertyId, reservationKind: 'booking' as const, reservationId: booking.id })));
+    }
+  }
+  const checkedOut = await tx.checkoutSignal.findFirst({ where: { propertyId: stay.propertyId, kind: { in: ['host', 'guest_pad'] },
+    OR: [{ eventId: { in: eventIds } }, { eventId: null, date: stay.checkOut }] }, select: { id: true } });
+  if (checkedOut) throw invalid();
+  return scopes;
+}
+
+export async function cancelGuestInterimCleaningRequest(stay: LiveGuestStay, id: string, version: number) {
+  await requirePropertyModule(stay.propertyId, 'guestServices');
+  await requirePropertyModule(stay.propertyId, 'cleaning');
+  return prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM properties WHERE id=${stay.propertyId} FOR UPDATE`;
+    const fresh = await liveStay(stay);
+    if (!fresh || !safeEqual(stay.fingerprint, fresh.fingerprint)) throw fail(409, '예약 정보가 변경되었습니다. 다시 확인해 주세요.', { code: 'stay_changed' });
+    const where = { id, ...requestScope(stay), kind: 'interim_cleaning' };
+    const row = await tx.guestStayRequest.findFirst({ where });
+    if (!row) throw fail(404, '신청을 찾을 수 없습니다.');
+    if (row.status === 'cancelled') return { request: guestRequestDTO(row) };
+    if (!['requested', 'reviewing'].includes(row.status) || row.cleaningId) throw fail(409, '확정된 청소의 변경은 숙소에 문의해 주세요.', { code: 'cleaning_already_confirmed' });
+    const result = await tx.guestStayRequest.updateMany({ where: { ...where, version, status: { in: ['requested', 'reviewing'] }, cleaningId: null },
+      data: { status: 'cancelled', version: { increment: 1 } } });
+    if (result.count !== 1) throw fail(409, '신청 상태가 변경되었습니다. 다시 불러와 주세요.', { code: 'version_conflict' });
+    return { request: guestRequestDTO(await tx.guestStayRequest.findUniqueOrThrow({ where: { id } })) };
   });
 }
 

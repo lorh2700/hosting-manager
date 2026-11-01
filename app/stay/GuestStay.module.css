@@ -152,6 +152,8 @@
 .hostReply p { font-size: 10px; font-weight: 600; letter-spacing: .03em; color: #748263; margin: 0 0 7px; }
 .hostReply > div { font-size: 13px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
 .requestCard footer { font-size: 10px; color: #8e9487; margin-top: 17px; border-top: 1px solid #e9eadf; padding-top: 13px; line-height: 1.6; }
+.cancelRequest { margin-top: 12px; font-size: 13px; line-height: 1.6; }
+.cancelActions { display: flex; flex-wrap: wrap; column-gap: 24px; }
 .empty { text-align: center; border: 1px dashed #cbd2c0; border-radius: 12px; padding: 38px 22px; }
 .empty > svg { color: #839372; margin: 0 auto; }
 .empty h2 { font-size: 17px; font-weight: 500; margin: 20px 0 10px; }

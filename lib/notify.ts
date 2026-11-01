@@ -219,6 +219,7 @@ export interface CleaningAssignmentItem {
 
 export async function notifyCleaningAssigned(opts: {
   role?: 'primary' | 'assistant';
+  cleaningKind?: 'interim' | 'checkout';
   cleanerPhone: string | null;
   cleanerName: string;
   cleanerToken: string | null;
@@ -227,6 +228,8 @@ export async function notifyCleaningAssigned(opts: {
   if (!opts.cleanerPhone || opts.items.length === 0) return null;
   const notifier = getNotifier();
   const sorted = [...opts.items].sort((a, b) => a.date.localeCompare(b.date));
+  if (opts.cleaningKind === 'interim') return notifier.sendSms({ to: opts.cleanerPhone,
+    text: `[void anchae] 중간청소 ${opts.role === 'assistant' ? '부담당 ' : ''}배정\n${opts.cleanerName}님, ${sorted.map(item => `${item.propertyName} ${formatDateKo(item.date)}`).join(', ')} 투숙 중 중간청소에 배정되었습니다.\n방문 시간과 요청사항은 청소 일정에서 확인하고 숙소와 협의해 주세요.` });
   if (opts.role === 'assistant') return notifier.sendSms({ to: opts.cleanerPhone,
     text: `[void anchae] 청소 부담당 배정\n${opts.cleanerName}님, ${sorted.map(item => `${item.propertyName} ${formatDateKo(item.date)}`).join(', ')} 청소 부담당으로 배정되었습니다.\n캘린더에서 확인해 주세요.` });
   if (!opts.cleanerToken) {
@@ -271,6 +274,12 @@ export async function notifyCleaningAssigned(opts: {
 }
 
 export type CleaningCancelReason = 'deleted' | 'reassigned' | 'unassigned';
+
+export async function notifyInterimCleaningOpen(opts: { cleanerPhone: string | null; cleanerName: string; propertyName: string; date: string }): Promise<NotifyResult | null> {
+  if (!opts.cleanerPhone) return null;
+  return getNotifier().sendSms({ to: opts.cleanerPhone,
+    text: `[void anchae] 중간청소 담당자 모집\n${opts.cleanerName}님, ${opts.propertyName} ${formatDateKo(opts.date)} 투숙 중 중간청소에 신청할 수 있습니다.\n방문 시간과 요청사항을 확인한 후 신청해 주세요.\nhttps://admin.voidanchae.com/cleanings` });
+}
 
 const CANCEL_REASON_TEXT: Record<CleaningCancelReason, string> = {
   deleted: '예약 취소 등으로 청소 일정이 삭제되었습니다.',

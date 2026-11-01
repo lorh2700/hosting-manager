@@ -11,6 +11,7 @@ export const PATCH = withAuth<{ id: string }>('guest-stays/requests/update', asy
   const request = await prisma.guestStayRequest.findUnique({ where: { id: params.id } });
   if (!request) throw fail(404, '신청을 찾을 수 없습니다.');
   requireManage(auth, request.propertyId);
+  if (request.kind === 'interim_cleaning') throw fail(409, '중간청소 요청은 관리자 청소 일정 화면에서 승인하거나 취소해 주세요.', { code: 'cleaning_review_required' });
   const previous = request.status as typeof guestStayStatuses[number];
   if (previous !== input.data.status && !guestStayTransitions[previous]?.includes(input.data.status)) throw fail(409, '완료·취소된 신청의 상태는 변경할 수 없습니다.');
   const updated = await prisma.guestStayRequest.updateMany({ where: { id: params.id, version: input.data.version }, data: { status: input.data.status,

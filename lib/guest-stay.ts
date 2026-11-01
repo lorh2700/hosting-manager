@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const guestStayKinds = ['tour', 'taxi', 'help'] as const;
+export const guestStayKinds = ['tour', 'taxi', 'help', 'interim_cleaning'] as const;
 export const guestStayStatuses = ['requested', 'reviewing', 'confirmed', 'completed', 'cancelled'] as const;
 export type GuestStayRequestStatus = typeof guestStayStatuses[number];
 export const guestStayTransitions: Record<GuestStayRequestStatus, readonly GuestStayRequestStatus[]> = {
@@ -19,10 +19,12 @@ export const tourDetailsSchema = z.object({ tourId: z.string().uuid(), date, tim
 export const taxiDetailsSchema = z.object({ date, time, destination: z.string().trim().min(1).max(300),
   passengers: z.number().int().min(1).max(12), luggage: z.number().int().min(0).max(30), note }).strict();
 export const helpDetailsSchema = z.object({ category: z.enum(['supplies', 'issue', 'other']), message: z.string().trim().min(1).max(2000) }).strict();
+export const interimCleaningDetailsSchema = z.object({ date, time, note }).strict();
 export const guestStayRequestSchema = z.discriminatedUnion('kind', [
   z.object({ id: z.string().uuid(), kind: z.literal('tour'), details: tourDetailsSchema }).strict(),
   z.object({ id: z.string().uuid(), kind: z.literal('taxi'), details: taxiDetailsSchema }).strict(),
   z.object({ id: z.string().uuid(), kind: z.literal('help'), details: helpDetailsSchema }).strict(),
+  z.object({ id: z.string().uuid(), kind: z.literal('interim_cleaning'), details: interimCleaningDetailsSchema }).strict(),
 ]);
 export type GuestStayRequestInput = z.infer<typeof guestStayRequestSchema>;
 export type GuestStayRequestDTO = {

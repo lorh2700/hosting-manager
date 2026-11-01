@@ -22,6 +22,7 @@ const ok = { ok: true, provider: 'stub' };
 
 export async function notifyCleaningCancelled(opts: any) { notifyCalls.cancelled.push(opts); return ok; }
 export async function notifyCleaningAssigned(opts: any) { notifyCalls.assigned.push(opts); return ok; }
+export async function notifyInterimCleaningOpen(opts: any) { notifyCalls.newOpen.push(opts); return ok; }
 export async function notifyNewOpenCleanings(opts: any) { notifyCalls.newOpen.push(opts); }
 export async function notifyHostOfCleaningApplication(opts: any) { notifyCalls.application.push(opts); return ok; }
 export async function notifyTourOperatorOfBooking(opts: any) { notifyCalls.tourOperator.push(opts); }

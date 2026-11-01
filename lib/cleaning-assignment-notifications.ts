@@ -2,7 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { prisma } from '@/lib/prisma';
 import { fail } from '@/lib/core/errors';
 import { lockCleaningProperty } from '@/lib/cleaning-slots';
-import { getNotifier, notifyCleaningAssigned, notifyCleaningCancelled } from '@/lib/notify';
+import { getNotifier, notifyCleaningAssigned, notifyCleaningCancelled, notifyInterimCleaningOpen } from '@/lib/notify';
+import { canUseModule, isModuleEnabled } from '@/lib/operational-permissions';
+import { todayKst } from '@/lib/dates';
 
 type Role = 'primary' | 'assistant';
 type DeliveryStatus = 'sent' | 'pending' | 'unknown' | 'skipped';
@@ -12,10 +14,10 @@ const ACTIONS = new Set(['cleaning.interim.create', 'cleaning.interim.assign', '
 const object = (value: unknown): Record<string, unknown> | null => value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
 const identifier = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 150;
 
-function notificationDetails(value: unknown): { date: string; changes: Change[] } {
+function notificationDetails(value: unknown): { date: string; changes: Change[]; recruitment: boolean } {
   const notification = object(object(value)?.assignmentNotification);
   if (!notification || typeof notification.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(notification.date)
-    || !Array.isArray(notification.changes) || notification.changes.length < 1 || notification.changes.length > 2) throw fail(409, '청소 배정 알림 기록을 확인해 주세요.');
+    || !Array.isArray(notification.changes) || (notification.changes.length < 1 && notification.recruitment !== true) || notification.changes.length > 2) throw fail(409, '청소 배정 알림 기록을 확인해 주세요.');
   const changes = notification.changes.map((value): Change => {
     const change = object(value);
     if (!change || (change.role !== 'primary' && change.role !== 'assistant')
@@ -25,25 +27,30 @@ function notificationDetails(value: unknown): { date: string; changes: Change[] 
     return { role: change.role, previousCleanerId: change.previousCleanerId, nextCleanerId: change.nextCleanerId };
   });
   if (new Set(changes.map(change => change.role)).size !== changes.length) throw fail(409, '청소 배정 알림 기록을 확인해 주세요.');
-  return { date: notification.date, changes };
+  return { date: notification.date, changes, recruitment: notification.recruitment === true };
 }
 
 type NotificationSenders = {
   assigned: typeof notifyCleaningAssigned;
   cancelled: typeof notifyCleaningCancelled;
+  recruitment?: typeof notifyInterimCleaningOpen;
   configured: () => boolean;
 };
-const senders: NotificationSenders = { assigned: notifyCleaningAssigned, cancelled: notifyCleaningCancelled, configured: () => getNotifier().name !== 'noop' };
+const senders: NotificationSenders = { assigned: notifyCleaningAssigned, cancelled: notifyCleaningCancelled, recruitment: notifyInterimCleaningOpen, configured: () => getNotifier().name !== 'noop' };
 
 export async function deliverCleaningAssignmentNotifications(auditId: string, sender: NotificationSenders = senders): Promise<{ status: DeliveryStatus }> {
   const audit = await prisma.auditLog.findUnique({ where: { id: auditId } });
   if (!audit || !ACTIONS.has(audit.action) || audit.module !== 'cleaning' || audit.outcome !== 'success'
     || audit.targetType !== 'cleaning' || !audit.targetId || !audit.propertyId || !audit.organizationId) throw fail(404, '청소 배정 알림 기록을 찾을 수 없습니다.');
-  const { date, changes } = notificationDetails(audit.details);
-  const deliveries = changes.flatMap(change => [
+  const { date, changes, recruitment } = notificationDetails(audit.details);
+  const deliveries: { change: Change; kind: 'cancelled' | 'assigned' | 'recruitment'; recipientId: string }[] = changes.flatMap(change => [
     ...(change.previousCleanerId ? [{ change, kind: 'cancelled' as const, recipientId: change.previousCleanerId }] : []),
     ...(change.nextCleanerId ? [{ change, kind: 'assigned' as const, recipientId: change.nextCleanerId }] : []),
   ]);
+  if (recruitment && ['cleaning.interim.create', 'cleaning.interim.assign', 'cleaning.assignment.release'].includes(audit.action)) {
+    const candidates = await prisma.user.findMany({ where: { organizationId: audit.organizationId, status: 'active', notifyNewOpen: true }, select: { id: true } });
+    deliveries.push(...candidates.map(person => ({ change: { role: 'primary' as const, previousCleanerId: null, nextCleanerId: null }, kind: 'recruitment' as const, recipientId: person.id })));
+  }
   const results: DeliveryStatus[] = [];
   for (const { change, kind, recipientId } of deliveries) {
     const attemptToken = randomUUID();
@@ -60,16 +67,22 @@ export async function deliverCleaningAssignmentNotifications(auditId: string, se
         return { status: 'unknown' as const };
       }
       const [property, cleaning, recipient] = await Promise.all([
-        tx.property.findUnique({ where: { id: audit.propertyId! }, select: { id: true, organizationId: true, name: true } }),
-        tx.cleaning.findUnique({ where: { id: audit.targetId! }, select: { id: true, propertyId: true, date: true, cleanerId: true, assistantCleanerId: true, status: true } }),
-        tx.user.findUnique({ where: { id: recipientId }, select: { id: true, organizationId: true, role: true, displayName: true, phone: true, publicToken: true } }),
+        tx.property.findUnique({ where: { id: audit.propertyId! }, select: { id: true, organizationId: true, name: true, status: true, featureOverrides: true, organization: { select: { status: true, features: true } } } }),
+        tx.cleaning.findUnique({ where: { id: audit.targetId! }, select: { id: true, propertyId: true, date: true, cleanerId: true, assistantCleanerId: true, status: true, origin: true } }),
+        tx.user.findUnique({ where: { id: recipientId }, select: { id: true, organizationId: true, role: true, displayName: true, phone: true, publicToken: true, status: true, enabledModules: true, notifyNewOpen: true } }),
       ]);
       const recipientInScope = recipient?.organizationId === audit.organizationId || (recipient?.role === 'super_admin'
         && !!await tx.userProperty.findFirst({ where: { userId: recipientId, propertyId: audit.propertyId! }, select: { userId: true } }));
       const roleId = change.role === 'assistant' ? cleaning?.assistantCleanerId : cleaning?.cleanerId;
       const cancelledInterim = audit.action === 'cleaning.interim.cancel' && cleaning?.status === 'cancelled'
         && kind === 'cancelled' && change.nextCleanerId === null && roleId === change.previousCleanerId;
-      const valid = property?.organizationId === audit.organizationId && cleaning?.propertyId === property?.id && cleaning?.date === date
+      const baseValid = property?.organizationId === audit.organizationId && cleaning?.propertyId === property?.id && cleaning?.date === date && recipientInScope && !!recipient?.phone;
+      const recruitmentValid = kind === 'recruitment' && baseValid && cleaning?.origin === 'interim' && cleaning.status === 'pending' && !cleaning.cleanerId
+        && cleaning.assistantCleanerId !== recipientId && date >= todayKst() && property?.status === 'active' && property.organization?.status === 'active'
+        && recipient?.status === 'active' && recipient.notifyNewOpen && canUseModule(recipient.role, recipient.enabledModules, 'cleaning')
+        && isModuleEnabled('cleaning', property.organization.features, property.featureOverrides)
+        && (recipient.role === 'admin' || !!await tx.userProperty.findFirst({ where: { userId: recipientId, propertyId: audit.propertyId! }, select: { userId: true } }));
+      const valid = kind === 'recruitment' ? recruitmentValid : baseValid
         && (roleId === change.nextCleanerId || cancelledInterim) && recipientInScope && !!recipient?.phone
         && (kind === 'cancelled' || cleaning?.status !== 'cancelled');
       const row = existing ?? await tx.cleaningAssignmentNotification.create({ data: { auditId, role: change.role, kind, recipientId } });
@@ -82,14 +95,16 @@ export async function deliverCleaningAssignmentNotifications(auditId: string, se
         return { status: 'pending' as const };
       }
       await tx.cleaningAssignmentNotification.update({ where: { id: row.id }, data: { state: 'sending', attemptToken, attempts: { increment: 1 }, lastErrorCode: null } });
-      return { id: row.id, recipient: recipient!, property: property! };
+      return { id: row.id, recipient: recipient!, property: property!, interim: cleaning!.origin === 'interim' };
     });
     if ('status' in claim) { results.push(claim.status!); continue; }
     let status: DeliveryStatus;
     let errorCode: string | null = null;
     try {
-      const response = kind === 'assigned'
-        ? await sender.assigned({ role: change.role, cleanerPhone: claim.recipient.phone, cleanerName: claim.recipient.displayName || '직원', cleanerToken: claim.recipient.publicToken,
+      const response = kind === 'recruitment'
+        ? await (sender.recruitment || notifyInterimCleaningOpen)({ cleanerPhone: claim.recipient.phone, cleanerName: claim.recipient.displayName || '직원', propertyName: claim.property.name, date })
+        : kind === 'assigned'
+        ? await sender.assigned({ role: change.role, cleaningKind: claim.interim ? 'interim' : 'checkout', cleanerPhone: claim.recipient.phone, cleanerName: claim.recipient.displayName || '직원', cleanerToken: claim.recipient.publicToken,
           items: [{ propertyName: claim.property.name, date }] })
         : await sender.cancelled({ role: change.role, cleanerPhone: claim.recipient.phone, cleanerName: claim.recipient.displayName || '직원', propertyName: claim.property.name, date,
           reason: change.nextCleanerId ? 'reassigned' : 'unassigned' });

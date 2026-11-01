@@ -90,3 +90,23 @@ test('explicitly assigned super manager can receive their cleaning role notifica
   assert.equal((await deliverCleaningAssignmentNotifications('no-longer-assigned')).status, 'skipped');
   assert.equal(notifyCalls.assigned.length, 1);
 });
+
+test('interim assignment sends the correct service kind rather than a checkout time', async () => {
+  db.cleaning[0].origin = 'interim';
+  await deliverCleaningAssignmentNotifications('audit');
+  assert.equal(notifyCalls.assigned[0].cleaningKind, 'interim');
+});
+
+test('interim recruitment respects assigned scope, active account and opt-in; retries send once', async () => {
+  db.property[0].status = 'active'; db.property[0].organization = { status: 'active', features: {} };
+  Object.assign(db.cleaning[0], { origin: 'interim', cleanerId: null, date: '2099-01-01' });
+  db.user = ['eligible', 'unassigned', 'disabled', 'optout', 'foreign', 'suspended'].map(id => ({ id, role: 'cleaner', status: id === 'suspended' ? 'suspended' : 'active', notifyNewOpen: id !== 'optout', enabledModules: id === 'disabled' ? [] : ['cleaning'], organizationId: id === 'foreign' ? 'other' : 'org', phone: '010-test' }));
+  db.userProperty = ['eligible', 'disabled', 'optout', 'foreign', 'suspended'].map(userId => ({ userId, propertyId: 'p' }));
+  db.auditLog = [{ ...audit([]), action: 'cleaning.interim.create', details: { assignmentNotification: { date: '2099-01-01', changes: [], recruitment: true } } }];
+  await Promise.all([deliverCleaningAssignmentNotifications('audit'), deliverCleaningAssignmentNotifications('audit')]);
+  assert.equal(notifyCalls.newOpen.length, 1);
+  assert.equal(db.cleaningAssignmentNotification.filter(row => row.kind === 'recruitment' && row.state === 'sent').length, 1);
+  db.auditLog[0].id = 'assigned-audit'; db.cleaning[0].cleanerId = 'eligible';
+  await deliverCleaningAssignmentNotifications('assigned-audit');
+  assert.equal(notifyCalls.newOpen.length, 1);
+});

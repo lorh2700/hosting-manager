@@ -17,7 +17,7 @@ type Device = { id: string; propertyId: string; label: string; pairedAt: string 
 type ListData = { properties: Property[]; stays: Stay[]; requests: RequestRow[]; devices: Device[]; nextCursor: string | null; truncated?: boolean };
 type Share = { title: string; url: string; image: string };
 const statuses: Record<RequestStatus, string> = { requested: '접수', reviewing: '확인 중', confirmed: '확정', cancelled: '취소', completed: '완료' };
-const kinds = { tour: '투어·체험', taxi: '택시', help: '숙소 문의' };
+const kinds = { tour: '투어·체험', taxi: '택시', help: '숙소 문의', interim_cleaning: '중간청소' };
 const transitions = guestStayTransitions;
 const detailLabels: Record<string, string> = { tourId: '상품 번호', tourSlug: '상품', tourTitle: '투어', course: '코스', date: '희망 날짜', time: '희망 시간', requestDate: '희망 날짜', requestTime: '희망 시간', guests: '인원', passengers: '탑승 인원', luggage: '수하물', destination: '목적지', pickupDate: '출발 날짜', pickupTime: '출발 시간', terminal: '터미널', message: '요청 내용', note: '요청 사항', notes: '요청 사항', category: '문의 분류', title: '문의 제목', contact: '연락 방법', phone: '연락처', email: '이메일', language: '언어' };
 function today() { return new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' }); }
@@ -44,7 +44,8 @@ function RequestCard({ row, onSaved }: { row: RequestRow; onSaved: () => void })
   return <article className={styles.requestCard}>
     <div className={styles.cardTop}><div><p className={styles.eyebrow}>{row.propertyName} · {row.source === 'pad' ? '객실 패드' : '휴대폰'} · {dateTime(row.createdAt)}</p><h2>{row.guestName} <span>{kinds[row.kind]}</span></h2></div><span className={styles.status} data-status={row.status}>{statuses[row.status]}</span></div>
     <dl className={styles.details}>{row.tourTitle && <div><dt>투어·체험</dt><dd>{row.tourTitle}</dd></div>}{row.durationTitle && <div><dt>코스</dt><dd>{row.durationTitle}</dd></div>}{Object.entries(row.details || {}).filter(([key, value]) => !['tourId', 'durationOptionId', 'ticketCounts', 'tourSnapshot'].includes(key) && detailText(value)).map(([key, value]) => <div key={key}><dt>{detailLabels[key] || '신청 내용'}</dt><dd>{detailText(value)}</dd></div>)}{row.tourSnapshot?.ticketSelections?.length ? <div><dt>티켓 종류</dt><dd>{row.tourSnapshot.ticketSelections.map(item => `${item.label} ${item.count}명`).join(' · ')}</dd></div> : null}{row.tourSnapshot?.price != null && <div><dt>신청 시 안내 금액</dt><dd>{row.tourSnapshot.price.toLocaleString()}원{row.tourSnapshot.pricingBasis === 'tickets' ? ' (티켓 합계)' : row.tourSnapshot.pricingBasis === 'course' ? ' (코스 기준)' : ' (참고 금액)'}</dd></div>}</dl>
-    <fieldset className={styles.editor} disabled={busy}>
+    {row.kind === 'interim_cleaning' && <p>중간청소 요청은 관리자 청소 일정 화면에서 승인하거나 취소해 주세요.</p>}
+    <fieldset className={styles.editor} disabled={busy || row.kind === 'interim_cleaning'}>
       <label>게스트에게 보여줄 안내<textarea value={reply} onChange={e => setReply(e.target.value)} maxLength={2000} rows={3} placeholder="확인한 일정·차량·요금 등을 알려 주세요."/><small>게스트의 ‘내 신청’ 화면에 표시됩니다. 문자나 플랫폼 메시지를 자동 발송하지 않습니다.</small></label>
       <label>담당자 메모<textarea value={note} onChange={e => setNote(e.target.value)} maxLength={2000} rows={2} placeholder="내부에서만 확인할 내용"/><small>게스트에게 표시되지 않습니다.</small></label>
       <div className={styles.actions}><label>처리 상태<select value={status} onChange={e => setStatus(e.target.value as RequestStatus)}>{[row.status, ...transitions[row.status]].map(value => <option key={value} value={value}>{statuses[value]}</option>)}</select></label><button disabled={busy || !dirty} onClick={() => void save()}>{busy ? <Loader2 className={styles.spin} size={16}/> : <Check size={16}/>}변경 저장</button></div>

@@ -54,6 +54,7 @@ function matchValue(actual: any, cond: any): boolean {
   if (cond === null) return actual === null || actual === undefined;
   if (cond instanceof Date) return actual instanceof Date ? actual.getTime() === cond.getTime() : actual === cond;
   if (typeof cond !== 'object' || Array.isArray(cond)) return actual === cond;
+  if (Array.isArray(cond.path)) actual = cond.path.reduce((value: any, key: string) => value?.[key], actual);
   if (!isOperatorObject(cond)) {
     // 중첩 관계 필터 (예: where: { property: { ownerId } }) — 실린 객체가 있으면 그것으로, 없으면 통과.
     return actual && typeof actual === 'object' ? matches(actual, cond) : true;
