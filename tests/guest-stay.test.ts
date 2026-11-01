@@ -339,6 +339,23 @@ test('tour request requires the active course, valid selected ticket counts and 
   db.tour[0].title = 'Changed Title'; db.tour[0].ticketTiers[0].price = 90000;
   assert.equal(created.request.tourTitle, 'Hanji Workshop'); assert.equal(created.request.tourSnapshot?.price, 80000);
 });
+
+test('tour requests notify the property business once across app and pad replay without exposing the recipient', async context => {
+  context.mock.method(console, 'warn', () => {});
+  db.property[0].organizationId = 'property-org';
+  db.tourNotificationSettings = [{ organizationId: 'property-org', phone: '01033334444' }, { organizationId: 'tour-org', phone: '01099999999' }];
+  db.inquiryNotificationSettings = [{ propertyId, enabled: true, recipients: [{ name: '숙소 담당자', phone: '01055556666' }] }];
+  const stay = (await liveStay(ref))!, tourId = randomUUID();
+  db.tour = [{ id: tourId, organizationId: 'tour-org', title: '한옥 산책', isActive: true, basePrice: 30000, maxGroupSize: 6, durationOptions: [], ticketTiers: [] }];
+  const input = { id: randomUUID(), kind: 'tour', details: { tourId, date: tomorrow, time: '09:00', guests: 2 } };
+  const results = await Promise.all([createGuestStayRequest(stay, input, 'mobile'), createGuestStayRequest(stay, input, 'pad')]);
+  assert.equal(results.filter(result => !result.replayed).length, 1);
+  assert.equal(notifyCalls.sms.length, 1);
+  assert.equal(notifyCalls.sms[0].to, '01033334444');
+  assert.doesNotMatch(JSON.stringify(results), /01033334444|01099999999|01055556666/);
+  await createGuestStayRequest(stay, input, 'mobile');
+  assert.equal(notifyCalls.sms.length, 1);
+});
 test('paired devices require the distinct hashed bearer and revoked devices invalidate associated guest sessions', async () => {
   const token = `gst_device_${newStayToken()}`, deviceId = randomUUID();
   db.guestStayDevice = [{ id: deviceId, propertyId, pairedAt: new Date(), revokedAt: null, tokenHash: guestStayHash(token), expiresAt: new Date(Date.now() + 60000) }];

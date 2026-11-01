@@ -1,6 +1,7 @@
 import { todayKst } from '@/lib/dates';
 import { prisma } from '@/lib/prisma';
 import { notifyTourHostOfBooking, notifyTourGuestOfBooking } from '@/lib/notify';
+import { getTourNotificationRecipient } from '@/lib/tour-notification-recipients';
 import { rateLimit, clientIp } from '@/lib/rateLimit';
 import { withErrors, created, fail, readJson, str } from '@/lib/core/http';
 
@@ -28,7 +29,7 @@ export const POST = withErrors('public/tour-bookings', async (req) => {
   const result = await prisma.$transaction(async (tx) => {
     const tour = await tx.tour.findUnique({
       where: { id: tourId },
-      include: { operator: true, durationOptions: true, ticketTiers: true, owner: { select: { id: true, displayName: true, email: true, phone: true } } },
+      include: { operator: true, durationOptions: true, ticketTiers: true, owner: { select: { id: true, organizationId: true, displayName: true, email: true, phone: true } } },
     });
     if (!tour || !tour.isActive) throw fail(404, '문의 가능한 투어를 찾을 수 없습니다.');
 
@@ -115,12 +116,14 @@ export const POST = withErrors('public/tour-bookings', async (req) => {
     meetingPoint: result.tour.meetingPoint,
     bookingId: result.booking.id,
   };
-  notifyTourHostOfBooking({
-    ...commonNotifyOpts, guestPhone: trimmedPhone || null,
-    hostPhone: result.tour.owner.phone, hostName: result.tour.owner.displayName ?? result.tour.owner.email,
-  }).catch(err => console.error('[public/tour-bookings] host notify failed:', err));
-  notifyTourGuestOfBooking({ ...commonNotifyOpts, guestPhone: trimmedPhone || null })
-    .catch(err => console.error('[public/tour-bookings] guest notify failed:', err));
+  await Promise.all([
+    getTourNotificationRecipient(result.tour).then(recipient => notifyTourHostOfBooking({
+      ...commonNotifyOpts, guestPhone: trimmedPhone || null,
+      hostPhone: recipient?.phone ?? null, hostName: recipient?.name ?? '',
+    })).catch(() => console.error('[public/tour-bookings] host notify failed', { bookingId: result.booking.id })),
+    notifyTourGuestOfBooking({ ...commonNotifyOpts, guestPhone: trimmedPhone || null })
+      .catch(() => console.error('[public/tour-bookings] guest notify failed', { bookingId: result.booking.id })),
+  ]);
 
   return created({ success: true, bookingId: result.booking.id });
 });

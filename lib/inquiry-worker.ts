@@ -54,12 +54,24 @@ async function contextFor(job: InquiryJob) {
   const conversationHistory = history.filter(item => !item.beds24MessageType || ['guest', 'host'].includes(item.beds24MessageType));
   const latest = conversationHistory.find(item => item.sender === 'guest' || item.sender === 'host');
   if (latest?.id !== message.id) return null;
+  let state = conversation;
+  if (state.paused && state.pauseSource === 'automatic' && state.pauseMessageId && state.pauseMessageId !== message.id) {
+    const origin = await prisma.message.findUnique({ where: { id: state.pauseMessageId }, select: { eventId: true, createdAt: true } });
+    if (origin?.eventId === job.eventId && message.createdAt > origin.createdAt) {
+      await prisma.inquiryConversation.updateMany({ where: { eventId: job.eventId, paused: true, pauseSource: 'automatic',
+        pauseMessageId: state.pauseMessageId, resumeAfter: state.resumeAfter, updatedAt: state.updatedAt,
+        OR: [{ sendToken: null }, { sendUntil: { lt: new Date() } }] },
+        data: { paused: false, pauseSource: null, pauseMessageId: null, reason: null } });
+      state = (await prisma.inquiryConversation.findUnique({ where: { eventId: job.eventId } }))!;
+      if (!state || (state.resumeAfter && message.createdAt <= state.resumeAfter)) return null;
+    }
+  }
   const context: InquiryContext = {
     knowledge: config.knowledge,
     reservation: { property: event.property.name, checkIn: event.startDate, checkOut: event.endDate, adults: event.numAdults, children: event.numChildren },
     messages: conversationHistory.slice().reverse().map(item => ({ sender: item.sender, text: item.text.slice(0, 4000) })),
   };
-  return { config, event, conversation, message, context };
+  return { config, event, conversation: state, message, context };
 }
 
 async function queueAlerts(job: InquiryJob) {
@@ -70,11 +82,15 @@ async function queueAlerts(job: InquiryJob) {
 
 async function escalate(job: InquiryJob, reason: string, summary = job.summary, draft = job.draft) {
   await ensureInquiryConversation(job.eventId);
+  const message = await prisma.message.findUnique({ where: { id: job.messageId }, select: { createdAt: true } });
   const changed = await prisma.$transaction(async tx => {
     const result = await tx.inquiryJob.updateMany({ where: { messageId: job.messageId, leaseToken: job.leaseToken, status: { notIn: ['sent', 'skipped', 'escalated'] } },
       data: { status: 'escalated', reason, summary, draft, leaseToken: null, leaseUntil: null } });
     if (!result.count) return false;
-    await tx.inquiryConversation.update({ where: { eventId: job.eventId }, data: { paused: true, reason } });
+    if (message) await tx.inquiryConversation.updateMany({ where: { eventId: job.eventId, AND: [
+      { OR: [{ paused: false }, { pauseSource: 'automatic' }] },
+      { OR: [{ resumeAfter: null }, { resumeAfter: { lt: message.createdAt } }] },
+    ] }, data: { paused: true, pauseSource: 'automatic', pauseMessageId: job.messageId, reason } });
     return true;
   });
   if (!changed) return;

@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { authorizeTourBooking, authorizeTourSchedule } from '@/lib/auth';
 import { notifyTourHostOfBooking, notifyTourGuestOfBooking } from '@/lib/notify';
+import { getTourNotificationRecipient } from '@/lib/tour-notification-recipients';
 import { tourOwnershipWhere } from '@/lib/tour-access';
 import { withAuth, ok, created, fail, MESSAGES, readJson, str, query } from '@/lib/core/http';
 
@@ -51,7 +52,7 @@ export const POST = withAuth('tour-bookings', async (req, { auth }) => {
   const result = await prisma.$transaction(async (tx) => {
     const schedule = await tx.tourSchedule.findUnique({
       where: { id: scheduleId },
-      include: { tour: { include: { operator: true, durationOptions: true, owner: { select: { id: true, displayName: true, email: true, phone: true } } } } },
+      include: { tour: { include: { operator: true, durationOptions: true, owner: { select: { id: true, organizationId: true, displayName: true, email: true, phone: true } } } } },
     });
     if (!schedule) return { ok: false as const, error:'슬롯을 찾을 수 없습니다.', status: 404 } as const;
     if (schedule.capacity - schedule.bookedCount < guestCount) {
@@ -104,12 +105,14 @@ export const POST = withAuth('tour-bookings', async (req, { auth }) => {
     meetingPoint: result.tour.meetingPoint,
     bookingId: result.booking.id,
   };
-  notifyTourHostOfBooking({
-    ...commonNotifyOpts, guestPhone: trimmedPhone || null,
-    hostPhone: result.tour.owner.phone, hostName: result.tour.owner.displayName ?? result.tour.owner.email,
-  }).catch(err => console.error('[tour-bookings] host notify failed:', err));
-  notifyTourGuestOfBooking({ ...commonNotifyOpts, guestPhone: trimmedPhone || null })
-    .catch(err => console.error('[tour-bookings] guest notify failed:', err));
+  await Promise.all([
+    getTourNotificationRecipient(result.tour).then(recipient => notifyTourHostOfBooking({
+      ...commonNotifyOpts, guestPhone: trimmedPhone || null,
+      hostPhone: recipient?.phone ?? null, hostName: recipient?.name ?? '',
+    })).catch(() => console.error('[tour-bookings] host notify failed', { bookingId: result.booking.id })),
+    notifyTourGuestOfBooking({ ...commonNotifyOpts, guestPhone: trimmedPhone || null })
+      .catch(() => console.error('[tour-bookings] guest notify failed', { bookingId: result.booking.id })),
+  ]);
 
   return created(result.booking);
 });

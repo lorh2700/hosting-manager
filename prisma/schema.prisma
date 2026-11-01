@@ -271,8 +271,18 @@ model Organization {
   invitations Invitation[]
   propertyRequests PropertyRequest[]
   tours Tour[]
+  tourNotificationSettings TourNotificationSettings?
   @@index([status, name])
   @@map("organizations")
+}
+
+model TourNotificationSettings {
+  organizationId String @id @map("organization_id")
+  phone String
+  updatedAt DateTime @updatedAt @map("updated_at")
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("tour_notification_settings")
 }
 
 // Append-only activity history intentionally has no deleting actor/property foreign keys.
@@ -361,6 +371,8 @@ model InquiryAutomationSettings {
 model InquiryConversation {
   eventId String @id @map("event_id")
   paused Boolean @default(false)
+  pauseSource String? @map("pause_source")
+  pauseMessageId String? @map("pause_message_id")
   reason String?
   resumeAfter DateTime? @map("resume_after")
   sendToken String? @map("send_token")

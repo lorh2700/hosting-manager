@@ -13,7 +13,7 @@ export async function acquireInquirySend(eventId: string, manual = false): Promi
   const token = randomUUID();
   const locked = await prisma.inquiryConversation.updateMany({
     where: { eventId, ...(manual ? {} : { paused: false }), OR: [{ sendToken: null }, { sendUntil: { lt: new Date() } }] },
-    data: { sendToken: token, sendUntil: new Date(Date.now() + 120_000), ...(manual ? { paused: true, reason: '담당자가 직접 응대 중입니다.' } : {}) },
+    data: { sendToken: token, sendUntil: new Date(Date.now() + 120_000), ...(manual ? { resumeAfter: new Date() } : {}) },
   });
   return locked.count === 1 ? token : null;
 }
@@ -26,7 +26,8 @@ export async function setInquiryPaused(eventId: string, paused: boolean, reason 
   await ensureInquiryConversation(eventId);
   const result = await prisma.inquiryConversation.updateMany({
     where: { eventId, OR: [{ sendToken: null }, { sendUntil: { lt: new Date() } }] },
-    data: { paused, reason: paused ? reason : null, ...(!paused ? { resumeAfter: new Date() } : {}), sendToken: null, sendUntil: null },
+    data: { paused, pauseSource: paused ? 'manual' : null, pauseMessageId: null, reason: paused ? reason : null,
+      ...(!paused ? { resumeAfter: new Date() } : {}), sendToken: null, sendUntil: null },
   });
   if (result.count !== 1) throw fail(409, '메시지를 전송 중입니다. 잠시 후 다시 시도해 주세요.');
 }

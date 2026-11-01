@@ -16,6 +16,7 @@ export interface AlimtalkMessage {
    * recipient isn't registered with Kakao or has alimtalk disabled).
    */
   smsText?: string;
+  signal?: AbortSignal;
 }
 
 export interface NotifyResult {
@@ -132,6 +133,7 @@ class SolapiProvider implements NotifyProvider {
       }
       const res = await fetch(`${this.endpoint}/messages/v4/send`, {
         method: 'POST',
+        signal: msg.signal,
         headers: {
           'Content-Type': 'application/json',
           Authorization: this.authHeader(),
@@ -587,21 +589,34 @@ export async function notifyTourHostOfBooking(opts: {
   totalPrice?: number | null;
   meetingPoint: string | null;
   bookingId: string;
+  inquiry?: boolean;
 }): Promise<NotifyResult | null> {
   if (!opts.hostPhone) {
     console.log('[notify] tour host has no phone; skipping host notify', { bookingId: opts.bookingId });
     return null;
   }
   const templateId = TEMPLATES.TOUR_BOOKING_HOST;
-  if (!templateId) {
-    console.warn('[notify] SOLAPI_TPL_TOUR_BOOKING_HOST (or _NEW) not set; skipping host notify');
+  const notifier = getNotifier();
+  if (notifier.name === 'noop') {
+    console.warn('[notify] tour host provider unconfigured', { bookingId: opts.bookingId });
     return null;
   }
+  const signal = AbortSignal.timeout(8000);
+  if (!templateId) {
+    const text = `[void anchae 투어 ${opts.inquiry ? '문의' : '예약'} 접수]\n` +
+      `투어: ${opts.tourTitle}\n일정: ${formatDateKo(opts.date)} ${opts.startTime}\n` +
+      `예약자: ${opts.guestName}\n연락처: ${opts.guestPhone?.trim() || '연락처 미입력'}\n` +
+      `인원: ${opts.guests}명\n접수번호: ${opts.bookingId}`;
+    return notifier.sendSms({ to: opts.hostPhone, text, signal }).catch(() => {
+      console.error('[notify] tour host SMS failed', { bookingId: opts.bookingId });
+      return null;
+    });
+  }
 
-  const notifier = getNotifier();
   return notifier.sendAlimtalk({
     to: opts.hostPhone,
     templateId,
+    signal,
     variables: {
       업체명: opts.hostName,
       투어명: opts.tourTitle,
@@ -678,7 +693,7 @@ export async function notifyTourGuestOfBooking(opts: {
   if (opts.inquiry || !templateId) {
     // No alimtalk template registered → send straight SMS.
     console.warn('[notify] SOLAPI_TPL_TOUR_BOOKING_GUEST not set; sending plain SMS instead');
-    return notifier.sendSms({ to: opts.guestPhone, text: smsText }).catch(err => {
+    return notifier.sendSms({ to: opts.guestPhone, text: smsText, signal: AbortSignal.timeout(8000) }).catch(err => {
       console.error('[notify] tour guest SMS failed', err);
       return null;
     });
@@ -687,6 +702,7 @@ export async function notifyTourGuestOfBooking(opts: {
   return notifier.sendAlimtalk({
     to: opts.guestPhone,
     templateId,
+    signal: AbortSignal.timeout(8000),
     variables,
     smsText,
   }).catch(err => {

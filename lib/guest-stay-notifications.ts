@@ -1,13 +1,15 @@
 import { getInquiryNotificationRecipients } from '@/lib/inquiry-notification-recipients';
+import { getGuestStayTourNotificationRecipients } from '@/lib/tour-notification-recipients';
 import { getNotifier, type NotifyProvider } from '@/lib/notify';
 import type { GuestStayRequestDTO } from '@/lib/guest-stay';
 
 type Stay = { propertyId: string; guestName: string; checkIn: string; checkOut: string; property: { name: string } };
 type Dependencies = {
   recipients: typeof getInquiryNotificationRecipients;
+  tourRecipients?: typeof getGuestStayTourNotificationRecipients;
   notifier: () => NotifyProvider;
 };
-const defaults: Dependencies = { recipients: getInquiryNotificationRecipients, notifier: getNotifier };
+const defaults: Dependencies = { recipients: getInquiryNotificationRecipients, tourRecipients: getGuestStayTourNotificationRecipients, notifier: getNotifier };
 const labels = { tour: '투어 신청', taxi: '택시·픽업 신청', help: '객실 요청', interim_cleaning: '중간청소 신청' };
 const helpLabels = { supplies: '비품', issue: '시설 문제', other: '기타' };
 const clean = (value: string, limit = 120) => value.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, limit);
@@ -39,7 +41,7 @@ export function guestStayNotificationText(stay: Stay, request: GuestStayRequestD
 export async function notifyGuestStayRequest(stay: Stay, request: GuestStayRequestDTO, deps: Dependencies = defaults) {
   const context = { requestId: request.id, propertyId: stay.propertyId, kind: request.kind, source: request.source };
   try {
-    const recipients = await deps.recipients(stay.propertyId);
+    const recipients = await (request.kind === 'tour' ? deps.tourRecipients ?? getGuestStayTourNotificationRecipients : deps.recipients)(stay.propertyId);
     if (!recipients.length) {
       console.warn('[guest-stay-notify]', { ...context, status: 'no_recipients' });
       return;

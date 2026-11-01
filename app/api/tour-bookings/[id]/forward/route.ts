@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { authorizeTourBooking } from '@/lib/auth';
 import { notifyTourOperatorOfBooking, notifyTourHostOfBooking } from '@/lib/notify';
+import { getTourNotificationRecipient } from '@/lib/tour-notification-recipients';
 import { withAuth, ok, fail, MESSAGES } from '@/lib/core/http';
 
 type Params = { id: string };
@@ -12,7 +13,7 @@ export const POST = withAuth<Params>('tour-bookings/forward', async (_req, { aut
   const booking = await prisma.tourBooking.findUnique({
     where: { id: params.id },
     include: {
-      tour: { include: { operator: true, owner: { select: { id: true, displayName: true, email: true, phone: true } } } },
+      tour: { include: { operator: true, owner: { select: { id: true, organizationId: true, displayName: true, email: true, phone: true } } } },
       schedule: true,
     },
   });
@@ -33,7 +34,9 @@ export const POST = withAuth<Params>('tour-bookings/forward', async (_req, { aut
 
   await Promise.all([
     notifyTourOperatorOfBooking({ ...commonNotifyOpts, operator: booking.tour.operator }),
-    notifyTourHostOfBooking({ ...commonNotifyOpts, hostPhone: booking.tour.owner.phone, hostName: booking.tour.owner.displayName ?? booking.tour.owner.email }),
+    getTourNotificationRecipient(booking.tour).then(recipient => notifyTourHostOfBooking({
+      ...commonNotifyOpts, hostPhone: recipient?.phone ?? null, hostName: recipient?.name ?? '',
+    })).catch(() => console.error('[tour-bookings/forward] host notify failed', { bookingId: booking.id })),
   ]);
 
   await prisma.tourBooking.update({ where: { id: params.id }, data: { status: 'forwarded', forwardedAt: new Date() } });

@@ -40,13 +40,15 @@ test('자동답변 설정과 대화 상태 변경은 해당 숙소 관리 권한
   }
 });
 
-test('수동 답변 발송 API가 대화 자동답변을 중지한다', async () => {
+test('수동 답변 발송 API가 이전 문의만 제외하고 대화 자동답변은 유지한다', async () => {
   resetFetch();
   installBeds24Mock({ onMessages: () => new Response(JSON.stringify([{ success: true, new: { id: 999 } }]), { status: 201 }) });
   try {
     const response = await SEND(makeRequest({ eventId: 'e1', text: '직접 답변입니다.' }), { params: Promise.resolve({}) }) as unknown as { status: number; body: any };
     assert.equal(response.status, 200); assert.equal(response.body.deliveryStatus, 'sent');
-    assert.equal(db.inquiryConversation[0].paused, true); assert.equal(db.inquiryConversation[0].sendToken, null);
+    assert.equal(db.inquiryConversation[0].paused, false); assert.equal(db.inquiryConversation[0].sendToken, null);
+    assert.ok(db.inquiryConversation[0].resumeAfter instanceof Date);
+    assert.equal(db.inquiryConversation[0].pauseSource, null);
   } finally { resetFetch(); }
 });
 

@@ -91,6 +91,17 @@ test('all service kinds have useful, bounded alert summaries', () => {
   }
 });
 
+test('only tour requests use the tour recipient resolver; room requests keep property recipients', async () => {
+  const sent: SmsMessage[] = [];
+  const deps = { recipients: async () => recipients,
+    tourRecipients: async (propertyId: string) => { assert.equal(propertyId, 'p1'); return [{ name: '투어 담당자', phone: '01033334444' }]; },
+    notifier: () => provider(async message => { sent.push(message); return { ok: true, provider: 'test', messageId: 'm1' }; }) };
+  const tour: GuestStayRequestDTO = { ...request, kind: 'tour', details: { tourId: 'foreign-tour', date: '2026-12-02', time: '14:00', guests: 2, note: '' } };
+  await notifyGuestStayRequest(stay, tour, deps);
+  await notifyGuestStayRequest(stay, request, deps);
+  assert.deepEqual(sent.map(message => message.to), ['01033334444', recipients[0].phone]);
+});
+
 test('SMS provider passes the caller timeout signal to its only network request', async context => {
   const keys = ['SOLAPI_API_KEY', 'SOLAPI_API_SECRET', 'SOLAPI_PFID', 'SOLAPI_FROM'];
   const saved = Object.fromEntries(keys.map(key => [key, process.env[key]]));

@@ -1,6 +1,6 @@
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { db, resetDb, prisma } from './stubs/prisma';
+import { db, resetDb, prisma, prismaOverrides } from './stubs/prisma';
 import { enqueueInquiries, processInquiryJob, processInquiryNotification } from '../lib/inquiry-worker';
 import { setInquiryPaused, acquireInquirySend, releaseInquirySend } from '../lib/inquiry-conversation';
 import type { InquiryDecision } from '../lib/inquiry-ai';
@@ -27,6 +27,11 @@ beforeEach(async () => {
 });
 
 async function runAll(custom = deps) { for (let i = 0; i < 8; i++) if (!await processInquiryJob(custom)) break; }
+
+async function newInquiry(id = 'm2') {
+  await prisma.message.create({ data: { ...db.message[0], id, beds24MessageId: '102', createdAt: new Date(Date.now() + 1000) } });
+  await enqueueInquiries();
+}
 
 test('사업자 메시지 옵션을 끄면 새 자동응답과 이미 생성한 답변 모두 전송하지 않는다', async () => {
   db.property[0].organization = { status: 'active', features: { messages: false } };
@@ -188,9 +193,12 @@ test('자동 발송 잠금 중 수동 발송·재개가 충돌하지 않는다',
   await assert.rejects(setInquiryPaused('e1', true), /전송 중/);
   await releaseInquirySend('e1', token!);
   const manual = await acquireInquirySend('e1', true); assert.ok(manual);
-  assert.equal(db.inquiryConversation[0].paused, true);
-  await releaseInquirySend('e1', manual!);
+  assert.equal(db.inquiryConversation[0].paused, false);
+  assert.ok(db.inquiryConversation[0].resumeAfter instanceof Date);
   assert.equal(await acquireInquirySend('e1'), null);
+  await releaseInquirySend('e1', manual!);
+  const next = await acquireInquirySend('e1'); assert.ok(next);
+  await releaseInquirySend('e1', next!);
 });
 
 test('최신 안내문 수정 시 생성해 둔 답변을 재판단한다', async () => {
@@ -261,7 +269,7 @@ for (const preparedSteps of [0, 1, 4]) {
 }
 
 for (const preparedSteps of [1, 2, 3, 4]) {
-  test(`AI 처리 ${preparedSteps}단계 뒤 관리자가 직접 응대하면 자동답변 중지를 유지한다`, async () => {
+  test(`AI 처리 ${preparedSteps}단계 뒤 직접 응대하면 이전 문의만 막고 새 문의는 판단한다`, async () => {
     await enqueueInquiries();
     for (let step = 0; step < preparedSteps; step++) await processInquiryJob(deps);
     const token = await acquireInquirySend('e1', true);
@@ -269,17 +277,123 @@ for (const preparedSteps of [1, 2, 3, 4]) {
     await releaseInquirySend('e1', token);
     await runAll();
     assert.equal(sent.length, 0);
-    assert.equal(db.inquiryConversation[0].paused, true);
-    assert.equal(db.inquiryJob[0].status, 'escalated');
+    assert.equal(db.inquiryConversation[0].paused, false);
+    assert.equal(db.inquiryJob[0].status, 'skipped');
+    await newInquiry(); await runAll();
+    assert.deepEqual(sent, [routine.draft]);
+    assert.equal(db.inquiryJob.find(job => job.messageId === 'm1')?.status, 'skipped');
+    assert.equal(db.inquiryJob.find(job => job.messageId === 'm2')?.status, 'sent');
   });
 }
 
 test('기존 중지 상태는 과거 host 메시지 유무와 관계없이 자동 해제하지 않는다', async () => {
-  await setInquiryPaused('e1', true, '담당자의 기존 답변이 확인되어 자동답변을 중지했습니다.');
+  await prisma.inquiryConversation.create({ data: { eventId: 'e1', paused: true, pauseSource: null, pauseMessageId: null, reason: '담당자의 기존 답변이 확인되어 자동답변을 중지했습니다.' } });
   await enqueueInquiries(); await runAll();
+  const token = await acquireInquirySend('e1', true); assert.ok(token);
+  await releaseInquirySend('e1', token);
+  await newInquiry(); await runAll();
   assert.equal(sent.length, 0);
   assert.equal(db.inquiryConversation[0].paused, true);
+  assert.equal(db.inquiryConversation[0].pauseSource, null);
+  assert.equal(db.inquiryConversation[0].pauseMessageId, null);
+  assert.match(db.inquiryConversation[0].reason, /기존 답변/);
   assert.equal(db.inquiryJob[0].status, 'escalated');
+});
+
+test('자동 이관은 해당 문의만 중지하고 다음 문의를 새로 판단하며 과거 작업은 재발송하지 않는다', async () => {
+  await enqueueInquiries();
+  await runAll({ ...deps, judge: async () => ({ ...routine, action: 'escalate', reason: '담당자 확인 필요' }) });
+  assert.equal(db.inquiryConversation[0].pauseSource, 'automatic');
+  assert.equal(db.inquiryConversation[0].pauseMessageId, 'm1');
+  await newInquiry(); await runAll(); await enqueueInquiries(); await runAll();
+  assert.deepEqual(sent, [routine.draft]);
+  assert.equal(db.inquiryConversation[0].paused, false);
+  assert.equal(db.inquiryConversation[0].pauseSource, null);
+  assert.equal(db.inquiryConversation[0].pauseMessageId, null);
+  assert.equal(db.inquiryJob.find(job => job.messageId === 'm1')?.status, 'escalated');
+  assert.equal(db.inquiryJob.find(job => job.messageId === 'm2')?.status, 'sent');
+  assert.equal(db.inquiryNotification.length, 2);
+});
+
+test('명시적 자동응답 중지는 직접 답변과 새 문의 뒤에도 유지하고 명시적 재개만 해제한다', async () => {
+  await setInquiryPaused('e1', true, '운영자가 중지');
+  const token = await acquireInquirySend('e1', true); assert.ok(token);
+  await releaseInquirySend('e1', token);
+  await newInquiry(); await runAll();
+  assert.equal(sent.length, 0);
+  assert.equal(db.inquiryConversation[0].pauseSource, 'manual');
+  assert.equal(db.inquiryConversation[0].reason, '운영자가 중지');
+  await setInquiryPaused('e1', false);
+  assert.equal(db.inquiryConversation[0].paused, false);
+  assert.equal(db.inquiryConversation[0].pauseSource, null);
+  assert.equal(db.inquiryConversation[0].pauseMessageId, null);
+  assert.ok(db.inquiryConversation[0].resumeAfter instanceof Date);
+});
+
+test('직접 응대 중 끝난 이전 AI 이관 결과는 대화를 다시 중지시키지 않는다', async () => {
+  await enqueueInquiries();
+  await processInquiryJob({ ...deps, judge: async () => {
+    const token = await acquireInquirySend('e1', true); assert.ok(token);
+    await releaseInquirySend('e1', token);
+    return { ...routine, action: 'escalate', reason: '이전 문의 판단' };
+  } });
+  assert.equal(db.inquiryConversation[0].paused, false);
+  assert.equal(db.inquiryJob[0].status, 'escalated');
+  await newInquiry(); await runAll();
+  assert.deepEqual(sent, [routine.draft]);
+});
+
+test('새 문의가 자동 중지를 해제하는 순간의 명시적 중지 변경을 덮어쓰지 않는다', async () => {
+  await enqueueInquiries(); await runAll({ ...deps, judge: async () => ({ ...routine, action: 'escalate' }) });
+  await newInquiry();
+  const base = prisma.inquiryConversation;
+  let raced = false;
+  prismaOverrides.inquiryConversation = { ...base, updateMany: async (args: any) => {
+    if (!raced && args.where.pauseSource === 'automatic' && args.data.paused === false) {
+      raced = true;
+      await setInquiryPaused('e1', true, '운영자가 유지한 중지');
+    }
+    return base.updateMany(args);
+  } };
+  await runAll();
+  assert.equal(raced, true);
+  assert.equal(sent.length, 0);
+  assert.equal(db.inquiryConversation[0].paused, true);
+  assert.equal(db.inquiryConversation[0].pauseSource, 'manual');
+  assert.equal(db.inquiryConversation[0].reason, '운영자가 유지한 중지');
+});
+
+test('전송 결과가 불명확한 과거 답변은 새 문의 재개 후에도 다시 보내지 않는다', async () => {
+  await enqueueInquiries();
+  let attempts = 0;
+  await runAll({ ...deps, reply: async () => { attempts++; throw new Error('timeout'); } });
+  await newInquiry(); await runAll(); await runAll();
+  assert.equal(attempts, 1);
+  assert.deepEqual(sent, [routine.draft]);
+  assert.equal(db.inquiryJob.find(job => job.messageId === 'm1')?.status, 'escalated');
+  assert.equal(db.message.find(message => message.deliveryStatus === 'unknown')?.automated, true);
+});
+
+test('자동 중지 해제와 직접 답변이 경합하면 최신 수동 응대 기준을 다시 읽어 해당 문의를 제외한다', async () => {
+  await enqueueInquiries(); await runAll({ ...deps, judge: async () => ({ ...routine, action: 'escalate' }) });
+  await newInquiry();
+  db.message.find(message => message.id === 'm2')!.createdAt = new Date(Date.now() - 1);
+  const base = prisma.inquiryConversation;
+  let raced = false;
+  prismaOverrides.inquiryConversation = { ...base, updateMany: async (args: any) => {
+    if (!raced && args.where.pauseSource === 'automatic' && args.data.paused === false) {
+      raced = true;
+      const token = await acquireInquirySend('e1', true); assert.ok(token);
+      await releaseInquirySend('e1', token);
+    }
+    return base.updateMany(args);
+  } };
+  await runAll();
+  assert.equal(raced, true);
+  assert.equal(sent.length, 0);
+  assert.equal(db.inquiryJob.find(job => job.messageId === 'm2')?.status, 'skipped');
+  await newInquiry('m3'); await runAll();
+  assert.deepEqual(sent, [routine.draft]);
 });
 
 test('고객 확인 알림은 예약의 답장 플랫폼을 포함한다', async () => {

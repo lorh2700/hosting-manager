@@ -290,7 +290,7 @@ function inquiryDefaults(model: string, data: Row): Row {
   const defaults: Record<string, Row> = {
     inquiryJob: { status: 'queued', leaseToken: null, leaseUntil: null, draft: '', summary: '', reason: '', evidence: [], knowledgeVersion: null, createdAt: now, updatedAt: now },
     inquiryNotification: { status: 'pending', attempts: 0, nextAttemptAt: now, updatedAt: now },
-    inquiryConversation: { paused: false, reason: null, resumeAfter: null, sendToken: null, sendUntil: null, updatedAt: now },
+    inquiryConversation: { paused: false, pauseSource: null, pauseMessageId: null, reason: null, resumeAfter: null, sendToken: null, sendUntil: null, updatedAt: now },
     inquiryAutomationSettings: { enabled: false, enabledAt: null, knowledge: '', updatedAt: now },
     message: { type: 'message', automated: false, createdAt: now },
   };
