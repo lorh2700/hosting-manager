@@ -69,7 +69,7 @@ export const POST = withErrors('auth/register', async (req) => {
       const existing = await tx.user.findUnique({ where: { id: validInvitation.cleanerId } });
       if (!existing || existing.status !== 'no_account' || normalizeRole(existing.role) !== role) throw fail(409, '이미 로그인이 활성화되었거나 역할이 변경된 직원입니다.');
       if ((existing.organizationId || null) !== organizationId) throw fail(403, '직원과 초대의 사업자가 일치하지 않습니다.');
-      const activated = await tx.user.updateMany({ where: { id: existing.id, status: 'no_account', role: existing.role }, data: { email, password: hashed, status: 'active', displayName: displayName || existing.displayName || email } });
+      const activated = await tx.user.updateMany({ where: { id: existing.id, status: 'no_account', role: existing.role }, data: { email, password: hashed, credentialVersion: { increment: 1 }, status: 'active', displayName: displayName || existing.displayName || email } });
       if (activated.count !== 1) throw fail(409, '직원 로그인 상태가 변경되었습니다.');
       const saved = await tx.user.findUniqueOrThrow({ where: { id: existing.id } });
       await tx.auditLog.create({ data: auditData({ session: { userId: saved.id }, user: saved }, { action: 'invitation.accept', module: 'staff', targetType: 'user', targetId: saved.id, organizationId, summary: '청소 직원 초대 수락·로그인 활성화', details: { changedFields: ['status', 'role', 'organizationId'] } }) });
@@ -88,7 +88,7 @@ export const POST = withErrors('auth/register', async (req) => {
   });
   propertyIds = (await prisma.userProperty.findMany({ where: { userId: user.id }, select: { propertyId: true } })).map(p => p.propertyId);
 
-  await setSessionCookie(await signToken({ userId: user.id, email: user.email }));
+  await setSessionCookie(await signToken({ userId: user.id, email: user.email, credentialVersion: user.credentialVersion }));
 
   return ok({
     user: { id: user.id, email: user.email },

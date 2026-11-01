@@ -141,6 +141,7 @@ model User {
   organizationId String? @map("organization_id")
   enabledModules Json? @map("enabled_modules")
   accessVersion Int @default(1) @map("access_version")
+  credentialVersion Int @default(0) @map("credential_version")
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
   properties      UserProperty[]

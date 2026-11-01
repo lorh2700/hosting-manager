@@ -37,8 +37,12 @@ export interface SessionProfile {
 }
 
 /** Sign a JWT token */
-export async function signToken(payload: { userId: string; email: string }): Promise<string> {
-  return new SignJWT(payload)
+export interface SessionClaims { userId: string; email: string; credentialVersion: number }
+
+export async function signToken(payload: { userId: string; email: string; credentialVersion?: number }): Promise<string> {
+  const credentialVersion = payload.credentialVersion ?? 0;
+  if (!Number.isSafeInteger(credentialVersion) || credentialVersion < 0) throw new Error('Invalid credential version');
+  return new SignJWT({ ...payload, credentialVersion })
     .setProtectedHeader({ alg: 'HS256' })
     .setExpirationTime(TOKEN_EXPIRY)
     .setIssuedAt()
@@ -46,10 +50,15 @@ export async function signToken(payload: { userId: string; email: string }): Pro
 }
 
 /** Verify a JWT token */
-export async function verifyToken(token: string): Promise<{ userId: string; email: string } | null> {
+export async function verifyToken(token: string): Promise<SessionClaims | null> {
+  if (!token || token.length > 16_384) return null;
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    return payload as unknown as { userId: string; email: string };
+    const { payload } = await jwtVerify(token, JWT_SECRET, { algorithms: ['HS256'], requiredClaims: ['exp', 'userId', 'email'] });
+    const credentialVersion = payload.credentialVersion === undefined ? 0 : payload.credentialVersion;
+    if (typeof payload.userId !== 'string' || !payload.userId.trim() || typeof payload.email !== 'string' || !payload.email.trim() ||
+      typeof payload.exp !== 'number' || !Number.isFinite(payload.exp) || typeof credentialVersion !== 'number' ||
+      !Number.isSafeInteger(credentialVersion) || credentialVersion < 0) return null;
+    return { userId: payload.userId, email: payload.email, credentialVersion };
   } catch {
     return null;
   }
@@ -87,7 +96,7 @@ export async function getSession(): Promise<{ user: SessionUser; profile: Sessio
     include: { properties: { include: { property: { select: { organizationId: true } } } }, organization: true },
   }));
 
-  if (!dbUser) return null;
+  if (!dbUser || payload.credentialVersion !== (dbUser.credentialVersion ?? 0)) return null;
 
 
   return {
@@ -110,7 +119,7 @@ export async function getSession(): Promise<{ user: SessionUser; profile: Sessio
 }
 
 /** 요청의 쿠키 또는 Bearer 헤더에서 JWT payload 만 꺼낸다 (DB 조회 없음). */
-async function readTokenPayload(req: Request): Promise<{ userId: string; email: string } | null> {
+async function readTokenPayload(req: Request): Promise<SessionClaims | null> {
   // Try cookie first
   const cookieHeader = req.headers.get('cookie') || '';
   const match = cookieHeader.match(new RegExp(`${COOKIE_NAME}=([^;]+)`));
@@ -134,15 +143,15 @@ async function readTokenPayload(req: Request): Promise<{ userId: string; email: 
  * 승인 대기(pending_invite)·정지(suspended) 계정은 유효한 토큰이 있어도 API 를
  * 쓸 수 없다. 화면의 "승인 대기" 안내는 getSession() 경유라 영향받지 않는다.
  */
-export async function verifySession(req: Request): Promise<{ userId: string; email: string } | null> {
+export async function verifySession(req: Request): Promise<SessionClaims | null> {
   const payload = await readTokenPayload(req);
   if (!payload) return null;
 
   const user = await operationalDatabase(() => prisma.user.findUnique({
     where: { id: payload.userId },
-    select: { status: true },
+    select: { status: true, credentialVersion: true },
   }));
-  if (!user || user.status !== 'active') return null;
+  if (!user || user.status !== 'active' || payload.credentialVersion !== (user.credentialVersion ?? 0)) return null;
   return payload;
 }
 
@@ -252,7 +261,7 @@ export async function getSessionWithUser(req: Request, opts: { allowInactive?: b
     where: { id: session.userId },
     include: { properties: { select: { propertyId: true, property: { select: { organizationId: true, featureOverrides: true, organization: { select: { status: true, features: true } } } } } }, organization: { select: { id: true, name: true, status: true, features: true } } },
   }));
-  if (!user) return null;
+  if (!user || session.credentialVersion !== (user.credentialVersion ?? 0)) return null;
   if (!opts.allowInactive && user.status !== 'active') return null;
 
   // 옛 host/viewer 역할은 매니저로 정규화하고, 슈퍼매니저와 사업자 관리자는 구분한다.

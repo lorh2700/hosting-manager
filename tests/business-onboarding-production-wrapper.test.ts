@@ -46,10 +46,10 @@ async function apply(db: PGlite, sql = localWrapper) {
 
 async function targetState(db: PGlite) {
   return {
-    tables: (await db.query(`SELECT c.relname, pg_get_userbyid(c.relowner) AS owner,
+    tables: (await db.query<{ relname: string; owner: string; relrowsecurity: boolean; relforcerowsecurity: boolean }>(`SELECT c.relname, pg_get_userbyid(c.relowner) AS owner,
       c.relrowsecurity, c.relforcerowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
       WHERE n.nspname = 'public' AND c.relname = ANY($1::text[]) ORDER BY c.relname`, [tables])).rows,
-    history: (await db.query('SELECT * FROM _prisma_migrations WHERE migration_name = $1', [target])).rows,
+    history: (await db.query<{ id: string; checksum: string; applied_steps_count: number }>('SELECT * FROM _prisma_migrations WHERE migration_name = $1', [target])).rows,
   };
 }
 

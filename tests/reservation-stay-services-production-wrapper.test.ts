@@ -44,7 +44,7 @@ async function apply(db: PGlite, sql = localWrapper) {
 async function state(db: PGlite) {
   return {
     history: (await db.query('SELECT * FROM _prisma_migrations ORDER BY id')).rows,
-    cleanings: (await db.query('SELECT * FROM cleanings ORDER BY id')).rows,
+    cleanings: (await db.query<{ id: string; reservation_id?: string | null }>('SELECT * FROM cleanings ORDER BY id')).rows,
     table: (await db.query("SELECT relrowsecurity, pg_get_userbyid(relowner) AS owner FROM pg_class WHERE relname='backend_reservation_pickups'")).rows,
   };
 }
@@ -78,7 +78,7 @@ test('runtime DML works while browser/unrelated roles and DDL remain denied', as
     await db.exec(`INSERT INTO backend_reservation_pickups(property_id,reservation_key,reservation_id,arrival,updated_by)
       VALUES ('p1','beds24:1','event:one','{"type":"airport"}','operator');
       UPDATE backend_reservation_pickups SET version=2;`);
-    assert.equal((await db.query('SELECT version FROM backend_reservation_pickups')).rows[0].version, 2);
+    assert.equal((await db.query<{ version: number }>('SELECT version FROM backend_reservation_pickups')).rows[0].version, 2);
     await assert.rejects(db.exec('TRUNCATE backend_reservation_pickups'), /permission denied/);
     await db.exec('DELETE FROM backend_reservation_pickups; RESET ROLE');
     for (const role of ['anon','authenticated','unrelated_app']) {

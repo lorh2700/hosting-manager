@@ -26,7 +26,7 @@ export const POST = withErrors('auth/login', async (req) => {
   if (user.status === 'suspended') throw fail(403, '계정이 비활성화되었습니다.');
 
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-  await setSessionCookie(await signToken({ userId: user.id, email: user.email }));
+  await setSessionCookie(await signToken({ userId: user.id, email: user.email, credentialVersion: user.credentialVersion }));
 
   return ok({
     user: { id: user.id, email: user.email },

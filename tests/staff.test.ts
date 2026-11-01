@@ -2,7 +2,7 @@ import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import bcrypt from 'bcryptjs';
 import { db, resetDb } from './stubs/prisma';
-import { actAsAdmin, actAsManager, actAsCleaner, authState } from './stubs/auth';
+import { actAsAdmin, actAsManager, actAsCleaner, authState, issuedSessionClaims } from './stubs/auth';
 import { callRoute, makeRequest } from './helpers/beds24-mock';
 import { GET as STAFF, POST as CREATE } from '../app/api/staff/route';
 import { PUT as UPDATE } from '../app/api/users/route';
@@ -15,7 +15,7 @@ import { POST as REGISTER } from '../app/api/auth/register/route';
 import { POST as INVITE } from '../app/api/cleaners/[id]/invite/route';
 
 beforeEach(() => {
-  resetDb(); actAsManager(['p1']);
+  resetDb(); actAsManager(['p1']); issuedSessionClaims.length = 0;
   db.user = [{ ...authState.auth.user, displayName: '민들레', phone: '01011112222', password: 'secret', publicToken: 'keep' }, { id: 'admin-1', role: 'super_admin', status: 'active', email: 'admin@test.com', displayName: '슈퍼매니저', password: 'admin-secret' }];
   db.property = [{ id: 'p1', name: '담당 숙소', ownerId: 'host-1' }, { id: 'p2', name: '다른 숙소', ownerId: 'other' }];
   db.userProperty = [{ userId: 'host-1', propertyId: 'p1' }];
@@ -56,7 +56,7 @@ test('직접 배정은 숙소 범위 밖·중지된 직원을 거부한다', asy
 
 test('청소 전용 직원은 본인 완료만 가능하고 예약 관리 권한은 없다', async () => {
   actAsCleaner(['p1']);
-  db.cleaning = [{ id: 'own', propertyId: 'p1', cleanerId: 'cleaner-1' }, { id: 'other', propertyId: 'p1', cleanerId: 'host-1' }];
+  db.cleaning = [{ id: 'own', propertyId: 'p1', date: '2026-10-01', cleanerId: 'cleaner-1', assistantCleanerId: null }, { id: 'other', propertyId: 'p1', date: '2026-10-02', cleanerId: 'host-1', assistantCleanerId: null }];
   assert.equal((await callRoute(COMPLETE, makeRequest({ id: 'own', status: 'done' }))).status, 200);
   assert.equal((await callRoute(COMPLETE, makeRequest({ id: 'other', status: 'done' }))).status, 403);
   assert.equal((await callRoute(COMPLETE, makeRequest({ id: 'own', cleanerId: 'host-1' }))).status, 403);
@@ -77,6 +77,7 @@ test('로그인 없는 직원도 users에 한 번 생성하며 비밀번호 발�
   const count = db.user.length;
   const reset = await callRoute(req => RESET(req, { params: Promise.resolve({ id: person.id }) }), makeRequest({}));
   assert.equal(reset.status, 200); assert.equal(db.user.length, count); assert.equal(person.status, 'active');
+  assert.equal(person.credentialVersion, 1);
   assert.equal(await bcrypt.compare(reset.body.initialPassword, person.password), true);
 });
 
@@ -101,6 +102,8 @@ test('이메일 초대 수락은 로그인 없는 User를 활성화하고 청소
   assert.deepEqual(result.body.profile.propertyIds, ['p1']);
   assert.equal(db.cleaning[0].cleanerId, 'link-staff'); assert.equal(db.user[2].publicToken, 'keep-link');
   assert.equal(db.user[2].phone, '01033334444'); assert.equal(db.user[2].status, 'active');
+  assert.equal(db.user[2].credentialVersion, 1);
+  assert.deepEqual(issuedSessionClaims, [{ userId: 'link-staff', email: 'invited@example.com', credentialVersion: 1 }]);
 });
 
 test('매니저는 본인이 등록했어도 관리 역할로 승격된 직원의 로그인 초대를 발급할 수 없다', async () => {

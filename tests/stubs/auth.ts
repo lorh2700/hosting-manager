@@ -71,7 +71,8 @@ export async function getSessionWithUser() { return authState.auth; }
 export async function verifySession() { return authState.auth ? authState.auth.session : null; }
 export async function getSession() { return authState.auth ? { user: authState.auth.user, profile: {} } : null; }
 export async function verifyToken() { return authState.auth?.session ?? null; }
-export async function signToken() { return 'token'; }
+export const issuedSessionClaims: unknown[] = [];
+export async function signToken(payload?: unknown) { issuedSessionClaims.push(payload); return 'token'; }
 export async function setSessionCookie() {}
 export async function clearSessionCookie() {}
 

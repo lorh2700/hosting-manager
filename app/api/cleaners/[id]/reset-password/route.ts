@@ -17,6 +17,6 @@ export const POST = withAuth<{ id: string }>('staff/reset-password', async (_req
   if (!email) throw fail(400, '로그인에 사용할 전화번호를 먼저 등록해 주세요.');
   const conflict = await prisma.user.findUnique({ where: { email }, select: { id: true } });
   if (conflict && conflict.id !== user.id) throw fail(409, '같은 로그인 번호의 계정이 있습니다.');
-  await prisma.user.update({ where: { id: user.id }, data: { email, password: await bcrypt.hash(initialPassword, 12), status: 'active' } });
+  await prisma.user.update({ where: { id: user.id }, data: { email, password: await bcrypt.hash(initialPassword, 12), credentialVersion: { increment: 1 }, status: 'active' } });
   return ok({ created: user.status === 'no_account', phone: user.phone, initialPassword });
 });

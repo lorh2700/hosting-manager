@@ -4,14 +4,14 @@ import { acceptInvitation, renewInvitation, revokeInvitation } from '../lib/invi
 import { POST as ACCEPT } from '../app/api/invitations/[token]/accept/route';
 import { GET as INVITATION } from '../app/api/invitations/[token]/route';
 import { db, resetDb, prismaOverrides } from './stubs/prisma';
-import { actAsAdmin, actAsBusinessAdmin, authState } from './stubs/auth';
+import { actAsAdmin, actAsBusinessAdmin, authState, issuedSessionClaims } from './stubs/auth';
 
 const token = 'invitation-token';
 const actor = () => db.user.find(row => row.id === 'signup')!;
 const invitation = () => db.invitation[0];
 function signIn(id = 'signup') {
   const user = db.user.find(row => row.id === id)!;
-  authState.auth = { role: user.role, user: { ...user }, session: { userId: user.id, email: user.email }, propertyIds: [] };
+  authState.auth = { role: user.role, user: { ...user }, session: { userId: user.id, email: user.email, credentialVersion: user.credentialVersion ?? 0 }, propertyIds: [] };
   return authState.auth;
 }
 const rejectedWith = (status: number) => (error: any) => error.status === status;
@@ -19,7 +19,7 @@ async function route(handler: any, value = token) {
   return handler(new Request(`http://localhost/api/invitations/${value}`, { method: handler === ACCEPT ? 'POST' : 'GET' }), { params: Promise.resolve({ token: value }) });
 }
 beforeEach(() => {
-  resetDb(); actAsAdmin();
+  resetDb(); actAsAdmin(); issuedSessionClaims.length = 0;
   db.organization = [{ id: 'o1', name: '사업자1', status: 'active' }, { id: 'o2', name: '사업자2', status: 'active' }];
   db.property = [{ id: 'p1', organizationId: 'o1' }, { id: 'p2', organizationId: 'o2' }];
   db.user = [{ id: 'signup', email: 'Guest@Example.com', password: 'existing-password-hash', role: 'manager', status: 'pending_invite', organizationId: null, enabledModules: [], accessVersion: 1, publicToken: 'original-signup-token' }];
@@ -67,6 +67,13 @@ test('기존 다른 사업자 직원과 기존 관리자는 초대 링크로 소
   }
 });
 
+test('로그인 이후 비밀번호가 변경된 세션은 초대를 소비하지 않는다', async () => {
+  const auth = signIn(); actor().credentialVersion = 1;
+  await assert.rejects(acceptInvitation(auth, token), rejectedWith(403));
+  assert.equal(invitation().status, 'pending'); assert.equal(actor().status, 'pending_invite');
+  assert.equal((db.auditLog ?? []).length, 0);
+});
+
 test('만료·비활성 사업자·이동한 배정 지점은 수락을 막고 대기 계정과 초대를 유지한다', async () => {
   invitation().expiresAt = new Date(Date.now() - 1000);
   await assert.rejects(acceptInvitation(signIn(), token), rejectedWith(410));
@@ -88,6 +95,8 @@ test('청소 직원의 선가입 로그인 연결은 수행 기록·배정·기�
   assert.equal(staff.email, 'Guest@Example.com'); assert.equal(staff.password, 'existing-password-hash'); assert.equal(staff.status, 'active');
   assert.deepEqual(staff.enabledModules, ['cleaning']); assert.equal(staff.publicToken, 'staff-token'); assert.equal(staff.accessVersion, 8);
   assert.equal(actor().status, 'suspended'); assert.equal(actor().email, 'archived-invite-signup@accounts.invalid');
+  assert.equal(actor().credentialVersion, 1); assert.equal(staff.credentialVersion, 1);
+  assert.deepEqual(issuedSessionClaims, [{ userId: 'staff', email: 'Guest@Example.com', credentialVersion: 1 }]);
   assert.equal(db.cleaning[0].cleanerId, 'staff'); assert.deepEqual(db.userProperty, [{ userId: 'staff', propertyId: 'p1' }]);
   assert.equal(db.auditLog[0].targetId, 'staff'); assert.equal(response.body.user.password, undefined);
 });

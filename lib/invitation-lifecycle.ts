@@ -63,7 +63,8 @@ export async function acceptInvitation(auth: SessionAuth, token: string) {
     const invitation = await tx.invitation.findUnique({ where: { token } });
     if (!invitation || !['pending', 'accepted'].includes(invitation.status)) throw fail(404, '유효하지 않거나 회수된 초대입니다.');
     const actor = await tx.user.findUnique({ where: { id: auth.session.userId }, include: { properties: true } });
-    if (!actor || !['active', 'pending_invite'].includes(actor.status) || actor.email.trim().toLowerCase() !== invitation.email.trim().toLowerCase()) throw fail(403, '초대받은 이메일의 계정으로 로그인해 주세요.');
+    if (!actor || !['active', 'pending_invite'].includes(actor.status) || actor.email.trim().toLowerCase() !== invitation.email.trim().toLowerCase() ||
+      (actor.credentialVersion ?? 0) !== (auth.session.credentialVersion ?? 0)) throw fail(403, '초대받은 이메일의 계정으로 로그인해 주세요.');
     if (invitation.status === 'accepted') {
       if (normalizeRole(actor.role) !== normalizeRole(invitation.role) || (actor.organizationId ?? null) !== invitation.organizationId) throw fail(409, '이미 사용된 초대입니다.');
       return actor;
@@ -78,8 +79,8 @@ export async function acceptInvitation(auth: SessionAuth, token: string) {
       const staff = await tx.user.findUnique({ where: { id: invitation.cleanerId } });
       if (!pendingUnassigned || !staff || staff.status !== 'no_account' || normalizeRole(staff.role) !== role || (staff.organizationId ?? null) !== invitation.organizationId) throw fail(409, '청소 직원 프로필과 로그인 계정의 연결을 관리자에게 확인해 주세요.');
       // Keep both IDs and their historical records. Revoke the unused pending identity.
-      await tx.user.update({ where: { id: actor.id }, data: { email: `archived-invite-${actor.id}@accounts.invalid`, status: 'suspended', accessVersion: { increment: 1 } } });
-      await tx.user.update({ where: { id: staff.id }, data: { email: actor.email, password: actor.password, status: 'active', accessVersion: { increment: 1 } } });
+      await tx.user.update({ where: { id: actor.id }, data: { email: `archived-invite-${actor.id}@accounts.invalid`, status: 'suspended', accessVersion: { increment: 1 }, credentialVersion: { increment: 1 } } });
+      await tx.user.update({ where: { id: staff.id }, data: { email: actor.email, password: actor.password, status: 'active', accessVersion: { increment: 1 }, credentialVersion: { increment: 1 } } });
       targetId = staff.id;
     } else {
       await tx.user.update({ where: { id: actor.id }, data: { role, organizationId: invitation.organizationId, status: 'active', ...((pendingUnassigned || role !== normalizeRole(actor.role)) ? { enabledModules: Prisma.DbNull } : {}), ownerId: invitation.invitedBy, accessVersion: { increment: 1 } } });
