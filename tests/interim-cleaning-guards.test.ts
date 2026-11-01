@@ -1,6 +1,6 @@
 import { beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { db, resetDb } from './stubs/prisma';
+import { db, resetDb, calls } from './stubs/prisma';
 import { actAsAdmin, actAsCleaner } from './stubs/auth';
 import { resetNotify, notifyCalls } from './stubs/notify';
 import { callRoute, installBeds24Mock, makeRequest, postsTo, resetFetch } from './helpers/beds24-mock';
@@ -143,6 +143,21 @@ test('legacy PUT and DELETE cannot mutate interim records in any state or revive
   assert.equal(notifyCalls.assigned.length, 0);
   assert.equal(notifyCalls.cancelled.length, 0);
   assert.equal(postsTo('/bookings/messages').length, 0);
+});
+
+test('legacy delete returns a payment-history conflict before deletion or notifications', async () => {
+  for (const fields of [
+    { status: 'done', paySnapshot: { totalAmount: 50000 }, payHistory: [] },
+    { status: 'pending', paySnapshot: null, payHistory: [{ snapshot: { totalAmount: 50000 } }] },
+    { status: 'cancelled', paySnapshot: null, payHistory: [{ snapshot: { totalAmount: 50000 } }] },
+  ]) {
+    db.cleaning = [cleaning('paid', 'manual', fields)]; calls.length = 0;
+    const before = structuredClone(db.cleaning);
+    const response = await callRoute(deleteCleaning, new Request('http://test/api/cleanings?id=paid', { method: 'DELETE' }));
+    assert.equal(response.status, 409); assert.equal(response.body.code, 'CLEANING_PAYMENT_HISTORY');
+    assert.deepEqual(db.cleaning, before); assert.ok(!calls.includes('cleaning.delete'));
+  }
+  assert.equal(notifyCalls.cancelled.length, 0); assert.equal(postsTo('/bookings').length, 0);
 });
 
 test('checkout notification uses checkout assignees, never the same-day interim assignee', async () => {

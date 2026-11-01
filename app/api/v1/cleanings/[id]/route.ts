@@ -170,6 +170,9 @@ export const DELETE = withErrors<{ id: string }>('v1/cleanings/delete', async (r
     if (!current || !await ownsExternalCleaning(auth, current, tx)) throw fail(403, 'Forbidden', { code: 'not_your_cleaning' });
     const property = await requireExternalCleaningProperty(tx, auth, current.propertyId);
     await requireSingleCleaning(tx, current);
+    if (current.paySnapshot != null || (Array.isArray(current.payHistory) && current.payHistory.length > 0)) {
+      throw fail(409, '청소 지급 이력이 있어 삭제할 수 없습니다. 정산 내역을 확인해 주세요.', { code: 'CLEANING_PAYMENT_HISTORY' });
+    }
     const previous = await loadCleanerNotifyInfo(id, tx);
     await tx.cleaning.delete({ where: { id } });
     await recordExternalCleaningAudit(tx, auth, property, id, 'external.cleaning.delete', req.headers.get('x-request-id'), []);

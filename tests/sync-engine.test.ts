@@ -235,6 +235,28 @@ test('배정 건과 같은 날짜의 미배정 유령 행은 신청이 없을 �
   assert.equal(notifyCalls.cancelled.length, 0);
 });
 
+test('duplicate cleanup preserves payment snapshots and reopened payment history while normal reconciliation continues', async () => {
+  db.event = [reservation('r1', d(1), d(3)), reservation('new', d(6), d(7))];
+  db.cleaning = [
+    { id: 'assigned', ...cleaning({ date: d(3), cleanerId: 'cl1' }) },
+    { id: 'reopened', ...cleaning({ date: d(3), completedAt: null, paySnapshot: null, payHistory: [{ snapshot: { totalAmount: 50000 } }] }) },
+    { id: 'snapshot', ...cleaning({ date: d(3), completedAt: null, paySnapshot: { totalAmount: 60000 }, payHistory: [] }) },
+    { id: 'empty', ...cleaning({ date: d(3), completedAt: null, paySnapshot: null, payHistory: [] }) },
+    { id: 'orphan-reopened', ...cleaning({ date: d(5), completedAt: null, paySnapshot: null, payHistory: [{ snapshot: { totalAmount: 70000 } }] }) },
+  ];
+  const protectedRows = structuredClone(db.cleaning.filter(row => ['reopened', 'snapshot'].includes(row.id)));
+  const cleaningDelete = prisma.cleaning.delete;
+  prismaOverrides.cleaning = { ...prisma.cleaning, delete: async (args: { where: { id: string } }) => {
+    assert.ok(!['reopened', 'snapshot', 'orphan-reopened'].includes(args.where.id), 'payment history must not reach the DB delete trigger');
+    return cleaningDelete(args);
+  } };
+  assert.deepEqual(await ensureCleaningsForProperty(P), [d(7)]);
+  for (const row of protectedRows) assert.deepEqual(db.cleaning.find(item => item.id === row.id), row);
+  assert.equal(db.cleaning.some(row => row.id === 'empty'), false);
+  assert.equal(db.cleaning.find(row => row.id === 'orphan-reopened')?.status, 'cancelled');
+  assert.deepEqual(db.cleaning.find(row => row.id === 'orphan-reopened')?.payHistory, [{ snapshot: { totalAmount: 70000 } }]);
+});
+
 test('Beds24 가 0건을 돌려주면 삭제를 건너뛴다', async () => {
   db.event = Array.from({ length: 20 }, (_, i) => reservation(String(i), d(i), d(i + 2)));
   db.cleaning = [{ id: 'assigned', ...cleaning({ date: d(2), cleanerId: 'cl1' }) }];

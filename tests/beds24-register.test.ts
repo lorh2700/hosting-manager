@@ -4,6 +4,7 @@ import { db, resetDb, calls } from './stubs/prisma';
 import { actAsAdmin } from './stubs/auth';
 import { installBeds24Mock, json, resetFetch, sampleBooking, postsTo, makeRequest, callRoute, fetchLog } from './helpers/beds24-mock';
 import { invalidateBeds24Token } from '@/lib/beds24';
+import { todayKst, addDaysToDateStr } from '@/lib/dates';
 import { POST as RESERVATION_POST, DELETE as RESERVATION_DELETE } from '@/app/api/beds24/reservations/route';
 import { POST as MAINTENANCE_POST, DELETE as MAINTENANCE_DELETE } from '@/app/api/beds24/maintenance/route';
 
@@ -73,6 +74,25 @@ test('예약 취소: Beds24 취소 후 로컬 삭제, 자동 청소 정리까지
   assert.ok(fetchLog.some(l => l.method === 'POST' && l.body?.[0]?.status === 'cancelled'));
   assert.equal(db.event.length, 0);
   assert.ok(calls.indexOf('cleaning.findMany') > calls.indexOf('event.deleteMany'), '삭제 후 청소 정리');
+});
+
+test('reservation cancellation keeps historical duplicate cleanings without failing cleanup after the upstream cancellation', async () => {
+  installBeds24Mock();
+  const date = todayKst(), next = addDaysToDateStr(date, 2);
+  db.event = [
+    { id: 'evt-1', propertyId: 'p1', channelId: 'beds24', type: 'reservation', originalUid: '123', source: 'manual-reservation', startDate: '2026-10-01', endDate: '2026-10-03' },
+    { id: 'remaining', propertyId: 'p1', channelId: 'beds24', type: 'reservation', originalUid: '456', startDate: date, endDate: next },
+  ];
+  db.cleaning = [
+    { id: 'assigned', propertyId: 'p1', origin: 'auto', status: 'pending', date: next, cleanerId: 'staff' },
+    { id: 'reopened', propertyId: 'p1', origin: 'auto', status: 'pending', date: next, cleanerId: null, completedAt: null, paySnapshot: null, payHistory: [{ snapshot: { totalAmount: 50000 } }] },
+  ];
+  const response = await callRoute(RESERVATION_DELETE, makeRequest({}, 'http://localhost/api/beds24/reservations?eventId=evt-1'));
+  assert.equal(response.status, 200, JSON.stringify(response.body));
+  assert.equal(fetchLog.filter(entry => entry.method === 'POST' && entry.body?.[0]?.status === 'cancelled').length, 1);
+  assert.deepEqual(db.event.map(row => row.id), ['remaining']);
+  assert.deepEqual(db.cleaning.find(row => row.id === 'reopened')?.payHistory, [{ snapshot: { totalAmount: 50000 } }]);
+  assert.ok(!calls.includes('cleaning.delete'));
 });
 
 test('객실정비: black 으로 생성, 확인은 black 만 통과, 로컬은 block/maintenance', async () => {

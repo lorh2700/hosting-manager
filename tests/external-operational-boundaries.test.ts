@@ -155,6 +155,23 @@ test('PATCH and DELETE enforce client namespace even when both keys can access t
   assert.equal(db.cleaning.length, 0); assert.equal(db.auditLog.length, 2);
 });
 
+test('external delete preserves payment history and returns 409 after ownership checks without audit or notifications', async () => {
+  for (const fields of [
+    { status: 'done', paySnapshot: { totalAmount: 50000 }, payHistory: [] },
+    { status: 'pending', paySnapshot: null, payHistory: [{ snapshot: { totalAmount: 50000 } }] },
+    { status: 'cancelled', paySnapshot: null, payHistory: [{ snapshot: { totalAmount: 50000 } }] },
+  ]) {
+    db.cleaning = [cleaning(fields)]; calls.length = 0;
+    const before = structuredClone(db.cleaning);
+    const response = await mutate(DELETE, 'DELETE');
+    assert.equal(response.status, 409); assert.equal(response.body.code, 'CLEANING_PAYMENT_HISTORY');
+    assert.deepEqual(db.cleaning, before); assert.ok(!calls.includes('cleaning.delete')); assert.equal(db.auditLog?.length ?? 0, 0);
+    db.cleaning[0].externalSource = 'api-client:client-b';
+    assert.equal((await mutate(DELETE, 'DELETE')).status, 403);
+  }
+  assert.equal(notifyCalls.cancelled.length, 0); assert.equal(fetchLog.length, 0);
+});
+
 test('external cleaning and its audit record commit together, and audit errors roll back the cleaning', async () => {
   prismaOverrides.auditLog = { create: async () => { throw new Error('synthetic audit failure'); } };
   assert.equal((await create()).status, 500); assert.equal(db.cleaning.length, 0);

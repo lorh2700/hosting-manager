@@ -256,6 +256,9 @@ export const DELETE = withAuth('cleanings', async (req, { auth }) => {
     const current = await tx.cleaning.findUnique({ where: { id } });
     if (!current) throw fail(404, MESSAGES.notFound);
     if (current.origin === 'interim') throw fail(409, '중간청소는 통합 캘린더에서 처리해 주세요.');
+    if (current.paySnapshot != null || (Array.isArray(current.payHistory) && current.payHistory.length > 0)) {
+      throw fail(409, '청소 지급 이력이 있어 삭제할 수 없습니다. 정산 내역을 확인해 주세요.', { code: 'CLEANING_PAYMENT_HISTORY' });
+    }
     await requireSingleCleaning(tx, current);
     await tx.cleaning.delete({ where: { id } }); return current;
   });

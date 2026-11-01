@@ -365,6 +365,7 @@ export async function ensureCleaningsForProperty(propertyId: string): Promise<st
       tx.booking.findMany({ where: { propertyId, status: 'confirmed' }, select: { checkOut: true } }),
       tx.cleaning.findMany({ where: { propertyId, origin: { not: 'interim' }, status: { not: 'cancelled' } },
         select: { id: true, date: true, origin: true, status: true, completedAt: true, cleanerId: true, assistantCleanerId: true,
+          paySnapshot: true, payHistory: true,
           _count: { select: { applications: true, issues: true, visitPhotos: true } } } }),
     ]);
     const checkoutDates = new Set([...reservations.map(row => row.endDate), ...directBookings.map(row => row.checkOut)].filter(Boolean));
@@ -393,6 +394,7 @@ export async function ensureCleaningsForProperty(propertyId: string): Promise<st
         continue;
       }
       if (row.origin !== 'auto' || row.status !== 'pending' || row.completedAt || row.date < today
+        || row.paySnapshot != null || (Array.isArray(row.payHistory) && row.payHistory.length > 0)
         || row.cleanerId || row.assistantCleanerId || row._count.applications || row._count.issues || row._count.visitPhotos) continue;
       const emptyDuplicate = assignedDates.has(row.date);
       if (!emptyDuplicate) continue;
