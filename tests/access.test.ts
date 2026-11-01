@@ -5,7 +5,7 @@
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import './helpers/solapi-env';
-import { db, resetDb } from './stubs/prisma';
+import { db, resetDb, prismaOverrides } from './stubs/prisma';
 import { actAsAdmin, actAsManager, actAsCleaner, authState } from './stubs/auth';
 import { makeRequest, callRoute, setFetchHandler, fetchLog, resetFetch, json } from './helpers/beds24-mock';
 import { normalizeRole, getVisiblePropertyIds, canManageProperty, cleanerPropertyIds } from '../lib/access';
@@ -83,6 +83,35 @@ test('/api/properties: 청소담당자는 배정 숙소만, 계정 없으면 빈
 
   const denied = await callRoute(PROPERTIES_POST, makeRequest({ name: '새집' }));
   assert.equal(denied.status, 403);
+});
+
+test('/api/properties: 숙소·청소 권한 없는 매니저의 일반 목록에 내부 정책을 포함하지 않는다', async () => {
+  const cleaningFeePolicy = { baseAmount: 60000, weekendAmount: 10000, specialFees: [{ name: '내부 특별수당', amount: 20000 }] };
+  const refundPolicy = { tiers: [{ minDaysBefore: 0, refundPercent: 0 }, { minDaysBefore: 30, refundPercent: 100 }] };
+  Object.assign(db.property[0], { timezone: 'Asia/Seoul', description: '기존 숙소 소개', cleaningFeePolicy, refundPolicy });
+  actAsManager(['p1']);
+  authState.auth.user.enabledModules = ['inventory'];
+  const res = await callRoute(PROPERTIES_GET, makeRequest({}, 'http://localhost/api/properties'));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.length, 1);
+  assert.equal(res.body[0].id, 'p1');
+  assert.equal(res.body[0].timezone, 'Asia/Seoul');
+  assert.equal(res.body[0].description, '기존 숙소 소개');
+  assert.ok(Array.isArray(res.body[0].operationalModules));
+  for (const key of ['cleaningFeePolicy', 'refundPolicy']) assert.equal(Object.hasOwn(res.body[0], key), false);
+  assert.deepEqual(db.property[0].cleaningFeePolicy, cleaningFeePolicy);
+  assert.deepEqual(db.property[0].refundPolicy, refundPolicy);
+});
+
+test('/api/properties: 생성 결과에 Prisma의 신규 정책 칼럼이 있어도 일반 응답에서 제외한다', async () => {
+  const stored = { id: 'new-property', name: '새집', timezone: 'Asia/Seoul', status: 'coming_soon',
+    cleaningFeePolicy: { baseAmount: 50000 }, refundPolicy: null };
+  prismaOverrides.property = { create: async () => stored };
+  const res = await callRoute(PROPERTIES_POST, makeRequest({ name: '새집' }, 'http://localhost/api/properties'));
+  assert.equal(res.status, 201);
+  assert.deepEqual(res.body, { id: 'new-property', name: '새집', timezone: 'Asia/Seoul', status: 'coming_soon' });
+  assert.deepEqual(stored.cleaningFeePolicy, { baseAmount: 50000 });
+  assert.equal(stored.refundPolicy, null);
 });
 
 test('/api/cleanings?isOpen=true: 청소 신청 범위 = 배정 지점 (UserProperty 공통 범위)', async () => {

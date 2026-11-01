@@ -3,12 +3,19 @@ import { getCleaningPropertyIds } from '@/lib/access';
 import { OPERATIONAL_MODULES, isModuleEnabled } from '@/lib/operational-permissions';
 import { withAuth, ok, created, fail, MESSAGES, visibleScope, readJson, str, int } from '@/lib/core/http';
 
+function propertyResponse<T extends object>(property: T): Omit<T, 'cleaningFeePolicy' | 'refundPolicy'> {
+  const fields: T & { cleaningFeePolicy?: unknown; refundPolicy?: unknown } = { ...property };
+  delete fields.cleaningFeePolicy;
+  delete fields.refundPolicy;
+  return fields;
+}
+
 /** 슈퍼매니저는 전체, 사업자 관리자는 소속 사업자, 매니저와 청소 담당자는 배정 지점을 조회한다. */
 export const GET = withAuth('properties', async (_req, { auth }) => {
   const visible = new URL(_req.url).searchParams.get('work') === 'cleaner' ? await getCleaningPropertyIds(auth) : await visibleScope(auth);
   if (visible !== null && visible.length === 0) return ok([]);
   const properties = await prisma.property.findMany({ where: visible === null ? {} : { id: { in: visible } }, include: { organization: { select: { id: true, name: true, features: true } } }, orderBy: { createdAt: 'desc' }, take: 2000 });
-  return ok(properties.map(property => ({ ...(auth.role === 'cleaner' ? { id: property.id, name: property.name, timezone: property.timezone } : property), operationalModules: OPERATIONAL_MODULES.filter(module => isModuleEnabled(module.key, property.organization?.features, property.featureOverrides)).map(module => module.key) })));
+  return ok(properties.map(property => ({ ...(auth.role === 'cleaner' ? { id: property.id, name: property.name, timezone: property.timezone } : propertyResponse(property)), operationalModules: OPERATIONAL_MODULES.filter(module => isModuleEnabled(module.key, property.organization?.features, property.featureOverrides)).map(module => module.key) })));
 });
 
 export const POST = withAuth('properties', async (req, { auth }) => {
@@ -41,5 +48,5 @@ export const POST = withAuth('properties', async (req, { auth }) => {
     await tx.userProperty.create({ data: { userId: auth.session.userId, propertyId: property.id } });
     return property;
   });
-  return created(property);
+  return created(propertyResponse(property));
 });
