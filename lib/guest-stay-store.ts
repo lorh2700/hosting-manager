@@ -9,6 +9,7 @@ import { resolveInvitation } from '@/lib/guest-invitation-access';
 import { todayKst } from '@/lib/dates';
 import { propertyAllowsModule } from '@/lib/operational-access';
 import { requirePropertyModule } from '@/lib/operational-feature-store';
+import { notifyGuestStayRequest } from '@/lib/guest-stay-notifications';
 import { guestStayBounds, guestStayPhase, guestStayRequestSchema, normalizeGuestStayName, requestDateWithinStay,
   type GuestStayPropertyDTO, type GuestStayDTO, type GuestStayRequestDTO, type GuestStayRequestInput } from '@/lib/guest-stay';
 
@@ -289,7 +290,7 @@ export async function createGuestStayRequest(stay: LiveGuestStay, raw: unknown, 
       pricingBasis: ticketSelections.length ? 'tickets' : option ? 'course' : 'reference', ticketSelections };
   }
   // Serialize per reservation: retries/racing mobile and pad submissions cannot exceed the bound.
-  return prisma.$transaction(async tx => {
+  const result = await prisma.$transaction(async tx => {
     let cleaningScopes = [scope];
     if (input.kind === 'interim_cleaning') {
       await tx.$queryRaw`SELECT id FROM properties WHERE id=${stay.propertyId} FOR UPDATE`;
@@ -316,6 +317,8 @@ export async function createGuestStayRequest(stay: LiveGuestStay, raw: unknown, 
       details: tourSnapshot ? { ...input.details, tourSnapshot } : input.details, source, payloadHash } });
     return { request: guestRequestDTO(row), replayed: false };
   });
+  if (!result.replayed) await notifyGuestStayRequest(stay, result.request);
+  return result;
 }
 
 async function interimStayScopes(tx: Prisma.TransactionClient, stay: LiveGuestStay, reading = false) {

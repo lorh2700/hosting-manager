@@ -20,6 +20,7 @@ import { DELETE as disconnectAccess } from '../app/api/guest-stays/access/[id]/r
 import { POST as publicLogin } from '../app/api/public/guest-stay/login/route';
 import { PATCH as cancelPublicRequest } from '../app/api/public/guest-stay/requests/[id]/route';
 import { NextResponse, type StubResponse } from './stubs/next-server';
+import { notifyCalls, resetNotify } from './stubs/notify';
 
 const propertyId = 'legacy_property_id', otherProperty = 'other_property', id = '8b17a1d0-900a-400a-800a-23d02b2a4ee0';
 const today = todayKst(), yesterday = addDaysToDateStr(today, -1), tomorrow = addDaysToDateStr(today, 1);
@@ -52,7 +53,7 @@ function installModelDefaults(name: string) {
   };
 }
 beforeEach(() => {
-  resetDb(); buckets.clear(); actAsAdmin();
+  resetDb(); resetNotify(); buckets.clear(); actAsAdmin();
   db.property = [{ id: propertyId, slug: 'anon', name: '안온재', status: 'active' }, { id: otherProperty, slug: 'unwadang', name: '운와당', status: 'active' }];
   db.booking = [{ id, propertyId, name: 'Test Guest', checkIn: yesterday, checkOut: tomorrow, guests: 2, status: 'confirmed' }];
   for (const name of ['guestStayAccess', 'guestStaySession', 'guestStayRequest', 'guestStayAttempt', 'guestStayDevice']) installModelDefaults(name);
@@ -86,6 +87,37 @@ test('disabling guest services revokes live fixed QR access and blocks a form op
   await assert.rejects(requireGuestStay(req('/api/public/guest-stay/session', undefined, session.token)), /変更|변경/);
   await assert.rejects(createGuestStayRequest(session.stay, { id: randomUUID(), kind: 'help', details: { category: 'supplies', message: 'Towels' } }, 'mobile'), /해당 서비스를/);
   assert.equal((db.guestStayRequest ?? []).length, 0);
+});
+
+test('concurrent app and pad retries persist one request and send one staff alert', async context => {
+  context.mock.method(console, 'warn', () => {});
+  db.inquiryNotificationSettings = [{ propertyId, enabled: true, recipients: [{ name: '담당자', phone: '01012345678' }] }];
+  const stay = (await liveStay(ref))!;
+  const input = { id: randomUUID(), kind: 'help', details: { category: 'supplies', message: 'Extra towels' } };
+  const results = await Promise.all([createGuestStayRequest(stay, input, 'mobile'), createGuestStayRequest(stay, input, 'pad')]);
+  assert.equal(results.filter(result => !result.replayed).length, 1);
+  assert.equal(db.guestStayRequest.length, 1);
+  assert.equal(notifyCalls.sms.length, 1);
+  assert.equal(notifyCalls.sms[0].to, '01012345678');
+  assert.match(notifyCalls.sms[0].text, /Extra towels/);
+  await createGuestStayRequest(stay, input, 'mobile');
+  assert.equal(notifyCalls.sms.length, 1);
+});
+
+test('notification failure after request commit preserves guest success and replay safety', async context => {
+  const warnings: unknown[] = [];
+  context.mock.method(console, 'warn', (...args: unknown[]) => warnings.push(args));
+  prismaOverrides.inquiryNotificationSettings = { findUnique: async () => { throw new Error('lookup unavailable'); } };
+  const stay = (await liveStay(ref))!;
+  const input = { id: randomUUID(), kind: 'help', details: { category: 'issue', message: 'Room request' } };
+  const result = await createGuestStayRequest(stay, input, 'pad');
+  assert.equal(result.replayed, false);
+  assert.equal(result.request.status, 'requested');
+  assert.equal(db.guestStayRequest.length, 1);
+  assert.equal(notifyCalls.sms.length, 0);
+  assert.match(JSON.stringify(warnings), /notification_failed/);
+  assert.equal((await createGuestStayRequest(stay, input, 'pad')).replayed, true);
+  assert.equal(warnings.length, 1);
 });
 
 test('a supervisor disabled tour option cannot be enabled by a property override or direct guest request', async () => {

@@ -29,6 +29,7 @@ export interface NotifyResult {
 export interface SmsMessage {
   to: string;
   text: string;
+  signal?: AbortSignal;
 }
 
 export interface NotifyProvider {
@@ -157,6 +158,7 @@ class SolapiProvider implements NotifyProvider {
       const isLong = Buffer.byteLength(msg.text, 'utf8') > 90;
       const res = await fetch(`${this.endpoint}/messages/v4/send`, {
         method: 'POST',
+        signal: msg.signal,
         headers: {
           'Content-Type': 'application/json',
           Authorization: this.authHeader(),
