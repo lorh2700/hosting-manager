@@ -224,6 +224,8 @@ model Property {
   featureOverrides Json @default("{}") @map("feature_overrides")
   featureVersion   Int @default(1) @map("feature_version")
   publicInfo       Json @default("{}") @map("public_info")
+  refundPolicy     Json? @map("refund_policy")
+  cleaningFeePolicy Json? @map("cleaning_fee_policy")
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
   owner                User                  @relation(fields: [ownerId], references: [id])
@@ -760,6 +762,8 @@ model Cleaning {
   notes          String?
   completionNote String?   @map("completion_note")
   completedAt    DateTime? @map("completed_at")
+  paySnapshot    Json? @map("pay_snapshot")
+  payHistory     Json @default("[]") @map("pay_history")
   hasIssue       Boolean   @default(false) @map("has_issue")
   isOpen         Boolean   @default(false) @map("is_open")
   assignmentType String    @default("direct") @map("assignment_type")
