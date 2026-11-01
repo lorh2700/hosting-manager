@@ -6,3 +6,8 @@
 .carousel::-webkit-scrollbar {
   display: none;
 }
+
+.gallery button:focus-visible {
+  outline: 2px solid #eee8dc;
+  outline-offset: -4px;
+}

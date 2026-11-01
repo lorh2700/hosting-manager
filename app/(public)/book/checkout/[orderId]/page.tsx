@@ -3,12 +3,13 @@
 import { usePublicLanguage } from '@/components/PublicLanguage';
 
 import type { StayOptions } from '@/lib/payments/stay-options';
+import type { StayTourSelectionSnapshot } from '@/lib/stay-tour-types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Script from 'next/script';
 import Link from 'next/link';
 
-type Order = { stayOptions: StayOptions | null; id: string; status: string; propertyName: string; checkIn: string; checkOut: string; guests: number;
+type Order = { stayOptions: StayOptions | null; tourSelections?: StayTourSelectionSnapshot[]; id: string; status: string; propertyName: string; checkIn: string; checkOut: string; guests: number;
   currency: string; amount: number; gateway: string; terms: string; expiresAt: string; mode: string;
   priceKrw: number; fxRate: string | null; bookingId: string | null; approvalUrl?: string; resumeConfirmation?: boolean; clientKey?: string; customerName?: string; customerEmail?: string };
 type TossWindow = Window & { TossPayments?: (key: string) => { payment: (args: { customerKey: string }) => { requestPayment: (args: Record<string, unknown>) => Promise<void> } } };
@@ -93,7 +94,7 @@ export default function CheckoutPage() {
     <div className="max-w-lg mx-auto space-y-7">
       <h1 className="text-2xl">{order ? t(statusText[order.status] ?? "처리 중 / Processing") : t("예약 결제 / Reservation payment")}</h1>
       {order && <>
-        {order.mode === 'test' && <p className="p-3 border border-amber-500 text-amber-300">{t("테스트 결제 / TEST — 실제 결제가 아닙니다.")}</p>}
+        {order.mode === 'test' && <p className="p-3 border border-amber-500 text-amber-300">{t("테스트 결제 / TEST · 실제 결제가 아닙니다.")}</p>}
         <section className="space-y-3 border-y border-stone-700 py-6">
           <h2 className="text-xl">{t(order.propertyName)}</h2>
           <p>{order.checkIn} → {order.checkOut} · {order.guests} guests</p>
@@ -107,8 +108,20 @@ export default function CheckoutPage() {
           {order.status === 'confirmed' && <p>{t("예약번호 / Booking reference:")}{order.bookingId}</p>}
           {payable && <p className="text-sm text-stone-400">{t("결제 전 객실과 요금을 다시 확인합니다. / Availability and price are rechecked before payment.")}</p>}
         </section>
+        {!!order.tourSelections?.length && <section className="space-y-4 border border-stone-600 p-4" aria-labelledby="checkout-tours-title">
+          <h2 id="checkout-tours-title" className="text-lg">{language === 'en' ? 'Optional tour requests' : '옵션 투어 신청'}</h2>
+          <p className="text-sm leading-6 text-stone-300">{language === 'en' ? 'Tour fees are separate from the accommodation payment above. The host will check availability and contact you to confirm your tour and arrange payment.' : '투어 비용은 위 숙박 결제금액에 포함되지 않습니다. 담당자가 일정을 확인한 후 투어 확정과 별도 결제를 안내합니다.'}</p>
+          <ul className="divide-y divide-stone-700">{order.tourSelections.map(tour => <li key={tour.tourId} className="space-y-2 py-4 text-sm">
+            <h3 className="font-medium text-stone-100">{tour.title}</h3>
+            <p className="text-stone-300">{tour.requestedDate} · {tour.requestedTime} · {tour.guests}{language === 'en' ? ' people' : '인'}{tour.durationLabel ? ` · ${tour.durationLabel}` : ''}</p>
+            {tour.tickets.length > 0 && <p className="text-stone-300">{tour.tickets.filter(ticket => ticket.count > 0).map(ticket => `${ticket.label} ${ticket.count}`).join(' · ')}</p>}
+            <p className="text-stone-300">{language === 'en' ? 'Estimated fee, separate payment: ' : '예상 금액, 별도 결제: '}{tour.totalPrice === null ? language === 'en' ? 'To be advised' : '별도 안내' : `₩${tour.totalPrice.toLocaleString()}`}</p>
+            <p className={tour.requestStatus === 'unavailable' ? 'text-amber-200' : 'text-stone-100'}>{tour.requestStatus === 'submitted' ? language === 'en' ? 'Request received. Tour confirmation is pending.' : '신청 접수 완료 · 투어 확정 대기' : tour.requestStatus === 'unavailable' ? language === 'en' ? 'This tour could not be requested. Please contact the host. Your stay booking is unchanged.' : '투어 신청을 접수하지 못했습니다. 숙소에 문의해 주세요. 숙박 예약은 유지됩니다.' : ['expired', 'refunded'].includes(order.status) ? language === 'en' ? 'This tour request was not submitted.' : '투어 신청 미접수' : language === 'en' ? 'The request will be sent after your stay is confirmed.' : '숙박 예약이 확정되면 투어 신청이 접수됩니다.'}</p>
+            {tour.requestStatus === 'submitted' && ['refund_pending', 'refunded'].includes(order.status) && <p className="text-sm text-stone-300">{language === 'en' ? 'Please contact your host separately to change or cancel this tour request.' : '접수한 투어 문의의 변경·취소는 숙소에 별도로 연락해 주세요.'}</p>}
+          </li>)}</ul>
+        </section>}
         <details className="border border-stone-700 p-4" open={!!payable}>
-          <summary className="cursor-pointer">{t("취소·환불 규정 / Cancellation & refund policy")}</summary>
+          <summary className="min-h-11 cursor-pointer content-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">{t("취소·환불 규정 / Cancellation & refund policy")}</summary>
           <p className="whitespace-pre-wrap text-sm leading-7 mt-4">{order.terms}</p>
         </details>
         {payable && <>

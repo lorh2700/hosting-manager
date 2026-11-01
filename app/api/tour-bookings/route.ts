@@ -22,7 +22,7 @@ export const GET = withAuth('tour-bookings', async (req, { auth }) => {
   });
 
   return ok(bookings.map(b => ({
-    id: b.id, tourId: b.tourId, scheduleId: b.scheduleId,
+    id: b.id, tourId: b.tourId, scheduleId: b.scheduleId, bookingId: b.bookingId,
     name: b.name, phone: b.phone, email: b.email, guests: b.guests, durationMin: b.durationMin,
     unitPrice: b.unitPrice ? Number(b.unitPrice) : null,
     totalPrice: b.totalPrice ? Number(b.totalPrice) : null,

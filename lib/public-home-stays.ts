@@ -1,4 +1,5 @@
 import { PROPERTY_DISPLAY, PROPERTY_DISPLAY_ORDER, propertyImagePaths } from './property-display';
+import { optimizedPropertyImages } from './property-images';
 import type { StaySearchResult } from './stay-search';
 
 export type PublicStayCard = {
@@ -27,13 +28,6 @@ export function publicStayStartingPrice(card: PublicStayCard, language: 'ko' | '
   return amount % 10_000 === 0 ? `${(amount / 10_000).toLocaleString('ko-KR')}만원~` : `₩${amount.toLocaleString('ko-KR')}~`;
 }
 
-function publicStayImages(slug: string, images: string[]): string[] {
-  const display = Object.hasOwn(PROPERTY_DISPLAY, slug) ? PROPERTY_DISPLAY[slug] : null;
-  if (!display) return images;
-  const originals = new Map(propertyImagePaths(display).map(image => [image.src, image.webp]));
-  return images.map(image => originals.get(image) || image);
-}
-
 // Treat malformed responses as a failed load, rather than an empty property list.
 export function parsePublicStayCards(raw: unknown): PublicStayCard[] | null {
   if (!Array.isArray(raw)) return null;
@@ -53,7 +47,7 @@ export function parsePublicStayCards(raw: unknown): PublicStayCard[] | null {
       maxGuests: Number.isInteger(value.maxGuests) && Number(value.maxGuests) > 0 ? Number(value.maxGuests) : 2,
       maxPets: Number.isInteger(value.maxPets) && Number(value.maxPets) >= 0 ? Number(value.maxPets) : null,
       openingLabel: typeof value.openingLabel === 'string' ? value.openingLabel : null,
-      images: publicStayImages(value.slug, value.images as string[]),
+      images: optimizedPropertyImages(value.slug, value.images as string[]),
       basePrice: Number.isFinite(value.basePrice) && Number(value.basePrice) > 0 ? Number(value.basePrice) : null,
       baseGuests: Number.isInteger(value.baseGuests) && Number(value.baseGuests) >= 1 && Number(value.baseGuests) <= Number(value.maxGuests) ? Number(value.baseGuests) : 2,
       description: typeof value.description === 'string' ? value.description : '',

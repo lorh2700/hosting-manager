@@ -18,6 +18,8 @@ import { TossError } from './toss';
 import { confirmPayment, getPayment, refundPayment } from './provider';
 import { PayPalError, startPayPal } from './paypal';
 import { propertyAllowsModule } from '@/lib/operational-access';
+import { checkoutRefundTerms } from '@/lib/refund-policy';
+import { readTourSelections, resolveTourSelections, storeTourSelections, submitConfirmedStayTours, tourSelectionsInputSchema } from './tour-selections';
 
 const hash = (token: string) => createHash('sha256').update(token).digest('hex');
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v => {
@@ -29,6 +31,7 @@ const inputSchema = z.object({ propertyId: z.string().trim().min(1).max(128).reg
   pets: z.number().int().min(0).max(2).default(0),
   guests: z.number().int().min(1).max(20), name: z.string().trim().min(1).max(80),
   email: z.email().max(100), phone: z.string().trim().min(6).max(40), gateway: z.enum(['card', 'paypal']),
+  tourSelections: tourSelectionsInputSchema,
 });
 
 export async function priceStay(raw: unknown, barrierId?: string) {
@@ -80,19 +83,22 @@ export async function quoteCheckout(raw: unknown) {
   const recent = await prisma.checkoutOrder.count({ where: { email: data.email, createdAt: { gt: new Date(Date.now() - 60 * 60_000) } } });
   if (recent >= 10) throw fail(429, '요금 조회 횟수를 초과했습니다. 잠시 후 다시 시도해주세요.');
   const { priceKrw, roomId, propertyName, stayOptions } = await priceStay(data);
+  const tourSelections = await resolveTourSelections(data.tourSelections, data);
   const amount = chargeAmount(priceKrw, data.gateway, process.env.CHECKOUT_KRW_PER_USD);
   const token = randomBytes(32).toString('base64url');
-  const { pets: _pets, ...bookingData } = data;
+  const { pets: _pets, tourSelections: _tourSelections, ...bookingData } = data;
   const order = await prisma.checkoutOrder.create({ data: { ...bookingData, ...amount, priceKrw,
     ...(stayOptions ? { stayOptions } : {}),
+    ...(tourSelections.length ? { tourSelections: storeTourSelections(tourSelections) } : {}),
     tokenHash: hash(token), roomId, offerId: config.offerId, propertyName,
-    mode: config.mode, terms: config.terms, expiresAt: new Date(Date.now() + 5 * 60_000),
+    mode: config.mode, terms: checkoutRefundTerms(property?.refundPolicy, config.terms), expiresAt: new Date(Date.now() + 5 * 60_000),
   } });
   return { ...publicOrder(order), token };
 }
 
 export function publicOrder(o: CheckoutOrder) {
   return { id: o.id, status: o.status, propertyName: o.propertyName, checkIn: o.checkIn, checkOut: o.checkOut,
+    tourSelections: readTourSelections(o.tourSelections),
     stayOptions: readStayOptions(o.stayOptions), guests: o.guests, currency: o.currency, amount: majorAmount(o), gateway: o.gateway, priceKrw: o.priceKrw,
     fxRate: o.fxRate, terms: o.terms, expiresAt: o.expiresAt, bookingId: o.bookingId, mode: o.mode };
 }
@@ -183,7 +189,10 @@ async function saveConfirmed(o: CheckoutOrder) {
     const event = { source: 'direct', title: o.name, startDate: o.checkIn, endDate: o.checkOut, type: 'reservation', guestEmail: o.email, guestPhone: o.phone, numAdults: o.guests, numChildren: 0 };
     await tx.event.upsert({ where: { propertyId_channelId_originalUid: { propertyId: o.propertyId, channelId: 'beds24', originalUid: beds24Id } },
       create: { propertyId: o.propertyId, channelId: 'beds24', originalUid: beds24Id, ...event }, update: event });
-    await tx.checkoutOrder.update({ where: { id: o.id }, data: { status: 'confirmed', beds24Id, bookingId: booking.id } });
+    const tourSelections = await submitConfirmedStayTours(tx, o, booking.id);
+    await tx.checkoutOrder.update({ where: { id: o.id }, data: { status: 'confirmed', beds24Id, bookingId: booking.id,
+      ...(tourSelections ? { tourSelections } : {}),
+    } });
   });
   await indexGuestSafely(async () => {
     const booking = await prisma.booking.findUnique({ where: { id: o.bookingId ?? o.id } });

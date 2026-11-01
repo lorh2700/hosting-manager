@@ -37,7 +37,9 @@ test('GET invitation recovery and automatic checkout pages are covered by the re
     assert.equal(unstable_doesMiddlewareMatch({ config, url }), true, url);
     assert.equal(legacyHttpMaintenanceResponse(url, enabled)?.status, 503, url);
   }
-  for (const url of ['/login', '/_next/static/app.js', '/images/photo.webp', '/c/token', '/ical/unwa']) {
+  assert.equal(unstable_doesMiddlewareMatch({ config, url: '/login' }), true);
+  assert.equal(legacyHttpMaintenanceResponse('/login', enabled), null);
+  for (const url of ['/_next/static/app.js', '/images/photo.webp', '/c/token', '/ical/unwa']) {
     assert.equal(unstable_doesMiddlewareMatch({ config, url }), false, url);
   }
 });

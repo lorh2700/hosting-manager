@@ -201,7 +201,7 @@ test('managed quote refuses blocked dates before any external offer request', as
 const checkoutId = 'e1a6bb45-d76c-4322-b270-76934162bf35';
 function order(): CheckoutOrder {
   return { id: checkoutId, propertyId: 'p1', roomId: 555, offerId: 1, propertyName: 'Test', ...dates,
-    guests: 2, priceKrw: 350000, stayOptions: null, tokenHash: 'hash', name: 'Test Guest', email: 'test@example.test', phone: '+12025550100',
+    guests: 2, priceKrw: 350000, stayOptions: null, tourSelections: null, tokenHash: 'hash', name: 'Test Guest', email: 'test@example.test', phone: '+12025550100',
     gateway: 'card', mode: 'test', currency: 'KRW', amountMinor: 350000, fxRate: null, terms: 'test', termsAcceptedAt: null,
     status: 'quoted', beds24Id: null, paymentKey: null, bookingId: null, paypalRefundId: null, paypalRefundRequestedAt: null,
     expiresAt: new Date(Date.now() + 900000), leaseUntil: null, lastError: null, createdAt: new Date(), updatedAt: new Date() };

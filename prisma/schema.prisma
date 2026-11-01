@@ -270,6 +270,7 @@ model Organization {
   users User[]
   invitations Invitation[]
   propertyRequests PropertyRequest[]
+  tours Tour[]
   @@index([status, name])
   @@map("organizations")
 }
@@ -624,6 +625,7 @@ model CheckoutOrder {
   amountMinor  Int @map("amount_minor")
   priceKrw     Int @map("price_krw")
   stayOptions  Json? @map("stay_options")
+  tourSelections Json? @map("tour_selections")
   fxRate       String? @map("fx_rate")
   terms        String
   termsAcceptedAt DateTime? @map("terms_accepted_at")
@@ -983,6 +985,7 @@ model TourOperator {
 model Tour {
   id           String   @id @default(uuid())
   ownerId      String   @map("owner_id")
+  organizationId String? @map("organization_id")
   operatorId   String?  @map("operator_id")
   title        String
   slug         String   @unique
@@ -998,6 +1001,7 @@ model Tour {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   owner           User                 @relation("OwnedTours", fields: [ownerId], references: [id])
+  organization    Organization?        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   operator        TourOperator?        @relation(fields: [operatorId], references: [id], onDelete: SetNull)
   schedules       TourSchedule[]
   bookings        TourBooking[]
@@ -1006,6 +1010,7 @@ model Tour {
 
   @@index([ownerId])
   @@index([operatorId])
+  @@index([organizationId])
   @@map("tours")
 }
 
@@ -1087,7 +1092,9 @@ model TourBooking {
   status           String    @default("pending") // pending, forwarded, confirmed, cancelled, completed
   forwardedAt      DateTime? @map("forwarded_at")
   message          String?
-  source           String    @default("direct") // direct, admin, hanok-guest
+  source           String    @default("direct") // inquiry, admin, stay_checkout (paid stay), stay_inquiry (planned stay)
+  requestKey       String?   @map("request_key")
+  requestHash      String?   @map("request_hash")
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
@@ -1097,6 +1104,7 @@ model TourBooking {
 
   @@index([tourId, status])
   @@index([scheduleId])
+  @@unique([requestKey, tourId], map: "tour_bookings_request_tour_key")
   @@map("tour_bookings")
 }
 

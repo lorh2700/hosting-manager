@@ -53,6 +53,7 @@ export const POST = withAuth('tours', async (req, { auth }) => {
   const tour = await prisma.tour.create({
     data: {
       ownerId: auth.session.userId,
+      organizationId: auth.user.organizationId ?? null,
       title,
       slug: slug && slug.trim() ? slug.trim() : uniqueSlug(title),
       category: (body.category as string | undefined) ?? null,

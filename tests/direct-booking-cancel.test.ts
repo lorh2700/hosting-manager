@@ -24,7 +24,7 @@ test('only the selected duplicate direct booking is cancelled; repeating is safe
   assert.equal(fetchLog.length, 0);
 });
 
-test('Beds24 연결 없는 직접 예약 취소도 청소와 승인된 신청을 함께 정리한다', async () => {
+test('Beds24 연결 없는 직접 예약 취소도 청소와 승인된 신청을 취소하고 이력은 보존한다', async () => {
   const date = addDaysToDateStr(todayKst(), 3);
   db.booking = [{ ...db.booking[0], checkOut: date }];
   db.cleaning = [{ id: 'cleaning', propertyId: 'p1', date, origin: 'auto', status: 'pending', cleanerId: 'cleaner', assignmentType: 'applied' }];
@@ -33,8 +33,14 @@ test('Beds24 연결 없는 직접 예약 취소도 청소와 승인된 신청을
   assert.equal(result.status, 200);
   assert.equal(result.body.cleaningCleanupPending, false);
   assert.equal(db.booking[0].status, 'cancelled');
-  assert.equal(db.cleaning.length, 0);
-  assert.equal(db.cleaningApplication.length, 0);
+  assert.equal(db.cleaning.length, 1);
+  assert.equal(db.cleaning[0].status, 'cancelled');
+  assert.equal(db.cleaning[0].cleanerId, null);
+  assert.equal(db.cleaning[0].isOpen, false);
+  assert.equal(db.cleaningApplication.length, 1);
+  assert.equal(db.cleaningApplication[0].status, 'cancelled');
+  assert.match(db.cleaningApplication[0].rejectedReason, /예약 취소/);
+  assert.ok(db.cleaningApplication[0].processedAt instanceof Date);
   assert.equal(fetchLog.length, 0);
 });
 

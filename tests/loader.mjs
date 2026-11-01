@@ -11,6 +11,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 // 스텁 매핑. 실제 구현을 테스트하고 싶으면 테스트에서 상대 경로로 직접 import 한다
 // (예: import { notifyCleaningCancelled } from '../lib/notify').
 const STUBS = {
+  'server-only': 'tests/stubs/server-only.ts',
   '@/lib/prisma': 'tests/stubs/prisma.ts',
   '@/lib/auth': 'tests/stubs/auth.ts',
   '@/lib/notify': 'tests/stubs/notify.ts',

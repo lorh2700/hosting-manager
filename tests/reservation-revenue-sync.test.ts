@@ -51,7 +51,10 @@ test('financial currency failure still syncs calendar but does not report revenu
 });
 
 test('missing revenue migration is a specific warning and does not stop the existing reservation calendar', async () => {
-  prismaOverrides.$queryRaw = async () => { throw { code: 'P2010', meta: { code: '42P01' } }; };
+  prismaOverrides.$queryRaw = async (parts: TemplateStringsArray) => {
+    if (parts.join('').includes('reservation_revenue_sources')) throw { code: 'P2010', meta: { code: '42P01' } };
+    return [];
+  };
   remote([sampleBooking({ arrival: start, departure: end, price: 100000 })]);
   const result = await syncBeds24Property('p', '111');
   assert.equal(result.eventsCreated, 1); assert.equal(result.revenueSourcesUpdated, 0);

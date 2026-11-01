@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { getPropertyDisplay, propertyImagePaths } from './property-display';
+import { optimizedPropertyImages } from './property-images';
 
 const imageUrl = z.string().trim().max(2000).refine(value => {
   try {
@@ -42,5 +43,6 @@ export function publishRequirements(property: { name: string; slug?: string | nu
 
 export function publicListing(property: { id: string; name: string; slug?: string | null; status: string; description?: string | null; maxGuests?: number | null; basePrice?: unknown; openingDate?: string | null; timezone: string; publicInfo?: unknown }) {
   const info = propertyPublicInfo(property);
-  return { ...info, id: property.id, name: property.name, slug: property.slug, status: property.status, timezone: property.timezone, description: property.description || '', maxGuests: property.maxGuests ?? 2, basePrice: property.basePrice != null && Number(property.basePrice) > 0 ? Number(property.basePrice) : null, imageUrl: info.images[0] ?? null, openingLabel: property.openingDate || null };
+  const images = optimizedPropertyImages(property.slug, info.images);
+  return { ...info, images, id: property.id, name: property.name, slug: property.slug, status: property.status, timezone: property.timezone, description: property.description || '', maxGuests: property.maxGuests ?? 2, basePrice: property.basePrice != null && Number(property.basePrice) > 0 ? Number(property.basePrice) : null, imageUrl: images[0] ?? null, openingLabel: property.openingDate || null };
 }

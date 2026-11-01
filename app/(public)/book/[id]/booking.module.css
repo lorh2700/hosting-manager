@@ -1,0 +1,48 @@
+.page :is(button, a, input, select, summary):not(.lightSection *):focus-visible {
+  outline: 2px solid #eee8dc;
+  outline-offset: 4px;
+}
+
+.page :is(input, select) {
+  min-width: 0;
+  max-width: 100%;
+  border-color: #78716c;
+  scroll-margin: 7rem 0;
+}
+
+.page :is(input, select)::placeholder {
+  color: #a8a29e;
+}
+
+.page :global(.text-stone-500):not(.lightSection *),
+.page :global(.text-stone-600):not(.lightSection *),
+.page :global(.text-stone-700):not(.lightSection *) {
+  color: #a8a29e;
+}
+
+.lightSection :is(button, a):focus-visible {
+  outline: 2px solid #293d31;
+  outline-offset: 4px;
+}
+
+.calendar {
+  padding: 16px 0;
+}
+
+@media (max-width: 359px) {
+  :global(html):has(.page) {
+    scrollbar-width: thin;
+  }
+
+  .calendar {
+    margin-inline: -16px;
+    border-radius: 0;
+    border-inline: 0;
+  }
+}
+
+@media (min-width: 640px) {
+  .calendar {
+    padding: 24px;
+  }
+}
