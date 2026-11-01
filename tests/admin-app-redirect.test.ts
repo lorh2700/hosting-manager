@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { NextRequest } from 'next/server';
+import { unstable_doesMiddlewareMatch } from 'next/experimental/testing/server.js';
 import { adminAppDestination } from '../lib/admin-app-redirect';
-import { middleware } from '../middleware';
+import { middleware, config } from '../middleware';
 
 const origin = 'https://hosting-manager-platform-fe-ato3js2aoq-du.a.run.app';
 const source = (path: string) => new URL(path, 'https://voidanchae.com');
@@ -79,6 +80,13 @@ test('only the two known cleaner login destinations bypass legacy login without 
   }
 });
 
+test('Next routes cleaner login links through middleware while public calendar tokens stay outside', () => {
+  for (const path of ['/login?next=%2Fcleaner%2Fcalendar', '/cleaner/schedule', '/cleaner/calendar']) {
+    assert.equal(unstable_doesMiddlewareMatch({ config, url: source(path).href }), true, path);
+  }
+  assert.equal(unstable_doesMiddlewareMatch({ config, url: source('/c/public-token').href }), false);
+});
+
 test('the redirect is opt-in, rejects unsafe origins, and never changes unsupported paths or write methods', () => {
   for (const unset of [undefined, '']) assert.equal(adminAppDestination('GET', source('/admin'), unset), null);
   for (const invalid of ['http://example.com', '//example.com', 'https://user:pass@example.com',
@@ -117,10 +125,13 @@ test('middleware redirects before reading a session, while public and unsupporte
     assert.equal(cleanerResponse.status, 307);
     assert.equal(cleanerResponse.headers.get('location'), `${origin}/cleanings?date=2026-11-08&view=available&period=month`);
     assert.equal(cleanerResponse.headers.has('set-cookie'), false);
+    const cleanerLogin = await middleware(request('/login?next=%2Fcleaner%2Fcalendar', method, true));
+    assert.equal(cleanerLogin.status, 307);
+    assert.equal(cleanerLogin.headers.get('location'), `${origin}/cleanings?view=mine&period=month`);
   }
   assert.match((await middleware(request('/admin/messages'))).headers.get('location')!, /^https:\/\/voidanchae.com\/login\?/);
   assert.equal((await middleware(request('/api/admin/calendar'))).status, 401);
-  for (const path of ['/guest/welcome/token', '/guest-checkout', '/stay/unwa', '/i/token', '/invite/token', '/api/auth/login']) {
+  for (const path of ['/login', '/login?next=%2Fcleaner', '/guest/welcome/token', '/guest-checkout', '/stay/unwa', '/i/token', '/invite/token', '/api/auth/login']) {
     assert.equal((await middleware(request(path, 'GET', true))).status, 200, path);
   }
 });
