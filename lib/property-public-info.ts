@@ -10,6 +10,8 @@ const imageUrl = z.string().trim().max(2000).refine(value => {
 }, '사진은 업로드한 HTTPS 주소 또는 /images/ 경로를 사용해 주세요.');
 export const publicInfoSchema = z.object({
   region: z.string().trim().max(80).default(''), addressKo: z.string().trim().max(300).default(''), catchphrase: z.string().trim().max(160).default(''),
+  regionEn: z.string().trim().max(80).optional(), addressEn: z.string().trim().max(300).optional(),
+  catchphraseEn: z.string().trim().max(160).optional(), descriptionEn: z.string().trim().max(12000).optional(),
   checkInTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).default('15:00'), checkOutTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).default('11:00'),
   images: z.array(imageUrl).max(24).default([]),
   baseGuests: z.number().int().min(1).max(10).optional(),

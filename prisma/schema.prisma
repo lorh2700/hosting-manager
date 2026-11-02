@@ -1136,6 +1136,8 @@ model Beds24TokenCache {
 model GuestServiceRequest {
   id String @id
   propertyId String @map("property_id")
+  reservationKind String? @map("reservation_kind")
+  reservationId String? @map("reservation_id")
   kind String @default("airport_pickup")
   guestName String @map("guest_name")
   email String
@@ -1157,6 +1159,7 @@ model GuestServiceRequest {
   updatedAt DateTime @updatedAt @map("updated_at")
   property Property @relation(fields:[propertyId], references:[id], onDelete:Restrict)
   @@index([propertyId, status, createdAt])
+  @@index([propertyId, reservationKind, reservationId, createdAt], map: "guest_service_requests_reservation_idx")
   @@map("guest_service_requests")
 }
 

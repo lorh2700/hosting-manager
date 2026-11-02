@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { GuestFormErrors, GuestFieldError, guestFieldProps } from '@/components/GuestFormErrors';
+import { readGuestFieldErrors, type GuestFieldErrors, type GuestFormField } from '@/lib/guest-form-errors';
 import { v4 as uuidv4 } from 'uuid';
 import GuestInvitation from '@/components/GuestInvitation';
 import JongnoEventRecommendations from '@/components/JongnoEventRecommendations';
@@ -18,7 +20,7 @@ type Tour={id:string;slug:string;title:string;description:string|null;images:str
 const field='mt-2 min-h-12 w-full rounded-xl border border-stone-300 bg-white px-3 py-3 text-base text-stone-900 outline-none focus:border-[#31594c] focus:ring-2 focus:ring-[#31594c]/20';
 const focus='focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#31594c]';
 
-export default function GuestGuide({guide,initialLanguage,invitationPreview=false,reservation,invitationKey,stayAppUrl}:{guide:Guide;initialLanguage:GuestLanguage;invitationPreview?:boolean;reservation?:{guestName:string;checkIn:string;checkOut:string;guests:number|null};invitationKey?:string;stayAppUrl?:string}){
+export default function GuestGuide({guide,initialLanguage,invitationPreview=false,reservation,invitationKey,invitationToken,stayAppUrl}:{guide:Guide;initialLanguage:GuestLanguage;invitationPreview?:boolean;reservation?:{guestName:string;checkIn:string;checkOut:string;guests:number|null};invitationKey?:string;invitationToken?:string;stayAppUrl?:string}){
   const [lang,setLang]=useState<GuestLanguage>(initialLanguage); const base=guestGuideCopy[lang];
   const propertyName=lang==='ko'?guide.name:guide.nameEn;
   const t={...base,
@@ -29,6 +31,12 @@ export default function GuestGuide({guide,initialLanguage,invitationPreview=fals
   };
   const [tours,setTours]=useState<Tour[]>([]),[tourLoading,setTourLoading]=useState(true),[tourError,setTourError]=useState(false),[attempt,setAttempt]=useState(0);
   const [busy,setBusy]=useState(false),[error,setError]=useState<number|null>(null),[receipt,setReceipt]=useState('');
+  const [fieldErrors,setFieldErrors]=useState<GuestFieldErrors>({});
+  const [receiptLinked,setReceiptLinked]=useState(false);
+  const validation=(name:GuestFormField)=>guestFieldProps('pickup',name,fieldErrors);
+  const fieldError=(name:GuestFormField)=><GuestFieldError prefix="pickup" field={name} errors={fieldErrors} language={lang}/>;
+  const labels={guestName:t.name,email:t.email,phone:t.phone,arrivalDate:t.date,arrivalTime:t.time,flightNumber:t.flight,passengers:t.passengers,luggage:t.bags,message:t.message,consent:t.consent};
+  const historyNote={ko:'예약에 연결되지 않은 이전 픽업 신청은 여기에 표시되지 않습니다. 기존 접수번호로 숙소에 문의해 주세요. 같은 요청을 다시 신청할 필요는 없습니다.',en:'Earlier pickup requests not linked to this reservation are handled separately. Contact your host with the original receipt number; you do not need to submit again.',ja:'予約に紐づいていない以前の送迎申請は別途対応されます。元の受付番号で宿泊施設にお問い合わせください。再申請は不要です。',zh:'此前未关联预订的接机申请将单独处理。请提供原受理编号联系住宿方，无需重复申请。'}[lang];
   const requestId=useRef<string|null>(null), payloadKey=useRef('');
   const submitted=useRef(false); const successRef=useRef<HTMLDivElement>(null);
   useEffect(()=>{if(receipt)successRef.current?.focus();},[receipt]);
@@ -41,12 +49,12 @@ export default function GuestGuide({guide,initialLanguage,invitationPreview=fals
   },[attempt]);
   async function submit(event:React.FormEvent<HTMLFormElement>){
     event.preventDefault();if(submitted.current)return;
-    submitted.current=true;setBusy(true);setError(null);
+    submitted.current=true;setBusy(true);setError(null);setFieldErrors({});
     try{
       const data=new FormData(event.currentTarget);
-      const payload={slug:guide.slug,guestName:String(data.get('guestName')),email:String(data.get('email')),phone:String(data.get('phone')),arrivalDate:String(data.get('arrivalDate')),arrivalTime:String(data.get('arrivalTime')),flightNumber:String(data.get('flightNumber')),passengers:Number(data.get('passengers')),luggage:Number(data.get('luggage')),message:String(data.get('message')),language:lang,consent:data.get('consent')==='on',website:String(data.get('website')||'')};
+      const payload={slug:guide.slug,...(invitationToken?{invitation:invitationToken}:{}),guestName:String(data.get('guestName')),email:String(data.get('email')),phone:String(data.get('phone')),arrivalDate:String(data.get('arrivalDate')),arrivalTime:String(data.get('arrivalTime')),flightNumber:String(data.get('flightNumber')),passengers:Number(data.get('passengers')),luggage:Number(data.get('luggage')),message:String(data.get('message')),language:lang,consent:data.get('consent')==='on',website:String(data.get('website')||'')};
       const key=JSON.stringify(payload);if(payloadKey.current!==key){requestId.current=uuidv4();payloadKey.current=key;}
-      const res=await fetch('/api/public/guest-services',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:requestId.current,...payload})});const result=await res.json();if(!res.ok){setError(res.status);return;}setReceipt(result.id);
+      const res=await fetch('/api/public/guest-services',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:requestId.current,...payload})});const result=await res.json();if(!res.ok){setFieldErrors(readGuestFieldErrors(result.fields));setError(res.status);return;}if(typeof result.id!=='string'||!result.received)throw Error();setReceiptLinked(result.linkedToStay===true);setReceipt(result.id);
     }
     catch{setError(0);}finally{setBusy(false);submitted.current=false;}
   }
@@ -73,19 +81,19 @@ export default function GuestGuide({guide,initialLanguage,invitationPreview=fals
         <div className="rounded-2xl border border-[#dedfd5] p-6"><CarFront size={20} strokeWidth={1.4}/><h3 className="mt-4 font-medium">{t.parking}</h3><div className="mt-2 space-y-3 text-sm leading-7 text-stone-600"><p>{t.parkingText}</p><ul className="list-disc space-y-1 pl-5">{t.parkingPlaces.map(place=><li key={place}>{place}</li>)}</ul><p>{t.parkingPrice}</p><p>{t.parkingCheck}</p></div></div>
       </div></section>
       <section id="pickup" className="scroll-mt-5 bg-[#e9eddf] px-5 py-14 sm:px-8 sm:py-20"><div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[.85fr_1.15fr] lg:gap-16"><div><p className="text-[10px] tracking-[.2em] text-[#667d60]">02 / {t.ride}</p><Plane size={30} strokeWidth={1} className="mt-8"/><h2 className="mt-5 whitespace-pre-line font-serif text-4xl leading-tight sm:text-5xl">{t.rideTitle}</h2><p className="mt-5 text-sm leading-7 text-stone-600">{t.rideText}</p><p className="mt-7 text-3xl font-medium tracking-tight">{t.price}</p><p className="mt-2 text-xs leading-6 text-stone-600">{t.priceNote}</p><ol className="mt-8 space-y-4 border-t border-[#cdd5c1] pt-7">{t.steps.map((step,i)=><li key={step} className="flex items-center gap-3 text-sm"><span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-[#b5c1a6] text-xs">{i+1}</span>{step}</li>)}</ol><p className="mt-7 text-xs leading-6 text-stone-600">{t.checkNote}</p></div>
-        <div className="rounded-3xl border border-white/80 bg-[#fbfcf8] p-5 sm:p-8">{receipt?<div ref={successRef} tabIndex={-1} role="status" className="py-12 outline-none"><Check size={34} className="mb-6"/><h3 className="font-serif text-3xl">{t.received}</h3><p className="mt-5 text-sm leading-7 text-stone-600">{t.receivedText}</p><p className="mt-7 text-xs text-stone-500">{t.reference}</p><code className="mt-2 block break-all text-sm">{receipt}</code></div>:<form onSubmit={submit}><h3 className="font-serif text-2xl">{t.formTitle}</h3><p className="mt-3 text-xs leading-6 text-stone-500">{t.formSubtitle}</p><fieldset disabled={busy} className="mt-6 grid gap-5 sm:grid-cols-2">
-          <label className="text-sm sm:col-span-2">{t.name}<input name="guestName" required maxLength={100} autoComplete="name" className={field}/></label>
-          <label className="text-sm">{t.email}<input name="email" type="email" required maxLength={200} autoComplete="email" className={field}/></label>
-          <label className="text-sm">{t.phone}<input name="phone" type="tel" required minLength={7} maxLength={30} autoComplete="tel" placeholder="+82 10 1234 5678" className={field}/></label>
-          <label className="text-sm">{t.date}<input name="arrivalDate" type="date" min={todayKst()} max={addDaysToDateStr(todayKst(),365)} required className={field}/></label>
-          <label className="text-sm">{t.time}<input name="arrivalTime" type="time" required className={field}/></label>
-          <label className="text-sm sm:col-span-2">{t.flight}<input name="flightNumber" placeholder="KE902" required maxLength={9} pattern="[A-Za-z0-9]{2,3}[ ]?[0-9]{1,4}[A-Za-z]?" className={`${field} uppercase`}/></label>
-          <label className="text-sm">{t.passengers}<input name="passengers" type="number" min={1} max={12} step={1} defaultValue={2} required className={field}/></label>
-          <label className="text-sm">{t.bags}<input name="luggage" type="number" min={0} max={30} step={1} defaultValue={2} required className={field}/></label>
-          <label className="text-sm sm:col-span-2">{t.message}<textarea name="message" rows={3} maxLength={1000} className={field}/></label>
+        <div className="rounded-3xl border border-white/80 bg-[#fbfcf8] p-5 sm:p-8">{receipt?<div ref={successRef} tabIndex={-1} role="status" className="py-12 outline-none"><Check size={34} className="mb-6"/><h3 className="font-serif text-3xl">{t.received}</h3><p className="mt-5 text-sm leading-7 text-stone-600">{t.receivedText}</p><p className="mt-7 text-xs text-stone-500">{t.reference}</p><code className="mt-2 block break-all text-sm">{receipt}</code>{receiptLinked&&stayAppUrl?<Link href={`${stayAppUrl}&lang=${lang}#requests`} className="mt-5 inline-flex min-h-11 items-center underline">{stayAppCopy.button}</Link>:<p className="mt-5 text-sm leading-7">{historyNote}</p>}</div>:<form onSubmit={submit}><h3 className="font-serif text-2xl">{t.formTitle}</h3><p className="mt-3 text-xs leading-6 text-stone-500">{t.formSubtitle}</p><div className="mt-4"><GuestFormErrors errors={fieldErrors} language={lang} labels={labels} prefix="pickup" message={error===null?'':error===400?t.inputError:error===429?t.rateError:t.retryText}/></div><fieldset disabled={busy} className="mt-6 grid gap-5 sm:grid-cols-2">
+          <label className="text-sm sm:col-span-2">{t.name}<input name="guestName" {...validation('guestName')} required maxLength={100} autoComplete="name" className={field}/>{fieldError('guestName')}</label>
+          <label className="text-sm">{t.email}<input name="email" {...validation('email')} type="email" required maxLength={200} autoComplete="email" className={field}/>{fieldError('email')}</label>
+          <label className="text-sm">{t.phone}<input name="phone" {...validation('phone')} type="tel" required minLength={7} maxLength={30} autoComplete="tel" placeholder="+82 10 1234 5678" className={field}/>{fieldError('phone')}</label>
+          <label className="text-sm">{t.date}<input name="arrivalDate" {...validation('arrivalDate')} type="date" min={todayKst()} max={addDaysToDateStr(todayKst(),365)} required className={field}/>{fieldError('arrivalDate')}</label>
+          <label className="text-sm">{t.time}<input name="arrivalTime" {...validation('arrivalTime')} type="time" required className={field}/>{fieldError('arrivalTime')}</label>
+          <label className="text-sm sm:col-span-2">{t.flight}<input name="flightNumber" {...validation('flightNumber')} placeholder="KE902" required maxLength={9} pattern="[A-Za-z0-9]{2,3}[ ]?[0-9]{1,4}[A-Za-z]?" className={`${field} uppercase`}/>{fieldError('flightNumber')}</label>
+          <label className="text-sm">{t.passengers}<input name="passengers" {...validation('passengers')} type="number" min={1} max={12} step={1} defaultValue={2} required className={field}/>{fieldError('passengers')}</label>
+          <label className="text-sm">{t.bags}<input name="luggage" {...validation('luggage')} type="number" min={0} max={30} step={1} defaultValue={2} required className={field}/>{fieldError('luggage')}</label>
+          <label className="text-sm sm:col-span-2">{t.message}<textarea name="message" {...validation('message')} rows={3} maxLength={1000} className={field}/>{fieldError('message')}</label>
           <div aria-hidden="true" className="hidden"><label>Website<input name="website" tabIndex={-1} autoComplete="off"/></label></div>
-          <label className="flex items-start gap-3 text-xs leading-6 text-stone-600 sm:col-span-2"><input name="consent" type="checkbox" required className="mt-1 h-4 w-4 shrink-0 accent-[#31594c]"/>{t.consent}</label>
-          {error!==null&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm leading-6 text-red-800 sm:col-span-2">{error===400?t.inputError:error===429?t.rateError:t.retryText}</p>}
+          <label className="flex items-start gap-3 text-xs leading-6 text-stone-600 sm:col-span-2"><input name="consent" {...validation('consent')} type="checkbox" required className="mt-1 h-4 w-4 shrink-0 accent-[#31594c]"/><span>{t.consent}{fieldError('consent')}</span></label>
+
           <button disabled={busy} className={`flex min-h-13 items-center justify-center gap-3 rounded-full bg-[#233e34] px-6 py-4 text-sm text-white disabled:opacity-60 sm:col-span-2 ${focus}`}>{busy?<Loader2 size={16} className="animate-spin"/>:<ArrowUpRight size={16}/>} {busy?t.sending:t.submit}</button>
           <p className="text-center text-[11px] leading-5 text-stone-500 sm:col-span-2">{t.saved}</p>
         </fieldset></form>}</div>

@@ -14,6 +14,8 @@ import { guestGuide } from '@/lib/guest-guide';
 import type { GuestStayDTO, GuestStayPropertyDTO, GuestStayRequestDTO, GuestStayRequestInput } from '@/lib/guest-stay';
 import { guestStayTranslation } from './GuestStayCopy';
 import styles from './GuestStay.module.css';
+import { GuestFormErrors, GuestFieldError, guestFieldProps } from '@/components/GuestFormErrors';
+import { readGuestFieldErrors, type GuestFieldErrors, type GuestFormField } from '@/lib/guest-form-errors';
 
 type Tab = 'home' | 'guide' | 'services' | 'requests';
 type Service = GuestStayRequestInput['kind'];
@@ -23,7 +25,7 @@ type Tour = { id: string; title: string; slug: string; description: string | nul
 type TourDetail = Tour & { durationOptions: { id: string; label: string | null; durationMin: number; price: number }[]; ticketTiers: { id: string; label: string; price: number; notes: string | null }[] };
 type Credentials = { invitation?: string; accessToken?: string };
 class ApiError extends Error {
-  constructor(public status: number, public code?: string) { super('Guest service request failed'); }
+  constructor(public status: number, public code?: string, public fields: GuestFieldErrors = {}) { super('Guest service request failed'); }
 }
 async function api<T>(url: string, options?: RequestInit, signal?: AbortSignal): Promise<T> {
   const controller = new AbortController();
@@ -34,7 +36,7 @@ async function api<T>(url: string, options?: RequestInit, signal?: AbortSignal):
   try {
     const response = await fetch(url, { credentials: 'same-origin', cache: 'no-store', ...options, signal: controller.signal });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new ApiError(response.status, data.code);
+    if (!response.ok) throw new ApiError(response.status, data.code, readGuestFieldErrors(data.fields));
     return data as T;
   } finally {
     clearTimeout(timeout);
@@ -108,6 +110,17 @@ export default function GuestStayApp({ slug, initialLanguage, preview = false }:
   const [consent, setConsent] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<GuestFieldErrors>({});
+  const validation = (field: GuestFormField) => guestFieldProps('stay-request', field, fieldErrors);
+  const fieldError = (field: GuestFormField) => <GuestFieldError prefix="stay-request" field={field} errors={fieldErrors} language={lang}/>;
+  const fieldLabels = { date: t.date, time: t.time, destination: t.destination, passengers: t.people, guests: t.people, luggage: t.bags, category: t.category, message: t.message, note: t.note, tourId: t.chooseTour, durationOptionId: t.course, ticketCounts: t.tierPrice };
+  const openedDestination = useRef(false);
+  useEffect(() => {
+    if (!stay || openedDestination.current) return;
+    openedDestination.current = true;
+    if (window.location.hash === '#interim-cleaning') { setTab('services'); setService('interim_cleaning'); setDate([todayKst(), addDaysToDateStr(stay.checkIn, 1)].sort().at(-1)!); }
+    else if (window.location.hash === '#requests') setTab('requests');
+  }, [stay]);
   const sendLock = useRef(false);
   const pendingRequest = useRef<{ fingerprint: string; id: string } | null>(null);
   const loginLock = useRef(false);
@@ -256,7 +269,7 @@ export default function GuestStayApp({ slug, initialLanguage, preview = false }:
 
   function chooseTour(id: string) {
     setTourId(id); setTourDetail(null); setTourBusy(Boolean(id)); setTourError(false);
-    setDurationOptionId(''); setTicketCounts({}); setSendError('');
+    setDurationOptionId(''); setTicketCounts({}); setSendError(''); setFieldErrors({});
     window.scrollTo({ top: 0, behavior: 'instant' });
     requestAnimationFrame(() => headerRef.current?.focus({ preventScroll: true }));
   }
@@ -264,7 +277,7 @@ export default function GuestStayApp({ slug, initialLanguage, preview = false }:
   function go(next: Tab, chosenService: Service | null = null) {
     if (sendLock.current) return;
     if (chosenService === 'tour') chooseTour('');
-    setTab(next); setService(chosenService); setSendError('');
+    setTab(next); setService(chosenService); setSendError(''); setFieldErrors({});
     window.scrollTo({ top: 0, behavior: 'instant' });
     requestAnimationFrame(() => headerRef.current?.focus({ preventScroll: true }));
   }
@@ -294,7 +307,7 @@ export default function GuestStayApp({ slug, initialLanguage, preview = false }:
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!stay || !service || sendLock.current) return;
-    sendLock.current = true; setSending(true); setSendError('');
+    sendLock.current = true; setSending(true); setSendError(''); setFieldErrors({});
     try {
       const details = service === 'tour'
         ? { tourId, date, time, guests: tourDetail?.ticketTiers.length ? Object.values(ticketCounts).reduce((sum, value) => sum + value, 0) : people, ...(durationOptionId ? { durationOptionId } : {}), ...(tourDetail?.ticketTiers.length ? { ticketCounts: Object.fromEntries(Object.entries(ticketCounts).sort(([left], [right]) => left.localeCompare(right))) } : {}), note }
@@ -314,7 +327,7 @@ export default function GuestStayApp({ slug, initialLanguage, preview = false }:
       setTime(''); setNote(''); setMessage(''); setDestination(''); setConsent(false);
       pendingRequest.current = null;
       setTab('requests'); setService(null); window.scrollTo({ top: 0, behavior: 'instant' });
-    } catch (error) { setSendError(showApiError(error)); }
+    } catch (error) { setFieldErrors(error instanceof ApiError ? error.fields : {}); setSendError(showApiError(error)); }
     finally { sendLock.current = false; setSending(false); }
   }
   async function copy(value: string, key: string) {
@@ -347,8 +360,8 @@ export default function GuestStayApp({ slug, initialLanguage, preview = false }:
   function ErrorBox({ text, retry }: { text: string; retry?: () => void }) {
     return <div className={styles.error} role="alert"><p>{text}</p>{retry && <button type="button" className={styles.textButton} onClick={retry}><RefreshCw size={15} />{t.retry}</button>}</div>;
   }
-  const dateFields = <div className={`${styles.formGrid} ${styles.dateFields}`}><label>{t.date}<input type="date" required min={earliestDate} max={latestDate} value={date} onChange={event => setDate(event.target.value)} /></label><label>{service === 'interim_cleaning' ? t.preferredTime : t.time}<input type="time" required value={time} onChange={event => setTime(event.target.value)} /></label></div>;
-  const peopleField = <label>{t.people}<select value={people} onChange={event => setPeople(Number(event.target.value))}>{Array.from({ length: Math.min(12, service === 'tour' ? tourDetail?.maxGroupSize || 12 : 12) }, (_, index) => <option key={index} value={index + 1}>{index + 1}</option>)}</select></label>;
+  const dateFields = <div className={`${styles.formGrid} ${styles.dateFields}`}><label>{t.date}<input {...validation('date')} type="date" required min={earliestDate} max={latestDate} value={date} onChange={event => setDate(event.target.value)} />{fieldError('date')}</label><label>{service === 'interim_cleaning' ? t.preferredTime : t.time}<input {...validation('time')} type="time" required value={time} onChange={event => setTime(event.target.value)} />{fieldError('time')}</label></div>;
+  const peopleField = <label>{t.people}<select {...validation(service === 'tour' ? 'guests' : 'passengers')} value={people} onChange={event => setPeople(Number(event.target.value))}>{Array.from({ length: Math.min(12, service === 'tour' ? tourDetail?.maxGroupSize || 12 : 12) }, (_, index) => <option key={index} value={index + 1}>{index + 1}</option>)}</select>{fieldError(service === 'tour' ? 'guests' : 'passengers')}</label>;
 
   return <div className={styles.app} lang={lang} data-tab={tab}>
     <header className={styles.header}><a href={preview ? '/stay/preview' : '/stay/' + slug} aria-label="void anchae" className={styles.logoLink}><Logo variant="black" width={154} priority /></a><label className={styles.language}><span className={styles.srOnly}>{t.language}</span><select aria-label={t.language} value={lang} onChange={event => { const next = event.target.value as GuestLanguage; setLang(next); const url = new URL(window.location.href); url.searchParams.set('lang', next); window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash); }}>{guestLanguages.map(language => <option key={language} value={language}>{guestLanguageNames[language]}</option>)}</select></label></header>
@@ -401,36 +414,40 @@ export default function GuestStayApp({ slug, initialLanguage, preview = false }:
         <p className={styles.softNote}>{t.requestNote}</p>
       </section>}
       {tab === 'services' && service && stay && (service !== 'tour' || tourId) && <form className={styles.requestForm} onSubmit={submit}>
+        <GuestFormErrors errors={fieldErrors} language={lang} labels={fieldLabels} prefix="stay-request" message={sendError}/>
         <fieldset disabled={sending || cleaningUnavailable}><legend className={styles.srOnly}>{labelService(service)}</legend>
         {service === 'tour' && <>
           {tourBusy && <p className={styles.sessionLoading} role="status"><LoaderCircle size={17} className={styles.spin} />{t.loading}</p>}
           {tourError && <ErrorBox text={t.error} retry={() => setTourRetry(value => value + 1)} />}
-          {tourDetail && <div className={styles.tourSummary}>{tourDetail.images[0] && <Image src={tourDetail.images[0]} alt={guestTourCopy(tourDetail, lang).title} width={620} height={330} unoptimized />}<h2>{guestTourCopy(tourDetail, lang).title}</h2><p>{guestTourCopy(tourDetail, lang).description?.split('\n').slice(0, 2).join(' ').slice(0, 280)}</p><a href={'/tours/' + encodeURIComponent(tourDetail.slug)} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">{t.seeDetail}<ArrowUpRight size={15} /></a>
-            {!!tourDetail.durationOptions.length && <label>{t.course}<select value={durationOptionId} required onChange={event => setDurationOptionId(event.target.value)}>{tourDetail.durationOptions.map(option => <option key={option.id} value={option.id}>{option.label || option.durationMin + ' ' + t.minutes}{option.label ? ' · ' + option.durationMin + ' ' + t.minutes : ''}{' · ' + money(option.price, lang)}</option>)}</select></label>}
-            {tourDetail.ticketTiers.length > 0 && <div className={styles.ticketTiers}><p>{t.tierPrice}</p>{tourDetail.ticketTiers.map(tier => <div className={styles.ticketRow} key={tier.id}><span><strong>{tier.label}</strong><small>{tier.notes}{tier.notes ? ' · ' : ''}{money(tier.price, lang)}</small></span><div className={styles.stepper}><button type="button" aria-label={tier.label + ' −'} disabled={!ticketCounts[tier.id]} onClick={() => setTicketCounts(current => ({ ...current, [tier.id]: Math.max(0, (current[tier.id] || 0) - 1) }))}><Minus size={15} /></button><output aria-live="polite" aria-label={tier.label + ' ' + t.people}>{ticketCounts[tier.id] || 0}</output><button type="button" aria-label={tier.label + ' +'} disabled={ticketTotal >= Math.min(12, tourDetail.maxGroupSize || 12)} onClick={() => setTicketCounts(current => ({ ...current, [tier.id]: (current[tier.id] || 0) + 1 }))}><Plus size={15} /></button></div></div>)}</div>}
+          {tourDetail && <div {...validation('tourId')} tabIndex={-1} className={styles.tourSummary}>{tourDetail.images[0] && <Image src={tourDetail.images[0]} alt={guestTourCopy(tourDetail, lang).title} width={620} height={330} unoptimized />}<h2>{guestTourCopy(tourDetail, lang).title}</h2>{fieldError('tourId')}<p>{guestTourCopy(tourDetail, lang).description?.split('\n').slice(0, 2).join(' ').slice(0, 280)}</p><a href={'/tours/' + encodeURIComponent(tourDetail.slug)} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">{t.seeDetail}<ArrowUpRight size={15} /></a>
+            {!!tourDetail.durationOptions.length && <label>{t.course}<select {...validation('durationOptionId')} value={durationOptionId} required onChange={event => setDurationOptionId(event.target.value)}>{tourDetail.durationOptions.map(option => <option key={option.id} value={option.id}>{option.label || option.durationMin + ' ' + t.minutes}{option.label ? ' · ' + option.durationMin + ' ' + t.minutes : ''}{' · ' + money(option.price, lang)}</option>)}</select>{fieldError('durationOptionId')}</label>}
+            {tourDetail.ticketTiers.length > 0 && <div {...validation('ticketCounts')} tabIndex={-1} className={styles.ticketTiers}><p>{t.tierPrice}</p>{fieldError('ticketCounts')}{tourDetail.ticketTiers.map(tier => <div className={styles.ticketRow} key={tier.id}><span><strong>{tier.label}</strong><small>{tier.notes}{tier.notes ? ' · ' : ''}{money(tier.price, lang)}</small></span><div className={styles.stepper}><button type="button" aria-label={tier.label + ' −'} disabled={!ticketCounts[tier.id]} onClick={() => setTicketCounts(current => ({ ...current, [tier.id]: Math.max(0, (current[tier.id] || 0) - 1) }))}><Minus size={15} /></button><output aria-live="polite" aria-label={tier.label + ' ' + t.people}>{ticketCounts[tier.id] || 0}</output><button type="button" aria-label={tier.label + ' +'} disabled={ticketTotal >= Math.min(12, tourDetail.maxGroupSize || 12)} onClick={() => setTicketCounts(current => ({ ...current, [tier.id]: (current[tier.id] || 0) + 1 }))}><Plus size={15} /></button></div></div>)}</div>}
             <p className={styles.price}>{chosenCourse ? money(chosenCourse.price, lang) : tourDetail.basePrice !== null ? money(tourDetail.basePrice, lang) : t.priceConfirm}<small>{t.priceConfirm}</small></p>
           </div>}
         </>}
         {cleaningUnavailable && <p className={styles.softNote}>{t.interimCleaningUnavailable}</p>}
-        {service !== 'help' && <>{dateFields}{service !== 'interim_cleaning' && <div className={styles.formGrid}>{service === 'tour' && tourDetail?.ticketTiers.length ? <p className={styles.peopleTotal}>{t.people}: {ticketTotal}</p> : peopleField}{service === 'taxi' && <label>{t.bags}<select value={bags} onChange={event => setBags(Number(event.target.value))}>{Array.from({ length: 31 }, (_, index) => <option key={index} value={index}>{index}</option>)}</select></label>}</div>}</>}
-        {service === 'taxi' && <><div className={styles.choiceRow}><button type="button" aria-pressed={taxiType === 'local'} onClick={() => setTaxiType('local')}>{t.localTaxi}</button><button type="button" aria-pressed={taxiType === 'airport'} onClick={() => setTaxiType('airport')}>{t.airport}</button></div><label>{t.destination}<input type="text" required maxLength={300} value={destination} placeholder={t.destinationHint} onChange={event => setDestination(event.target.value)} /></label><p className={styles.helper}>{taxiType === 'airport' ? t.airportHint : (lang === 'ko' ? property.address : property.addressEn)}</p></>}
-        {service === 'help' ? <><label>{t.category}<select value={category} onChange={event => setCategory(event.target.value as typeof category)}><option value="supplies">{t.supplies}</option><option value="issue">{t.issue}</option><option value="other">{t.other}</option></select></label><label>{t.message}<textarea required maxLength={2000} rows={5} value={message} placeholder={t.messageHint} onChange={event => setMessage(event.target.value)} /></label></> : <label>{t.note}<textarea rows={3} maxLength={1000} value={note} onChange={event => setNote(event.target.value)} /></label>}
+        {service !== 'help' && <>{dateFields}{service !== 'interim_cleaning' && <div className={styles.formGrid}>{service === 'tour' && tourDetail?.ticketTiers.length ? <p className={styles.peopleTotal}>{t.people}: {ticketTotal}</p> : peopleField}{service === 'taxi' && <label>{t.bags}<select {...validation('luggage')} value={bags} onChange={event => setBags(Number(event.target.value))}>{Array.from({ length: 31 }, (_, index) => <option key={index} value={index}>{index}</option>)}</select>{fieldError('luggage')}</label>}</div>}</>}
+        {service === 'taxi' && <><div className={styles.choiceRow}><button type="button" aria-pressed={taxiType === 'local'} onClick={() => setTaxiType('local')}>{t.localTaxi}</button><button type="button" aria-pressed={taxiType === 'airport'} onClick={() => setTaxiType('airport')}>{t.airport}</button></div><label>{t.destination}<input {...validation('destination')} type="text" required maxLength={300} value={destination} placeholder={t.destinationHint} onChange={event => setDestination(event.target.value)} />{fieldError('destination')}</label><p className={styles.helper}>{taxiType === 'airport' ? t.airportHint : (lang === 'ko' ? property.address : property.addressEn)}</p></>}
+        {service === 'help' ? <><label>{t.category}<select {...validation('category')} value={category} onChange={event => setCategory(event.target.value as typeof category)}><option value="supplies">{t.supplies}</option><option value="issue">{t.issue}</option><option value="other">{t.other}</option></select>{fieldError('category')}</label><label>{t.message}<textarea {...validation('message')} required maxLength={2000} rows={5} value={message} placeholder={t.messageHint} onChange={event => setMessage(event.target.value)} />{fieldError('message')}</label></> : <label>{t.note}<textarea {...validation('note')} rows={3} maxLength={1000} value={note} onChange={event => setNote(event.target.value)} />{fieldError('note')}</label>}
         <p className={styles.softNote}>{service === 'help' ? t.bookChannel : service === 'interim_cleaning' ? t.interimCleaningNote : t.requestNote}</p>
         {service === 'help' && stay.phase !== 'staying' && <p className={styles.error}>{t.helpAfterCheckin}</p>}
         <label className={styles.consent}><input type="checkbox" required checked={consent} onChange={event => setConsent(event.target.checked)} /><span>{t.consent}</span></label>
-        {sendError && <ErrorBox text={sendError} retry={signedIn ? () => void loadSession() : undefined} />}
+
         <button type="submit" className={styles.primary} disabled={sending || cleaningUnavailable || (service === 'tour' && (!tourDetail || tourBusy || tourError || (tourDetail.ticketTiers.length > 0 && (ticketTotal < 1 || ticketTotal > 12)))) || (service === 'help' && stay.phase !== 'staying')}>{sending ? <LoaderCircle size={18} className={styles.spin} /> : <Check size={18} />}{sending ? t.submitting : t.submit}</button>
         <p className={styles.helper}>{t.allTimes}</p>
         </fieldset>
       </form>}
       {tab === 'requests' && stay && <>
+        <p className={styles.softNote}>{t.legacyPickupHistory}</p>
         <div className={styles.requestTools}><p>{stay.requests.length} · {t.myRequests}</p><button type="button" onClick={() => void refreshRequests()} disabled={requestsBusy || preview}><RefreshCw size={16} className={requestsBusy ? styles.spin : ''} />{t.refresh}</button></div>
         {requestsError && <ErrorBox text={t.error} retry={() => void refreshRequests()} />}
         {!stay.requests.length && <div className={styles.empty}><ClipboardList size={34} strokeWidth={1.2} /><h2>{t.noRequests}</h2><p>{t.noRequestsSub}</p><button type="button" className={styles.primary} onClick={() => go('services')}>{t.services}<ArrowUpRight size={17} /></button></div>}
         <div className={styles.requestList}>{stay.requests.map(request => {
           const d = request.details;
-          return <article key={request.id} className={styles.requestCard}><div className={styles.requestCardTop}><span className={styles.smallIcon}>{request.kind === 'taxi' ? <CarFront size={21} /> : ['tour', 'interim_cleaning'].includes(request.kind) ? <Sparkles size={21} /> : <CircleHelp size={21} />}</span><h2>{labelService(request.kind)}</h2><span className={styles.status} data-status={request.status}>{t[request.status]}</span></div>
+          return <article key={request.id} className={styles.requestCard}><div className={styles.requestCardTop}><span className={styles.smallIcon}>{request.kind === 'taxi' ? <CarFront size={21} /> : ['tour', 'interim_cleaning'].includes(request.kind) ? <Sparkles size={21} /> : <CircleHelp size={21} />}</span><h2>{request.serviceKind === 'airport_pickup' ? t.airportPickup : labelService(request.kind)}</h2><span className={styles.status} data-status={request.status}>{t[request.status]}</span></div>
             {'date' in d && <p className={styles.requestWhen}><CalendarDays size={15} />{calendarDate(d.date, lang)} · {request.kind === 'interim_cleaning' ? t.preferredTime + ' ' : ''}{d.time}</p>}
+            {request.flightNumber && <p>{t.flightNumber}: {request.flightNumber}</p>}
+            {request.serviceKind === 'airport_pickup' && <p className={styles.helper}>{t.receiptNumber}: {request.id}</p>}
             {'destination' in d && <><p>{d.destination}</p><p className={styles.helper}>{d.passengers} {t.guests} · {t.bags} {d.luggage}</p></>}
             {'tourId' in d && <><p>{request.tourSnapshot?.title || request.tourTitle || tours.find(tour => tour.id === d.tourId)?.title || (preview ? t.sampleTour : t.tours)}</p><p className={styles.helper}>{request.tourSnapshot?.durationTitle || request.durationTitle}{(request.tourSnapshot?.durationTitle || request.durationTitle) ? ' · ' : ''}{d.guests} {t.guests}</p>{request.tourSnapshot?.ticketSelections.map(ticket => <p key={ticket.id} className={styles.helper}>{ticket.label} · {ticket.count} × {money(ticket.unitPrice, lang)}</p>)}{request.tourSnapshot?.price !== null && request.tourSnapshot?.price !== undefined && <p className={styles.helper}>{money(request.tourSnapshot.price, lang)} · {t.priceConfirm}</p>}</>}
             {'message' in d && <p>{d.message}</p>}

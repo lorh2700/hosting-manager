@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { NavigationLink as Link } from '@/components/NavigationFeedback';
 import { Clock, Users, MapPin, Compass, Loader2 } from 'lucide-react';
 import { Logo } from '@/components/Logo';
+import { loadPublicTours } from '@/lib/public-tour-load';
 
 interface PublicTour {
   id: string;
@@ -30,17 +31,24 @@ const CATEGORY_LABELS: Record<string, string> = {
 export default function PublicToursPage() {
   const [tours, setTours] = useState<PublicTour[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true); setLoadError(false);
     (async () => {
       try {
-        const res = await fetch('/api/public/tours');
-        if (res.ok) setTours(await res.json());
+        const rows = await loadPublicTours<PublicTour[]>('/api/public/tours', { signal: controller.signal });
+        if (!controller.signal.aborted) setTours(rows || []);
+      } catch {
+        if (!controller.signal.aborted) setLoadError(true);
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     })();
-  }, []);
+    return () => controller.abort();
+  }, [attempt]);
 
   return (
     <div className="min-h-screen bg-[#0C0A09] text-stone-50 selection:bg-stone-400/20 font-sans">
@@ -57,6 +65,11 @@ export default function PublicToursPage() {
         {loading ? (
           <div className="flex items-center justify-center py-32">
             <Loader2 size={20} className="animate-spin text-stone-500" />
+          </div>
+        ) : loadError ? (
+          <div role="alert" className="text-center py-24 text-stone-200">
+            <p>투어를 불러오지 못했습니다. 잠시 후 다시 확인해 주세요.</p>
+            <button type="button" onClick={() => setAttempt(value => value + 1)} className="mt-5 min-h-11 border border-stone-500 px-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">다시 불러오기</button>
           </div>
         ) : tours.length === 0 ? (
           <div className="text-center py-24">

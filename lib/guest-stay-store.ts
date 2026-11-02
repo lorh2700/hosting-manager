@@ -10,6 +10,7 @@ import { todayKst } from '@/lib/dates';
 import { propertyAllowsModule } from '@/lib/operational-access';
 import { requirePropertyModule } from '@/lib/operational-feature-store';
 import { notifyGuestStayRequest } from '@/lib/guest-stay-notifications';
+import { guestValidationFields } from '@/lib/guest-form-errors';
 import { guestStayBounds, guestStayPhase, guestStayRequestSchema, normalizeGuestStayName, requestDateWithinStay,
   type GuestStayPropertyDTO, type GuestStayDTO, type GuestStayRequestDTO, type GuestStayRequestInput } from '@/lib/guest-stay';
 
@@ -233,7 +234,17 @@ export async function guestStayRequests(stay: StayReference) {
   const fresh = await liveStay(stay);
   const unchanged = fresh && (!('fingerprint' in stay) || stay.fingerprint === fresh.fingerprint);
   const scopes = unchanged ? await interimStayScopes(prisma, fresh, true) : [requestScope(stay)];
-  return (await prisma.guestStayRequest.findMany({ where: { OR: [requestScope(stay), { kind: 'interim_cleaning', OR: scopes }] }, orderBy: { createdAt: 'desc' }, take: 50 })).map(guestRequestDTO);
+  const [requests, pickups] = await Promise.all([
+    prisma.guestStayRequest.findMany({ where: { OR: [requestScope(stay), { kind: 'interim_cleaning', OR: scopes }] }, orderBy: { createdAt: 'desc' }, take: 50 }),
+    prisma.guestServiceRequest.findMany({ where: { OR: scopes, kind: 'airport_pickup' }, orderBy: { createdAt: 'desc' }, take: 50,
+      select: { id: true, status: true, arrivalDate: true, arrivalTime: true, flightNumber: true, passengers: true, luggage: true, message: true, createdAt: true, updatedAt: true, version: true } }),
+  ]);
+  const pickupRequests: GuestStayRequestDTO[] = pickups.map(row => ({ id: row.id, kind: 'taxi', serviceKind: 'airport_pickup', flightNumber: row.flightNumber,
+    status: row.status === 'contacted' ? 'reviewing' : row.status === 'confirmed' ? 'confirmed' : row.status === 'cancelled' ? 'cancelled' : 'requested',
+    details: { date: row.arrivalDate, time: row.arrivalTime, destination: fresh?.property.nameEn || '', passengers: row.passengers, luggage: row.luggage, note: row.message },
+    publicReply: '', source: 'mobile', createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(), version: row.version }));
+  // Read the authoritative pickup row; do not create a second workflow or send a second alert.
+  return [...requests.map(guestRequestDTO), ...pickupRequests].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 50);
 }
 export async function guestStayDTO(stay: LiveGuestStay): Promise<GuestStayDTO> {
   const room = stay.phase === 'staying' ? await prisma.welcomepadConfig.findUnique({ where: { propertyId: stay.propertyId },
@@ -251,7 +262,7 @@ function canonicalPayload(input: GuestStayRequestInput) {
 }
 export async function createGuestStayRequest(stay: LiveGuestStay, raw: unknown, source: 'mobile' | 'pad') {
   const parsed = guestStayRequestSchema.safeParse(raw);
-  if (!parsed.success) throw fail(400, '신청 내용을 확인해 주세요.', { code: 'invalid_request' });
+  if (!parsed.success) throw fail(400, '신청 내용을 확인해 주세요.', { code: 'invalid_request', fields: guestValidationFields(parsed.error.issues) });
   const input = parsed.data, payloadHash = canonicalPayload(input), scope = requestScope(stay);
   await requirePropertyModule(stay.propertyId, 'guestServices');
   if (input.kind === 'tour') await requirePropertyModule(stay.propertyId, 'tours');
@@ -265,21 +276,22 @@ export async function createGuestStayRequest(stay: LiveGuestStay, raw: unknown, 
   }
   if (input.kind === 'help' && stay.phase !== 'staying') throw fail(403, '객실 요청은 체크인 후 이용할 수 있습니다.', { code: 'stay_not_started' });
   if (!existing && input.kind !== 'help' && !requestDateWithinStay(input.details, stay, Date.now(), stay.property.checkOutTime, input.kind === 'taxi')) {
-    throw fail(400, '투숙 기간 안의 예정 시간을 선택해 주세요.', { code: 'invalid_request_date' });
+    throw fail(400, '투숙 기간 안의 예정 시간을 선택해 주세요.', { code: 'invalid_request_date', fields: { date: 'date_unavailable', time: 'date_unavailable' } });
   }
   if (!existing && input.kind === 'interim_cleaning' && !(stay.checkIn < input.details.date && input.details.date < stay.checkOut)) {
-    throw fail(400, '체크인 다음 날부터 체크아웃 전날까지 신청할 수 있습니다.', { code: 'invalid_request_date' });
+    throw fail(400, '체크인 다음 날부터 체크아웃 전날까지 신청할 수 있습니다.', { code: 'invalid_request_date', fields: { date: 'date_unavailable' } });
   }
   let tourSnapshot: GuestStayRequestDTO['tourSnapshot'];
   if (input.kind === 'tour') {
     const tour = await prisma.tour.findUnique({ where: { id: input.details.tourId }, include: { durationOptions: true, ticketTiers: true } });
-    if (!tour?.isActive || (tour.maxGroupSize && input.details.guests > tour.maxGroupSize)) throw fail(400, '투어 또는 참여 인원을 확인해 주세요.');
-    if (input.details.durationOptionId && !tour.durationOptions.some(option => option.id === input.details.durationOptionId)) throw fail(400, '투어 코스를 다시 선택해 주세요.');
-    if (tour.durationOptions.length && !input.details.durationOptionId) throw fail(400, '투어 코스를 선택해 주세요.');
-    if (tour.ticketTiers.length && !input.details.ticketCounts) throw fail(400, '티켓 종류와 참여 인원을 선택해 주세요.');
+    if (!tour?.isActive) throw fail(400, '투어를 다시 선택해 주세요.', { fields: { tourId: 'selection_unavailable' } });
+    if (tour.maxGroupSize && input.details.guests > tour.maxGroupSize) throw fail(400, '참여 인원을 확인해 주세요.', { fields: { [tour.ticketTiers.length ? 'ticketCounts' : 'guests']: 'selection_unavailable' } });
+    if (input.details.durationOptionId && !tour.durationOptions.some(option => option.id === input.details.durationOptionId)) throw fail(400, '투어 코스를 다시 선택해 주세요.', { fields: { durationOptionId: 'selection_unavailable' } });
+    if (tour.durationOptions.length && !input.details.durationOptionId) throw fail(400, '투어 코스를 선택해 주세요.', { fields: { durationOptionId: 'selection_unavailable' } });
+    if (tour.ticketTiers.length && !input.details.ticketCounts) throw fail(400, '티켓 종류와 참여 인원을 선택해 주세요.', { fields: { ticketCounts: 'selection_unavailable' } });
     if (input.details.ticketCounts) {
       const counts = Object.entries(input.details.ticketCounts);
-      if (counts.some(([id]) => !tour.ticketTiers.some(tier => tier.id === id)) || counts.reduce((sum, [, count]) => sum + count, 0) !== input.details.guests) throw fail(400, '티켓 종류와 참여 인원을 확인해 주세요.');
+      if (counts.some(([id]) => !tour.ticketTiers.some(tier => tier.id === id)) || counts.reduce((sum, [, count]) => sum + count, 0) !== input.details.guests) throw fail(400, '티켓 종류와 참여 인원을 확인해 주세요.', { fields: { ticketCounts: 'selection_unavailable' } });
     }
     const option = tour.durationOptions.find(o => o.id === input.details.durationOptionId);
     const ticketSelections = tour.ticketTiers.filter(t => (input.details.ticketCounts?.[t.id] || 0) > 0).map(t => ({ id: t.id,
@@ -298,7 +310,7 @@ export async function createGuestStayRequest(stay: LiveGuestStay, raw: unknown, 
       if (!fresh || !safeEqual(stay.fingerprint, fresh.fingerprint)) throw fail(409, '예약 정보가 변경되었습니다. 다시 확인해 주세요.', { code: 'stay_changed' });
       if (!existing && (!(fresh.checkIn < input.details.date && input.details.date < fresh.checkOut) ||
         !requestDateWithinStay(input.details, fresh, Date.now(), fresh.property.checkOutTime))) {
-        throw fail(400, '투숙 기간 안의 예정 시간을 선택해 주세요.', { code: 'invalid_request_date' });
+        throw fail(400, '투숙 기간 안의 예정 시간을 선택해 주세요.', { code: 'invalid_request_date', fields: { date: 'date_unavailable', time: 'date_unavailable' } });
       }
       cleaningScopes = await interimStayScopes(tx, fresh);
     }

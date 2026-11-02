@@ -27,6 +27,7 @@ export interface PublicBookingProperty {
   region: string;
   addressKo: string;
   catchphrase: string;
+  regionEn?: string; addressEn?: string; catchphraseEn?: string; descriptionEn?: string;
   amenities: string[];
   checkoutMethods: Array<'card' | 'paypal'>;
   stayOptionPolicy: ReturnType<typeof stayOptionPolicy>;
@@ -63,6 +64,7 @@ export async function getPublicBookingProperty(idOrSlug: string): Promise<Public
     checkInTime: display.checkInTime, checkOutTime: display.checkOutTime,
     baseGuests: display.baseGuests, maxGuests: property.maxGuests ?? null,
     region: display.region, addressKo: display.addressKo, catchphrase: display.catchphrase,
+    regionEn: display.regionEn, addressEn: display.addressEn, catchphraseEn: display.catchphraseEn, descriptionEn: display.descriptionEn,
     amenities: display.amenities, checkoutMethods, stayOptionPolicy: stayOptionPolicy(property.slug),
     refundPolicy: readRefundPolicy(property.refundPolicy),
   };

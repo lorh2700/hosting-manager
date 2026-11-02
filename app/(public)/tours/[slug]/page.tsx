@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { NavigationLink as Link } from '@/components/NavigationFeedback';
 import { ArrowRight, Clock, Users as UsersIcon, MapPin, Compass, Loader2, Check } from 'lucide-react';
 import { todayKst } from '@/lib/dates';
+import { loadPublicTours } from '@/lib/public-tour-load';
 
 interface Slot {
   id: string;
@@ -66,6 +67,8 @@ export default function PublicTourDetailPage() {
   const { slug } = useParams() as { slug: string };
   const [tour, setTour] = useState<PublicTourDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [requestedDate, setRequestedDate] = useState('');
   const [requestedTime, setRequestedTime] = useState('');
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
@@ -84,19 +87,23 @@ export default function PublicTourDetailPage() {
   const [heroIndex, setHeroIndex] = useState(0);
 
   useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true); setLoadError(false); setTour(null);
     (async () => {
       try {
-        const res = await fetch(`/api/public/tours/${slug}`);
-        if (res.ok) {
-          const data = await res.json();
+        const data = await loadPublicTours<PublicTourDetail>(`/api/public/tours/${encodeURIComponent(slug)}`, { detail: true, signal: controller.signal });
+        if (!controller.signal.aborted) {
           setTour(data);
-          if (data.durationOptions?.length) setSelectedOptionId(data.durationOptions[0].id);
+          if (data?.durationOptions?.length) setSelectedOptionId(data.durationOptions[0].id);
         }
+      } catch {
+        if (!controller.signal.aborted) setLoadError(true);
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     })();
-  }, [slug]);
+    return () => controller.abort();
+  }, [slug, loadAttempt]);
 
   const selectedOption = tour?.durationOptions.find(o => o.id === selectedOptionId) ?? null;
   const hasTiers = (tour?.ticketTiers.length ?? 0) > 0;
@@ -203,6 +210,10 @@ export default function PublicTourDetailPage() {
     );
   }
 
+  if (loadError) return <main className="min-h-screen bg-[#0C0A09] flex items-center justify-center px-6 text-stone-200">
+    <div role="alert" className="text-center"><h1 className="text-xl">투어를 불러오지 못했습니다.</h1><p className="mt-3">연결을 확인한 뒤 다시 시도해 주세요.</p>
+      <button type="button" onClick={() => setLoadAttempt(value => value + 1)} className="mt-5 min-h-11 border border-stone-500 px-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">다시 불러오기</button>
+      <Link href="/tours" className="ml-5 inline-flex min-h-11 items-center underline">투어 목록</Link></div></main>;
   if (!tour) {
     return (
       <div className="min-h-screen bg-[#0C0A09] flex items-center justify-center">

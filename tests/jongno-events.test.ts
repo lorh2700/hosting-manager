@@ -84,8 +84,38 @@ test('pagination limits database reads, filters category and area, and signals a
   assert.deepEqual(args.orderBy, [{ startDate: 'asc' }, { id: 'asc' }]);
   assert.equal(args.where.status, 'published'); assert.equal(args.where.category, 'exhibition');
   assert.equal(response.body.events.length, 100); assert.equal(response.body.hasMore, true); assert.equal(response.body.nextCursor, 'e-099');
-  await publicGET(request('?month=2026-10&cursor=e-099'), { params: Promise.resolve({}) });
-  assert.deepEqual(args.cursor, { id: 'e-099' }); assert.equal(args.skip, 1);
+  const next = cast(await publicGET(request('?month=2026-10&cursor=e-099'), { params: Promise.resolve({}) }));
+  assert.deepEqual(next.body.events.map((event: any) => event.id), ['e-100', 'e-101']);
+  assert.equal(next.body.hasMore, false);
+});
+
+test('public pages put festivals before older exhibitions without skipping or repeating events', async () => {
+  actAsAnonymous();
+  db.jongnoEvent = [
+    row({ id: 'exhibition', status: 'published', startDate: '2026-09-01', endDate: '2026-11-30' }),
+    row({ id: 'performance', category: 'performance', status: 'published', startDate: '2026-10-01' }),
+    row({ id: 'festival-b', category: 'festival', status: 'published', startDate: '2026-10-03' }),
+    row({ id: 'festival-a', category: 'festival', status: 'published', startDate: '2026-10-03' }),
+    row({ id: 'draft-festival', category: 'festival', status: 'draft' }),
+    row({ id: 'ended-festival', category: 'festival', status: 'published', endDate: '2026-09-30' }),
+  ];
+  for (const limit of [1, 2, 3, 10]) {
+    const ids: string[] = []; let cursor = '';
+    do {
+      const response = cast(await publicGET(request(`?month=2026-10&limit=${limit}${cursor ? `&cursor=${cursor}` : ''}`), { params: Promise.resolve({}) }));
+      assert.equal(response.status, 200);
+      ids.push(...response.body.events.map((event: any) => event.id));
+      cursor = response.body.nextCursor || '';
+      assert.ok(ids.length <= 4);
+    } while (cursor);
+    assert.deepEqual(ids, ['festival-a', 'festival-b', 'exhibition', 'performance']);
+  }
+  for (const cursor of ['draft-festival', 'ended-festival', 'missing']) {
+    const response = cast(await publicGET(request(`?month=2026-10&cursor=${cursor}`), { params: Promise.resolve({}) }));
+    assert.deepEqual(response.body.events, []);
+  }
+  const filtered = cast(await publicGET(request('?month=2026-10&category=exhibition&area=bukchon'), { params: Promise.resolve({}) }));
+  assert.deepEqual(filtered.body.events.map((event: any) => event.id), ['exhibition']);
 });
 test('all editorial and upload endpoints reject anonymous, manager and cleaner sessions', async () => {
   for (const act of [actAsAnonymous, () => actAsManager(['p1']), () => actAsCleaner(['p1'])]) {

@@ -32,6 +32,7 @@ export type GuestStayRequestDTO = {
   details: GuestStayRequestInput['details']; publicReply: string; source: 'mobile' | 'pad';
   createdAt: string; updatedAt: string; version: number;
   tourTitle?: string; durationTitle?: string;
+  serviceKind?: 'airport_pickup'; flightNumber?: string;
   tourSnapshot?: { title: string; durationTitle: string; price: number | null;
     pricingBasis: 'course' | 'tickets' | 'reference'; ticketSelections: { id: string; label: string; count: number; unitPrice: number }[] };
 };

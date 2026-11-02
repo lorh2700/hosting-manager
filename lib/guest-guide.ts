@@ -25,6 +25,7 @@ const realDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => {
 });
 export const pickupRequestSchema = z.object({
   id: z.string().uuid(), slug: z.string().min(1).max(60),
+  invitation: z.string().min(1).max(1024).optional(),
   guestName: z.string().trim().min(1).max(100),
   email: z.string().trim().toLowerCase().email().max(200),
   phone: z.string().trim().regex(/^\+?[\d\s()-]{7,30}$/),

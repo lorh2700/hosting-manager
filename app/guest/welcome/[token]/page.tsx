@@ -12,5 +12,5 @@ export default async function Page({params,searchParams}:{params:Promise<{token:
  const reservation=await invitationReservation(ref.kind,ref.id);
  if(!reservation||reservation.propertyId!==ref.propertyId||invitationPastStay(reservation.checkOut))notFound();
  const {lang}=await searchParams;const {guide,guestName,checkIn,checkOut,guests}=reservation;
- return <GuestGuide guide={guide} initialLanguage={guestLanguage(lang)} reservation={{guestName,checkIn,checkOut,guests}} invitationKey={`${ref.kind}:${ref.id}`} stayAppUrl={`/stay/${guide.slug}?invitation=${encodeURIComponent(token)}`}/>;
+ return <GuestGuide guide={guide} initialLanguage={guestLanguage(lang)} reservation={{guestName,checkIn,checkOut,guests}} invitationKey={`${ref.kind}:${ref.id}`} invitationToken={token} stayAppUrl={`/stay/${guide.slug}?invitation=${encodeURIComponent(token)}`}/>;
 }

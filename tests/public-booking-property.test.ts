@@ -24,6 +24,16 @@ beforeEach(() => {
   db.organization = [{ id: 'org1', status: 'active', features: {} }];
 });
 
+test('공개 예약 응답은 저장된 영문 소개·주소를 원문과 함께 전달한다', async () => {
+  const english = { regionEn: 'Seoul', addressEn: 'Jongno-gu, Seoul', catchphraseEn: 'A hanok stay', descriptionEn: 'An operator supplied stay description.' };
+  db.property[0].publicInfo = { ...db.property[0].publicInfo, ...english };
+  const result = await getPublicBookingProperty('unwadang');
+  for (const key of Object.keys(english) as Array<keyof typeof english>) assert.equal(result[key], english[key]);
+  assert.equal(result.description, property.description);
+  assert.deepEqual(result.amenities, property.publicInfo.amenities);
+  assert.equal(publicListing({ ...property, publicInfo: db.property[0].publicInfo }).addressEn, english.addressEn);
+});
+
 test('SSR과 API의 공개 숙소 DTO는 환불 규정·시설만 노출하고 내부 운영정보는 조회하지 않는다', async () => {
   let selected: Record<string, unknown> = {};
   prismaOverrides.property = { findFirst: async (args: { select: Record<string, unknown> }) => {

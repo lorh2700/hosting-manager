@@ -531,6 +531,31 @@ async function aliasedStay() {
   return { booking, event: (await liveStay({ kind: 'event', id: 'event-alias', propertyId }))! };
 }
 
+test('airport pickup follows only a verified Beds24 booking/event alias and its authoritative status', async () => {
+  const { booking, event } = await aliasedStay();
+  db.guestServiceRequest = [{ id: 'airport-receipt', propertyId, reservationKind: 'booking', reservationId: booking.id, kind: 'airport_pickup', arrivalDate: today, arrivalTime: '16:00', flightNumber: 'KE902', passengers: 2, luggage: 1, message: '', status: 'contacted', version: 2, createdAt: new Date(), updatedAt: new Date() }];
+  assert.equal((await guestStayRequests(event))[0]?.status, 'reviewing');
+  for (const mutation of [{ originalUid: 'unrelated-bed' }, { title: 'Different Guest 예약' }, { endDate: addDaysToDateStr(event.checkOut, 1) }]) {
+    const saved = { ...db.event[0] }; Object.assign(db.event[0], mutation);
+    const current = (await liveStay({ kind: 'event', id: event.id, propertyId }))!;
+    assert.equal((await guestStayRequests(current)).some(row => row.id === 'airport-receipt'), false);
+    db.event[0] = saved;
+  }
+  assert.equal(db.guestServiceRequest.length, 1);
+});
+
+test('request validation exposes safe date and course fields for form correction', async () => {
+  const stay = (await liveStay(ref))!;
+  await assert.rejects(createGuestStayRequest(stay, { id: randomUUID(), kind: 'taxi', details: { date: yesterday, time: '11:00', destination: 'Airport', passengers: 1, luggage: 0 } }, 'mobile'), (error: any) => {
+    assert.deepEqual(error.extra.fields, { date: 'date_unavailable', time: 'date_unavailable' }); return true;
+  });
+  const tourId = randomUUID();
+  db.tour = [{ id: tourId, isActive: true, maxGroupSize: 4, durationOptions: [{ id: randomUUID() }], ticketTiers: [] }];
+  await assert.rejects(createGuestStayRequest(stay, { id: randomUUID(), kind: 'tour', details: { tourId, date: tomorrow, time: '09:00', guests: 2 } }, 'mobile'), (error: any) => {
+    assert.deepEqual(error.extra.fields, { durationOptionId: 'selection_unavailable' }); return true;
+  });
+});
+
 test('booking invitation request remains visible, replayable and cancellable after name login uses the exact event alias', async () => {
   const { booking, event } = await aliasedStay(), input = cleaningRequest();
   await createGuestStayRequest(booking, input, 'mobile');

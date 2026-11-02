@@ -5,6 +5,7 @@ import {
   type JongnoEventDTO, type JongnoEventInput, type JongnoEventPage, type JongnoEventQuery,
 } from '@/lib/jongno-events';
 import type { JongnoEvent, Prisma } from '@/generated/prisma/client';
+import { listFestivalFirstEvents } from '@/lib/jongno-events-list';
 
 function validated<T>(fn: () => T): T {
   try { return fn(); } catch (error) {
@@ -41,10 +42,7 @@ export async function listJongnoEvents(query: JongnoEventQuery, publicOnly: bool
       ...(query.category ? { category: query.category } : {}), ...(query.area ? { area: query.area } : {}),
       ...(query.range ? { startDate: { lte: query.range.to }, endDate: { gte: query.range.from } } : {}),
     };
-    const rows = await prisma.jongnoEvent.findMany({
-      where, orderBy: [{ startDate: 'asc' }, { id: 'asc' }], take: query.limit + 1,
-      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
-    });
+    const rows = await listFestivalFirstEvents(prisma.jongnoEvent, where, query);
     const hasMore = rows.length > query.limit;
     const visible = rows.slice(0, query.limit);
     return { events: visible.map(jongnoEventDTO), hasMore, nextCursor: hasMore ? visible[visible.length - 1].id : null, range: query.range };
